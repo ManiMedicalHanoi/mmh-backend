@@ -23,7 +23,7 @@
 var RH_AUTH = {
   SHEET        : 'RH_Users',
   SECRET_SHEET : 'RH_Secret',
-  HEADER       : ['Email', 'Pic', 'Level', 'Admin', 'Active', 'Session', 'LastLogin', 'Logins', 'LastEmail', 'Note'],
+  HEADER       : ['Email', 'Pic', 'Level', 'Admin', 'Active', 'Session', 'LastLogin', 'Logins', 'LastEmail', 'Note', 'Dept', 'Title', 'Perms'],   // ★ v3.13: Dept/Title/Perms
   OTP_TTL_SEC  : 600,      // mã có hiệu lực 10 phút
   OTP_GAP_MS   : 45000,    // 1 mã / 45 giây / người
   OTP_TRIES    : 5,        // sai 5 lần ⇒ phải gửi mã mới
@@ -67,7 +67,7 @@ function rhUsersSheet() {
       if (again) return hubEnsureHeader(again, RH_AUTH.HEADER);
       sh = hubEnsureHeader(ss.insertSheet(RH_AUTH.SHEET), RH_AUTH.HEADER);
       var rows = RH_AUTH.SEED.map(function(s){
-        return [s[0] + '@' + HUB.SEND_DOMAIN, s[1], s[2], s[3] ? true : false, true, 1, '', 0, '', ''];
+        return [s[0] + '@' + HUB.SEND_DOMAIN, s[1], s[2], s[3] ? true : false, true, 1, '', 0, '', '', '', '', ''];
       });
       sh.getRange(2, 1, rows.length, RH_AUTH.HEADER.length).setValues(rows);
       try {
@@ -93,10 +93,14 @@ function rhUsers() {
     for (var i = 0; i < vals.length; i++) {
       var r = vals[i], local = hubPrefix(r[0]);
       if (!local || !hubNorm(r[1])) continue;
+      var perms = {};
+      try { perms = r[12] ? JSON.parse(r[12]) : {}; } catch (e) { perms = {}; }
       list.push({
         row: i + 2, local: local, pic: hubNorm(r[1]), level: hubNorm(r[2]).toLowerCase() || 'pic',
         admin: hubBool(r[3]), active: r[4] === '' ? true : hubBool(r[4]),
-        session: Math.max(1, parseInt(r[5], 10) || 1), logins: parseInt(r[7], 10) || 0
+        session: Math.max(1, parseInt(r[5], 10) || 1), logins: parseInt(r[7], 10) || 0,
+        lastLogin: r[6] instanceof Date ? r[6].toISOString() : hubNorm(r[6]), lastEmail: hubNorm(r[8]),
+        dept: hubNorm(r[10]), title: hubNorm(r[11]), perms: perms
       });
     }
     try { sc.put('rhUsers', JSON.stringify(list), RH_AUTH.USERS_TTL); } catch (e) {}
@@ -113,7 +117,8 @@ function rhUserByLocal(local) {
 }
 
 function rhPublicUser(u, email) {
-  return {email: email || (u.local + '@' + HUB.SEND_DOMAIN), local: u.local, pic: u.pic, level: u.level, admin: !!u.admin};
+  return {email: email || (u.local + '@' + HUB.SEND_DOMAIN), local: u.local, pic: u.pic, level: u.level, admin: !!u.admin,
+          dept: u.dept || '', title: u.title || '', perms: u.perms || {}};
 }
 
 // ---------------------------------------------------------------------------
@@ -285,4 +290,107 @@ function apiRhAuthMe(p) {
   var r = rhCheck(p.tk);
   if (r.err) return {ok:false, code:'AUTH', error: r.err};
   return {ok:true, user: rhPublicUser(r.u), exp: r.t.x};
+}
+
+// ---------------------------------------------------------------------------
+//  ★ v3.13 — TRANG QUẢN TRỊ PHÂN QUYỀN (Report Hub ▸ menu tên ▸ Phân quyền người dùng)
+//  Admin / Director: sửa mọi người. HOD: sửa người khác trừ Admin / Director, không cấp quyền Admin / Director.
+//  Perms: chỉ lưu các quyền KHÁC mặc định theo vai trò, dạng {"assign":{"e":0},"mgmt":{"v":1}} (Report Hub tự tính mặc định).
+// ---------------------------------------------------------------------------
+
+var RH_LEVELS = ['director', 'hod', 'lead', 'pic'];
+var RH_PERM_KEYS = {assign:1, report:1, trip:1, trn:1, mkt:1, mgmt:1};
+
+function rhAdminCaller(p) {
+  var c = rhCheck(p.tk);
+  if (c.err) return {err: {ok:false, code:'AUTH', error: c.err + ' Vui lòng đăng nhập bằng email.'}};
+  var u = c.u;
+  if (!(u.admin || u.level === 'director' || u.level === 'hod')) return {err: {ok:false, code:'FORBIDDEN', error:'Chỉ Admin, Director hoặc HOD được phân quyền.'}};
+  return {u: u};
+}
+function rhIsTop(u) { return !!u && (u.admin || u.level === 'director'); }
+
+function rhAdminRow(u) {
+  return {local: u.local, email: u.local + '@' + HUB.SEND_DOMAIN, pic: u.pic, level: u.level, admin: !!u.admin, active: !!u.active,
+          dept: u.dept, title: u.title, perms: u.perms || {}, lastLogin: u.lastLogin || '', logins: u.logins || 0,
+          lastEmail: u.lastEmail || '', session: u.session};
+}
+
+function apiRhAdminList(p) {
+  var c = rhAdminCaller(p); if (c.err) return c.err;
+  return {ok:true, me: rhAdminRow(c.u), canTop: rhIsTop(c.u), users: rhUsers().map(rhAdminRow)};
+}
+
+function rhCleanPerms(o) {
+  var out = {};
+  if (!o || typeof o !== 'object') return out;
+  Object.keys(o).forEach(function(k){
+    if (!RH_PERM_KEYS[k] || !o[k] || typeof o[k] !== 'object') return;
+    var x = {};
+    if (o[k].v === 0 || o[k].v === 1) x.v = o[k].v;
+    if (o[k].e === 0 || o[k].e === 1) x.e = o[k].e;
+    if (Object.keys(x).length) out[k] = x;
+  });
+  return out;
+}
+
+/** Thêm / sửa 1 người. p.u = JSON {local (rỗng = thêm mới), email, pic, level, dept, title, admin, active, perms} */
+function apiRhAdminSave(p) {
+  var c = rhAdminCaller(p); if (c.err) return c.err;
+  var me = c.u, d;
+  try { d = typeof p.u === 'string' ? JSON.parse(p.u) : p.u; } catch (e) { return {ok:false, error:'Dữ liệu không hợp lệ.'}; }
+  if (!d) return {ok:false, error:'Thiếu dữ liệu.'};
+  var email = rhCleanEmail(d.email), local = hubPrefix(email);
+  if (!/^[a-z0-9._%+\-]+@[a-z0-9.\-]+$/.test(email) || HUB.DOMAINS.indexOf(email.split('@')[1]) < 0)
+    return {ok:false, error:'Email phải là email công ty (@mani.inc hoặc @manimedicalhanoi.com).'};
+  var pic = hubNorm(d.pic);
+  if (!pic) return {ok:false, error:'Vui lòng nhập tên PIC (đúng tên hiển thị trong Report Hub).'};
+  var level = hubNorm(d.level).toLowerCase();
+  if (RH_LEVELS.indexOf(level) < 0) return {ok:false, error:'Vai trò không hợp lệ.'};
+  var list = rhUsers(), orig = hubPrefix(d.local || ''), cur = null;
+  list.forEach(function(x){ if (orig && x.local === orig) cur = x; });
+  if (orig && !cur) return {ok:false, error:'Không tìm thấy người cần sửa (có thể vừa bị đổi). Tải lại danh sách.'};
+  for (var i = 0; i < list.length; i++) {
+    var x = list[i]; if (cur && x.row === cur.row) continue;
+    if (x.local === local) return {ok:false, error:'Email ' + email + ' đã có trong danh sách (' + x.pic + ').'};
+    if (hubKeyV(x.pic) === hubKeyV(pic)) return {ok:false, error:'Tên PIC "' + pic + '" đã dùng cho ' + x.local + '.'};
+  }
+  var admin = !!d.admin, top = rhIsTop(me);
+  if (!top) {
+    if (cur && (cur.admin || cur.level === 'director')) return {ok:false, code:'FORBIDDEN', error:'HOD không sửa được Admin / Director.'};
+    if (level === 'director') return {ok:false, code:'FORBIDDEN', error:'Chỉ Admin / Director cấp vai trò Director.'};
+    if (admin !== !!(cur && cur.admin)) return {ok:false, code:'FORBIDDEN', error:'Chỉ Admin / Director cấp quyền Admin.'};
+  }
+  var active = d.active === undefined ? true : !!d.active;
+  if (cur && cur.row && me.local === cur.local && (!active || (me.admin && !admin)))
+    return {ok:false, error:'Không tự khoá hoặc tự bỏ quyền Admin của chính mình.'};
+  var perms = rhCleanPerms(d.perms);
+  var note = 'Sửa bởi ' + me.pic + ' · ' + hubFmt(new Date(), 'dd/MM/yyyy HH:mm');
+  hubWithLock(function(){
+    var sh = rhUsersSheet();
+    var vals = [email, pic, level, admin, active];
+    if (cur) {
+      sh.getRange(cur.row, 1, 1, 5).setValues([vals]);
+      sh.getRange(cur.row, 10, 1, 4).setValues([[note, hubNorm(d.dept), hubNorm(d.title), JSON.stringify(perms)]]);
+    } else {
+      sh.appendRow(vals.concat([1, '', 0, '', 'Thêm bởi ' + me.pic + ' · ' + hubFmt(new Date(), 'dd/MM/yyyy HH:mm'), hubNorm(d.dept), hubNorm(d.title), JSON.stringify(perms)]));
+      try { sh.getRange(sh.getLastRow(), 4, 1, 2).insertCheckboxes(); } catch (e) {}
+    }
+  });
+  hubSC().remove('rhUsers'); delete HUB_MEM.rhUsers;
+  hubLog('INFO', 'rhAdminSave', me.pic + (cur ? ' sửa ' : ' thêm ') + pic + ' (' + email + ')',
+    JSON.stringify({level: level, admin: admin, active: active, dept: d.dept, perms: perms}));
+  return {ok:true, message: cur ? 'Đã lưu quyền của ' + pic + '.' : 'Đã thêm ' + pic + '.', users: rhUsers().map(rhAdminRow)};
+}
+
+/** Đăng xuất 1 người khỏi mọi máy (Session + 1) */
+function apiRhAdminKick(p) {
+  var c = rhAdminCaller(p); if (c.err) return c.err;
+  var u = rhUserByLocal(p.local || p.email);
+  if (!u) return {ok:false, error:'Không tìm thấy người dùng.'};
+  if (!rhIsTop(c.u) && (u.admin || u.level === 'director')) return {ok:false, code:'FORBIDDEN', error:'HOD không đăng xuất được Admin / Director.'};
+  hubWithLock(function(){ rhUsersSheet().getRange(u.row, 6).setValue(u.session + 1); });
+  hubSC().remove('rhUsers'); delete HUB_MEM.rhUsers;
+  hubLog('INFO', 'rhAdminKick', c.u.pic + ' đăng xuất ' + u.pic + ' khỏi mọi máy', '');
+  return {ok:true, message:'Đã đăng xuất ' + u.pic + ' khỏi mọi máy.', users: rhUsers().map(rhAdminRow)};
 }

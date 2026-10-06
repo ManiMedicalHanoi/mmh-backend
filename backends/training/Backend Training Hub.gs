@@ -6,6 +6,9 @@
  * ----------------------------------------------------------------------------
  *  Backend cho WebApp "Training Hub" (frontend index.html deploy trên GitHub).
  *
+ *  ĐIỂM MỚI v3.13
+ *    - Trang phân quyền Report Hub: rhAdminList / rhAdminSave / rhAdminKick. RH_Users thêm cột Dept, Title, Perms.
+ *
  *  ĐIỂM MỚI v3.12
  *    - Report Hub đăng nhập bằng email công ty + mã 6 số (rhAuthStart / rhAuthVerify / rhAuthMe — file RH_Auth.gs,
  *      danh sách người dùng: sheet RH_Users). Cầu nối rh* ưu tiên danh tính trong phiên (tham số tk).
@@ -146,7 +149,7 @@
 
 var HUB = {
 
-  VERSION: '3.12',
+  VERSION: '3.13',
 
   /** ★ v3.4 — Khoá kết nối từ Report Hub (phải trùng TRAINING_RH_KEY trong index.html của Report Hub).
    *  Đổi khoá: đặt Script Property RH_BRIDGE_KEY (ưu tiên hơn giá trị ở đây) và sửa cả 2 phía. */
@@ -531,7 +534,11 @@ var HUB_ROUTES = {
   // ★ v3.12 — đăng nhập Report Hub bằng email + mã 6 số (file RH_Auth.gs)
   'rhAuthStart'     : {fn:'apiRhAuthStart',     auth:0},
   'rhAuthVerify'    : {fn:'apiRhAuthVerify',    auth:0},
-  'rhAuthMe'        : {fn:'apiRhAuthMe',        auth:0}
+  'rhAuthMe'        : {fn:'apiRhAuthMe',        auth:0},
+  // ★ v3.13 — trang phân quyền Report Hub (tự kiểm phiên + vai trò trong hàm)
+  'rhAdminList'     : {fn:'apiRhAdminList',     auth:0},
+  'rhAdminSave'     : {fn:'apiRhAdminSave',     auth:0},
+  'rhAdminKick'     : {fn:'apiRhAdminKick',     auth:0}
 };
 
 /** Lấy tham chiếu hàm theo tên — an toàn cho cả runtime V8 và Rhino */

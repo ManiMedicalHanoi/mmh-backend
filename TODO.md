@@ -26,4 +26,6 @@
      (đọc `RH_Secret` + `RH_Users` của Training Master bằng `openById`, đệm CacheService) ⇒ chặn lệnh không có phiên hợp lệ,
      `pic`/`actor` lấy từ phiên; app bỏ màn chọn tên; đổi `TRAINING_RH_KEY` (đang lộ trong index.html công khai).
 8. Business Trip `Mã.gs`: 17 chỗ gõ sai tên miền `manimedicalthanoi.com` (phần lớn ở chữ hướng dẫn / test).
+10. ✅ Trang phân quyền Report Hub (Training Hub v3.13: `rhAdminList` / `rhAdminSave` / `rhAdminKick`; RH_Users thêm Dept/Title/Perms).
+   Quyền hiện được app áp dụng (ẩn / chặn nút); giai đoạn 2 backend phòng ban đọc thêm Perms để chặn ở máy chủ.
 9. Training Hub chưa có `rhAssign*` (bảng "Việc mới được giao" của Report Hub đang lỗi im lặng) — cần thêm.
