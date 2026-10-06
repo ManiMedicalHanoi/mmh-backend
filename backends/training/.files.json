@@ -2,5 +2,6 @@
   "appsscript.json",
   "Mã.gs",
   "Backend Training Hub.gs",
-  "Kết nối KPI.gs"
+  "Kết nối KPI.gs",
+  "RH_Auth.gs"
 ]
