@@ -11,7 +11,7 @@ on:
         description: 'Backend cần deploy (key trong backends.json, hoặc all)'
         required: true
         default: all
-concurrency: { group: gas, cancel-in-progress: false }
+concurrency: { group: gas-deploy, cancel-in-progress: false }
 permissions: { contents: read }
 jobs:
   deploy:
