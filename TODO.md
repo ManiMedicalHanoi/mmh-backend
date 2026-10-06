@@ -1,8 +1,11 @@
 # Việc đã hứa với người dùng (làm theo thứ tự)
 
-1. **Kéo code gốc 7 backend về kho** — đang chờ Script ID (địa chỉ trang Apps Script `…/projects/<Script ID>/edit`).
-   Training Hub: app gọi `AKfycbwsX4cQ…` nhưng người dùng gửi `AKfycbxDLxMev…` — xác nhận cả 2 cùng dự án; nếu đúng,
-   deploy phải cập nhật cả 2 deployment.
+1. ✅ **Kéo code gốc 7 backend về kho** (06/10/2026). Cần người dùng quyết định trước lần deploy đầu (`.pull.json`):
+   - **Training Hub**: Report Hub + Training Hub đều gọi `AKfycbwsX4cQ…` = phiên bản **32**; deployment `AKfycbxDLxMe…` ở
+     phiên bản **34** (không app nào trong 2 repo gọi). Code trong dự án còn khác bản 32 ở `Backend Training Hub.gs`.
+   - **Management**: bản đang chạy (29) có file `index.html`, code trong dự án đã xoá ⇒ deploy sẽ gỡ `index.html`.
+   - **Marketing**: `ReportHub_Trip_Mail.gs` sửa trong dự án nhưng chưa deploy (bản 76).
+   - Business Trip: URL đang chạy quyền MYSELF (chỉ chủ sở hữu) — app chỉ dùng làm nguồn dự phòng cho lịch.
 2. **Chạy thử trọn vòng tự deploy** bằng 1 thay đổi vô hại (vd. `BACKEND_VERSION` trả trong `boot` của Training Hub).
 3. **Mô tả cấu trúc Sheet** `docs/cau-truc-sheet.md`: rút từ code (tab, cột đọc/ghi) + file Excel người dùng gửi
    (ý nghĩa cột, cột công thức / Data validation, tab sửa tay). Chỉ tiêu đề + dữ liệu giả — kho này riêng tư.

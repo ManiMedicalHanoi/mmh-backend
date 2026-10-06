@@ -11,7 +11,7 @@ on:
         description: 'Backend cần kéo về (key trong backends.json, all, hoặc new = chỉ backend chưa có code)'
         required: true
         default: new
-concurrency: { group: gas, cancel-in-progress: false }
+concurrency: { group: gas-pull, cancel-in-progress: false }
 permissions: { contents: write }
 jobs:
   pull:

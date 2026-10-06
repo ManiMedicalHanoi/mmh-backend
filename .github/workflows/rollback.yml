@@ -12,7 +12,7 @@ on:
         description: 'Số phiên bản muốn quay về (để trống = bản ngay trước)'
         required: false
         default: ''
-concurrency: { group: gas, cancel-in-progress: false }
+concurrency: { group: gas-deploy, cancel-in-progress: false }
 permissions: { contents: read }
 jobs:
   rollback:
