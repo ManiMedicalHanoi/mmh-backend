@@ -6,6 +6,10 @@
  * ----------------------------------------------------------------------------
  *  Backend cho WebApp "Training Hub" (frontend index.html deploy trên GitHub).
  *
+ *  ĐIỂM MỚI v3.14
+ *    - Việc được giao từ Report Hub (sheet RH_Assign): rhAssignList / Add / Seen / Done / Reply, rhDirectory.
+ *      Hoàn thành ⇒ email báo người giao; trao đổi gắn vào việc. (File RH_Assign.gs)
+ *
  *  ĐIỂM MỚI v3.13
  *    - Trang phân quyền Report Hub: rhAdminList / rhAdminSave / rhAdminKick. RH_Users thêm cột Dept, Title, Perms.
  *
@@ -149,7 +153,7 @@
 
 var HUB = {
 
-  VERSION: '3.13',
+  VERSION: '3.14',
 
   /** ★ v3.4 — Khoá kết nối từ Report Hub (phải trùng TRAINING_RH_KEY trong index.html của Report Hub).
    *  Đổi khoá: đặt Script Property RH_BRIDGE_KEY (ưu tiên hơn giá trị ở đây) và sửa cả 2 phía. */
@@ -538,7 +542,14 @@ var HUB_ROUTES = {
   // ★ v3.13 — trang phân quyền Report Hub (tự kiểm phiên + vai trò trong hàm)
   'rhAdminList'     : {fn:'apiRhAdminList',     auth:0},
   'rhAdminSave'     : {fn:'apiRhAdminSave',     auth:0},
-  'rhAdminKick'     : {fn:'apiRhAdminKick',     auth:0}
+  'rhAdminKick'     : {fn:'apiRhAdminKick',     auth:0},
+  // ★ v3.14 — việc được giao từ Report Hub (file RH_Assign.gs)
+  'rhAssignList'    : {fn:'apiRhAssignList',    auth:0},
+  'rhAssignAdd'     : {fn:'apiRhAssignAdd',     auth:0},
+  'rhAssignSeen'    : {fn:'apiRhAssignSeen',    auth:0},
+  'rhAssignDone'    : {fn:'apiRhAssignDone',    auth:0},
+  'rhAssignReply'   : {fn:'apiRhAssignReply',   auth:0},
+  'rhDirectory'     : {fn:'apiRhDirectory',     auth:0}
 };
 
 /** Lấy tham chiếu hàm theo tên — an toàn cho cả runtime V8 và Rhino */
