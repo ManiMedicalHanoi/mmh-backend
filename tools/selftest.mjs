@@ -29,6 +29,11 @@ const P = {
 };
 for (const p of Object.values(P)) p.versions[1] = clone(p.head);
 const calls = [];
+// Như API thật: quyền web app của deployment lấy từ manifest của PHIÊN BẢN đang chạy, không phải HEAD
+function depInfo(p, d) {
+  const w = JSON.parse(p.versions[p.deps[d]].find(f => f.type === 'JSON').source).webapp;
+  return { deploymentId: d, deploymentConfig: { versionNumber: p.deps[d] }, entryPoints: [{ entryPointType: 'WEB_APP', webApp: { entryPointConfig: w } }] };
+}
 
 const server = http.createServer(async (req, res) => {
   const u = new URL(req.url, 'http://x');
@@ -56,11 +61,11 @@ const server = http.createServer(async (req, res) => {
   if (rest === '/content' && req.method === 'PUT') { p.head = JSON.parse(body).files; return json(200, {}); }
   if (rest === '/versions' && req.method === 'POST') { const n = Math.max(...Object.keys(p.versions).map(Number)) + 1; p.versions[n] = clone(p.head); return json(200, { versionNumber: n }); }
   if (rest === '/versions') return json(200, { versions: Object.keys(p.versions).map(n => ({ versionNumber: +n })) });
-  if (rest === '/deployments') return json(200, { deployments: Object.keys(p.deps).map(d => ({ deploymentId: d })) });
+  if (rest === '/deployments') return json(200, { deployments: Object.keys(p.deps).map(d => depInfo(p, d)) });
   if ((m = rest.match(/^\/deployments\/(\w+)$/))) {
     if (!(m[1] in p.deps)) return json(404, { error: { message: 'nf' } });
     if (req.method === 'PUT') { const c = JSON.parse(body).deploymentConfig; if (!p.versions[c.versionNumber]) return json(400, { error: { message: 'bad ver' } }); p.deps[m[1]] = c.versionNumber; }
-    return json(200, { deploymentId: m[1], deploymentConfig: { versionNumber: p.deps[m[1]] } });
+    return json(200, depInfo(p, m[1]));
   }
   json(404, { error: { message: 'nf ' + rest } });
 });
@@ -144,8 +149,22 @@ try {
   const man = JSON.parse(rd('trn/appsscript.json')); man.webapp.access = 'DOMAIN'; wr('trn/appsscript.json', JSON.stringify(man, null, 2));
   before = sha; sha = commit('đổi quyền');
   r = await run('deploy-changed', before, sha);
-  check('chặn đổi quyền web app', r.code === 1 && /executeAs \/ access/.test(r.out) && JSON.parse(P.S2.head[0].source).webapp.access === 'ANYONE_ANONYMOUS', r.out);
+  check('chặn đổi quyền web app', r.code === 1 && /khác quyền URL đang chạy/.test(r.out) && JSON.parse(P.S2.head[0].source).webapp.access === 'ANYONE_ANONYMOUS', r.out);
   git('checkout', '-q', before, '--', 'backends/trn'); before = sha; sha = commit('bỏ đổi quyền');
+
+  // HEAD trên Apps Script ghi MYSELF nhưng URL đang chạy là ANYONE_ANONYMOUS (trường hợp Business Trip thật)
+  const mh = JSON.parse(P.S2.head[0].source); mh.webapp.access = 'MYSELF'; P.S2.head[0].source = JSON.stringify(mh, null, 2);
+  r = await run('pull', 'trn'); sha = commit('kéo về: manifest HEAD = MYSELF');
+  r = await run('status');
+  check('status: cảnh báo quyền manifest ≠ quyền đang chạy', /quyền trong appsscript\.json \(USER_DEPLOYING\/MYSELF\) ≠ quyền đang chạy \(USER_DEPLOYING\/ANYONE_ANONYMOUS\)/.test(r.out), r.out);
+  wr('trn/Code.gs', 'function doGet(){ return 2; }\n');
+  before = sha; sha = commit('sửa trn khi manifest lệch');
+  r = await run('deploy-changed', before, sha);
+  check('chặn deploy khi manifest HEAD làm đổi quyền URL đang chạy', r.code === 1 && /khác quyền URL đang chạy \(USER_DEPLOYING\/ANYONE_ANONYMOUS\)/.test(r.out) && P.S2.deps.D2 === 1, r.out);
+  const ml = JSON.parse(rd('trn/appsscript.json')); ml.webapp.access = 'ANYONE_ANONYMOUS'; wr('trn/appsscript.json', JSON.stringify(ml, null, 2));
+  before = sha; sha = commit('sửa manifest cho khớp quyền đang chạy');
+  r = await run('deploy-changed', before, sha);
+  check('manifest khớp quyền đang chạy ⇒ deploy được, quyền giữ nguyên', r.code === 0 && P.S2.deps.D2 === 2 && JSON.parse(P.S2.versions[2][0].source).webapp.access === 'ANYONE_ANONYMOUS', r.out);
 
   wr('mkt/Code.gs', 'function doGet(){ BROKEN(); }\n');
   before = sha; sha = commit('code lỗi');
@@ -166,7 +185,7 @@ try {
   check('deploy tay đưa bản trong repo lên lại (sau rollback)', r.code === 0 && P.S1.deps.D1 === 6, r.out);
 
   r = await run('status');
-  check('status: bảng tình trạng', r.code === 0 && /\| MKT \(`mkt`\) \| `S1…` \| 6 \| 6 \| OK \|/.test(r.out), r.out);
+  check('status: bảng tình trạng', r.code === 0 && /\| MKT \(`mkt`\) \| `S1…` \| 6 · USER_DEPLOYING\/ANYONE_ANONYMOUS \| 6 \| OK \|/.test(r.out), r.out);
 
   const good = JSON.stringify({ tokens: { default: { client_id: 'c', client_secret: 's', refresh_token: 'r', type: 'authorized_user', access_token: 'ya29.' + 'x'.repeat(180) } } }, null, 2);
   ENV.CLASPRC_JSON = 'mmh_product@cloudshell:~$ cat ~/.clasprc.json\n' + good.replace(/x{60}/g, m => m + '\n') + '\nmmh_product@cloudshell:~$ ';

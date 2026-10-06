@@ -225,8 +225,15 @@ function diff(a, b) {
   const names = new Set([...(a ? a.order : []), ...(b ? b.order : [])]);
   return [...names].filter(p => !a || !b || !(p in a.map) || !(p in b.map) || !same(p, a.map[p], b.map[p])).sort();
 }
+/* Quyền web app dạng "executeAs/access". Manifest (appsscript.json) chỉ là bản nháp; quyền THẬT của URL nằm ở
+ * entryPoints của deployment (= manifest của phiên bản đang chạy). Deploy phải giữ đúng quyền thật. */
 function webapp(set) {
-  try { return JSON.stringify(JSON.parse(set.map['appsscript.json'] || '{}').webapp || null); } catch (_) { return 'invalid'; }
+  try { const w = JSON.parse(set.map['appsscript.json'] || '{}').webapp; return w ? `${w.executeAs || ''}/${w.access || ''}` : 'none'; } catch (_) { return 'invalid'; }
+}
+function liveWebapp(dep) {
+  const ep = (dep.entryPoints || []).find(e => e.entryPointType === 'WEB_APP');
+  const c = ep && ep.webApp && ep.webApp.entryPointConfig;
+  return c ? `${c.executeAs || ''}/${c.access || ''}` : null;
 }
 
 /* ───────── gọi thử web app sau deploy ───────── */
@@ -257,7 +264,7 @@ async function cmdStatus() {
   say('### Kiểm tra kết nối Apps Script');
   say('✅ Chìa khoá CLASPRC_JSON dùng được.');
   say('');
-  say('| Backend | Script ID | Phiên bản đang chạy | Số phiên bản | Ghi chú |');
+  say('| Backend | Script ID | Phiên bản · quyền đang chạy | Số phiên bản | Ghi chú |');
   say('|---|---|---|---|---|');
   let bad = 0;
   for (const [k, b] of Object.entries(cfg)) {
@@ -265,8 +272,19 @@ async function cmdStatus() {
     try {
       const d = await getDeployment(b.scriptId, b.deploymentId);
       const vs = await listVersions(b.scriptId);
-      const warn = vs.length >= VERSION_WARN ? `⚠️ gần giới hạn 200 phiên bản — xoá bớt trong Lịch sử dự án` : (fs.existsSync(backendDir(k)) ? 'OK' : 'chưa kéo code về');
-      say(`| ${b.name} (\`${k}\`) | \`${b.scriptId.slice(0, 10)}…\` | ${d.deploymentConfig?.versionNumber ?? 'HEAD'} | ${vs.length} | ${warn} |`);
+      const cur = d.deploymentConfig?.versionNumber;
+      const notes = [];
+      if (vs.length >= VERSION_WARN) notes.push('⚠️ gần giới hạn 200 phiên bản — xoá bớt trong Lịch sử dự án');
+      const local = readLocal(k);
+      if (!local) notes.push('chưa kéo code về');
+      const live = liveWebapp(d);
+      if (local && live && webapp(local) !== live) notes.push(`⚠️ quyền trong appsscript.json (${webapp(local)}) ≠ quyền đang chạy (${live}) — phải sửa trước khi deploy`);
+      for (const o of await listDeployments(b.scriptId)) {
+        if (o.deploymentId === b.deploymentId || !liveWebapp(o)) continue;
+        const v = o.deploymentConfig?.versionNumber;
+        notes.push(`có deployment khác \`${o.deploymentId.slice(0, 12)}…\` ở phiên bản ${v ?? 'HEAD'}${v && cur && v > cur ? ' (MỚI HƠN bản app đang gọi)' : ''}`);
+      }
+      say(`| ${b.name} (\`${k}\`) | \`${b.scriptId.slice(0, 10)}…\` | ${cur ?? 'HEAD'} · ${live || '?'} | ${vs.length} | ${notes.join('<br>') || 'OK'} |`);
     } catch (e) {
       say(`| ${b.name} (\`${k}\`) | \`${b.scriptId.slice(0, 10)}…\` | | | ❌ ${e.status === 404 ? 'Script ID / Deployment ID không khớp' : e.status === 403 ? 'tài khoản không có quyền sửa script này' : e.message.slice(0, 120)} |`);
       bad++;
@@ -356,12 +374,18 @@ async function deployOne(key, before, description) {
   const dep = await getDeployment(b.scriptId, b.deploymentId);
   const prevVer = dep.deploymentConfig?.versionNumber;
 
-  if (webapp(local) !== webapp(remote)) stop(`${b.name}: cài đặt web app (executeAs / access) trong appsscript.json khác với bản đang chạy — dừng để không đổi quyền truy cập. Nếu thật sự muốn đổi, làm trên giao diện Apps Script rồi "Kéo code về".`);
+  const live = liveWebapp(dep) || webapp(remote);
+  if (webapp(local) !== live) stop(`${b.name}: quyền web app trong appsscript.json (${webapp(local)}) khác quyền URL đang chạy (${live}) — dừng để không đổi quyền truy cập. Sửa mục "webapp" trong appsscript.json cho khớp ${live} rồi gộp lại.`);
 
   if (diff(remote, local).length) {
     const base = validSha(before) ? readAt(before, key) : null;
     if (!base) stop(`${b.name}: chưa có bản gốc trong repo để đối chiếu — chạy "Kéo code về" trước.`);
-    const drift = diff(remote, base);
+    let drift = diff(remote, base);
+    // Code trên Apps Script khớp 1 bản từng có trong repo (vd. lần deploy trước bị chặn trước khi đẩy) ⇒ không phải sửa tay
+    if (drift.length) {
+      const shas = git('log', '--format=%H', '-n', '40', before, '--', `backends/${key}/`).split('\n').filter(Boolean);
+      if (shas.some(h => { const s = readAt(h, key); return s && !diff(remote, s).length; })) drift = [];
+    }
     if (drift.length) stop(`${b.name}: code trên Apps Script đã bị sửa trực tiếp (ngoài GitHub) ở: ${drift.join(', ')}. Dừng để không ghi đè. Chạy workflow "Kéo code về" cho backend này, rồi áp lại thay đổi.`);
     await api('PUT', `${API}/projects/${b.scriptId}/content`, { scriptId: b.scriptId, files: toRemote(local) });
   } else if (prevVer) {
