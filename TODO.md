@@ -3,8 +3,9 @@
 1. ✅ **Kéo code gốc 7 backend về kho** (06/10/2026). Quyết định của người dùng đã thực hiện:
    - ✅ Training Hub: app (Report Hub + Training-Hub) chuyển sang **bản 34** (code repo = bản 34).
    - ✅ Management: deploy bản 30 (bỏ `index.html` không dùng).
-   - ⏳ Marketing: `ReportHub_Trip_Mail.gs` chỉ đổi 1 dòng — người nhận email đề xuất công tác 'Quynh Anh' → 'Minh Trang'
-     (cùng HOD/Director). Không ảnh hưởng xem / kết nối dữ liệu. Chờ người dùng xác nhận có đưa lên không (deploy tay).
+   - ✖ Marketing: `ReportHub_Trip_Mail.gs` (sửa trên trình soạn, chưa deploy — đổi người nhận 'Quynh Anh' → 'Minh Trang'):
+     người dùng **không** đưa lên (06/10/2026). `.pull.json` còn `pending` ⇒ deploy tự động Marketing sẽ dừng; khi cần sửa
+     Marketing, hỏi lại người dùng hoặc chạy **Kéo code về** trước.
    - Business Trip: URL đang chạy quyền MYSELF — app chỉ dùng làm nguồn dự phòng cho lịch.
    - Training Hub trả 404 'unable to open the file' cho `?action=ping` lúc có lúc không ⇒ gọi thử so trước/sau.
 2. ✅ **Chạy thử trọn vòng tự deploy** (Management 29 → 30, gọi thử 200) bằng 1 thay đổi vô hại (vd. `BACKEND_VERSION` trả trong `boot` của Training Hub).
@@ -17,3 +18,12 @@
    cần tải lại file `skills/dist/gh-webapp-upgrader.skill` lên phần Skills của Claude.
 6. Đưa backend các app khác vào kho này khi người dùng mở phiên với app đó (README ▸ "Thêm backend của một app khác").
    Đã thấy: `AKfycbwwGhYa…` (Field Report Surgical — Report Hub chỉ mở link, có thể thuộc repo Surgical-Sale-Report).
+7. **Đăng nhập email + mã 6 số cho Report Hub (B1)** — người dùng duyệt 06/10/2026. Admin: Giang (mmh.product).
+   - ✅ Giai đoạn 1: Training Hub v3.12 `RH_Auth.gs` (`rhAuthStart` / `rhAuthVerify` / `rhAuthMe`), sheet `RH_Users` +
+     `RH_Secret` (ẩn) trong Training Master; app v16.0 gửi `tk` trong mọi lệnh gọi; vẫn cho chọn tên cách cũ.
+     Cầu nối `rh*` của Training Hub đã ưu tiên danh tính trong phiên.
+   - ⏳ Giai đoạn 2 (sau ~1 tuần, khi cột LastLogin của RH_Users đủ người): 3 backend Report Hub + MKT feeds tự kiểm `tk`
+     (đọc `RH_Secret` + `RH_Users` của Training Master bằng `openById`, đệm CacheService) ⇒ chặn lệnh không có phiên hợp lệ,
+     `pic`/`actor` lấy từ phiên; app bỏ màn chọn tên; đổi `TRAINING_RH_KEY` (đang lộ trong index.html công khai).
+8. Business Trip `Mã.gs`: 17 chỗ gõ sai tên miền `manimedicalthanoi.com` (phần lớn ở chữ hướng dẫn / test).
+9. Training Hub chưa có `rhAssign*` (bảng "Việc mới được giao" của Report Hub đang lỗi im lặng) — cần thêm.

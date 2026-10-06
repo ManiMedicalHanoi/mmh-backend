@@ -6,6 +6,11 @@
  * ----------------------------------------------------------------------------
  *  Backend cho WebApp "Training Hub" (frontend index.html deploy trên GitHub).
  *
+ *  ĐIỂM MỚI v3.12
+ *    - Report Hub đăng nhập bằng email công ty + mã 6 số (rhAuthStart / rhAuthVerify / rhAuthMe — file RH_Auth.gs,
+ *      danh sách người dùng: sheet RH_Users). Cầu nối rh* ưu tiên danh tính trong phiên (tham số tk).
+ *    - Kiểm tên miền email so khớp chính xác (trước đây nhận cả "x@mani.inc.ten-mien-khac.com").
+ *
  *  ĐIỂM MỚI v3.11
  *    - rhMaterials: tự chia sẻ thư mục tài liệu (và file chưa chia sẻ) cho cả công ty có link ⇒ mọi
  *      người xem / tải về được từ Report Hub; trả kèm link tải trực tiếp.
@@ -141,7 +146,7 @@
 
 var HUB = {
 
-  VERSION: '3.11',
+  VERSION: '3.12',
 
   /** ★ v3.4 — Khoá kết nối từ Report Hub (phải trùng TRAINING_RH_KEY trong index.html của Report Hub).
    *  Đổi khoá: đặt Script Property RH_BRIDGE_KEY (ưu tiên hơn giá trị ở đây) và sửa cả 2 phía. */
@@ -522,7 +527,11 @@ var HUB_ROUTES = {
   'rhUploadInit'    : {fn:'apiRhUploadInit',    auth:0},   // ★ v3.7 — kéo thả tải tài liệu lên folder buổi
   'rhUploadChunk'   : {fn:'apiRhUploadChunk',   auth:0},
   'rhUploadStatus'  : {fn:'apiRhUploadStatus',  auth:0},
-  'rhMyChecks'      : {fn:'apiRhMyChecks',      auth:0}    // ★ v3.10 — buổi đào tạo của tôi còn thiếu tài liệu
+  'rhMyChecks'      : {fn:'apiRhMyChecks',      auth:0},   // ★ v3.10 — buổi đào tạo của tôi còn thiếu tài liệu
+  // ★ v3.12 — đăng nhập Report Hub bằng email + mã 6 số (file RH_Auth.gs)
+  'rhAuthStart'     : {fn:'apiRhAuthStart',     auth:0},
+  'rhAuthVerify'    : {fn:'apiRhAuthVerify',    auth:0},
+  'rhAuthMe'        : {fn:'apiRhAuthMe',        auth:0}
 };
 
 /** Lấy tham chiếu hàm theo tên — an toàn cho cả runtime V8 và Rhino */
@@ -938,10 +947,8 @@ function hubPrefix(email) {
 
 function hubIsCompanyEmail(email) {
   email = hubNorm(email).toLowerCase();
-  for (var i = 0; i < HUB.DOMAINS.length; i++) {
-    if (email.indexOf('@' + HUB.DOMAINS[i]) > 0) return true;
-  }
-  return false;
+  var at = email.lastIndexOf('@');
+  return at > 0 && HUB.DOMAINS.indexOf(email.substring(at + 1)) >= 0;   // ★ v3.12 — đúng tên miền, không nhận "@mani.inc.xyz.com"
 }
 
 function hubTz() {
@@ -5190,6 +5197,20 @@ function hubRhActor(p, needLead) {
   key = key || HUB.RH_BRIDGE_KEY;
   if (!key || hubNorm(p.rhKey) !== key) throw new Error('Report Hub: khoá kết nối Training Hub không đúng (RH_BRIDGE_KEY).');
   var a = hubNorm(p.actor);
+  // ★ v3.12 — đã đăng nhập bằng email: lấy danh tính từ phiên, không tin tên do trình duyệt tự khai
+  if (hubNorm(p.tk)) {
+    var ck = rhCheck(p.tk);
+    if (ck.u) {
+      var tu = hubFindUser(ck.u.local + '@' + HUB.SEND_DOMAIN);
+      if (!tu && RH_PIC_ALIAS[hubKeyV(ck.u.pic)]) tu = hubFindUser(RH_PIC_ALIAS[hubKeyV(ck.u.pic)]);
+      if (tu && tu.active) {
+        if (a && hubKeyV(a) !== hubKeyV(ck.u.pic)) hubLog('WARN', 'rhActor', 'actor "' + a + '" khác phiên đăng nhập (' + ck.u.pic + ')', p.action || '');
+        if (needLead && !hubRhIsLead(tu)) throw new Error('Chỉ Team Leader / Manager / Director được tạo buổi đào tạo từ Report Hub.');
+        return tu;
+      }
+      a = ck.u.pic;
+    }
+  }
   if (!a) throw new Error('Report Hub: thiếu tên người thao tác.');
   var users = hubReadUsers(), u = null, k = hubKeyV(a);
   if (a.indexOf('@') > 0) u = hubFindUser(a);
