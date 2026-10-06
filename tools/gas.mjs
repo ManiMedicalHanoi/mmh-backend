@@ -255,10 +255,21 @@ async function smoke(b) {
       return { bad: m ? m[0] : txt.slice(0, 200) };
     }
     if (r.status >= 500) return { bad: 'HTTP ' + r.status };
+    if (r.status !== 200) return { weak: `HTTP ${r.status}` };
     return { ok: `HTTP ${r.status}` };
   } catch (e) {
     return { skip: 'không gọi được (' + e.message + ')' };
   }
+}
+
+/* So gọi thử TRƯỚC và SAU khi đổi phiên bản: lỗi khi sau ra trang lỗi Apps Script, hoặc trước gọi được (200) mà sau
+ * không. Có backend vốn không trả 200 cho lệnh ping (vd. Training Hub: 404 "unable to open the file" ở mọi phiên bản)
+ * ⇒ không kiểm được, không coi là lỗi. */
+function judge(pre, post) {
+  if (post.bad) return { bad: post.bad };
+  if (post.ok) return { ok: post.ok };
+  if (pre.ok) return { bad: `trước khi đổi gọi được (${pre.ok}), sau khi đổi: ${post.weak || post.skip}` };
+  return { skip: `không kiểm được — trước và sau đều ${post.weak || post.skip}` };
 }
 
 /* ───────── lệnh ───────── */
@@ -429,10 +440,11 @@ async function deployOne(key, before, description, auto = false) {
     if (!diff(live, local).length) { say(`- ➖ ${b.name}: không có gì mới (đang chạy phiên bản ${prevVer}).`); return; }
   }
 
+  const pre = await smoke(b);
   const v = await api('POST', `${API}/projects/${b.scriptId}/versions`, { description: (description || '').slice(0, 100) });
   await setDeployment(b.scriptId, b.deploymentId, v.versionNumber, description);
   await sleep(SMOKE_WAIT);
-  const sm = await smoke(b);
+  const sm = judge(pre, await smoke(b));
   if (sm.bad) {
     if (prevVer) await setDeployment(b.scriptId, b.deploymentId, prevVer, 'Tự quay lại sau lỗi: ' + (description || ''));
     // Trigger hẹn giờ / menu trong Sheet chạy code HEAD (không phải bản deploy) ⇒ trả cả code HEAD về như trước
@@ -480,6 +492,28 @@ async function cmdDiff(key, version) {
   fs.rmSync(tmp, { recursive: true, force: true });
 }
 
+/* Gọi thử URL /exec của các backend, in từng bước chuyển hướng + mã + đầu nội dung (để hiểu kết quả "gọi thử") */
+async function cmdPing(arg) {
+  const cfg = loadCfg();
+  say('### Gọi thử URL /exec');
+  for (const k of pickKeys(cfg, arg)) {
+    const b = cfg[k];
+    let u = b.url + (b.smokeQuery ?? '?action=ping');
+    const hops = [];
+    try {
+      for (let i = 0; i < 5; i++) {
+        const r = await fetch(u, { redirect: 'manual', signal: AbortSignal.timeout(60000) });
+        const loc = r.headers.get('location');
+        hops.push(`${r.status} ${new URL(u).host}${new URL(u).pathname.replace(/\/s\/[^/]+/, '/s/…').slice(0, 40)}`);
+        if (loc && r.status >= 300 && r.status < 400) { u = new URL(loc, u).href; continue; }
+        const t = (await r.text()).replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+        say(`- ${b.name}: ${hops.join(' → ')} · ${r.headers.get('content-type') || ''} · «${t.slice(0, 160)}»`);
+        break;
+      }
+    } catch (e) { say(`- ${b.name}: ${hops.join(' → ')} ✗ ${e.message}`); }
+  }
+}
+
 async function cmdRollback(key, version) {
   const cfg = loadCfg();
   const b = cfg[key];
@@ -491,9 +525,10 @@ async function cmdRollback(key, version) {
     target = vs[0];
     if (!target) stop(`${b.name}: không có phiên bản nào cũ hơn ${cur}.`);
   }
+  const pre = await smoke(b);
   await setDeployment(b.scriptId, b.deploymentId, target, `Chuyển sang phiên bản ${target}`);
   await sleep(SMOKE_WAIT);
-  const sm = await smoke(b);
+  const sm = judge(pre, await smoke(b));
   if (sm.bad) {
     if (cur) await setDeployment(b.scriptId, b.deploymentId, cur, `Tự quay lại sau lỗi phiên bản ${target}`);
     stop(`${b.name}: phiên bản ${target} lỗi khi chạy thử (${sm.bad}) → đã giữ nguyên phiên bản ${cur}.`);
@@ -515,6 +550,7 @@ async function main() {
     case 'deploy': return cmdDeploy(pickKeys(loadCfg(), a), 'HEAD', desc);
     case 'rollback': return cmdRollback(a, b);
     case 'diff': return cmdDiff(a, b);
+    case 'ping': return cmdPing(a || 'all');
     default:
       console.log('Lệnh: status | discover | pull <key|all|new> | deploy-changed <before> <after> | deploy <key|all> | rollback <key> [version]');
       process.exitCode = 2;

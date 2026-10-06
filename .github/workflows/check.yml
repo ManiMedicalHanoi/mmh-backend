@@ -5,6 +5,10 @@ on:
   pull_request:
   workflow_dispatch:
     inputs:
+      ping:
+        description: 'Tuỳ chọn: gọi thử URL /exec (all hoặc tên backend)'
+        required: false
+        default: ''
       diff:
         description: 'Tuỳ chọn: tên backend cần so code repo với bản đang chạy (vd. "marketing" hoặc "training 34")'
         required: false
@@ -36,3 +40,6 @@ jobs:
           CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
           B: ${{ inputs.diff }}
         run: node tools/gas.mjs diff $B
+      - if: always() && inputs.ping != ''
+        env: { P: '${{ inputs.ping }}' }
+        run: node tools/gas.mjs ping "$P"
