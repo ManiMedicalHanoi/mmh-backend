@@ -191,7 +191,8 @@ function readLocal(key) {
   const ord = entries.find(([p]) => p === ORDER_FILE);
   return assemble(entries, ord && ord[1]);
 }
-function git(...args) { return execFileSync('git', args, { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 << 20 }); }
+// core.quotepath=false: tên file có dấu (vd. "Kết nối KPI.gs") in nguyên văn, không bị git mã hoá thành "K\341\272\277t…"
+function git(...args) { return execFileSync('git', ['-c', 'core.quotepath=false', ...args], { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 << 20 }); }
 function validSha(sha) { if (!sha || /^0+$/.test(sha)) return false; try { git('cat-file', '-e', sha + '^{commit}'); return true; } catch (_) { return false; } }
 function readAt(sha, key) {
   const pre = `backends/${key}/`;
