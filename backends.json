@@ -1,0 +1,44 @@
+{
+  "marketing": {
+    "name": "Report Hub – Marketing",
+    "deploymentId": "AKfycbzn-5chMgO7lQPKmot8P7UkP9C40MdCPtiTTa4H1gcKepVsnr1IYfcB7sSdK1_jrZYY",
+    "scriptId": "",
+    "url": "https://script.google.com/macros/s/AKfycbzn-5chMgO7lQPKmot8P7UkP9C40MdCPtiTTa4H1gcKepVsnr1IYfcB7sSdK1_jrZYY/exec"
+  },
+  "management": {
+    "name": "Report Hub – Management",
+    "deploymentId": "AKfycbzKQYH154xD3JQSiNQCNJuReFB2VjH3W1_r6zOqnmkV9cP7__mi0ukTn_hDWxX_WHgs",
+    "scriptId": "",
+    "url": "https://script.google.com/macros/s/AKfycbzKQYH154xD3JQSiNQCNJuReFB2VjH3W1_r6zOqnmkV9cP7__mi0ukTn_hDWxX_WHgs/exec"
+  },
+  "backoffice": {
+    "name": "Report Hub – Back Office",
+    "deploymentId": "AKfycbxWT_M07dwPD77zgzouJpJn4R64n6T6l57sVvsU3I2RgtN6JZcMrRR9eoovKE_DuFuN_g",
+    "scriptId": "",
+    "url": "https://script.google.com/macros/s/AKfycbxWT_M07dwPD77zgzouJpJn4R64n6T6l57sVvsU3I2RgtN6JZcMrRR9eoovKE_DuFuN_g/exec"
+  },
+  "training": {
+    "name": "Training Hub",
+    "deploymentId": "AKfycbwsX4cQEoH4LNlmcNfe8qWIM9K6EiDEXy7PjhP9bHY2citL6xHn5L1unsAlQJHyL9EP",
+    "scriptId": "",
+    "url": "https://script.google.com/macros/s/AKfycbwsX4cQEoH4LNlmcNfe8qWIM9K6EiDEXy7PjhP9bHY2citL6xHn5L1unsAlQJHyL9EP/exec"
+  },
+  "trip": {
+    "name": "Business Trip (Công tác)",
+    "deploymentId": "AKfycbzAsSxx8NNQhjELq1dnASdXZo4o4sWvGaaHjIrBUkp8ljEb119hUnAdiiBXGfxRfgVniQ",
+    "scriptId": "",
+    "url": "https://script.google.com/a/macros/manimedicalhanoi.com/s/AKfycbzAsSxx8NNQhjELq1dnASdXZo4o4sWvGaaHjIrBUkp8ljEb119hUnAdiiBXGfxRfgVniQ/exec"
+  },
+  "mkt-online": {
+    "name": "MKT Online (bài đăng / design)",
+    "deploymentId": "AKfycbx-eZ0sORVEdQs_gh3mRwJJjmOROY2DuwiWdWNO_EjyNrIR8Nrq0rvkJhgO-x1V_ukQjA",
+    "scriptId": "",
+    "url": "https://script.google.com/macros/s/AKfycbx-eZ0sORVEdQs_gh3mRwJJjmOROY2DuwiWdWNO_EjyNrIR8Nrq0rvkJhgO-x1V_ukQjA/exec"
+  },
+  "mkt-offline": {
+    "name": "MKT Offline (sự kiện)",
+    "deploymentId": "AKfycbwvH5YqDfVkYLgJiF2x712-fVaQO1neggdE-7VGhOXgAofCv3wRproagHoFj7PBdnEftA",
+    "scriptId": "",
+    "url": "https://script.google.com/macros/s/AKfycbwvH5YqDfVkYLgJiF2x712-fVaQO1neggdE-7VGhOXgAofCv3wRproagHoFj7PBdnEftA/exec"
+  }
+}

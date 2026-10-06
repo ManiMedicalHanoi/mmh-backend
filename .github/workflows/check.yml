@@ -1,0 +1,28 @@
+name: Kiểm tra
+# Pull request: chạy bộ tự kiểm (backend giả lập) + kiểm cú pháp code .gs.
+# Chạy tay: kiểm chìa khoá + tình trạng 7 backend (phiên bản đang chạy, số phiên bản).
+on:
+  pull_request:
+  workflow_dispatch:
+permissions: { contents: read }
+jobs:
+  test:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Tự kiểm công cụ deploy
+        run: node tools/selftest.mjs
+      - name: Kiểm cú pháp .gs
+        run: node tools/syntax.mjs
+  status:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - env: { CLASPRC_JSON: '${{ secrets.CLASPRC_JSON }}' }
+        run: node tools/gas.mjs status
