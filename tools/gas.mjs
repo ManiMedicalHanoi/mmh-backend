@@ -293,7 +293,7 @@ async function cmdStatus() {
       }
       say(`| ${b.name} (\`${k}\`) | \`${b.scriptId.slice(0, 10)}…\` | ${cur ?? 'HEAD'} · ${live || '?'} | ${vs.length} | ${notes.join('<br>') || 'OK'} |`);
     } catch (e) {
-      say(`| ${b.name} (\`${k}\`) | \`${b.scriptId.slice(0, 10)}…\` | | | ❌ ${e.status === 404 ? 'Script ID / Deployment ID không khớp' : e.status === 403 ? 'tài khoản không có quyền sửa script này' : e.message.slice(0, 120)} |`);
+      say(`| ${b.name} (\`${k}\`) | \`${b.scriptId.slice(0, 10)}…\` | | | ❌ ${e.status === 404 ? 'Script ID / Deployment ID không khớp' : e.status === 403 ? 'tài khoản không có quyền sửa script này' : (e.status ? 'HTTP ' + e.status + ': ' : '') + e.message.replace(/^.*?→ \d+: /, '').slice(0, 200)} |`);
       bad++;
     }
   }
