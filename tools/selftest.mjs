@@ -156,6 +156,7 @@ try {
   const mh = JSON.parse(P.S2.head[0].source); mh.webapp.access = 'MYSELF'; P.S2.head[0].source = JSON.stringify(mh, null, 2);
   r = await run('pull', 'trn'); sha = commit('kéo về: manifest HEAD = MYSELF');
   r = await run('status');
+  check('status: báo code chưa deploy (HEAD ≠ bản đang chạy)', /chưa deploy\) ở: appsscript\.json/.test(r.out), r.out);
   check('status: cảnh báo quyền manifest ≠ quyền đang chạy', /quyền trong appsscript\.json \(USER_DEPLOYING\/MYSELF\) ≠ quyền đang chạy \(USER_DEPLOYING\/ANYONE_ANONYMOUS\)/.test(r.out), r.out);
   wr('trn/Code.gs', 'function doGet(){ return 2; }\n');
   before = sha; sha = commit('sửa trn khi manifest lệch');

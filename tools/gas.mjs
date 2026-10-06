@@ -279,8 +279,13 @@ async function cmdStatus() {
       if (!local) notes.push('chưa kéo code về');
       const live = liveWebapp(d);
       if (local && live && webapp(local) !== live) notes.push(`⚠️ quyền trong appsscript.json (${webapp(local)}) ≠ quyền đang chạy (${live}) — phải sửa trước khi deploy`);
+      if (cur) {
+        const pend = diff(await getContent(b.scriptId), await getContent(b.scriptId, cur));
+        if (pend.length) notes.push(`⚠️ code trong dự án khác bản đang chạy (chưa deploy) ở: ${pend.join(', ')} — lần deploy tới sẽ đưa lên cùng`);
+      }
       for (const o of await listDeployments(b.scriptId)) {
-        if (o.deploymentId === b.deploymentId || !liveWebapp(o)) continue;
+        // bỏ qua bản thử nghiệm @HEAD (/dev) có sẵn trong mọi dự án
+        if (o.deploymentId === b.deploymentId || !liveWebapp(o) || !o.deploymentConfig?.versionNumber) continue;
         const v = o.deploymentConfig?.versionNumber;
         notes.push(`có deployment khác \`${o.deploymentId.slice(0, 12)}…\` ở phiên bản ${v ?? 'HEAD'}${v && cur && v > cur ? ' (MỚI HƠN bản app đang gọi)' : ''}`);
       }
