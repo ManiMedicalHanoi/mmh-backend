@@ -175,6 +175,7 @@ try {
   before = sha; sha = commit('code lỗi');
   r = await run('deploy-changed', before, sha);
   check('lỗi khi chạy thử ⇒ tự quay về phiên bản 3', r.code === 1 && P.S1.deps.D1 === 3 && /tự quay lại phiên bản 3/.test(r.out) && /line 1, file "Code"/.test(r.out), r.out);
+  check('lỗi khi chạy thử ⇒ trả cả code HEAD về như trước (trigger không chạy code lỗi)', !P.S1.head.some(f => /BROKEN/.test(f.source)), JSON.stringify(P.S1.head));
 
   wr('mkt/Code.gs', rd('mkt/Code.gs').replace('BROKEN();', 'return 1;'));
   before = sha; sha = commit('sửa lỗi');
