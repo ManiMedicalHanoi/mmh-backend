@@ -6,7 +6,8 @@
  *   node tools/gas.mjs pull <key|all|new>        kéo code từ Apps Script về backends/<key>/
  *   node tools/gas.mjs deploy-changed <before> <after>   deploy các backend có thay đổi giữa 2 commit
  *   node tools/gas.mjs deploy <key>              deploy 1 backend (so với HEAD)
- *   node tools/gas.mjs rollback <key> [version]  đưa web app về phiên bản trước (hoặc số phiên bản chỉ định)
+ *   node tools/gas.mjs rollback <key> [version]  đưa web app về phiên bản trước (hoặc số phiên bản chỉ định), có gọi thử
+ *   node tools/gas.mjs diff <key> [version]      so code repo với phiên bản đang chạy (hoặc chỉ định), in diff từng file
  *
  * Chìa khoá: biến môi trường CLASPRC_JSON (nội dung ~/.clasprc.json của clasp) hoặc file ~/.clasprc.json.
  * Cấu hình: backends.json — mỗi backend: name, deploymentId, scriptId, url.
@@ -454,6 +455,29 @@ async function cmdDeploy(keys, before, description, auto = false) {
   if (bad) process.exitCode = 1;
 }
 
+/* So code trong repo với phiên bản đang chạy (hoặc phiên bản chỉ định) — in diff từng file (repo riêng tư nên in code được) */
+async function cmdDiff(key, version) {
+  const cfg = loadCfg();
+  const b = cfg[key];
+  if (!b || !b.scriptId) stop(`Không có backend "${key}" (hoặc thiếu Script ID).`);
+  const ver = Number(version) || (await getDeployment(b.scriptId, b.deploymentId)).deploymentConfig?.versionNumber;
+  const live = await getContent(b.scriptId, ver);
+  const local = readLocal(key);
+  if (!local) stop(`${b.name}: chưa có code trong repo.`);
+  const files = diff(live, local);
+  say(`### ${b.name}: repo so với phiên bản ${ver} — ${files.length ? files.length + ' file khác' : 'giống hệt'}`);
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'gasdiff-'));
+  for (const f of files) {
+    const a = path.join(tmp, 'a'), c = path.join(tmp, 'b');
+    fs.writeFileSync(a, (live.map[f] ?? '').replace(/\r\n/g, '\n')); fs.writeFileSync(c, (local.map[f] ?? '').replace(/\r\n/g, '\n'));
+    let out = '';
+    try { out = execFileSync('diff', ['-u', '--label', `v${ver}/${f}`, '--label', `repo/${f}`, a, c], { encoding: 'utf8' }); }
+    catch (e) { out = e.stdout || ''; }
+    say('```diff\n' + out.slice(0, 60000) + (out.length > 60000 ? '\n… (cắt bớt)' : '') + '\n```');
+  }
+  fs.rmSync(tmp, { recursive: true, force: true });
+}
+
 async function cmdRollback(key, version) {
   const cfg = loadCfg();
   const b = cfg[key];
@@ -465,9 +489,15 @@ async function cmdRollback(key, version) {
     target = vs[0];
     if (!target) stop(`${b.name}: không có phiên bản nào cũ hơn ${cur}.`);
   }
-  await setDeployment(b.scriptId, b.deploymentId, target, `Quay lại phiên bản ${target}`);
-  say(`### Quay lại bản trước`);
-  say(`- ↶ ${b.name}: phiên bản ${cur ?? 'HEAD'} → **${target}** (URL giữ nguyên).`);
+  await setDeployment(b.scriptId, b.deploymentId, target, `Chuyển sang phiên bản ${target}`);
+  await sleep(SMOKE_WAIT);
+  const sm = await smoke(b);
+  if (sm.bad) {
+    if (cur) await setDeployment(b.scriptId, b.deploymentId, cur, `Tự quay lại sau lỗi phiên bản ${target}`);
+    stop(`${b.name}: phiên bản ${target} lỗi khi chạy thử (${sm.bad}) → đã giữ nguyên phiên bản ${cur}.`);
+  }
+  say(`### Chuyển phiên bản`);
+  say(`- ↶ ${b.name}: phiên bản ${cur ?? 'HEAD'} → **${target}** (URL giữ nguyên) · gọi thử: ${sm.ok || sm.skip}.`);
   say(`- Lưu ý: code trong repo không đổi. Lần gộp tiếp theo vào backends/${key}/ sẽ deploy code trong repo.`);
 }
 
@@ -482,6 +512,7 @@ async function main() {
     case 'deploy-changed': return cmdDeploy(changedKeys(a, b), a, desc, true);
     case 'deploy': return cmdDeploy(pickKeys(loadCfg(), a), 'HEAD', desc);
     case 'rollback': return cmdRollback(a, b);
+    case 'diff': return cmdDiff(a, b);
     default:
       console.log('Lệnh: status | discover | pull <key|all|new> | deploy-changed <before> <after> | deploy <key|all> | rollback <key> [version]');
       process.exitCode = 2;
