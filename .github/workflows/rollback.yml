@@ -4,10 +4,8 @@ on:
   workflow_dispatch:
     inputs:
       backend:
-        description: 'Backend'
+        description: 'Backend (tên thư mục trong backends/, vd. marketing, training, mmh-crm-api)'
         required: true
-        type: choice
-        options: [marketing, management, backoffice, training, trip, mkt-online, mkt-offline]
       version:
         description: 'Số phiên bản muốn quay về (để trống = bản ngay trước)'
         required: false

@@ -214,6 +214,13 @@ try {
   { const c2 = cfg(); c2.mkt.scriptId = ''; fs.writeFileSync(path.join(dir, 'backends.json'), JSON.stringify(c2, null, 2)); }
   r = await run('discover');
   check('discover: chìa khoá hỏng ⇒ dừng, không báo nhầm "chưa tìm thấy"', r.code === 1 && !/chưa tìm thấy/.test(r.out), r.out);
+  // dò backend của 1 app khác
+  const app = path.join(dir, 'app-x'); fs.mkdirSync(app);
+  fs.writeFileSync(path.join(app, 'index.html'), `<script>var API_URL="https://script.google.com/macros/s/AKfycbNEW1/exec";\nvar T={trn:"https://script.google.com/macros/s/AKfycbD2/exec"}</script>`);
+  fs.writeFileSync(path.join(dir, 'backends.json'), JSON.stringify({ ...cfg(), trn: { ...cfg().trn, deploymentId: 'AKfycbD2' } }, null, 2));
+  r = await new Promise(res => { const c = spawn(process.execPath, [path.join(HERE, 'scan-app.mjs'), app, 'Org/App-X', '--add'], { cwd: dir }); let o = ''; c.stdout.on('data', d => o += d); c.on('close', code => res({ code, out: o })); });
+  check('scan-app: thêm backend mới + gắn app cho backend có sẵn', r.code === 0 && cfg()['app-x-api-url']?.deploymentId === 'AKfycbNEW1' && cfg()['app-x-api-url'].scriptId === '' && (cfg().trn.apps || []).includes('Org/App-X'), r.out);
+
   ENV.CLASPRC_JSON = '';
   r = await run('status');
   check('chưa có chìa khoá ⇒ hướng dẫn tạo secret', r.code === 1 && /Chưa có chìa khoá/.test(r.out), r.out);

@@ -14,7 +14,18 @@ không cần copy-paste, không cần *Deploy ▸ New version* bằng tay.
 | `backends/mkt-online/` | MKT Online (bài đăng / design) |
 | `backends/mkt-offline/` | MKT Offline (sự kiện) |
 
-Danh sách + Script ID + Deployment ID: `backends.json`.
+Danh sách + Script ID + Deployment ID + app đang dùng (`apps`): `backends.json`. Kho này dùng chung cho **mọi app**
+của MMH có backend Apps Script — chìa khoá chỉ cần 1 lần.
+
+## Thêm backend của một app khác (Claude làm, người dùng chỉ gửi Script ID khi được hỏi)
+1. Mở phiên Claude với repo của app đó; Claude gắn thêm repo này (`add_repo ManiMedicalHanoi/mmh-backend`).
+2. `node tools/scan-app.mjs <thư mục app> <owner/repo> --add` ⇒ thêm backend mới vào `backends.json` (Script ID trống).
+3. PR → gộp ⇒ **Kéo code về** tự chạy: tự tìm Script ID của script riêng trên Drive; script **gắn với file Sheet** thì người
+   dùng mở Sheet ▸ Tiện ích mở rộng ▸ Apps Script và gửi địa chỉ tab đó (`script.google.com/…/projects/<Script ID>/edit`).
+4. Ghi Script ID ⇒ gộp ⇒ code gốc về `backends/<key>/` + `.pull.json` (file còn sửa dở chưa deploy).
+5. Chạy **Kiểm tra** ⇒ xem bảng tình trạng; báo người dùng các điểm ⚠️ cần quyết định trước lần deploy đầu.
+
+Script phải do tài khoản trong chìa khoá (`mmh_product`) sở hữu hoặc được chia sẻ quyền **Chỉnh sửa**.
 
 ## Các nút trong tab **Actions**
 | Workflow | Khi nào chạy | Làm gì |
@@ -49,6 +60,7 @@ Tài khoản đó phải bật **Google Apps Script API**: https://script.google
 `tools/gas.mjs` gọi thẳng Apps Script API (không cần cài clasp):
 ```
 node tools/gas.mjs status | discover | pull <key|all|new> | deploy <key|all> | deploy-changed <before> <after> | rollback <key> [version]
-node tools/selftest.mjs   # 35 kịch bản với Apps Script API giả lập
+node tools/selftest.mjs   # 36 kịch bản với Apps Script API giả lập
 node tools/syntax.mjs     # kiểm cú pháp .gs
+node tools/scan-app.mjs <thư mục app> <owner/repo> [--add]   # dò backend app đang gọi, thêm vào backends.json
 ```

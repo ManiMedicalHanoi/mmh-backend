@@ -1,6 +1,9 @@
 {
   "marketing": {
     "name": "Report Hub – Marketing",
+    "apps": [
+      "ManiMedicalHanoi/MMH-Report"
+    ],
     "deploymentId": "AKfycbzn-5chMgO7lQPKmot8P7UkP9C40MdCPtiTTa4H1gcKepVsnr1IYfcB7sSdK1_jrZYY",
     "scriptId": "1gUrhu4gDj2jzrisZGCx0A8uL0BCNOcPmM3BuXtyD0wSYW2giZcacETbC",
     "sheetId": "14xyRkzhpTLy0IbTzgFx2pobzgNN9TdYUGtOuSW0rrw8",
@@ -8,6 +11,9 @@
   },
   "management": {
     "name": "Report Hub – Management",
+    "apps": [
+      "ManiMedicalHanoi/MMH-Report"
+    ],
     "deploymentId": "AKfycbzKQYH154xD3JQSiNQCNJuReFB2VjH3W1_r6zOqnmkV9cP7__mi0ukTn_hDWxX_WHgs",
     "scriptId": "1KJYy092Ga_V8H69Kpf-_OCI94m6_-KMHdBPavc96HdxYdBBQwswm31N7",
     "sheetId": "1bcclUW00gFGHiAu8A5y2PiiEhvv66dEbI0URS9L4OVQ",
@@ -15,6 +21,9 @@
   },
   "backoffice": {
     "name": "Report Hub – Back Office",
+    "apps": [
+      "ManiMedicalHanoi/MMH-Report"
+    ],
     "deploymentId": "AKfycbxWT_M07dwPD77zgzouJpJn4R64n6T6l57sVvsU3I2RgtN6JZcMrRR9eoovKE_DuFuN_g",
     "scriptId": "1T2qSETanRuKDih3QcgtoevBXhyh5VVuIS31XxV2yZl0ubvuAlBe0Zwxw",
     "sheetId": "1ciXlWLsoP0iYJkv1At84Cj90T4C1CCeHYcAt_z8yspA",
@@ -22,6 +31,10 @@
   },
   "training": {
     "name": "Training Hub",
+    "apps": [
+      "ManiMedicalHanoi/MMH-Report",
+      "ManiMedicalHanoi/Training-Hub"
+    ],
     "deploymentId": "AKfycbwsX4cQEoH4LNlmcNfe8qWIM9K6EiDEXy7PjhP9bHY2citL6xHn5L1unsAlQJHyL9EP",
     "scriptId": "1JX9FmVlATe8V94lcDgxaNS_njn10_T2-CJ7Syg7O6SOxriIvXIk_fdQ-",
     "sheetId": "1byCL6NjhqBuEcd-K5pxYRrQj2XXs6GMIvR79x45mHRQ",
@@ -29,6 +42,9 @@
   },
   "trip": {
     "name": "Business Trip (Công tác)",
+    "apps": [
+      "ManiMedicalHanoi/MMH-Report"
+    ],
     "deploymentId": "AKfycbzAsSxx8NNQhjELq1dnASdXZo4o4sWvGaaHjIrBUkp8ljEb119hUnAdiiBXGfxRfgVniQ",
     "scriptId": "1MGnv4c03zadMvPzyjNU_YLsRvWwJ9wK9dwJzfZC-WoMUxUmVTxy6Koah",
     "sheetId": "15dAQYOG1aJRX-jByVmRFeSFOIPRtdVW7wDvwC_nxJUA",
@@ -36,6 +52,9 @@
   },
   "mkt-online": {
     "name": "MKT Online (bài đăng / design)",
+    "apps": [
+      "ManiMedicalHanoi/MMH-Report"
+    ],
     "deploymentId": "AKfycbx-eZ0sORVEdQs_gh3mRwJJjmOROY2DuwiWdWNO_EjyNrIR8Nrq0rvkJhgO-x1V_ukQjA",
     "scriptId": "1I6CxA56ZqJLvW-GpuGY04zrWPoe7dvSTTSRc2AZhBmBo1vKwtYmshVGC",
     "sheetId": "1JbuvmdfJAX2f8fl49tpcJhgepyGLm81GOS4xXiEKSfc",
@@ -43,6 +62,9 @@
   },
   "mkt-offline": {
     "name": "MKT Offline (sự kiện)",
+    "apps": [
+      "ManiMedicalHanoi/MMH-Report"
+    ],
     "deploymentId": "AKfycbwvH5YqDfVkYLgJiF2x712-fVaQO1neggdE-7VGhOXgAofCv3wRproagHoFj7PBdnEftA",
     "scriptId": "1KGGt8o9FhbSWt1cOmGESslxMNYQdWfLeb9bUXQilO_3YxXurn2ny9-eW",
     "sheetId": "16vIDYRhm6Cj9DN4C26rvbBPW1hF3vAnZ7lgl6Bd02w8",
