@@ -192,7 +192,11 @@ try {
   check('deploy tay ⇒ đưa lên tất cả', r.code === 0 && P.S2.deps.D2 === 3 && P.S2.versions[3].some(f => f.name === 'Draft'), r.out);
 
   r = await run('rollback', 'mkt');
-  check('quay lại bản ngay trước (5 → 4)', r.code === 0 && P.S1.deps.D1 === 4, r.out);
+  check('quay lại bản ngay trước (4) bị lỗi khi gọi thử ⇒ từ chối, giữ phiên bản 5', r.code === 1 && P.S1.deps.D1 === 5 && /đã giữ nguyên phiên bản 5/.test(r.out), r.out);
+  r = await run('rollback', 'mkt', '3');
+  check('chuyển sang phiên bản chỉ định (3) có gọi thử', r.code === 0 && P.S1.deps.D1 === 3 && /gọi thử: HTTP 200/.test(r.out), r.out);
+  r = await run('diff', 'mkt');
+  check('diff: in khác biệt repo ↔ bản đang chạy', r.code === 0 && /repo so với phiên bản 3 — 1 file khác/.test(r.out) && /^\+.*return 1;/m.test(r.out) && /^-.*v:3/m.test(r.out), r.out);
   r = await run('rollback', 'mkt', '2');
   check('quay lại phiên bản chỉ định (2)', r.code === 0 && P.S1.deps.D1 === 2, r.out);
 

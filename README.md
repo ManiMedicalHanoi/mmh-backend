@@ -60,8 +60,8 @@ Tài khoản đó phải bật **Google Apps Script API**: https://script.google
 ## Công cụ
 `tools/gas.mjs` gọi thẳng Apps Script API (không cần cài clasp):
 ```
-node tools/gas.mjs status | discover | pull <key|all|new> | deploy <key|all> | deploy-changed <before> <after> | rollback <key> [version]
-node tools/selftest.mjs   # 37 kịch bản với Apps Script API giả lập
+node tools/gas.mjs status | discover | pull <key|all|new> | deploy <key|all> | deploy-changed <before> <after> | rollback <key> [version] | diff <key> [version]
+node tools/selftest.mjs   # 39 kịch bản với Apps Script API giả lập
 node tools/syntax.mjs     # kiểm cú pháp .gs
 node tools/scan-app.mjs <thư mục app> <owner/repo> [--add]   # dò backend app đang gọi, thêm vào backends.json
 ```
