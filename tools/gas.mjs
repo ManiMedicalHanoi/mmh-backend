@@ -49,14 +49,35 @@ function creds() {
   const f = path.join(os.homedir(), '.clasprc.json');
   if (!raw && fs.existsSync(f)) raw = fs.readFileSync(f, 'utf8');
   if (!raw || !raw.trim()) stop('Chưa có chìa khoá: vào Settings ▸ Secrets and variables ▸ Actions của repo, tạo secret CLASPRC_JSON (nội dung file ~/.clasprc.json sau khi chạy "clasp login").');
-  let j;
-  try { j = JSON.parse(raw); } catch (_) { stop('Secret CLASPRC_JSON không phải JSON hợp lệ — có thể copy thiếu ký tự. Copy lại toàn bộ từ dấu { đầu tiên tới dấu } cuối cùng.'); }
+  const j = parseCreds(raw);
   let c = null;
   if (j.tokens) c = j.tokens.default || Object.values(j.tokens).find(Boolean);
   else if (j.token) c = { ...j.token, client_id: j.oauth2ClientSettings?.clientId, client_secret: j.oauth2ClientSettings?.clientSecret };
   else if (j.refresh_token) c = j;
   if (!c || !c.refresh_token || !c.client_id) stop('Secret CLASPRC_JSON thiếu refresh_token / client_id — hãy đăng nhập lại bằng clasp bản 3 (npx -y @google/clasp@3 login --no-localhost).');
   return c;
+}
+
+/* Copy từ màn hình terminal hay dính: chữ thừa trước { / sau }, dấu xuống dòng chèn giữa chuỗi dài (do màn hình
+ * tự ngắt dòng). JSON của clasp không có xuống dòng hợp lệ nào trong chuỗi ⇒ bỏ hết xuống dòng là an toàn.
+ * Lỗi thì chỉ báo đặc điểm (độ dài, ký tự đầu/cuối, số ngoặc) — KHÔNG in nội dung chìa khoá. */
+function parseCreds(raw) {
+  const tries = [raw];
+  const a = raw.indexOf('{'), b = raw.lastIndexOf('}');
+  if (a >= 0 && b > a) tries.push(raw.slice(a, b + 1));
+  tries.push(tries[tries.length - 1].replace(/[\r\n]+/g, ''));
+  tries.push(tries[tries.length - 1].replace(/[“”]/g, '"').replace(/ /g, ' '));
+  for (const t of tries) { try { return JSON.parse(t); } catch (_) {} }
+  const s = raw.trim();
+  const cnt = ch => s.split(ch).length - 1;
+  const why = [];
+  if (!s.startsWith('{')) why.push('không bắt đầu bằng dấu {');
+  if (!s.endsWith('}')) why.push('không kết thúc bằng dấu } (có thể copy thiếu phần cuối)');
+  if (cnt('{') !== cnt('}')) why.push(`số dấu { (${cnt('{')}) và } (${cnt('}')}) không bằng nhau ⇒ copy thiếu`);
+  if (!/refresh_token/.test(s)) why.push('không thấy chữ refresh_token');
+  if (/[“”]/.test(s)) why.push('có dấu ngoặc kép kiểu “ ” (bị trình soạn thảo đổi)');
+  stop(`Secret CLASPRC_JSON không phải JSON hợp lệ (dài ${s.length} ký tự, ${cnt('\n') + 1} dòng${why.length ? '; ' + why.join('; ') : ''}). ` +
+    'Cách copy chắc chắn: trong Cloud Shell gõ  cloudshell download ~/.clasprc.json  ⇒ tải file về máy, mở bằng Notepad, Ctrl+A, Ctrl+C, rồi dán lại vào secret (Update secret).');
 }
 
 let ACCESS = null;
@@ -250,7 +271,10 @@ async function cmdDiscover() {
   let files = [];
   try {
     files = await pages(`${DRIVE}/files?q=${q}&fields=nextPageToken,files(id,name)&supportsAllDrives=true&includeItemsFromAllDrives=true`, 'files');
-  } catch (e) { say('⚠️ Không liệt kê được dự án trên Drive: ' + e.message); }
+  } catch (e) {
+    if (e instanceof Stop) throw e;  // chìa khoá hỏng ⇒ dừng hẳn, đừng báo nhầm "chưa tìm thấy"
+    say('⚠️ Không liệt kê được dự án trên Drive: ' + e.message);
+  }
   for (const f of files) {
     if (!want.size) break;
     let deps = [];

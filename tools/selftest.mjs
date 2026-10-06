@@ -161,9 +161,16 @@ try {
   r = await run('status');
   check('status: bảng tình trạng', r.code === 0 && /\| MKT \(`mkt`\) \| `S1…` \| 6 \| 6 \| OK \|/.test(r.out), r.out);
 
-  ENV.CLASPRC_JSON = '{"tokens":';
+  const good = JSON.stringify({ tokens: { default: { client_id: 'c', client_secret: 's', refresh_token: 'r', type: 'authorized_user', access_token: 'ya29.' + 'x'.repeat(180) } } }, null, 2);
+  ENV.CLASPRC_JSON = 'mmh_product@cloudshell:~$ cat ~/.clasprc.json\n' + good.replace(/x{60}/g, m => m + '\n') + '\nmmh_product@cloudshell:~$ ';
   r = await run('status');
-  check('chìa khoá dán thiếu ⇒ báo dễ hiểu', r.code === 1 && /không phải JSON hợp lệ/.test(r.out), r.out);
+  check('chìa khoá copy từ terminal (bị ngắt dòng, dính dấu nhắc) ⇒ vẫn đọc được', r.code === 0 && /dùng được/.test(r.out), r.out);
+  ENV.CLASPRC_JSON = good.slice(0, 120) + 'SECRETPART';
+  r = await run('status');
+  check('chìa khoá dán thiếu ⇒ báo dễ hiểu, không lộ nội dung', r.code === 1 && /không phải JSON hợp lệ/.test(r.out) && /copy thiếu/.test(r.out) && !/SECRETPART|authorized_user/.test(r.out), r.out);
+  { const c2 = cfg(); c2.mkt.scriptId = ''; fs.writeFileSync(path.join(dir, 'backends.json'), JSON.stringify(c2, null, 2)); }
+  r = await run('discover');
+  check('discover: chìa khoá hỏng ⇒ dừng, không báo nhầm "chưa tìm thấy"', r.code === 1 && !/chưa tìm thấy/.test(r.out), r.out);
   ENV.CLASPRC_JSON = '';
   r = await run('status');
   check('chưa có chìa khoá ⇒ hướng dẫn tạo secret', r.code === 1 && /Chưa có chìa khoá/.test(r.out), r.out);
