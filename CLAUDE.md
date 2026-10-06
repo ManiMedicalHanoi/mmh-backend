@@ -12,4 +12,5 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
 - Sau khi gộp: xem kết quả workflow Deploy; đỏ ⇒ đọc log, sửa, gộp lại. Gọi thử lỗi thì web app đã tự quay về phiên bản
   trước — vẫn phải sửa code trong repo.
 - Thay đổi backend kèm thay đổi app: gộp backend **trước**, đợi Deploy xanh, rồi mới gộp frontend.
+- Việc còn dở / đã hứa: `TODO.md` — đọc trước khi bắt đầu.
 - `script.google.com` bị chặn trong môi trường Claude; GitHub Actions thì gọi được.

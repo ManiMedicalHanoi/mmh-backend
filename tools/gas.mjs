@@ -288,16 +288,26 @@ async function cmdDiscover() {
     if (e instanceof Stop) throw e;  // chìa khoá hỏng ⇒ dừng hẳn, đừng báo nhầm "chưa tìm thấy"
     say('⚠️ Không liệt kê được dự án trên Drive: ' + e.message);
   }
+  let scanned = 0;
+  const errs = new Map();  // thông báo lỗi → số dự án gặp lỗi đó
   for (const f of files) {
     if (!want.size) break;
     let deps = [];
-    try { deps = await listDeployments(f.id); } catch (_) { continue; }
+    try { deps = await listDeployments(f.id); scanned++; }
+    catch (e) {
+      if (/Apps Script API|has not enabled|has not been used/i.test(e.message)) stop(e.message.replace(/^[^:]*→ \d+: /, ''));
+      const m = e.message.replace(/^[^:]*→ /, '').slice(0, 160);
+      errs.set(m, (errs.get(m) || 0) + 1);
+      continue;
+    }
     for (const d of deps) {
       const k = want.get(d.deploymentId);
       if (k) { cfg[k].scriptId = f.id; want.delete(d.deploymentId); say(`- ✅ ${cfg[k].name}: tìm thấy trong dự án "${f.name}"`); }
     }
   }
   saveCfg(cfg);
+  say(`Đã dò ${scanned}/${files.length} dự án Apps Script riêng (không gắn file) trên Drive.`);
+  for (const [m, n] of errs) say(`- ⚠️ ${n} dự án không đọc được: ${m}`);
   for (const k of want.values()) say(`- ❓ ${cfg[k].name}: chưa tìm thấy (thường là script gắn với file Sheet) — cần Script ID: mở Sheet ▸ Tiện ích mở rộng ▸ Apps Script ▸ ⚙ Cài đặt dự án ▸ Mã tập lệnh.`);
 }
 
@@ -310,8 +320,11 @@ async function cmdPull(arg) {
   for (const k of keys) {
     const b = cfg[k];
     try {
+      if (/^AKfycb/.test(b.scriptId)) stop(`"${b.scriptId.slice(0, 14)}…" là Mã triển khai, không phải Script ID (Script ID nằm trong địa chỉ trang Apps Script: …/projects/<Script ID>/edit).`);
+      const p = await api('GET', `${API}/projects/${b.scriptId}`);
+      if (b.sheetId && p.parentId && p.parentId !== b.sheetId) stop(`Script ID của ${b.name} là script "${p.title}" gắn với file khác (${p.parentId.slice(0, 10)}…), không phải Sheet ${b.sheetId.slice(0, 10)}… — có thể dán nhầm thứ tự.`);
       const deps = await listDeployments(b.scriptId);
-      if (!deps.some(d => d.deploymentId === b.deploymentId)) stop(`Script ID của ${b.name} không chứa deployment ${b.deploymentId.slice(0, 14)}… — kiểm tra lại Script ID.`);
+      if (!deps.some(d => d.deploymentId === b.deploymentId)) stop(`Script "${p.title}" không có deployment ${b.deploymentId.slice(0, 14)}… mà app đang gọi. Các deployment hiện có: ${deps.map(d => d.deploymentId.slice(0, 14) + '…').join(', ') || 'không có'}.`);
       const set = await getContent(b.scriptId);
       writeLocal(k, set);
       say(`- ✅ ${b.name}: ${set.order.length} file (${set.order.join(', ')})`);

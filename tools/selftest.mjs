@@ -48,6 +48,7 @@ const server = http.createServer(async (req, res) => {
   if (!(m = u.pathname.match(/^\/v1\/projects\/(\w+)(\/.*)?$/))) return json(404, { error: { message: 'nf' } });
   const p = P[m[1]], rest = m[2] || '';
   if (!p) return json(404, { error: { message: 'Requested entity was not found.' } });
+  if (rest === '' && req.method === 'GET') return json(200, { scriptId: m[1], title: p.name, ...(p.drive ? {} : { parentId: 'SHEET_' + m[1] }) });
   if (rest === '/content' && req.method === 'GET') {
     const v = u.searchParams.get('versionNumber');
     return json(200, { scriptId: m[1], files: clone(v ? p.versions[v] : p.head) });
@@ -99,7 +100,13 @@ try {
   check('discover: tìm được Script ID qua Drive', cfg().mkt.scriptId === 'S1' && cfg().trn.scriptId === '', r.out);
   check('discover: báo backend không tìm thấy', /Training: chưa tìm thấy/.test(r.out), r.out);
 
-  const c = cfg(); c.trn.scriptId = 'S2'; fs.writeFileSync(path.join(dir, 'backends.json'), JSON.stringify(c, null, 2));
+  let c = cfg(); c.trn.scriptId = 'AKfycbXYZ'; fs.writeFileSync(path.join(dir, 'backends.json'), JSON.stringify(c, null, 2));
+  r = await run('pull', 'trn');
+  check('pull: dán nhầm Mã triển khai thay Script ID ⇒ báo rõ', r.code === 1 && /là Mã triển khai, không phải Script ID/.test(r.out), r.out);
+  c = cfg(); c.trn.scriptId = 'S2'; c.trn.sheetId = 'SHEET_KHAC'; fs.writeFileSync(path.join(dir, 'backends.json'), JSON.stringify(c, null, 2));
+  r = await run('pull', 'trn');
+  check('pull: Script ID gắn với Sheet khác ⇒ dừng, báo nhầm thứ tự', r.code === 1 && /gắn với file khác/.test(r.out) && !fs.existsSync(path.join(dir, 'backends/trn')), r.out);
+  c = cfg(); c.trn.sheetId = 'SHEET_S2'; fs.writeFileSync(path.join(dir, 'backends.json'), JSON.stringify(c, null, 2));
   r = await run('pull', 'new');
   check('pull: kéo đủ 2 backend', r.code === 0 && fs.existsSync(path.join(dir, 'backends/mkt/ui/Page.html')) && fs.existsSync(path.join(dir, 'backends/trn/Code.gs')), r.out);
   check('pull: lưu thứ tự file', JSON.parse(rd('mkt/.files.json')).join() === 'appsscript.json,Z_Config.gs,Code.gs,ui/Page.html', rd('mkt/.files.json'));
