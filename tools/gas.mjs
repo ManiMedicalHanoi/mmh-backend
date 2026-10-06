@@ -121,7 +121,9 @@ async function api(method, url, body) {
     const txt = await r.text();
     let j; try { j = txt ? JSON.parse(txt) : {}; } catch (_) { j = { raw: txt }; }
     if (r.ok) return j;
-    if ((r.status === 429 || r.status >= 500) && i < 3) { await sleep(2000 * (i + 1)); continue; }
+    // 429 / 5xx / 400 "Precondition check failed" (Apps Script API trả lúc có lúc không khi gọi dồn) ⇒ thử lại
+    const transient = r.status === 429 || r.status >= 500 || (r.status === 400 && /Precondition check failed/i.test(txt));
+    if (transient && i < 4) { await sleep(2000 * (i + 1)); continue; }
     let msg = j.error?.message || txt.slice(0, 300);
     if (/Apps Script API|has not enabled|has not been used/i.test(msg)) msg += '\n→ Bật Google Apps Script API tại https://script.google.com/home/usersettings (đúng tài khoản sở hữu script), đợi ~5 phút rồi chạy lại.';
     const e = new Error(`${method} ${url.replace(/\?.*/, '')} → ${r.status}: ${msg}`);
