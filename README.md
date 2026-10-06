@@ -46,6 +46,6 @@ Tài khoản đó phải bật **Google Apps Script API**: https://script.google
 `tools/gas.mjs` gọi thẳng Apps Script API (không cần cài clasp):
 ```
 node tools/gas.mjs status | discover | pull <key|all|new> | deploy <key|all> | deploy-changed <before> <after> | rollback <key> [version]
-node tools/selftest.mjs   # 22 kịch bản với Apps Script API giả lập
+node tools/selftest.mjs   # 24 kịch bản với Apps Script API giả lập
 node tools/syntax.mjs     # kiểm cú pháp .gs
 ```
