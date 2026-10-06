@@ -28,4 +28,5 @@
 8. Business Trip `Mã.gs`: 17 chỗ gõ sai tên miền `manimedicalthanoi.com` (phần lớn ở chữ hướng dẫn / test).
 10. ✅ Trang phân quyền Report Hub (Training Hub v3.13: `rhAdminList` / `rhAdminSave` / `rhAdminKick`; RH_Users thêm Dept/Title/Perms).
    Quyền hiện được app áp dụng (ẩn / chặn nút); giai đoạn 2 backend phòng ban đọc thêm Perms để chặn ở máy chủ.
-9. Training Hub chưa có `rhAssign*` (bảng "Việc mới được giao" của Report Hub đang lỗi im lặng) — cần thêm.
+9. ✅ Training Hub v3.14 có `rhAssign*` (sheet RH_Assign) + `rhAssignReply` + `rhDirectory` — trước đó "Việc mới được giao" lỗi im lặng.
+   ⏳ Tuỳ chọn: đọc email trả lời thật (cần hộp thư theo dõi + quyền Gmail đọc ⇒ chủ script cấp quyền lại) — hỏi người dùng.
