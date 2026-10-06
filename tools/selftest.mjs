@@ -25,6 +25,7 @@ const P = {
   S2: { name: 'Training (gắn Sheet)', drive: false, head: [
     { name: 'appsscript', type: 'JSON', source: MANIFEST },
     { name: 'Code', type: 'SERVER_JS', source: 'function doGet(){}\n' },
+    { name: 'Kết nối KPI', type: 'SERVER_JS', source: 'var KPI = 1;\n' },   // tên file có dấu (lỗi thật 06/10/2026)
   ], versions: {}, deps: { D2: 1 } },
 };
 for (const p of Object.values(P)) p.versions[1] = clone(p.head);
