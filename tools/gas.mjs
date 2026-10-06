@@ -255,10 +255,21 @@ async function smoke(b) {
       return { bad: m ? m[0] : txt.slice(0, 200) };
     }
     if (r.status >= 500) return { bad: 'HTTP ' + r.status };
+    if (r.status !== 200) return { weak: `HTTP ${r.status}` };
     return { ok: `HTTP ${r.status}` };
   } catch (e) {
     return { skip: 'không gọi được (' + e.message + ')' };
   }
+}
+
+/* So gọi thử TRƯỚC và SAU khi đổi phiên bản: lỗi khi sau ra trang lỗi Apps Script, hoặc trước gọi được (200) mà sau
+ * không. Có backend vốn không trả 200 cho lệnh ping (vd. Training Hub: 404 "unable to open the file" ở mọi phiên bản)
+ * ⇒ không kiểm được, không coi là lỗi. */
+function judge(pre, post) {
+  if (post.bad) return { bad: post.bad };
+  if (post.ok) return { ok: post.ok };
+  if (pre.ok) return { bad: `trước khi đổi gọi được (${pre.ok}), sau khi đổi: ${post.weak || post.skip}` };
+  return { skip: `không kiểm được — trước và sau đều ${post.weak || post.skip}` };
 }
 
 /* ───────── lệnh ───────── */
@@ -429,10 +440,11 @@ async function deployOne(key, before, description, auto = false) {
     if (!diff(live, local).length) { say(`- ➖ ${b.name}: không có gì mới (đang chạy phiên bản ${prevVer}).`); return; }
   }
 
+  const pre = await smoke(b);
   const v = await api('POST', `${API}/projects/${b.scriptId}/versions`, { description: (description || '').slice(0, 100) });
   await setDeployment(b.scriptId, b.deploymentId, v.versionNumber, description);
   await sleep(SMOKE_WAIT);
-  const sm = await smoke(b);
+  const sm = judge(pre, await smoke(b));
   if (sm.bad) {
     if (prevVer) await setDeployment(b.scriptId, b.deploymentId, prevVer, 'Tự quay lại sau lỗi: ' + (description || ''));
     // Trigger hẹn giờ / menu trong Sheet chạy code HEAD (không phải bản deploy) ⇒ trả cả code HEAD về như trước
@@ -513,9 +525,10 @@ async function cmdRollback(key, version) {
     target = vs[0];
     if (!target) stop(`${b.name}: không có phiên bản nào cũ hơn ${cur}.`);
   }
+  const pre = await smoke(b);
   await setDeployment(b.scriptId, b.deploymentId, target, `Chuyển sang phiên bản ${target}`);
   await sleep(SMOKE_WAIT);
-  const sm = await smoke(b);
+  const sm = judge(pre, await smoke(b));
   if (sm.bad) {
     if (cur) await setDeployment(b.scriptId, b.deploymentId, cur, `Tự quay lại sau lỗi phiên bản ${target}`);
     stop(`${b.name}: phiên bản ${target} lỗi khi chạy thử (${sm.bad}) → đã giữ nguyên phiên bản ${cur}.`);

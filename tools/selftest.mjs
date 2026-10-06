@@ -47,6 +47,7 @@ const server = http.createServer(async (req, res) => {
   if ((m = u.pathname.match(/^\/exec\/(\w+)$/))) {
     const p = Object.values(P).find(p => m[1] in p.deps);
     const files = p.versions[p.deps[m[1]]];
+    if (files.some(f => /NOTFOUND/.test(f.source)) || P[Object.keys(P).find(id => m[1] in P[id].deps)].always404) { res.writeHead(404, { 'content-type': 'text/html' }); return res.end('<html>Sorry, unable to open the file at this time.</html>'); }
     if (files.some(f => /BROKEN/.test(f.source))) { res.writeHead(200, { 'content-type': 'text/html' }); return res.end('<html><head><title>Error</title></head><body><div>TypeError: BROKEN is not a function (line 1, file &quot;Code&quot;)</div></body></html>'); }
     return json(200, { ok: true });
   }
@@ -191,6 +192,19 @@ try {
   r = await run('deploy', 'trn');
   check('deploy tay ⇒ đưa lên tất cả', r.code === 0 && P.S2.deps.D2 === 3 && P.S2.versions[3].some(f => f.name === 'Draft'), r.out);
 
+  // gọi thử so trước/sau: trước 200 mà sau 404 ⇒ lỗi; backend vốn 404 ở mọi bản ⇒ không kiểm được, vẫn deploy
+  wr('mkt/Code.gs', rd('mkt/Code.gs') + '\n// NOTFOUND\n');
+  before = sha; sha = commit('mkt: trả 404');
+  r = await run('deploy-changed', before, sha);
+  check('gọi thử: trước 200, sau 404 ⇒ tự quay lại', r.code === 1 && P.S1.deps.D1 === 5 && /trước khi đổi gọi được/.test(r.out), r.out);
+  git('checkout', '-q', before, '--', 'backends/mkt'); before = sha; sha = commit('mkt: bỏ 404');
+  P.S2.always404 = true;
+  wr('trn/Code.gs', 'function doGet(){ return 4; }\n');
+  before = sha; sha = commit('trn: sửa khi backend vốn 404');
+  r = await run('deploy-changed', before, sha);
+  check('backend vốn trả 404 (như Training Hub) ⇒ vẫn deploy, ghi "không kiểm được"', r.code === 0 && /không kiểm được — trước và sau đều HTTP 404/.test(r.out), r.out);
+  P.S2.always404 = false;
+
   r = await run('rollback', 'mkt');
   check('quay lại bản ngay trước (4) bị lỗi khi gọi thử ⇒ từ chối, giữ phiên bản 5', r.code === 1 && P.S1.deps.D1 === 5 && /đã giữ nguyên phiên bản 5/.test(r.out), r.out);
   r = await run('rollback', 'mkt', '3');
@@ -201,10 +215,10 @@ try {
   check('quay lại phiên bản chỉ định (2)', r.code === 0 && P.S1.deps.D1 === 2, r.out);
 
   r = await run('deploy', 'mkt');
-  check('deploy tay đưa bản trong repo lên lại (sau rollback)', r.code === 0 && P.S1.deps.D1 === 6, r.out);
+  check('deploy tay đưa bản trong repo lên lại (sau rollback)', r.code === 0 && P.S1.deps.D1 === 7, r.out);
 
   r = await run('status');
-  check('status: bảng tình trạng', r.code === 0 && /\| MKT \(`mkt`\) \| `S1…` \| 6 · USER_DEPLOYING\/ANYONE_ANONYMOUS \| 6 \| OK \|/.test(r.out), r.out);
+  check('status: bảng tình trạng', r.code === 0 && /\| MKT \(`mkt`\) \| `S1…` \| 7 · USER_DEPLOYING\/ANYONE_ANONYMOUS \| 7 \| OK \|/.test(r.out), r.out);
 
   const good = JSON.stringify({ tokens: { default: { client_id: 'c', client_secret: 's', refresh_token: 'r', type: 'authorized_user', access_token: 'ya29.' + 'x'.repeat(180) } } }, null, 2);
   ENV.CLASPRC_JSON = 'mmh_product@cloudshell:~$ cat ~/.clasprc.json\n' + good.replace(/x{60}/g, m => m + '\n') + '\nmmh_product@cloudshell:~$ ';
