@@ -3,42 +3,49 @@
     "name": "Report Hub – Marketing",
     "deploymentId": "AKfycbzn-5chMgO7lQPKmot8P7UkP9C40MdCPtiTTa4H1gcKepVsnr1IYfcB7sSdK1_jrZYY",
     "scriptId": "",
+    "sheetId": "14xyRkzhpTLy0IbTzgFx2pobzgNN9TdYUGtOuSW0rrw8",
     "url": "https://script.google.com/macros/s/AKfycbzn-5chMgO7lQPKmot8P7UkP9C40MdCPtiTTa4H1gcKepVsnr1IYfcB7sSdK1_jrZYY/exec"
   },
   "management": {
     "name": "Report Hub – Management",
     "deploymentId": "AKfycbzKQYH154xD3JQSiNQCNJuReFB2VjH3W1_r6zOqnmkV9cP7__mi0ukTn_hDWxX_WHgs",
     "scriptId": "",
+    "sheetId": "1bcclUW00gFGHiAu8A5y2PiiEhvv66dEbI0URS9L4OVQ",
     "url": "https://script.google.com/macros/s/AKfycbzKQYH154xD3JQSiNQCNJuReFB2VjH3W1_r6zOqnmkV9cP7__mi0ukTn_hDWxX_WHgs/exec"
   },
   "backoffice": {
     "name": "Report Hub – Back Office",
     "deploymentId": "AKfycbxWT_M07dwPD77zgzouJpJn4R64n6T6l57sVvsU3I2RgtN6JZcMrRR9eoovKE_DuFuN_g",
     "scriptId": "",
+    "sheetId": "1ciXlWLsoP0iYJkv1At84Cj90T4C1CCeHYcAt_z8yspA",
     "url": "https://script.google.com/macros/s/AKfycbxWT_M07dwPD77zgzouJpJn4R64n6T6l57sVvsU3I2RgtN6JZcMrRR9eoovKE_DuFuN_g/exec"
   },
   "training": {
     "name": "Training Hub",
     "deploymentId": "AKfycbwsX4cQEoH4LNlmcNfe8qWIM9K6EiDEXy7PjhP9bHY2citL6xHn5L1unsAlQJHyL9EP",
     "scriptId": "",
+    "sheetId": "1byCL6NjhqBuEcd-K5pxYRrQj2XXs6GMIvR79x45mHRQ",
     "url": "https://script.google.com/macros/s/AKfycbwsX4cQEoH4LNlmcNfe8qWIM9K6EiDEXy7PjhP9bHY2citL6xHn5L1unsAlQJHyL9EP/exec"
   },
   "trip": {
     "name": "Business Trip (Công tác)",
     "deploymentId": "AKfycbzAsSxx8NNQhjELq1dnASdXZo4o4sWvGaaHjIrBUkp8ljEb119hUnAdiiBXGfxRfgVniQ",
     "scriptId": "",
+    "sheetId": "15dAQYOG1aJRX-jByVmRFeSFOIPRtdVW7wDvwC_nxJUA",
     "url": "https://script.google.com/a/macros/manimedicalhanoi.com/s/AKfycbzAsSxx8NNQhjELq1dnASdXZo4o4sWvGaaHjIrBUkp8ljEb119hUnAdiiBXGfxRfgVniQ/exec"
   },
   "mkt-online": {
     "name": "MKT Online (bài đăng / design)",
     "deploymentId": "AKfycbx-eZ0sORVEdQs_gh3mRwJJjmOROY2DuwiWdWNO_EjyNrIR8Nrq0rvkJhgO-x1V_ukQjA",
     "scriptId": "",
+    "sheetId": "1JbuvmdfJAX2f8fl49tpcJhgepyGLm81GOS4xXiEKSfc",
     "url": "https://script.google.com/macros/s/AKfycbx-eZ0sORVEdQs_gh3mRwJJjmOROY2DuwiWdWNO_EjyNrIR8Nrq0rvkJhgO-x1V_ukQjA/exec"
   },
   "mkt-offline": {
     "name": "MKT Offline (sự kiện)",
     "deploymentId": "AKfycbwvH5YqDfVkYLgJiF2x712-fVaQO1neggdE-7VGhOXgAofCv3wRproagHoFj7PBdnEftA",
     "scriptId": "",
+    "sheetId": "16vIDYRhm6Cj9DN4C26rvbBPW1hF3vAnZ7lgl6Bd02w8",
     "url": "https://script.google.com/macros/s/AKfycbwvH5YqDfVkYLgJiF2x712-fVaQO1neggdE-7VGhOXgAofCv3wRproagHoFj7PBdnEftA/exec"
   }
 }

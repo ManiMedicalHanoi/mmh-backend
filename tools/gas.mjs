@@ -320,8 +320,11 @@ async function cmdPull(arg) {
   for (const k of keys) {
     const b = cfg[k];
     try {
+      if (/^AKfycb/.test(b.scriptId)) stop(`"${b.scriptId.slice(0, 14)}…" là Mã triển khai, không phải Script ID (Script ID nằm trong địa chỉ trang Apps Script: …/projects/<Script ID>/edit).`);
+      const p = await api('GET', `${API}/projects/${b.scriptId}`);
+      if (b.sheetId && p.parentId && p.parentId !== b.sheetId) stop(`Script ID của ${b.name} là script "${p.title}" gắn với file khác (${p.parentId.slice(0, 10)}…), không phải Sheet ${b.sheetId.slice(0, 10)}… — có thể dán nhầm thứ tự.`);
       const deps = await listDeployments(b.scriptId);
-      if (!deps.some(d => d.deploymentId === b.deploymentId)) stop(`Script ID của ${b.name} không chứa deployment ${b.deploymentId.slice(0, 14)}… — kiểm tra lại Script ID.`);
+      if (!deps.some(d => d.deploymentId === b.deploymentId)) stop(`Script "${p.title}" không có deployment ${b.deploymentId.slice(0, 14)}… mà app đang gọi. Các deployment hiện có: ${deps.map(d => d.deploymentId.slice(0, 14) + '…').join(', ') || 'không có'}.`);
       const set = await getContent(b.scriptId);
       writeLocal(k, set);
       say(`- ✅ ${b.name}: ${set.order.length} file (${set.order.join(', ')})`);
