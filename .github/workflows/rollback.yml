@@ -1,0 +1,28 @@
+name: Quay lại bản trước
+# Actions ▸ Quay lại bản trước ▸ Run workflow ▸ chọn backend (để trống "version" = phiên bản ngay trước).
+on:
+  workflow_dispatch:
+    inputs:
+      backend:
+        description: 'Backend'
+        required: true
+        type: choice
+        options: [marketing, management, backoffice, training, trip, mkt-online, mkt-offline]
+      version:
+        description: 'Số phiên bản muốn quay về (để trống = bản ngay trước)'
+        required: false
+        default: ''
+concurrency: { group: gas, cancel-in-progress: false }
+permissions: { contents: read }
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+          B: ${{ inputs.backend }}
+          V: ${{ inputs.version }}
+        run: node tools/gas.mjs rollback "$B" "$V"

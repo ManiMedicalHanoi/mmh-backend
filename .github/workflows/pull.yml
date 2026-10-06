@@ -1,0 +1,55 @@
+name: Kéo code về
+# Lấy code đang có trên Apps Script về repo (tự tìm Script ID còn thiếu theo Deployment ID).
+# Tự chạy khi backends.json đổi trên main (chỉ kéo backend chưa có code); chạy tay để kéo lại bất kỳ backend nào.
+on:
+  push:
+    branches: [main]
+    paths: ['backends.json']
+  workflow_dispatch:
+    inputs:
+      backend:
+        description: 'Backend cần kéo về (key trong backends.json, all, hoặc new = chỉ backend chưa có code)'
+        required: true
+        default: new
+concurrency: { group: gas, cancel-in-progress: false }
+permissions: { contents: write }
+jobs:
+  pull:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      HAS_KEY: ${{ secrets.CLASPRC_JSON != '' }}
+    steps:
+      - name: Chưa có chìa khoá
+        if: env.HAS_KEY != 'true' && github.event_name == 'push'
+        run: echo "::notice::Chưa có secret CLASPRC_JSON — bỏ qua. Thêm secret rồi chạy tay workflow 'Kéo code về'."
+      - uses: actions/checkout@v4
+        if: env.HAS_KEY == 'true' || github.event_name != 'push'
+      - uses: actions/setup-node@v4
+        if: env.HAS_KEY == 'true' || github.event_name != 'push'
+        with: { node-version: 20 }
+      - name: Tìm Script ID còn thiếu
+        if: env.HAS_KEY == 'true' || github.event_name != 'push'
+        env: { CLASPRC_JSON: '${{ secrets.CLASPRC_JSON }}' }
+        run: node tools/gas.mjs discover
+      - name: Kéo code
+        if: env.HAS_KEY == 'true' || github.event_name != 'push'
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+          INPUT_BACKEND: ${{ inputs.backend || 'new' }}
+        run: node tools/gas.mjs pull "$INPUT_BACKEND"
+      - name: Lưu vào repo
+        if: always() && (env.HAS_KEY == 'true' || github.event_name != 'push')
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then echo "Không có gì mới."; exit 0; fi
+          git commit -m "Kéo code từ Apps Script (${INPUT_BACKEND:-new})"
+          git push
+        env:
+          INPUT_BACKEND: ${{ inputs.backend || 'new' }}
+      - name: Tình trạng
+        if: always() && (env.HAS_KEY == 'true' || github.event_name != 'push')
+        env: { CLASPRC_JSON: '${{ secrets.CLASPRC_JSON }}' }
+        run: node tools/gas.mjs status

@@ -1,0 +1,38 @@
+name: Deploy backend
+# Tự chạy khi gộp thay đổi vào main trong thư mục backends/ → cập nhật đúng deployment cũ (URL /exec giữ nguyên).
+# Chạy tay: Actions ▸ Deploy backend ▸ Run workflow ▸ chọn backend.
+on:
+  push:
+    branches: [main]
+    paths: ['backends/**']
+  workflow_dispatch:
+    inputs:
+      backend:
+        description: 'Backend cần deploy (key trong backends.json, hoặc all)'
+        required: true
+        default: all
+concurrency: { group: gas, cancel-in-progress: false }
+permissions: { contents: read }
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Deploy
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+          DEPLOY_DESC: ${{ github.event_name == 'push' && github.event.head_commit.message || format('Deploy tay bởi {0}', github.actor) }}
+          BEFORE: ${{ github.event.before }}
+          INPUT_BACKEND: ${{ inputs.backend }}
+        run: |
+          DEPLOY_DESC="$(printf '%s' "$DEPLOY_DESC" | head -n1) (${GITHUB_SHA::7})"
+          export DEPLOY_DESC
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            node tools/gas.mjs deploy-changed "$BEFORE" "$GITHUB_SHA"
+          else
+            node tools/gas.mjs deploy "$INPUT_BACKEND"
+          fi
