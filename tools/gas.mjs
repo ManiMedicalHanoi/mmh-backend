@@ -411,6 +411,7 @@ async function deployOne(key, before, description, auto = false) {
   }
 
 
+  let pushed = false;
   if (diff(remote, local).length) {
     const base = validSha(before) ? readAt(before, key) : null;
     if (!base) stop(`${b.name}: chưa có bản gốc trong repo để đối chiếu — chạy "Kéo code về" trước.`);
@@ -419,6 +420,7 @@ async function deployOne(key, before, description, auto = false) {
     if (drift.length && inHistory(remote, before, key)) drift = [];
     if (drift.length) stop(`${b.name}: code trên Apps Script đã bị sửa trực tiếp (ngoài GitHub) ở: ${drift.join(', ')}. Dừng để không ghi đè. Chạy workflow "Kéo code về" cho backend này, rồi áp lại thay đổi.`);
     await api('PUT', `${API}/projects/${b.scriptId}/content`, { scriptId: b.scriptId, files: toRemote(local) });
+    pushed = true;
   } else if (prevVer) {
     const live = await getContent(b.scriptId, prevVer);
     if (!diff(live, local).length) { say(`- ➖ ${b.name}: không có gì mới (đang chạy phiên bản ${prevVer}).`); return; }
@@ -430,7 +432,9 @@ async function deployOne(key, before, description, auto = false) {
   const sm = await smoke(b);
   if (sm.bad) {
     if (prevVer) await setDeployment(b.scriptId, b.deploymentId, prevVer, 'Tự quay lại sau lỗi: ' + (description || ''));
-    stop(`${b.name}: phiên bản ${v.versionNumber} lỗi khi chạy thử (${sm.bad}) → đã tự quay lại phiên bản ${prevVer ?? '?'}.`);
+    // Trigger hẹn giờ / menu trong Sheet chạy code HEAD (không phải bản deploy) ⇒ trả cả code HEAD về như trước
+    if (pushed) await api('PUT', `${API}/projects/${b.scriptId}/content`, { scriptId: b.scriptId, files: toRemote(remote) });
+    stop(`${b.name}: phiên bản ${v.versionNumber} lỗi khi chạy thử (${sm.bad}) → đã tự quay lại phiên bản ${prevVer ?? '?'}${pushed ? ' và trả code trong dự án về như trước' : ''}.`);
   }
   say(`- ✅ ${b.name}: phiên bản ${prevVer ?? '—'} → **${v.versionNumber}** · URL giữ nguyên · gọi thử: ${sm.ok || sm.skip}`);
   if (v.versionNumber >= VERSION_WARN) {

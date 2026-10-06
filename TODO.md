@@ -12,4 +12,7 @@
 4. **Tự phát hiện thay đổi cột** (người dùng đã đồng ý 06/10/2026): thêm action đọc dòng tiêu đề các tab mà backend dùng
    ⇒ workflow định kỳ so với `docs/cau-truc-sheet.md`; có cột bị thêm / xoá / đổi tên ⇒ báo (issue GitHub + email)
    trước khi app lỗi.
-5. Cập nhật `CLAUDE.md` của repo MMH-Report: bỏ quy tắc "gửi file .gs cho người dùng dán", trỏ sang kho này.
+5. ✅ Cập nhật `CLAUDE.md` của repo MMH-Report + skill `gh-webapp-upgrader` (`references/backend-deploy.md`) — người dùng
+   cần tải lại file `skills/dist/gh-webapp-upgrader.skill` lên phần Skills của Claude.
+6. Đưa backend các app khác vào kho này khi người dùng mở phiên với app đó (README ▸ "Thêm backend của một app khác").
+   Đã thấy: `AKfycbwwGhYa…` (Field Report Surgical — Report Hub chỉ mở link, có thể thuộc repo Surgical-Sale-Report).
