@@ -165,7 +165,10 @@ try {
   ENV.CLASPRC_JSON = 'mmh_product@cloudshell:~$ cat ~/.clasprc.json\n' + good.replace(/x{60}/g, m => m + '\n') + '\nmmh_product@cloudshell:~$ ';
   r = await run('status');
   check('chìa khoá copy từ terminal (bị ngắt dòng, dính dấu nhắc) ⇒ vẫn đọc được', r.code === 0 && /dùng được/.test(r.out), r.out);
-  ENV.CLASPRC_JSON = good.slice(0, 120) + 'SECRETPART';
+  ENV.CLASPRC_JSON = good.slice(0, good.indexOf('ya29.') + 100);
+  r = await run('status');
+  check('chìa khoá cụt ở access_token (refresh_token còn nguyên) ⇒ tự sửa, vẫn chạy', r.code === 0 && /copy thiếu phần cuối/.test(r.out) && /dùng được/.test(r.out), r.out);
+  ENV.CLASPRC_JSON = good.slice(0, 40) + 'SECRETPART';
   r = await run('status');
   check('chìa khoá dán thiếu ⇒ báo dễ hiểu, không lộ nội dung', r.code === 1 && /không phải JSON hợp lệ/.test(r.out) && /copy thiếu/.test(r.out) && !/SECRETPART|authorized_user/.test(r.out), r.out);
   { const c2 = cfg(); c2.mkt.scriptId = ''; fs.writeFileSync(path.join(dir, 'backends.json'), JSON.stringify(c2, null, 2)); }

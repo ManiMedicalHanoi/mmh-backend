@@ -68,6 +68,19 @@ function parseCreds(raw) {
   tries.push(tries[tries.length - 1].replace(/[\r\n]+/g, ''));
   tries.push(tries[tries.length - 1].replace(/[“”]/g, '"').replace(/ /g, ' '));
   for (const t of tries) { try { return JSON.parse(t); } catch (_) {} }
+  // Copy thiếu phần cuối (thường là access_token — mã ngắn hạn, không cần): cắt về cặp "khoá": "giá trị" đầy đủ
+  // cuối cùng rồi đóng ngoặc. refresh_token có bị cụt hay không sẽ được Google xác nhận ở bước đổi mã.
+  const t = tries[tries.length - 1];
+  for (let i = t.lastIndexOf('",'); i > 0; i = t.lastIndexOf('",', i - 1)) {
+    const head = t.slice(0, i + 1);
+    const open = head.split('{').length - head.split('}').length;
+    if (open <= 0) continue;
+    try {
+      const j = JSON.parse(head + '}'.repeat(open));
+      say('⚠️ Chìa khoá CLASPRC_JSON bị copy thiếu phần cuối — đã tự bỏ đoạn cụt và dùng phần còn lại.');
+      return j;
+    } catch (_) {}
+  }
   const s = raw.trim();
   const cnt = ch => s.split(ch).length - 1;
   const why = [];
