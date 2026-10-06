@@ -2,7 +2,8 @@
 /* Đồng bộ code Apps Script ↔ repo qua Apps Script API (không cần cài clasp).
  *
  *   node tools/gas.mjs status                    kiểm tra chìa khoá + tình trạng từng backend
- *   node tools/gas.mjs discover                  tự tìm Script ID còn thiếu (theo Deployment ID)
+ *   node tools/gas.mjs discover                  tự tìm Script ID còn thiếu (qua URL /exec, rồi dò Drive)
+ *   node tools/gas.mjs whois <url…>              tra dự án + danh sách deployment của URL /exec
  *   node tools/gas.mjs pull <key|all|new>        kéo code từ Apps Script về backends/<key>/
  *   node tools/gas.mjs deploy-changed <before> <after>   deploy các backend có thay đổi giữa 2 commit
  *   node tools/gas.mjs deploy <key>              deploy 1 backend (so với HEAD)
@@ -275,11 +276,65 @@ async function cmdStatus() {
   if (bad) process.exitCode = 1;
 }
 
+/* URL /exec của web app trả JSON (ContentService) chuyển hướng tới script.googleusercontent.com/macros/echo?…&lib=<Script ID>.
+ * Web app giới hạn domain thì thử kèm mã truy cập. Gọi kèm action=ping (lệnh đọc vô hại). */
+async function scriptIdFromUrl(url) {
+  if (!url) return null;
+  const u = url + (url.includes('?') ? '&' : '?') + 'action=ping';
+  for (const auth of [false, true]) {
+    try {
+      const headers = auth ? { authorization: 'Bearer ' + await token() } : {};
+      const r = await fetch(u, { redirect: 'manual', headers, signal: AbortSignal.timeout(60000) });
+      const m = (r.headers.get('location') || '').match(/[?&]lib=([A-Za-z0-9_-]+)/);
+      if (m) return m[1];
+    } catch (e) { if (e instanceof Stop) throw e; }
+  }
+  return null;
+}
+
+async function cmdWhois(urls) {
+  say('### Tra dự án theo URL /exec');
+  for (const url of urls) {
+    const did = (url.match(/\/s\/([A-Za-z0-9_-]+)\/exec/) || url.match(/\/([A-Za-z0-9_-]+)\/?$/) || [])[1] || '?';
+    const id = await scriptIdFromUrl(url);
+    if (!id) { say(`- ❓ ${did.slice(0, 14)}…: không đọc được Script ID từ URL`); continue; }
+    try {
+      const p = await api('GET', `${API}/projects/${id}`);
+      const deps = await listDeployments(id);
+      say(`- ${did.slice(0, 14)}… ⇒ dự án "${p.title}" · Script ID \`${id}\`${p.parentId ? ' · gắn với file ' + p.parentId : ''}`);
+      for (const d of deps) {
+        const ep = (d.entryPoints || []).find(e => e.entryPointType === 'WEB_APP');
+        say(`  - ${d.deploymentId === did ? '👉 ' : ''}\`${d.deploymentId.slice(0, 14)}…\` phiên bản ${d.deploymentConfig?.versionNumber ?? 'HEAD'} · ${d.deploymentConfig?.description || ''} · cập nhật ${d.updateTime || ''}${ep ? ' · ' + (ep.webApp?.entryPointConfig?.access || '') : ''}`);
+      }
+    } catch (e) {
+      if (e instanceof Stop) throw e;
+      say(`- ⚠️ ${did.slice(0, 14)}… ⇒ Script ID \`${id}\` nhưng không đọc được dự án (${e.status === 403 || e.status === 404 ? 'không có quyền Chỉnh sửa' : e.message.slice(0, 120)})`);
+    }
+  }
+}
+
 async function cmdDiscover() {
   const cfg = loadCfg();
   const want = new Map(Object.entries(cfg).filter(([, b]) => !b.scriptId).map(([k, b]) => [b.deploymentId, k]));
   if (!want.size) { say('Tất cả backend đã có Script ID.'); return; }
   say(`### Tự tìm Script ID cho ${want.size} backend`);
+  // Cách 1: gọi URL /exec ⇒ Google chuyển hướng sang …/macros/echo?…&lib=<Script ID> (cả script gắn file Sheet)
+  for (const [did, k] of [...want]) {
+    const id = await scriptIdFromUrl(cfg[k].url);
+    if (!id) continue;
+    try {
+      const deps = await listDeployments(id);
+      if (!deps.some(d => d.deploymentId === did)) { say(`- ⚠️ ${cfg[k].name}: URL trỏ tới dự án ${id.slice(0, 10)}… nhưng dự án này không có deployment ${did.slice(0, 14)}…`); continue; }
+      const p = await api('GET', `${API}/projects/${id}`).catch(() => ({}));
+      cfg[k].scriptId = id; want.delete(did);
+      say(`- ✅ ${cfg[k].name}: dự án "${p.title || '?'}"${p.parentId ? ' (gắn với file Drive ' + p.parentId.slice(0, 10) + '…)' : ''}`);
+    } catch (e) {
+      if (e instanceof Stop) throw e;
+      say(`- ⚠️ ${cfg[k].name}: tìm được Script ID qua URL nhưng không đọc được dự án (${e.status === 403 || e.status === 404 ? 'tài khoản trong chìa khoá không có quyền Chỉnh sửa script này' : e.message.slice(0, 160)})`);
+    }
+  }
+  if (!want.size) { saveCfg(cfg); return; }
+  // Cách 2: dò mọi dự án Apps Script riêng trên Drive
   const q = encodeURIComponent("mimeType='application/vnd.google-apps.script' and trashed=false");
   let files = [];
   try {
@@ -415,6 +470,7 @@ async function main() {
   switch (cmd) {
     case 'status': return cmdStatus();
     case 'discover': return cmdDiscover();
+    case 'whois': return cmdWhois(process.argv.slice(3));
     case 'pull': return cmdPull(a);
     case 'changed': console.log(changedKeys(a, b).join(' ')); return;
     case 'deploy-changed': return cmdDeploy(changedKeys(a, b), a, desc);

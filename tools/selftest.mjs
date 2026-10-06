@@ -36,10 +36,15 @@ const server = http.createServer(async (req, res) => {
   const json = (code, o) => { res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify(o)); };
   calls.push(req.method + ' ' + u.pathname);
   if (u.pathname === '/token') return json(200, { access_token: 'tok' });
-  if (req.headers.authorization !== 'Bearer tok' && !u.pathname.startsWith('/exec/')) return json(401, { error: { message: 'no auth' } });
+  if (req.headers.authorization !== 'Bearer tok' && !/^\/(exec|echo|plain)\//.test(u.pathname)) return json(401, { error: { message: 'no auth' } });
   if (u.pathname === '/drive/files') return json(200, { files: Object.entries(P).filter(([, p]) => p.drive).map(([id, p]) => ({ id, name: p.name })) });
   let m;
-  if ((m = u.pathname.match(/^\/exec\/(\w+)$/))) {
+  if ((m = u.pathname.match(/^\/exec\/(\w+)$/))) {  // như Google: /exec chuyển hướng sang /macros/echo?…&lib=<Script ID>
+    const sid = Object.keys(P).find(id => m[1] in P[id].deps);
+    res.writeHead(302, { location: `${BASE}/echo/${m[1]}?user_content_key=k&lib=${sid}` });
+    return res.end();
+  }
+  if ((m = u.pathname.match(/^\/(?:echo|plain)\/(\w+)$/))) {
     const p = Object.values(P).find(p => m[1] in p.deps);
     const files = p.versions[p.deps[m[1]]];
     if (files.some(f => /BROKEN/.test(f.source))) { res.writeHead(200, { 'content-type': 'text/html' }); return res.end('<html><head><title>Error</title></head><body><div>TypeError: BROKEN is not a function (line 1, file &quot;Code&quot;)</div></body></html>'); }
@@ -48,6 +53,7 @@ const server = http.createServer(async (req, res) => {
   if (!(m = u.pathname.match(/^\/v1\/projects\/(\w+)(\/.*)?$/))) return json(404, { error: { message: 'nf' } });
   const p = P[m[1]], rest = m[2] || '';
   if (!p) return json(404, { error: { message: 'Requested entity was not found.' } });
+  if (rest === '' && req.method === 'GET') return json(200, { scriptId: m[1], title: p.name, ...(p.drive ? {} : { parentId: 'SHEET' + m[1] }) });
   if (rest === '/content' && req.method === 'GET') {
     const v = u.searchParams.get('versionNumber');
     return json(200, { scriptId: m[1], files: clone(v ? p.versions[v] : p.head) });
@@ -71,7 +77,7 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gas-selftest-'));
 fs.mkdirSync(path.join(dir, 'tools'));
 fs.copyFileSync(path.join(HERE, 'gas.mjs'), path.join(dir, 'tools', 'gas.mjs'));
 fs.writeFileSync(path.join(dir, 'backends.json'), JSON.stringify({
-  mkt: { name: 'MKT', deploymentId: 'D1', scriptId: '', url: `${BASE}/exec/D1` },
+  mkt: { name: 'MKT', deploymentId: 'D1', scriptId: '', url: `${BASE}/plain/D1` },
   trn: { name: 'Training', deploymentId: 'D2', scriptId: '', url: `${BASE}/exec/D2` },
 }, null, 2));
 const git = (...a) => execFileSync('git', a, { cwd: dir, encoding: 'utf8' }).trim();
@@ -96,10 +102,10 @@ const wr = (p, s) => fs.writeFileSync(path.join(dir, 'backends', p), s);
 
 try {
   let r = await run('discover');
-  check('discover: tìm được Script ID qua Drive', cfg().mkt.scriptId === 'S1' && cfg().trn.scriptId === '', r.out);
-  check('discover: báo backend không tìm thấy', /Training: chưa tìm thấy/.test(r.out), r.out);
-
-  const c = cfg(); c.trn.scriptId = 'S2'; fs.writeFileSync(path.join(dir, 'backends.json'), JSON.stringify(c, null, 2));
+  check('discover: script gắn Sheet ⇒ tìm qua URL /exec (lib=)', cfg().trn.scriptId === 'S2' && /Training: dự án "Training \(gắn Sheet\)" \(gắn với file Drive/.test(r.out), r.out);
+  check('discover: script riêng không chuyển hướng ⇒ tìm qua Drive', cfg().mkt.scriptId === 'S1' && /Đã dò 1\/1/.test(r.out), r.out);
+  r = await run('whois', `${BASE}/exec/D2`, `${BASE}/plain/D1`);
+  check('whois: tra dự án + danh sách deployment theo URL', /dự án "Training \(gắn Sheet\)" · Script ID `S2`/.test(r.out) && /👉/.test(r.out) && /không đọc được Script ID/.test(r.out), r.out);
   r = await run('pull', 'new');
   check('pull: kéo đủ 2 backend', r.code === 0 && fs.existsSync(path.join(dir, 'backends/mkt/ui/Page.html')) && fs.existsSync(path.join(dir, 'backends/trn/Code.gs')), r.out);
   check('pull: lưu thứ tự file', JSON.parse(rd('mkt/.files.json')).join() === 'appsscript.json,Z_Config.gs,Code.gs,ui/Page.html', rd('mkt/.files.json'));

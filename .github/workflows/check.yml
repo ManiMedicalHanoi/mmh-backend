@@ -4,6 +4,11 @@ name: Kiểm tra
 on:
   pull_request:
   workflow_dispatch:
+    inputs:
+      urls:
+        description: 'Tuỳ chọn: các URL /exec (cách nhau bởi dấu cách) cần tra dự án + danh sách deployment'
+        required: false
+        default: ''
 permissions: { contents: read }
 jobs:
   test:
@@ -26,3 +31,8 @@ jobs:
         with: { node-version: 20 }
       - env: { CLASPRC_JSON: '${{ secrets.CLASPRC_JSON }}' }
         run: node tools/gas.mjs status
+      - if: always() && inputs.urls != ''
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+          URLS: ${{ inputs.urls }}
+        run: node tools/gas.mjs whois $URLS
