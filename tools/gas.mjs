@@ -25,6 +25,7 @@ const SMOKE_WAIT = Number(process.env.GAS_SMOKE_WAIT_MS ?? 4000);
 const SUMMARY = process.env.GITHUB_STEP_SUMMARY;
 const CODE_EXT = /\.(gs|js|html)$/;
 const ORDER_FILE = '.files.json';
+const PULL_FILE = '.pull.json';  // ghi lúc kéo về: { version: phiên bản đang chạy, pending: [file HEAD ≠ bản đang chạy] }
 const VERSION_WARN = 180;
 
 class Stop extends Error {}
@@ -350,7 +351,10 @@ async function cmdPull(arg) {
       if (!deps.some(d => d.deploymentId === b.deploymentId)) stop(`Script "${p.title}" không có deployment ${b.deploymentId.slice(0, 14)}… mà app đang gọi. Các deployment hiện có: ${deps.map(d => d.deploymentId.slice(0, 14) + '…').join(', ') || 'không có'}.`);
       const set = await getContent(b.scriptId);
       writeLocal(k, set);
-      say(`- ✅ ${b.name}: ${set.order.length} file (${set.order.join(', ')})`);
+      const ver = deps.find(d => d.deploymentId === b.deploymentId).deploymentConfig?.versionNumber ?? null;
+      const pending = ver ? diff(set, await getContent(b.scriptId, ver)) : [];
+      fs.writeFileSync(path.join(backendDir(k), PULL_FILE), JSON.stringify({ version: ver, pending }, null, 2) + '\n');
+      say(`- ✅ ${b.name}: ${set.order.length} file (${set.order.join(', ')})${pending.length ? ` · ⚠️ chưa deploy: ${pending.join(', ')}` : ''}`);
     } catch (e) {
       say(`- ❌ ${b.name}: ${e.message}`); bad++;
     }
@@ -365,7 +369,16 @@ function changedKeys(before, after) {
   return [...new Set(out.map(p => p.split('/')[1]))].filter(k => cfg[k]);
 }
 
-async function deployOne(key, before, description) {
+/* Bộ file này có khớp 1 trạng thái của backends/<key>/ trong lịch sử repo (tối đa 40 commit gần nhất) không */
+function inHistory(set, before, key) {
+  if (!validSha(before)) return false;
+  const shas = git('log', '--format=%H', '-n', '40', before, '--', `backends/${key}/`).split('\n').filter(Boolean);
+  return shas.some(h => { const s = readAt(h, key); return s && !diff(set, s).length; });
+}
+
+/* auto = deploy tự động khi gộp vào main: chỉ đưa lên thay đổi đến từ repo. Bỏ qua bản gốc vừa kéo về, và dừng nếu
+ * bản đang chạy chứa thứ không có trong lịch sử repo (code sửa trên trình soạn nhưng chưa deploy) — phải deploy tay. */
+async function deployOne(key, before, description, auto = false) {
   const cfg = loadCfg();
   const b = cfg[key];
   if (!b) stop(`Không có backend "${key}" trong backends.json`);
@@ -382,15 +395,28 @@ async function deployOne(key, before, description) {
   const live = liveWebapp(dep) || webapp(remote);
   if (webapp(local) !== live) stop(`${b.name}: quyền web app trong appsscript.json (${webapp(local)}) khác quyền URL đang chạy (${live}) — dừng để không đổi quyền truy cập. Sửa mục "webapp" trong appsscript.json cho khớp ${live} rồi gộp lại.`);
 
+  if (auto) {
+    const base = validSha(before) ? readAt(before, key) : null;
+    if (!base) { say(`- ➖ ${b.name}: bản gốc vừa đưa vào repo — không deploy tự động.`); return; }
+    if (!diff(base, local).length) { say(`- ➖ ${b.name}: code không đổi.`); return; }
+    // Lúc kéo về đã ghi: phiên bản đang chạy + file HEAD khác bản đang chạy. Chưa ai deploy kể từ đó và repo vẫn giữ
+    // các file đó khác bản đang chạy ⇒ code chưa ai duyệt, không đưa lên tự động.
+    let pulled = {};
+    try { pulled = JSON.parse(fs.readFileSync(path.join(backendDir(key), PULL_FILE), 'utf8')); } catch (_) {}
+    if ((pulled.pending || []).length && pulled.version === prevVer) {
+      const running = await getContent(b.scriptId, prevVer);
+      const still = pulled.pending.filter(f => diff({ order: [f], map: f in running.map ? { [f]: running.map[f] } : {} }, { order: [f], map: f in local.map ? { [f]: local.map[f] } : {} }).length);
+      if (still.length) stop(`${b.name}: lúc kéo về, code trên Apps Script đã khác bản đang chạy (phiên bản ${prevVer}) ở: ${still.join(', ')} — code chưa từng deploy. Deploy tự động dừng để không đưa lên thứ chưa ai duyệt. Muốn đưa lên tất cả: Actions ▸ Deploy backend ▸ Run workflow ▸ ${key}.`);
+    }
+  }
+
+
   if (diff(remote, local).length) {
     const base = validSha(before) ? readAt(before, key) : null;
     if (!base) stop(`${b.name}: chưa có bản gốc trong repo để đối chiếu — chạy "Kéo code về" trước.`);
     let drift = diff(remote, base);
     // Code trên Apps Script khớp 1 bản từng có trong repo (vd. lần deploy trước bị chặn trước khi đẩy) ⇒ không phải sửa tay
-    if (drift.length) {
-      const shas = git('log', '--format=%H', '-n', '40', before, '--', `backends/${key}/`).split('\n').filter(Boolean);
-      if (shas.some(h => { const s = readAt(h, key); return s && !diff(remote, s).length; })) drift = [];
-    }
+    if (drift.length && inHistory(remote, before, key)) drift = [];
     if (drift.length) stop(`${b.name}: code trên Apps Script đã bị sửa trực tiếp (ngoài GitHub) ở: ${drift.join(', ')}. Dừng để không ghi đè. Chạy workflow "Kéo code về" cho backend này, rồi áp lại thay đổi.`);
     await api('PUT', `${API}/projects/${b.scriptId}/content`, { scriptId: b.scriptId, files: toRemote(local) });
   } else if (prevVer) {
@@ -413,12 +439,12 @@ async function deployOne(key, before, description) {
   }
 }
 
-async function cmdDeploy(keys, before, description) {
+async function cmdDeploy(keys, before, description, auto = false) {
   if (!keys.length) { say('Không có backend nào thay đổi.'); return; }
   say('### Deploy backend');
   let bad = 0;
   for (const k of keys) {
-    try { await deployOne(k, before, description); }
+    try { await deployOne(k, before, description, auto); }
     catch (e) { say(`- ❌ ${e.message}`); bad++; }
   }
   if (bad) process.exitCode = 1;
@@ -449,7 +475,7 @@ async function main() {
     case 'discover': return cmdDiscover();
     case 'pull': return cmdPull(a);
     case 'changed': console.log(changedKeys(a, b).join(' ')); return;
-    case 'deploy-changed': return cmdDeploy(changedKeys(a, b), a, desc);
+    case 'deploy-changed': return cmdDeploy(changedKeys(a, b), a, desc, true);
     case 'deploy': return cmdDeploy(pickKeys(loadCfg(), a), 'HEAD', desc);
     case 'rollback': return cmdRollback(a, b);
     default:

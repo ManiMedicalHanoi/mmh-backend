@@ -120,6 +120,8 @@ try {
   r = await run('deploy-changed', sha, sha);
   check('không đổi gì ⇒ không deploy', r.code === 0 && /Không có backend nào thay đổi/.test(r.out) && P.S1.deps.D1 === 1, r.out);
 
+  r = await run('deploy-changed', '0000000000000000000000000000000000000000', sha);
+  check('gộp bản gốc vừa kéo về ⇒ không deploy tự động', r.code === 0 && /bản gốc vừa đưa vào repo/.test(r.out) && Object.keys(P.S1.versions).length === 1, r.out);
   r = await run('deploy', 'mkt');
   check('deploy tay khi code = bản đang chạy ⇒ bỏ qua', r.code === 0 && /không có gì mới/.test(r.out) && Object.keys(P.S1.versions).length === 1, r.out);
 
@@ -144,7 +146,9 @@ try {
   wr('mkt/Code.gs', rd('mkt/Code.gs').replace(/v:\d/, 'v:3'));
   before = sha; sha = commit('áp lại sau khi kéo về');
   r = await run('deploy-changed', before, sha);
-  check('deploy sau khi kéo về: OK (phiên bản 3)', r.code === 0 && P.S1.deps.D1 === 3, r.out);
+  check('kéo về có code sửa tay chưa deploy ⇒ deploy tự động dừng', r.code === 1 && /chưa từng deploy/.test(r.out) && /Z_Config\.gs/.test(r.out) && P.S1.deps.D1 === 2, r.out);
+  r = await run('deploy', 'mkt');
+  check('deploy tay sau khi kéo về: OK (phiên bản 3)', r.code === 0 && P.S1.deps.D1 === 3, r.out);
 
   const man = JSON.parse(rd('trn/appsscript.json')); man.webapp.access = 'DOMAIN'; wr('trn/appsscript.json', JSON.stringify(man, null, 2));
   before = sha; sha = commit('đổi quyền');
@@ -176,6 +180,15 @@ try {
   before = sha; sha = commit('sửa lỗi');
   r = await run('deploy-changed', before, sha);
   check('sửa lỗi ⇒ deploy tiếp được (HEAD = bản lỗi đã ghi vào repo)', r.code === 0 && P.S1.deps.D1 === 5, r.out);
+
+  P.S2.head.push({ name: 'Draft', type: 'SERVER_JS', source: 'function nhap(){} // sửa trên trình soạn, chưa deploy\n' });
+  r = await run('pull', 'trn'); sha = commit('kéo về: có code chưa deploy');
+  wr('trn/Code.gs', 'function doGet(){ return 3; }\n');
+  before = sha; sha = commit('sửa trn');
+  r = await run('deploy-changed', before, sha);
+  check('bản đang chạy thiếu code chưa deploy ⇒ deploy tự động dừng, báo file', r.code === 1 && /chưa từng deploy/.test(r.out) && /Draft\.gs/.test(r.out) && P.S2.deps.D2 === 2, r.out);
+  r = await run('deploy', 'trn');
+  check('deploy tay ⇒ đưa lên tất cả', r.code === 0 && P.S2.deps.D2 === 3 && P.S2.versions[3].some(f => f.name === 'Draft'), r.out);
 
   r = await run('rollback', 'mkt');
   check('quay lại bản ngay trước (5 → 4)', r.code === 0 && P.S1.deps.D1 === 4, r.out);

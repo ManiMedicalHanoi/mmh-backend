@@ -32,6 +32,9 @@ Danh sách + Script ID + Deployment ID: `backends.json`.
    (Business Trip giới hạn trong domain ⇒ không gọi thử ẩn danh được, bỏ qua bước này.)
 4. Giữ nguyên **thứ tự file** (`.files.json`) — thứ tự nạp file ảnh hưởng biến toàn cục trong Apps Script.
 5. Báo trước khi gần giới hạn **200 phiên bản**/dự án (xoá bớt trong *Lịch sử dự án* của Apps Script).
+6. **Deploy tự động chỉ đưa lên thay đổi đến từ repo**: gộp bản gốc vừa kéo về ⇒ không deploy; lúc kéo về mà code trên
+   Apps Script đã khác bản đang chạy (sửa trên trình soạn nhưng chưa deploy — ghi trong `backends/<key>/.pull.json`) ⇒
+   dừng, phải xác nhận bằng **Deploy backend** chạy tay.
 
 ## Hai quy tắc
 - **Không sửa code trực tiếp trên trang Apps Script.** Lỡ sửa ⇒ chạy **Kéo code về** trước khi sửa tiếp trong repo.
@@ -46,6 +49,6 @@ Tài khoản đó phải bật **Google Apps Script API**: https://script.google
 `tools/gas.mjs` gọi thẳng Apps Script API (không cần cài clasp):
 ```
 node tools/gas.mjs status | discover | pull <key|all|new> | deploy <key|all> | deploy-changed <before> <after> | rollback <key> [version]
-node tools/selftest.mjs   # 31 kịch bản với Apps Script API giả lập
+node tools/selftest.mjs   # 35 kịch bản với Apps Script API giả lập
 node tools/syntax.mjs     # kiểm cú pháp .gs
 ```
