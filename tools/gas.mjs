@@ -480,6 +480,28 @@ async function cmdDiff(key, version) {
   fs.rmSync(tmp, { recursive: true, force: true });
 }
 
+/* Gọi thử URL /exec của các backend, in từng bước chuyển hướng + mã + đầu nội dung (để hiểu kết quả "gọi thử") */
+async function cmdPing(arg) {
+  const cfg = loadCfg();
+  say('### Gọi thử URL /exec');
+  for (const k of pickKeys(cfg, arg)) {
+    const b = cfg[k];
+    let u = b.url + (b.smokeQuery ?? '?action=ping');
+    const hops = [];
+    try {
+      for (let i = 0; i < 5; i++) {
+        const r = await fetch(u, { redirect: 'manual', signal: AbortSignal.timeout(60000) });
+        const loc = r.headers.get('location');
+        hops.push(`${r.status} ${new URL(u).host}${new URL(u).pathname.replace(/\/s\/[^/]+/, '/s/…').slice(0, 40)}`);
+        if (loc && r.status >= 300 && r.status < 400) { u = new URL(loc, u).href; continue; }
+        const t = (await r.text()).replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+        say(`- ${b.name}: ${hops.join(' → ')} · ${r.headers.get('content-type') || ''} · «${t.slice(0, 160)}»`);
+        break;
+      }
+    } catch (e) { say(`- ${b.name}: ${hops.join(' → ')} ✗ ${e.message}`); }
+  }
+}
+
 async function cmdRollback(key, version) {
   const cfg = loadCfg();
   const b = cfg[key];
@@ -515,6 +537,7 @@ async function main() {
     case 'deploy': return cmdDeploy(pickKeys(loadCfg(), a), 'HEAD', desc);
     case 'rollback': return cmdRollback(a, b);
     case 'diff': return cmdDiff(a, b);
+    case 'ping': return cmdPing(a || 'all');
     default:
       console.log('Lệnh: status | discover | pull <key|all|new> | deploy-changed <before> <after> | deploy <key|all> | rollback <key> [version]');
       process.exitCode = 2;
