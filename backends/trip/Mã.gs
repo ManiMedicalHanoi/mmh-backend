@@ -5707,9 +5707,9 @@ function getNameFromEmail(email) {
   if (!email || email.trim() === '') return '';
   
   const nameMapping = {
-    'tt.tuyen@manimedicalthanoi.com': 'Tuyen',
-    'vtt.hoa@manimedicalthanoi.com': 'Hoa',
-    'manithailand@manimedicalthanoi.com': 'Dao' // Director
+    'tt.tuyen@manimedicalhanoi.com': 'Tuyen',
+    'vtt.hoa@manimedicalhanoi.com': 'Hoa',
+    'manithailand@manimedicalhanoi.com': 'Dao' // Director
   };
   
   const emailLower = email.toLowerCase().trim();
@@ -5733,7 +5733,7 @@ function ensureEmailsExist(sheet, rowNumber, userEmail) {
     
     // Nếu thiếu HOD email
     if (hodEmail === '') {
-      hodEmail = 'tt.tuyen@manimedicalthanoi.com'; // Default HOD
+      hodEmail = 'tt.tuyen@manimedicalhanoi.com'; // Default HOD
       sheet.getRange(rowNumber, columnLetterToIndex(CONFIG.COLUMNS.EMAIL_HOD)).setValue(hodEmail);
       updated = true;
       Logger.log('✅ Set default HOD email: ' + hodEmail);
@@ -5741,7 +5741,7 @@ function ensureEmailsExist(sheet, rowNumber, userEmail) {
     
     // Nếu thiếu Director email
     if (directorEmail === '') {
-      directorEmail = 'vtt.hoa@manimedicalthanoi.com'; // Default Director (Ha-san)
+      directorEmail = 'vtt.hoa@manimedicalhanoi.com'; // Default Director (Ha-san)
       sheet.getRange(rowNumber, columnLetterToIndex(CONFIG.COLUMNS.EMAIL_DIRECTOR)).setValue(directorEmail);
       updated = true;
       Logger.log('✅ Set default Director email: ' + directorEmail);
@@ -5793,7 +5793,7 @@ function testSendEmail() {
 function testPICNameWithValidation() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(CONFIG.SHEET_NAME);
-  const userEmail = 'mmh.product@manimedicalthanoi.com';
+  const userEmail = 'mmh.product@manimedicalhanoi.com';
   
   const newRows = [{
     startDate: '2025-01-20',
@@ -5864,10 +5864,10 @@ function testEmailWithAutoFill() {
  */
 function testPICNameMapping() {
   const testEmails = [
-    'mmh.product@manimedicalthanoi.com',
-    'marketing.mmh@manimedicalthanoi.com',
-    'marketing.mmh1@manimedicalthanoi.com',
-    'tt.tuyen@manimedicalthanoi.com'
+    'mmh.product@manimedicalhanoi.com',
+    'marketing.mmh@manimedicalhanoi.com',
+    'marketing.mmh1@manimedicalhanoi.com',
+    'tt.tuyen@manimedicalhanoi.com'
   ];
   
   Logger.log('=== TESTING PIC NAME MAPPING ===');
@@ -5878,8 +5878,8 @@ function testPICNameMapping() {
   Logger.log('=== END TEST ===');
 }// Chạy function này trong Apps Script Editor
 function testPICMapping() {
-  // Test với email mmh.product@manimedicalthanoi.com
-  const picName = getPICNameFromEmail('mmh.product@manimedicalthanoi.com');
+  // Test với email mmh.product@manimedicalhanoi.com
+  const picName = getPICNameFromEmail('mmh.product@manimedicalhanoi.com');
   Logger.log('Result: ' + picName); // Phải là "Giang"
   
   if (picName === 'Giang') {
@@ -5891,7 +5891,7 @@ function testPICMapping() {
 function testAddNewRow() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(CONFIG.SHEET_NAME);
-  const userEmail = 'mmh.product@manimedicalthanoi.com';
+  const userEmail = 'mmh.product@manimedicalhanoi.com';
   
   const newRows = [{
     startDate: '2025-01-20',
@@ -7600,7 +7600,7 @@ function getHTMLContentPICGuide() {
       <div class="info-box">
         <p>Nếu gặp vấn đề khi sử dụng hệ thống, vui lòng liên hệ:</p>
         <ul style="margin-top: 8px;">
-          <li>Email: <code>mmh.product@manimedicalthanoi.com</code></li>
+          <li>Email: <code>mmh.product@manimedicalhanoi.com</code></li>
           <li>Hoặc liên hệ IT Support</li>
         </ul>
       </div>
@@ -7886,7 +7886,7 @@ function getHTMLContentPICGuide() {
       <div class="info-box">
         <p>If you encounter any issues using the system, please contact:</p>
         <ul style="margin-top: 8px;">
-          <li>Email: <code>mmh.product@manimedicalthanoi.com</code></li>
+          <li>Email: <code>mmh.product@manimedicalhanoi.com</code></li>
           <li>Or contact IT Support</li>
         </ul>
       </div>
@@ -8403,7 +8403,7 @@ function getHTMLContentHODGuide() {
       <div class="info-box">
         <p>Nếu gặp vấn đề khi sử dụng hệ thống, vui lòng liên hệ:</p>
         <ul style="margin-top: 8px;">
-          <li>Email: <code>mmh.product@manimedicalthanoi.com</code></li>
+          <li>Email: <code>mmh.product@manimedicalhanoi.com</code></li>
           <li>Hoặc liên hệ IT Support</li>
         </ul>
       </div>
@@ -8653,7 +8653,7 @@ function getHTMLContentHODGuide() {
       <div class="info-box">
         <p>If you encounter any issues using the system, please contact:</p>
         <ul style="margin-top: 8px;">
-          <li>Email: <code>mmh.product@manimedicalthanoi.com</code></li>
+          <li>Email: <code>mmh.product@manimedicalhanoi.com</code></li>
           <li>Or contact IT Support</li>
         </ul>
       </div>
