@@ -2239,10 +2239,11 @@ function sendWeeklyReport(user, p){
       var ccArr = rr.cc.filter(function(e,i,a){ return e && toArr.indexOf(e)<0 && a.indexOf(e)===i; });
       toField = toArr.join(','); ccField = ccArr.join(',');
     }
+    if(!t.test && t.email && (','+toField+','+ccField+',').indexOf(','+t.email+',')<0) ccField=(ccField?ccField+',':'')+t.email;   /* ⭐ CC chính người báo cáo */
     MailApp.sendEmail({
       to: toField, cc: ccField, subject: subject,
       htmlBody: buildCombinedEmailBody(recipient, thisFrom, thisTo, thisKeys, nextFrom, nextTo, nextKeys),
-      attachments:[blob], name:'MMH Report Hub'
+      attachments:[blob], name:t.pic+' (MMH Report Hub)', replyTo:t.email||undefined
     });
     logActivity(t.pic,'report','gửi báo cáo tuần '+fmtVN(thisFrom)+'–'+fmtVN(thisTo),'','');
     sent.push(t.pic);
@@ -2504,11 +2505,12 @@ function sendMonthlyReport(user, p){
       var ccArr=rr.cc.filter(function(e,i,a){ return e && toArr.indexOf(e)<0 && a.indexOf(e)===i; });
       toField=toArr.join(','); ccField=ccArr.join(',');
     }
+    if(!t.test && t.email && (','+toField+','+ccField+',').indexOf(','+t.email+',')<0) ccField=(ccField?ccField+',':'')+t.email;   /* ⭐ CC chính người báo cáo */
     MailApp.sendEmail({
       to:toField, cc:ccField,
       subject:'RE: Monthly Report '+t.pic+' — '+mLabel+' & plan '+nLabel+(t.test?' (test)':''),
       htmlBody: buildMonthlyEmailBody(recipient, mLabel, nLabel, tRows, nRows),
-      attachments:[blob], name:'MMH Report Hub'
+      attachments:[blob], name:t.pic+' (MMH Report Hub)', replyTo:t.email||undefined
     });
     logActivity(t.pic,'report','gửi báo cáo tháng '+mLabel,'','');
     sent.push(t.pic);

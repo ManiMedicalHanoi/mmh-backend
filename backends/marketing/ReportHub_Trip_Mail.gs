@@ -423,7 +423,7 @@ function rhxDefaultEmails(picName){
     'Giang':{hod:'tt.tuyen@mani.inc',director:'nt.ha@mani.inc'},'Vinh':{hod:'tt.tuyen@mani.inc',director:'nt.ha@mani.inc'},
     'Minh Viet':{hod:'tt.tuyen@mani.inc',director:'nt.ha@mani.inc'},'Phuong':{hod:'tt.tuyen@mani.inc',director:'nt.ha@mani.inc'},
     'Khang':{hod:'tt.tuyen@mani.inc',director:'nt.ha@mani.inc'},'Viet Ha':{hod:'tt.tuyen@mani.inc',director:'nt.ha@mani.inc'},
-    'Ngoc':{hod:'tt.tuyen@mani.inc',director:'nt.ha@mani.inc'},'Minh Trang':{hod:'vtt.hoa@mani.inc',director:'nt.ha@mani.inc'},
+    'Ngoc':{hod:'tt.tuyen@mani.inc',director:'nt.ha@mani.inc'},'Quynh Anh':{hod:'vtt.hoa@mani.inc',director:'nt.ha@mani.inc'},
     'Hau':{hod:'vtt.hoa@mani.inc',director:'nt.ha@mani.inc'},'Dam Viet':{hod:'vtt.hoa@mani.inc',director:'nt.ha@mani.inc'},
     'Dam Ha':{hod:'vtt.hoa@mani.inc',director:'nt.ha@mani.inc'},'Hoa':{hod:'vtt.hoa@mani.inc',director:'nt.ha@mani.inc'},
     'Tuyen':{hod:'nt.ha@mani.inc',director:'nt.ha@mani.inc'},'Nguyen Ha':{hod:'nt.ha@mani.inc',director:'nt.ha@mani.inc'}
