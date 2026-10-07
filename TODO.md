@@ -26,6 +26,7 @@
      (đọc `RH_Secret` + `RH_Users` của Training Master bằng `openById`, đệm CacheService) ⇒ chặn lệnh không có phiên hợp lệ,
      `pic`/`actor` lấy từ phiên; app bỏ màn chọn tên; đổi `TRAINING_RH_KEY` (đang lộ trong index.html công khai).
 8. ✅ Business Trip `Mã.gs`: đã sửa 17 chỗ gõ sai tên miền `manimedicalthanoi.com` (phần lớn ở chữ hướng dẫn / test).
+11. ✅ Backend KPI FY68 (`kpi`): thêm RH_KpiView.gs (chỉ đọc, doGet rhKpi) cho tab KPI của Report Hub — không sửa KpiSyncCenter / TurnoverLink.
 10. ✅ Trang phân quyền Report Hub (Training Hub v3.13: `rhAdminList` / `rhAdminSave` / `rhAdminKick`; RH_Users thêm Dept/Title/Perms).
    Quyền hiện được app áp dụng (ẩn / chặn nút); giai đoạn 2 backend phòng ban đọc thêm Perms để chặn ở máy chủ.
 9. ✅ Training Hub v3.14 có `rhAssign*` (sheet RH_Assign) + `rhAssignReply` + `rhDirectory` — trước đó "Việc mới được giao" lỗi im lặng.
