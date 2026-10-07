@@ -549,7 +549,8 @@ var HUB_ROUTES = {
   'rhAssignSeen'    : {fn:'apiRhAssignSeen',    auth:0},
   'rhAssignDone'    : {fn:'apiRhAssignDone',    auth:0},
   'rhAssignReply'   : {fn:'apiRhAssignReply',   auth:0},
-  'rhDirectory'     : {fn:'apiRhDirectory',     auth:0}
+  'rhDirectory'     : {fn:'apiRhDirectory',     auth:0},
+  'rhUpdMail'       : {fn:'apiRhUpdMail',       auth:0}   // ★ v3.15 — email thông báo cập nhật hệ thống (RH_UpdMail.gs)
 };
 
 /** Lấy tham chiếu hàm theo tên — an toàn cho cả runtime V8 và Rhino */

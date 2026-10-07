@@ -1,0 +1,93 @@
+/* ════════════════════════════════════════════════════════════════════
+   ★ v3.15 (07/10/2026) · RH_UpdMail.gs — EMAIL THÔNG BÁO CẬP NHẬT HỆ THỐNG
+   Report Hub / MMH CRM ▸ Thông báo cập nhật ▸ "Gửi email cập nhật" (chỉ Admin / Director).
+   POST action=rhUpdMail, payload:
+     tk, app ('report' | 'crm'), subject, html (dùng <img src="cid:…">), images [{cid, url}], pdf {url, name},
+     to [] / audience 'all' (mọi người dùng đang hoạt động trong RH_Users), cc [], test (true ⇒ chỉ gửi cho chính người bấm), rid.
+   · Ảnh và file PDF chỉ lấy từ GitHub Pages của 2 app (manimedicalhanoi.github.io/MMH-Report | MMH-CRM) ⇒ không dùng làm cổng tải file lạ.
+   · Người nhận chỉ email công ty (@mani.inc / @manimedicalhanoi.com), tối đa 200. Chống gửi trùng theo rid (6 giờ).
+   · Gửi kiểu "no-reply"; ghi nhật ký sheet RH_UpdMail (Training Master).
+   ════════════════════════════════════════════════════════════════════ */
+var RH_UPD = {
+  HOST: /^https:\/\/manimedicalhanoi\.github\.io\/(MMH-Report|MMH-CRM)\/[\w\-./%]+$/,
+  DOMAIN: /^[^@\s]+@(mani\.inc|manimedicalhanoi\.com)$/i,
+  MAX_TO: 200, MAX_IMG: 15, MAX_PDF: 22 * 1024 * 1024,
+  LOG: 'RH_UpdMail'
+};
+
+function rhUpdEmails(list) {
+  var out = [], seen = {};
+  (Array.isArray(list) ? list : String(list || '').split(/[,;\s]+/)).forEach(function (e) {
+    e = hubNorm(e).toLowerCase();
+    if (!e || !RH_UPD.DOMAIN.test(e) || seen[e]) return;
+    seen[e] = 1; out.push(e);
+  });
+  return out;
+}
+function rhUpdFetch(url, kind) {
+  url = hubNorm(url);
+  if (!RH_UPD.HOST.test(url)) throw new Error('Đường dẫn ' + kind + ' không hợp lệ: ' + url);
+  var r = UrlFetchApp.fetch(url, {muteHttpExceptions: true, followRedirects: true});
+  if (r.getResponseCode() !== 200) throw new Error('Không tải được ' + kind + ' (' + r.getResponseCode() + '): ' + url);
+  return r.getBlob();
+}
+
+function apiRhUpdMail(p) {
+  var c = rhCheck(p.tk);
+  if (c.err) return {ok: false, code: 'AUTH', error: c.err + ' Vui lòng đăng nhập bằng email.'};
+  var u = c.u;
+  if (!(u.admin || u.level === 'director')) return {ok: false, code: 'FORBIDDEN', error: 'Chỉ Admin / Director được gửi email thông báo cập nhật.'};
+  var app = p.app === 'crm' ? 'crm' : 'report';
+  var subject = hubNorm(p.subject).substring(0, 180), html = String(p.html || '');
+  if (!subject || html.length < 40) return {ok: false, error: 'Thiếu tiêu đề hoặc nội dung email.'};
+  if (html.length > 400000) return {ok: false, error: 'Nội dung email quá dài.'};
+  var test = hubBool(p.test), me = (u.local + '@' + HUB.SEND_DOMAIN).toLowerCase();
+
+  var rid = hubNorm(p.rid), sc = hubSC();
+  if (rid && !test) { var hit = sc.get('updmail:' + rid); if (hit) { try { var o = JSON.parse(hit); o.dup = true; return o; } catch (e) {} } }
+
+  var to, cc = [];
+  if (test) to = [me];
+  else {
+    to = p.audience === 'all'
+      ? rhUsers().filter(function (x) { return x.active; }).map(function (x) { return x.local + '@' + HUB.SEND_DOMAIN; })
+      : rhUpdEmails(p.to);
+    to = rhUpdEmails(to);
+    cc = rhUpdEmails(p.cc).filter(function (e) { return to.indexOf(e) < 0; });
+  }
+  if (!to.length) return {ok: false, error: 'Chưa có người nhận hợp lệ (chỉ email công ty).'};
+  if (to.length + cc.length > RH_UPD.MAX_TO) return {ok: false, error: 'Quá nhiều người nhận (tối đa ' + RH_UPD.MAX_TO + ').'};
+  try { if (MailApp.getRemainingDailyQuota() < to.length + cc.length) return {ok: false, error: 'Hết hạn mức gửi email hôm nay của hệ thống — thử lại ngày mai.'}; } catch (e) {}
+
+  var inline = {}, files = [];
+  try {
+    (Array.isArray(p.images) ? p.images : []).slice(0, RH_UPD.MAX_IMG).forEach(function (im) {
+      var cid = String(im && im.cid || '').replace(/[^\w\-]/g, '');
+      if (!cid || html.indexOf('cid:' + cid) < 0) return;
+      inline[cid] = rhUpdFetch(im.url, 'ảnh').setName(cid + '.jpg');
+    });
+    if (p.pdf && p.pdf.url) {
+      var b = rhUpdFetch(p.pdf.url, 'file PDF');
+      if (b.getBytes().length > RH_UPD.MAX_PDF) return {ok: false, error: 'File PDF hướng dẫn quá lớn để đính kèm.'};
+      files.push(b.setName(hubNorm(p.pdf.name || 'User_Guide.pdf').replace(/[^\w\-. ]/g, '_')).setContentType('application/pdf'));
+    }
+  } catch (e) { return {ok: false, error: e.message}; }
+
+  var mail = {to: to.join(','), subject: (test ? '[TEST] ' : '') + subject, htmlBody: html, inlineImages: inline,
+              attachments: files, name: app === 'crm' ? 'MMH CRM' : 'MMH Report Hub', noReply: true};
+  if (cc.length) mail.cc = cc.join(',');
+  try { MailApp.sendEmail(mail); }
+  catch (e) {
+    if (!/noReply|no-reply|reply/i.test(String(e.message))) return {ok: false, error: 'Gửi email lỗi: ' + e.message};
+    delete mail.noReply; mail.replyTo = me;
+    try { MailApp.sendEmail(mail); } catch (e2) { return {ok: false, error: 'Gửi email lỗi: ' + e2.message}; }
+  }
+  var out = {ok: true, sent: to.length + cc.length, to: to, cc: cc, test: test};
+  try {
+    var ss = hubSS(), sh = ss.getSheetByName(RH_UPD.LOG);
+    if (!sh) { sh = ss.insertSheet(RH_UPD.LOG); sh.appendRow(['Time', 'By', 'App', 'Subject', 'Recipients', 'Test', 'Rid']); }
+    sh.appendRow([new Date(), u.pic, app, subject, to.length + cc.length, test ? 'x' : '', rid]);
+  } catch (e) {}
+  if (rid && !test) try { sc.put('updmail:' + rid, JSON.stringify(out), 21600); } catch (e) {}
+  return out;
+}
