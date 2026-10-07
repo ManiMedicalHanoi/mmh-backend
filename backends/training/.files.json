@@ -4,5 +4,6 @@
   "Backend Training Hub.gs",
   "Kết nối KPI.gs",
   "RH_Auth.gs",
-  "RH_Assign.gs"
+  "RH_Assign.gs",
+  "RH_UpdMail.gs"
 ]
