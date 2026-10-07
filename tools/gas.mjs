@@ -430,7 +430,8 @@ async function deployOne(key, before, description, auto = false) {
   if (diff(remote, local).length) {
     const base = validSha(before) ? readAt(before, key) : null;
     if (!base) stop(`${b.name}: chưa có bản gốc trong repo để đối chiếu — chạy "Kéo code về" trước.`);
-    let drift = diff(remote, base);
+    // file chỉ có trong repo (chưa từng lên Apps Script) không phải "sửa tay" — vd. thêm file mới cùng PR kéo bản gốc (squash)
+    let drift = diff(remote, base).filter(f => f in remote.map);
     // Code trên Apps Script khớp 1 bản từng có trong repo (vd. lần deploy trước bị chặn trước khi đẩy) ⇒ không phải sửa tay
     if (drift.length && inHistory(remote, before, key)) drift = [];
     if (drift.length) stop(`${b.name}: code trên Apps Script đã bị sửa trực tiếp (ngoài GitHub) ở: ${drift.join(', ')}. Dừng để không ghi đè. Chạy workflow "Kéo code về" cho backend này, rồi áp lại thay đổi.`);
