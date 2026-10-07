@@ -12,7 +12,7 @@
    ════════════════════════════════════════════════════════════════════ */
 
 var RKV = {
-  VERSION: '1.2',
+  VERSION: '1.3',
   TRAINING_MASTER: '1byCL6NjhqBuEcd-K5pxYRrQj2XXs6GMIvR79x45mHRQ',
   SHEET: '5. Member KPI Monthly',
   STAFF: '0. Staff List',
@@ -45,6 +45,7 @@ function rkvRoute_(p) {
   var a = String(p.action || 'ping');
   if (a === 'ping') return {ok: true, service: 'MMH KPI', version: RKV.VERSION};
   if (a === 'rhKpi') return rkvKpi_(p);
+  if (a === 'rhKpiTotal') return rkvTotal_(p);
   if (a === 'rhKpiMail') return rkvMail_(p, 'data');
   if (a === 'rhKpiMailPreview') return rkvMail_(p, 'preview');
   if (a === 'rhKpiMailSend') return rkvMail_(p, 'send');
@@ -123,7 +124,7 @@ function rkvData_() {
                   team: String(sv[i][K.team] || '').trim(), dept: String(sv[i][K.dept] || '').trim(), level: String(sv[i][K.level] || '').trim()};
     }
   }
-  var data = {periods: periods, rows: rows, staff: staff, at: new Date().toISOString()};
+  var data = {periods: periods, rows: rows, staff: staff, sync: rkvSync_(ss), at: new Date().toISOString()};
   rkvCachePut_('rkv:data', data, RKV.TTL);
   return data;
 }
@@ -194,7 +195,7 @@ function rkvKpi_(p) {
   rows.forEach(function(r){ if (d.staff[r.member]) staff[r.member] = d.staff[r.member]; });
   var org = Object.keys(d.staff).map(function(k){ var s = d.staff[k]; return {key: k, full: s.full, role: s.role, team: s.team, dept: s.dept, level: s.level}; });
   if (!org.some(function(o){ return /director/i.test(o.level || '') || /director/i.test(o.role || ''); })) org.push({key: '', full: RKV_DIRECTOR, role: 'Director', level: 'Director'});
-  return {ok: true, me: sc.myName, scope: sc.scope, periods: d.periods, rows: rows, staff: staff, org: org, at: d.at, v: RKV.VERSION};
+  return {ok: true, me: sc.myName, scope: sc.scope, periods: d.periods, rows: rows, staff: staff, org: org, sync: d.sync || [], total: rkvCanTotal_(vw.u, sc), at: d.at, v: RKV.VERSION};
 }
 
 /** Email báo cáo KPI tháng — dùng nguyên mẫu email của KpiSyncCenter (kscMailData / kscMailHtml_ / kscMailSend) */
@@ -219,4 +220,103 @@ function rkvMail_(p, mode) {
   var r = kscMailSend(f);
   if (r && r.ok) { r.message = r.msg; try { console.log('[rhKpiMailSend] ' + vw.u.pic + ' gửi KPI ' + pic + ' ' + month); } catch (e) {} }
   return r;
+}
+
+/* ════ v1.3 (07/10/2026) — TRẠNG THÁI NGUỒN DỮ LIỆU + TOTAL KPI (Admin / Director / HOD) ════
+   · rhKpi trả thêm sync[]: bảng "A. NGUỒN DỮ LIỆU" của sheet KPI SYNC STATUS (Turnover, Training, KBI, MKT, CRM…) để app
+     ghi rõ "doanh số tháng chưa chốt" thay vì để trống.
+   · rhKpiTotal: dữ liệu màn Total KPI — 1. Objective & Strategy (mục tiêu chiến lược theo 4 góc nhìn F / C / P / L, KPI liên kết),
+     3. Detail KPI (mọi mã KPI công ty: target / actual từng tháng, FY), 4. Rule (cách tính theo nhóm KPI + quy định vận hành),
+     6. Member KPI Summarize (kết quả từng người theo FY / quý / tháng). Chỉ Admin, Director, HOD (phạm vi all / dept). */
+function rkvStr_(v) { return String(v == null ? '' : v).replace(/\s+$/, '').replace(/^\s+/, ''); }
+function rkvSync_(ss) {
+  try {
+    var sh = ss.getSheetByName('KPI SYNC STATUS'); if (!sh) return [];
+    var v = sh.getRange(1, 1, Math.min(40, sh.getLastRow()), 9).getValues(), out = [], on = false;
+    for (var i = 0; i < v.length; i++) {
+      var a = rkvStr_(v[i][0]);
+      if (/^Nguồn$/i.test(a)) { on = true; continue; }
+      if (!on) continue;
+      if (!a || /^B\./.test(a)) break;
+      out.push({src: a, file: rkvStr_(v[i][1]), codes: rkvStr_(v[i][3]), mode: rkvStr_(v[i][4]), at: rkvStr_(v[i][5]), status: rkvStr_(v[i][6]), note: rkvStr_(v[i][8]).substring(0, 400)});
+    }
+    return out;
+  } catch (e) { return []; }
+}
+function rkvCanTotal_(u, sc) { return !!(u && (u.admin || u.level === 'director' || u.level === 'hod')) || (sc && (sc.scope === 'all' || sc.scope === 'dept')); }
+function rkvTotalData_() {
+  var hit = rkvCacheGet_('rkv:total');
+  if (hit) return hit;
+  var ss = SpreadsheetApp.getActive() || SpreadsheetApp.openById('1m3F8NEI1QuvzFnpHVrvQ903R1lNQvm_qRkgSI5mBkx0');
+  var out = {head: [], persp: [], kpi: [], months: [], rules: [], guide: [], members: [], mperiods: [], colors: []};
+  // 1. Objective & Strategy
+  var s1 = ss.getSheetByName('1. Objective & Strategy');
+  if (s1) {
+    var v1 = s1.getRange(1, 1, Math.min(s1.getLastRow(), 80), 8).getValues();
+    for (var r = 0; r < v1.length; r++) {
+      if (/BUDGET|ACTUAL|GROWTH|RELAUNCH/i.test(rkvStr_(v1[r][1]) + rkvStr_(v1[r][4])) && !out.head.length) {
+        [1, 4, 5, 6].forEach(function(c){ var l = rkvStr_(v1[r][c]); if (l) out.head.push({label: l, value: rkvStr_((v1[r + 1] || [])[c]), sub: rkvStr_((v1[r + 2] || [])[c])}); });
+      }
+      var b = rkvStr_(v1[r][1]), c2 = rkvStr_(v1[r][2]);
+      if (/^[FCPL]$/.test(b) && c2) { out.persp.push({k: b, title: c2, obj: []}); continue; }
+      if (/^[FCPL]\d+$/.test(c2) && out.persp.length) {
+        out.persp[out.persp.length - 1].obj.push({code: c2, obj: rkvStr_(v1[r][3]), init: rkvStr_(v1[r][4]), link: rkvStr_(v1[r][5]), anchor: rkvStr_(v1[r][6])});
+      }
+    }
+  }
+  // 3. Detail KPI
+  var s3 = ss.getSheetByName('3. Detail KPI');
+  if (s3) {
+    var v3 = s3.getRange(4, 1, Math.max(1, s3.getLastRow() - 3), s3.getLastColumn()).getValues(), h = v3[0].map(rkvStr_);
+    var ix = function(n){ return h.indexOf(n); };
+    var C = {code: ix('KPI Code'), parent: ix('Parent'), level: ix('Level'), gc: ix('Group code'), persp: ix('Perspective'), group: ix('KPI Group'),
+             seg: ix('Segment · Country'), name: ix('Detail KPI'), unit: ix('Unit'), agg: ix('Agg'), ref: ix('Reference file for calculation'),
+             fy67: ix('FY67 Actual'), tgt: ix('FY68 Target'), act: ix('FY68 Actual'), pct: ix('FY68 %'), mem: ix('Members involved')};
+    var mT = [], mA = [];
+    h.forEach(function(x, i){ var m = x.match(/^(\d{6}) (Target|Actual)$/); if (!m) return; if (m[2] === 'Target') { mT.push(i); out.months.push(m[1]); } else mA.push(i); });
+    for (var i = 1; i < v3.length; i++) {
+      var row = v3[i], code = rkvStr_(row[C.code]); if (!code) continue;
+      out.kpi.push({code: code, parent: rkvStr_(row[C.parent]), level: rkvStr_(row[C.level]), gc: rkvStr_(row[C.gc]), p: rkvStr_(row[C.persp]),
+        group: rkvStr_(row[C.group]), seg: rkvStr_(row[C.seg]), name: rkvStr_(row[C.name]), unit: rkvStr_(row[C.unit]), agg: rkvStr_(row[C.agg]),
+        ref: rkvStr_(row[C.ref]), fy67: rkvNum_(row[C.fy67]), tgt: rkvNum_(row[C.tgt]), act: rkvNum_(row[C.act]), pct: rkvNum_(row[C.pct]),
+        mem: rkvStr_(row[C.mem]), t: mT.map(function(c){ return rkvNum_(row[c]); }), a: mA.map(function(c){ return rkvNum_(row[c]); })});
+    }
+  }
+  // 4. Rule
+  var s4 = ss.getSheetByName('4. Rule');
+  if (s4) {
+    var v4 = s4.getRange(1, 1, Math.min(s4.getLastRow(), 80), 7).getValues(), part = '';
+    for (var k = 0; k < v4.length; k++) {
+      var bb = rkvStr_(v4[k][1]);
+      if (/^A\./.test(bb)) { part = 'A'; continue; }
+      if (/^B\./.test(bb)) { part = 'B'; continue; }
+      if (part === 'A' && /^\d/.test(bb) && rkvStr_(v4[k][2])) out.rules.push({group: rkvStr_(v4[k][2]), kpis: rkvStr_(v4[k][3]).substring(0, 1500), vi: rkvStr_(v4[k][5]).substring(0, 3500), ref: rkvStr_(v4[k][6])});
+      else if (part === 'B' && bb) out.guide.push(bb.substring(0, 600));
+    }
+  }
+  // 6. Member KPI Summarize
+  var s6 = ss.getSheetByName('6. Member KPI Summarize');
+  if (s6) {
+    var v6 = s6.getRange(3, 1, Math.max(2, s6.getLastRow() - 2), Math.min(s6.getLastColumn(), 26)).getValues(), h6 = v6[1].map(rkvStr_);
+    out.colors = [2, 3, 4, 5].map(function(c){ return rkvStr_(v6[0][c]); });
+    var f6 = h6.indexOf('FY68 TOTAL'); if (f6 < 0) f6 = 5;
+    out.mperiods = h6.slice(f6).filter(String);
+    for (var q = 2; q < v6.length; q++) {
+      var mm = rkvStr_(v6[q][2]); if (!mm) continue;
+      out.members.push({dept: rkvStr_(v6[q][1]), member: mm, full: rkvStr_(v6[q][3]), pos: rkvStr_(v6[q][4]),
+        v: out.mperiods.map(function(_, j){ return rkvNum_(v6[q][f6 + j]); })});
+    }
+  }
+  out.at = new Date().toISOString();
+  rkvCachePut_('rkv:total', out, RKV.TTL);
+  return out;
+}
+function rkvTotal_(p) {
+  var vw = rkvViewer_(p.tk);
+  if (vw.err) return {ok: false, code: 'AUTH', error: vw.err};
+  var d = rkvData_(), sc = rkvScope_(vw.u, d);
+  if (!rkvCanTotal_(vw.u, sc)) return {ok: false, code: 'FORBIDDEN', error: 'Total KPI chỉ dành cho Admin, Director và quản lý phòng ban.'};
+  var t = rkvTotalData_();
+  return {ok: true, v: RKV.VERSION, me: sc.myName, scope: sc.scope, sync: d.sync || [], head: t.head, persp: t.persp, kpi: t.kpi, months: t.months,
+          rules: t.rules, guide: t.guide, members: t.members, mperiods: t.mperiods, colors: t.colors, at: t.at};
 }
