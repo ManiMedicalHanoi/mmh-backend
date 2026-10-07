@@ -5642,7 +5642,7 @@ function getPICNameFromEmail(email) {
     'mmh.hanoi@mani.inc': 'Minh Viet',
     'mmh.saigon@mani.inc': 'Phuong',
     'mmh.hanoi2@mani.inc': 'Viet Ha',
-    'mmh.saigon2@mani.inc': 'Khang',
+    'mmh.saigon1@mani.inc': 'Khang',
     'vtt.hoa@mani.inc': 'Hoa',
     'mmh.hanoi1@mani.inc': 'Ngoc',
     'mmh.backoffice1@mani.inc': 'Hau',

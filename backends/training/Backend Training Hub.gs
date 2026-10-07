@@ -284,7 +284,7 @@ var HUB_DIRECTORY = [
   {name:'Vinh',      email:'mmh.danang@mani.inc',       dept:'Dental Sale Team',     position:'Sales Rep — Da Nang',          role:'trainer', manager:'mmh.hanoi@mani.inc'},
   {name:'Phuong',    email:'mmh.saigon@mani.inc',       dept:'Dental Sale Team',     position:'Sales Rep — Ho Chi Minh',      role:'trainer', manager:'mmh.hanoi@mani.inc'},
   {name:'Viet Ha',   email:'mmh.hanoi2@mani.inc',       dept:'Surgical Sale Team',   position:'Sales Rep — North',            role:'trainer', manager:'mmh.product@mani.inc'},
-  {name:'Khang',     email:'mmh.saigon2@mani.inc',      dept:'Surgical Sale Team',   position:'Sales Rep — South',            role:'trainer', manager:'mmh.product@mani.inc'},
+  {name:'Khang',     email:'mmh.saigon1@mani.inc',      dept:'Surgical Sale Team',   position:'Sales Rep — South',            role:'trainer', manager:'mmh.product@mani.inc'},
   {name:'Trang',     email:'marketing.mmh2@mani.inc',   dept:'Eyeless Sale Team',    position:'Sales Rep — Eyeless',          role:'trainer', manager:'tt.tuyen@mani.inc'},
   // --- Back office -----------------------------------------------------------
   {name:'Hoa',       email:'vtt.hoa@mani.inc',          dept:'Back Office',          position:'HOD Back Office',              role:'trainer', manager:'nt.ha@mani.inc'},
@@ -301,14 +301,14 @@ var HUB_DIRECTORY = [
 
 /** Nhóm người nhận dựng sẵn — khớp cột "Target Audience" của sheet Master */
 var HUB_GROUPS = {
-  'MMH - All member'     : ['mmh.admin','mmh.product','marketing.mmh1','marketing.mmh','marketing.mmh2','tt.tuyen','mmh.saigon2','mmh.hanoi2','mmh.hanoi','mmh.saigon','mmh.danang','vtt.hoa','mmh.hanoi1','mmh.order','mmh.backoffice','mmh.backoffice1'],
-  'MMH - Sales team'     : ['mmh.saigon2','mmh.hanoi2','mmh.hanoi','mmh.saigon','mmh.danang','tt.tuyen','marketing.mmh2'],
+  'MMH - All member'     : ['mmh.admin','mmh.product','marketing.mmh1','marketing.mmh','marketing.mmh2','tt.tuyen','mmh.saigon1','mmh.hanoi2','mmh.hanoi','mmh.saigon','mmh.danang','vtt.hoa','mmh.hanoi1','mmh.order','mmh.backoffice','mmh.backoffice1'],
+  'MMH - Sales team'     : ['mmh.saigon1','mmh.hanoi2','mmh.hanoi','mmh.saigon','mmh.danang','tt.tuyen','marketing.mmh2'],
   'MMH - Marketing team' : ['mmh.admin','mmh.product','marketing.mmh1','marketing.mmh','marketing.mmh2','tt.tuyen'],
   'MMH - Back office team':['vtt.hoa','mmh.hanoi1','mmh.order','mmh.backoffice','mmh.backoffice1'],
   'MMH - Sales Dental'   : ['mmh.hanoi','mmh.saigon','mmh.danang','tt.tuyen'],
-  'MMH - Sales Surgical' : ['mmh.saigon2','mmh.hanoi2','tt.tuyen'],
-  'MMH - Sales & MKT'    : ['mmh.saigon2','mmh.hanoi2','mmh.hanoi','mmh.saigon','mmh.danang','tt.tuyen','mmh.admin','mmh.product','marketing.mmh1','marketing.mmh','marketing.mmh2'],
-  'MMH - Product Team'   : ['mmh.product','mmh.hanoi2','mmh.saigon2','marketing.mmh2'],
+  'MMH - Sales Surgical' : ['mmh.saigon1','mmh.hanoi2','tt.tuyen'],
+  'MMH - Sales & MKT'    : ['mmh.saigon1','mmh.hanoi2','mmh.hanoi','mmh.saigon','mmh.danang','tt.tuyen','mmh.admin','mmh.product','marketing.mmh1','marketing.mmh','marketing.mmh2'],
+  'MMH - Product Team'   : ['mmh.product','mmh.hanoi2','mmh.saigon1','marketing.mmh2'],
   'MMH - Leaders'        : ['nt.ha','tt.tuyen','vtt.hoa','mmh.product','marketing.mmh','mmh.hanoi','mmh.backoffice','manithailand']
 };
 
