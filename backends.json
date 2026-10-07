@@ -69,5 +69,15 @@
     "scriptId": "1KGGt8o9FhbSWt1cOmGESslxMNYQdWfLeb9bUXQilO_3YxXurn2ny9-eW",
     "sheetId": "16vIDYRhm6Cj9DN4C26rvbBPW1hF3vAnZ7lgl6Bd02w8",
     "url": "https://script.google.com/macros/s/AKfycbwvH5YqDfVkYLgJiF2x712-fVaQO1neggdE-7VGhOXgAofCv3wRproagHoFj7PBdnEftA/exec"
+  },
+  "kpi": {
+    "name": "MMH KPI FY68 (KPI Hub + KPI Sync Center)",
+    "apps": [
+      "ManiMedicalHanoi/MMH-Report"
+    ],
+    "deploymentId": "AKfycbx58htPcvaOk5R4lC91hWcT3GHWTTAWSq7UZSoRUKkanez6noyX1vHatHNCndQPrFV2",
+    "scriptId": "16sU6WVfAaPX2y3kiyH-mf96zV8HSc-GEQhiEi8hpM23H30C5HvgZRkjF",
+    "sheetId": "1m3F8NEI1QuvzFnpHVrvQ903R1lNQvm_qRkgSI5mBkx0",
+    "url": "https://script.google.com/macros/s/AKfycbx58htPcvaOk5R4lC91hWcT3GHWTTAWSq7UZSoRUKkanez6noyX1vHatHNCndQPrFV2/exec"
   }
 }
