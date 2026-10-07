@@ -2,7 +2,8 @@
   "marketing": {
     "name": "Report Hub – Marketing",
     "apps": [
-      "ManiMedicalHanoi/MMH-Report"
+      "ManiMedicalHanoi/MMH-Report",
+      "ManiMedicalHanoi/MMH-CRM"
     ],
     "deploymentId": "AKfycbzn-5chMgO7lQPKmot8P7UkP9C40MdCPtiTTa4H1gcKepVsnr1IYfcB7sSdK1_jrZYY",
     "scriptId": "1gUrhu4gDj2jzrisZGCx0A8uL0BCNOcPmM3BuXtyD0wSYW2giZcacETbC",
@@ -73,11 +74,82 @@
   "kpi": {
     "name": "MMH KPI FY68 (KPI Hub + KPI Sync Center)",
     "apps": [
-      "ManiMedicalHanoi/MMH-Report"
+      "ManiMedicalHanoi/MMH-Report",
+      "ManiMedicalHanoi/MMH-CRM"
     ],
     "deploymentId": "AKfycbx58htPcvaOk5R4lC91hWcT3GHWTTAWSq7UZSoRUKkanez6noyX1vHatHNCndQPrFV2",
     "scriptId": "16sU6WVfAaPX2y3kiyH-mf96zV8HSc-GEQhiEi8hpM23H30C5HvgZRkjF",
     "sheetId": "1m3F8NEI1QuvzFnpHVrvQ903R1lNQvm_qRkgSI5mBkx0",
     "url": "https://script.google.com/macros/s/AKfycbx58htPcvaOk5R4lC91hWcT3GHWTTAWSq7UZSoRUKkanez6noyX1vHatHNCndQPrFV2/exec"
+  },
+  "crm-dental": {
+    "name": "CRM Dental (MMH_Dental_CRM)",
+    "apps": [
+      "ManiMedicalHanoi/MMH-CRM"
+    ],
+    "deploymentId": "AKfycbyzmhECZZfbOZUyXOK5O70ukwTgQ9DHp70MN-HUAL0wMpOptdTTbaGcvMEmcnCrCji6",
+    "scriptId": "1Xl-mbx6ARdAk_41V5fGKdDsRonrou9RkoVStQGCJpbIESkN7BaCcW12s",
+    "sheetId": "13aLqhO4H7he4LeHWNCdwNRhGXcIzieuNtFcA0BJJJj0",
+    "url": "https://script.google.com/macros/s/AKfycbyzmhECZZfbOZUyXOK5O70ukwTgQ9DHp70MN-HUAL0wMpOptdTTbaGcvMEmcnCrCji6/exec"
+  },
+  "crm-surgical": {
+    "name": "CRM Surgical (MMH_Surgical_CRM)",
+    "apps": [
+      "ManiMedicalHanoi/MMH-CRM"
+    ],
+    "deploymentId": "AKfycbxxckrqwkfhE0fszm1XVdpYyEHU_PCKQWMKE_2wBnMTgoJCZ-1nRZ_fhOCPXXsVfEE",
+    "scriptId": "1iEUQdmoIEoF6hNse1SDbsSoadLR-7iFjsMkS1boR3CzYSNQGVZhn4y3j",
+    "sheetId": "16ke8ZRvmbG6TUte-oDLFSGzKbW9_PA98EJnLo5LoauM",
+    "url": "https://script.google.com/macros/s/AKfycbxxckrqwkfhE0fszm1XVdpYyEHU_PCKQWMKE_2wBnMTgoJCZ-1nRZ_fhOCPXXsVfEE/exec"
+  },
+  "crm-eyeless": {
+    "name": "CRM Eyeless (MMH_Eyeless_CRM)",
+    "apps": [
+      "ManiMedicalHanoi/MMH-CRM"
+    ],
+    "deploymentId": "AKfycbxsoTRbRWZRaf-z7-xRy_oIkM-Yv1HoCOjVRO-K6oRRh3Dr7MMg4v53K0qqpMfZ_K5IAg",
+    "scriptId": "1khyaqlU0j47HanZgXLnF0VYEonPrrIuKgzFEXwNKRY8WGvU3Rj59J4YQ",
+    "sheetId": "1FxMj1uWZBi6yimnAlPCOG0dh2OF0dFfWIQntFXVduZA",
+    "url": "https://script.google.com/macros/s/AKfycbxsoTRbRWZRaf-z7-xRy_oIkM-Yv1HoCOjVRO-K6oRRh3Dr7MMg4v53K0qqpMfZ_K5IAg/exec"
+  },
+  "crm-thai": {
+    "name": "CRM Thailand Surgical (FY68_Thailand_Surgical_CRM)",
+    "apps": [
+      "ManiMedicalHanoi/MMH-CRM"
+    ],
+    "deploymentId": "AKfycbwglPhfcC3y20-lPO8mRC7yapGUyVHSO2Mp3k4fyPJXnraQEu6bbO4dysL0E9MNadwHwg",
+    "scriptId": "1YHfXAjBGKMHAsOnRMMHHbqO4RpAO3MBCAuBo09cmZxzrf27W5Kt2QVuT",
+    "sheetId": "1rX8BDcbFGOjpXFmPJeKTkllE4LH7q9A8zz22R7jDA0E",
+    "url": "https://script.google.com/macros/s/AKfycbwglPhfcC3y20-lPO8mRC7yapGUyVHSO2Mp3k4fyPJXnraQEu6bbO4dysL0E9MNadwHwg/exec"
+  },
+  "cust-data": {
+    "name": "Data khách hàng (đồng bộ khách hàng từ Event)",
+    "apps": [
+      "ManiMedicalHanoi/MMH-CRM"
+    ],
+    "deploymentId": "AKfycbz1qIyw42C1qz_rBlzI0PPGPuDubo1s5r5BT0knuUf84mfROB7U97QbzNLqOWezK-d-",
+    "scriptId": "1xB9BFwbHKFeWXc2BqZdQvXADle5AGN72R7YfSvDzvsV9M0h7KMutOdcx",
+    "sheetId": "1fJlW-23rgyZEdYXPfcojTRX0P9xEDrgI4QUxw5kUXgw",
+    "url": "https://script.google.com/macros/s/AKfycbz1qIyw42C1qz_rBlzI0PPGPuDubo1s5r5BT0knuUf84mfROB7U97QbzNLqOWezK-d-/exec"
+  },
+  "turnover": {
+    "name": "MMH Turnover Report FY67-FY68 (doanh số NPP)",
+    "apps": [
+      "ManiMedicalHanoi/MMH-CRM"
+    ],
+    "deploymentId": "AKfycbz26knlK_GE2mYlszlx947QWSLvfScrHFeB86XkaPWfDhKHi49cnVfCXS_kPUpkX2Fgww",
+    "scriptId": "1dpzdCY2_SrSQivHECxvrZ10CteICb2Z02svyV496GDG3Mg47_HSQm-y3",
+    "sheetId": "1bujnLrxerjUM1gR3aOoy3r4gvTp4pNyPwJM-ra5iFe8",
+    "url": "https://script.google.com/macros/s/AKfycbz26knlK_GE2mYlszlx947QWSLvfScrHFeB86XkaPWfDhKHi49cnVfCXS_kPUpkX2Fgww/exec"
+  },
+  "thai-mkt": {
+    "name": "Thai Surgical Marketing (event nhóm Thái)",
+    "apps": [
+      "ManiMedicalHanoi/MMH-CRM"
+    ],
+    "deploymentId": "AKfycbykuiMSXhyVeujpffSi0l8hU8yok1QTnsrT6ZnCOxdMFaq8e4g4TMB7PyY9QiCIY3qF",
+    "scriptId": "1Yfl4MCUIxYTE90wHKOCvhYlNGQ5FXaUg1vJpPAEJTBcym9Em6uTUa_hC",
+    "sheetId": "1s6ny0CSsF0WECR_8Zu41eU2kCFrmYHYbEa3GIWSbO1M",
+    "url": "https://script.google.com/macros/s/AKfycbykuiMSXhyVeujpffSi0l8hU8yok1QTnsrT6ZnCOxdMFaq8e4g4TMB7PyY9QiCIY3qF/exec"
   }
 }
