@@ -12,12 +12,12 @@
    ════════════════════════════════════════════════════════════════════ */
 
 var RKV = {
-  VERSION: '1.0',
+  VERSION: '1.1',
   TRAINING_MASTER: '1byCL6NjhqBuEcd-K5pxYRrQj2XXs6GMIvR79x45mHRQ',
   SHEET: '5. Member KPI Monthly',
   STAFF: '0. Staff List',
   HEADER_ROW: 4,
-  TTL: 60
+  TTL: 300
 };
 
 function doGet(e) {
@@ -35,6 +35,9 @@ function rkvRoute_(p) {
   var a = String(p.action || 'ping');
   if (a === 'ping') return {ok: true, service: 'MMH KPI', version: RKV.VERSION};
   if (a === 'rhKpi') return rkvKpi_(p);
+  if (a === 'rhKpiMail') return rkvMail_(p, 'data');
+  if (a === 'rhKpiMailPreview') return rkvMail_(p, 'preview');
+  if (a === 'rhKpiMailSend') return rkvMail_(p, 'send');
   return {ok: false, error: 'Không tìm thấy chức năng: ' + a};
 }
 
@@ -135,7 +138,7 @@ function rkvViewer_(tk) {
               session: Math.max(1, parseInt(r[5], 10) || 1)};
     });
     if (secret.length >= 32) sc.put('rkv:sec', secret, 21600);
-    sc.put('rkv:users', JSON.stringify(users), 120);
+    sc.put('rkv:users', JSON.stringify(users), 600);
   }
   if (secret.length < 32) return {err: 'Chưa có khoá đăng nhập.'};
   var data = tk.substring(0, dot), sig = tk.substring(dot + 1);
@@ -150,27 +153,52 @@ function rkvViewer_(tk) {
   return {u: u};
 }
 
-/** KPI theo phạm vi người xem */
-function rkvKpi_(p) {
-  var vw = rkvViewer_(p.tk);
-  if (vw.err) return {ok: false, code: 'AUTH', error: vw.err};
-  var u = vw.u, d = rkvData_();
-  // tên Report Hub ↔ tên KPI (Staff List cột KPI Name)
+/** Phạm vi xem của 1 người (Director tất cả · HOD cả phòng · Team Leader nhóm mình · PIC chỉ mình) */
+function rkvScope_(u, d) {
   var alias = {nguyenha: '', minhviet: 'Viet'}, mk = rkvKey_(u.pic);
   var myName = alias.hasOwnProperty(mk) ? alias[mk] : '';
   if (!myName) Object.keys(d.staff).forEach(function(k){ if (rkvKey_(k) === mk) myName = k; });
-  var me = d.staff[myName] || {};
-  var role = String(me.role || '').toLowerCase();
+  var me = d.staff[myName] || {}, role = String(me.role || '').toLowerCase(), st = function(m){ return d.staff[m] || {}; };
   var scope, see;
   if (u.level === 'director' || /director/i.test(me.level || '') || mk === 'nguyenha') { scope = 'all'; see = function(){ return true; }; }
-  else if (u.level === 'hod' || role === 'hod') { scope = 'dept'; see = function(r){ return r.member === myName || rkvKey_(r.dept) === rkvKey_(me.dept || (d.staff[r.member] || {}).dept); }; }
-  else if (u.level === 'lead' || /team leader/.test(role)) { scope = 'team'; see = function(r){ var s = d.staff[r.member] || {}; return r.member === myName || (me.team && rkvKey_(s.team) === rkvKey_(me.team)); }; }
-  else { scope = 'self'; see = function(r){ return r.member === myName; }; }
-  if (scope === 'dept') {
-    var myDept = rkvKey_(me.dept);
-    see = function(r){ var s = d.staff[r.member] || {}; return r.member === myName || (myDept && (rkvKey_(s.dept || r.dept) === myDept)); };
-  }
-  var rows = d.rows.filter(see), staff = {};
+  else if (u.level === 'hod' || role === 'hod') { scope = 'dept'; var dp = rkvKey_(me.dept); see = function(m, dept){ return m === myName || (dp && rkvKey_(st(m).dept || dept) === dp); }; }
+  else if (u.level === 'lead' || /team leader/.test(role)) { scope = 'team'; see = function(m){ return m === myName || (me.team && rkvKey_(st(m).team) === rkvKey_(me.team)); }; }
+  else { scope = 'self'; see = function(m){ return m === myName; }; }
+  return {myName: myName || u.pic, scope: scope, see: see};
+}
+
+/** KPI theo phạm vi người xem (+ danh bạ tổ chức gọn để điền form Setting Expectation) */
+function rkvKpi_(p) {
+  var vw = rkvViewer_(p.tk);
+  if (vw.err) return {ok: false, code: 'AUTH', error: vw.err};
+  var d = rkvData_(), sc = rkvScope_(vw.u, d);
+  var rows = d.rows.filter(function(r){ return sc.see(r.member, r.dept); }), staff = {};
   rows.forEach(function(r){ if (d.staff[r.member]) staff[r.member] = d.staff[r.member]; });
-  return {ok: true, me: myName || u.pic, scope: scope, periods: d.periods, rows: rows, staff: staff, at: d.at, v: RKV.VERSION};
+  var org = Object.keys(d.staff).map(function(k){ var s = d.staff[k]; return {key: k, full: s.full, role: s.role, team: s.team, dept: s.dept, level: s.level}; });
+  Object.keys(d.staff).forEach(function(k){ var s = d.staff[k]; if (/director/i.test(s.level || '')) org.push({key: '', full: s.full, role: 'Director', level: s.level}); });
+  return {ok: true, me: sc.myName, scope: sc.scope, periods: d.periods, rows: rows, staff: staff, org: org, at: d.at, v: RKV.VERSION};
+}
+
+/** Email báo cáo KPI tháng — dùng nguyên mẫu email của KpiSyncCenter (kscMailData / kscMailHtml_ / kscMailSend) */
+function rkvMail_(p, mode) {
+  var vw = rkvViewer_(p.tk);
+  if (vw.err) return {ok: false, code: 'AUTH', error: vw.err};
+  var d = rkvData_(), sc = rkvScope_(vw.u, d), pic = String(p.pic || sc.myName).trim(), month = String(p.month || '').trim();
+  if (!d.rows.some(function(r){ return r.member === pic; })) return {ok: false, error: 'Không có KPI của ' + pic + '.'};
+  if (!sc.see(pic)) return {ok: false, code: 'FORBIDDEN', error: 'Bạn không xem được KPI của ' + pic + '.'};
+  if (!/^\d{6}$/.test(month)) return {ok: false, error: 'Tháng không hợp lệ.'};
+  if (mode === 'data') {
+    var md = kscMailData(pic, month);
+    if (!md.ok) return md;
+    return {ok: true, data: md};
+  }
+  var f = {pic: pic, month: month, greeting: String(p.greeting || ''), intro: String(p.intro || ''), showQ: String(p.showQ) !== '0',
+           analysis: String(p.analysis || ''), highlights: String(p.highlights || ''), sign: String(p.sign || ''),
+           subject: String(p.subject || ''), to: String(p.to || ''), cc: String(p.cc || '')};
+  if (mode === 'preview') return kscMailPreview(f);
+  var only = function(s){ return String(s || '').split(/[,;\s]+/).filter(function(e){ return e; }).every(function(e){ return /@(mani\.inc|manimedicalhanoi\.com)$/i.test(e); }); };
+  if (!only(f.to) || !only(f.cc)) return {ok: false, error: 'Chỉ gửi tới email công ty (@mani.inc / @manimedicalhanoi.com).'};
+  var r = kscMailSend(f);
+  if (r && r.ok) { r.message = r.msg; try { console.log('[rhKpiMailSend] ' + vw.u.pic + ' gửi KPI ' + pic + ' ' + month); } catch (e) {} }
+  return r;
 }
