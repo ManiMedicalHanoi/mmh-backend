@@ -2442,7 +2442,7 @@ var KSC_MAIL = {
   /* email đã có trong code CRM (USER_MAP) và CRM Thái: chỉ dùng để điền sẵn lần đầu, sửa ở sheet KPI EMAIL DIRECTORY */
   KNOWN    : { 'Viet': 'mmh.hanoi@manimedicalhanoi.com', 'Phuong': 'mmh.saigon@manimedicalhanoi.com', 'Vinh': 'mmh.danang@manimedicalhanoi.com',
                'Giang': 'mmh.product@manimedicalhanoi.com', 'Tuyen': 'tt.tuyen@manimedicalhanoi.com', 'Viet Ha': 'mmh.hanoi2@manimedicalhanoi.com',
-               'Khang': 'mmh.saigon2@manimedicalhanoi.com', 'Trang': 'marketing.mmh2@manimedicalhanoi.com', 'Dao': 'manithailand@manimedicalhanoi.com',
+               'Khang': 'mmh.saigon1@manimedicalhanoi.com', 'Trang': 'marketing.mmh2@manimedicalhanoi.com', 'Dao': 'manithailand@manimedicalhanoi.com',
                'Miew': 'manithailand4@manimedicalhanoi.com', 'Hoa': 'vtt.hoa@manimedicalhanoi.com', 'Nguyễn Thị Thu Hà': 'nt.ha@manimedicalhanoi.com' },
   GROUP_BG : [[/^sales/i, '#CFE2F3'], [/^marketing/i, '#FFF2CC'], [/^people/i, '#F4CCCC'], [/^(process|back|operation|finance)/i, '#D9EAD3']]
 };

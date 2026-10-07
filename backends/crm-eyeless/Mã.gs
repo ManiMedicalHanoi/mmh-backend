@@ -230,7 +230,7 @@ var USER_MAP = {
   'tt.tuyen@manimedicalhanoi.com'    : { pic:'Tuyen',     initials:'TU', role:'manager', level:'hod',      title:'Head of Sales & Marketing VN', dept:'Sales & Marketing VN', team:'Sales & Marketing VN' },
   'nt.ha@manimedicalhanoi.com'       : { pic:'Nguyen Ha', initials:'NH', role:'manager', level:'director', title:'Director',                     dept:'Sales & Marketing VN', team:'Management' },
   'mmh.hanoi2@manimedicalhanoi.com'  : { pic:'Viet Ha',   initials:'VH', role:'pic',     level:'pic',      title:'Surgical Sales PIC — North',   dept:'Sales & Marketing VN', team:'Surgical Sales Team' },
-  'mmh.saigon2@manimedicalhanoi.com' : { pic:'Khang',     initials:'KH', role:'pic',     level:'pic',      title:'Surgical Sales PIC — South',   dept:'Sales & Marketing VN', team:'Surgical Sales Team' },
+  'mmh.saigon1@manimedicalhanoi.com' : { pic:'Khang',     initials:'KH', role:'pic',     level:'pic',      title:'Surgical Sales PIC — South',   dept:'Sales & Marketing VN', team:'Surgical Sales Team' },
   'marketing.mmh2@manimedicalhanoi.com' : { pic:'Trang',  initials:'TR', role:'pic',     level:'pic',      title:'Eyeless Sales PIC',            dept:'Sales & Marketing VN', team:'Eyeless Sales Team' }
 };
 
