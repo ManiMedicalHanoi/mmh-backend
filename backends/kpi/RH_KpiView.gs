@@ -12,7 +12,7 @@
    ════════════════════════════════════════════════════════════════════ */
 
 var RKV = {
-  VERSION: '1.1',
+  VERSION: '1.2',
   TRAINING_MASTER: '1byCL6NjhqBuEcd-K5pxYRrQj2XXs6GMIvR79x45mHRQ',
   SHEET: '5. Member KPI Monthly',
   STAFF: '0. Staff List',
@@ -163,6 +163,10 @@ function rkvViewer_(tk) {
   return {u: u};
 }
 
+/** Nhóm quản lý thêm (ngoài nhóm ghi trong Staff List) — Giang kiêm quản lý Surgical Sales */
+var RKV_EXTRA_TEAMS = {Giang: ['Surgical Sales team']};
+var RKV_DIRECTOR = 'Nguyễn Thị Thu Hà';
+
 /** Phạm vi xem của 1 người (Director tất cả · HOD cả phòng · Team Leader nhóm mình · PIC chỉ mình) */
 function rkvScope_(u, d) {
   var alias = {nguyenha: '', minhviet: 'Viet'}, mk = rkvKey_(u.pic);
@@ -172,7 +176,11 @@ function rkvScope_(u, d) {
   var scope, see;
   if (u.level === 'director' || /director/i.test(me.level || '') || mk === 'nguyenha') { scope = 'all'; see = function(){ return true; }; }
   else if (u.level === 'hod' || role === 'hod') { scope = 'dept'; var dp = rkvKey_(me.dept); see = function(m, dept){ return m === myName || (dp && rkvKey_(st(m).dept || dept) === dp); }; }
-  else if (u.level === 'lead' || /team leader/.test(role)) { scope = 'team'; see = function(m){ return m === myName || (me.team && rkvKey_(st(m).team) === rkvKey_(me.team)); }; }
+  else if (u.level === 'lead' || /team leader/.test(role)) {
+    scope = 'team';
+    var teams = [me.team].concat(RKV_EXTRA_TEAMS[myName] || []).filter(String).map(rkvKey_);
+    see = function(m){ return m === myName || teams.indexOf(rkvKey_(st(m).team)) >= 0; };
+  }
   else { scope = 'self'; see = function(m){ return m === myName; }; }
   return {myName: myName || u.pic, scope: scope, see: see};
 }
@@ -185,7 +193,7 @@ function rkvKpi_(p) {
   var rows = d.rows.filter(function(r){ return sc.see(r.member, r.dept); }), staff = {};
   rows.forEach(function(r){ if (d.staff[r.member]) staff[r.member] = d.staff[r.member]; });
   var org = Object.keys(d.staff).map(function(k){ var s = d.staff[k]; return {key: k, full: s.full, role: s.role, team: s.team, dept: s.dept, level: s.level}; });
-  Object.keys(d.staff).forEach(function(k){ var s = d.staff[k]; if (/director/i.test(s.level || '')) org.push({key: '', full: s.full, role: 'Director', level: s.level}); });
+  if (!org.some(function(o){ return /director/i.test(o.level || '') || /director/i.test(o.role || ''); })) org.push({key: '', full: RKV_DIRECTOR, role: 'Director', level: 'Director'});
   return {ok: true, me: sc.myName, scope: sc.scope, periods: d.periods, rows: rows, staff: staff, org: org, at: d.at, v: RKV.VERSION};
 }
 
