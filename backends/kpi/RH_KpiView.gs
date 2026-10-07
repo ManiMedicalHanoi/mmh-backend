@@ -31,6 +31,16 @@ function doGet(e) {
   return ContentService.createTextOutput(json).setMimeType(ContentService.MimeType.JSON);
 }
 
+/** POST (URLSearchParams action + payload JSON) — cho nội dung dài (soạn / xem trước / gửi email KPI) */
+function doPost(e) {
+  var p = (e && e.parameter) || {}, out;
+  try {
+    if (p.payload) { var x = JSON.parse(p.payload); for (var k in x) if (k !== 'action') p[k] = x[k]; }
+    out = rkvRoute_(p);
+  } catch (err) { out = {ok: false, error: String((err && err.message) || err)}; }
+  return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
+}
+
 function rkvRoute_(p) {
   var a = String(p.action || 'ping');
   if (a === 'ping') return {ok: true, service: 'MMH KPI', version: RKV.VERSION};
