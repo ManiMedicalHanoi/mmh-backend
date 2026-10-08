@@ -31,3 +31,6 @@
    Quyền hiện được app áp dụng (ẩn / chặn nút); giai đoạn 2 backend phòng ban đọc thêm Perms để chặn ở máy chủ.
 9. ✅ Training Hub v3.14 có `rhAssign*` (sheet RH_Assign) + `rhAssignReply` + `rhDirectory` — trước đó "Việc mới được giao" lỗi im lặng.
    ⏳ Tuỳ chọn: đọc email trả lời thật (cần hộp thư theo dõi + quyền Gmail đọc ⇒ chủ script cấp quyền lại) — hỏi người dùng.
+12. ⏳ **Product-Data** (`product-data`, app `ManiMedicalHanoi/Product-Data`, 08/10/2026): đưa backend vào kho (Đợt 1). Script gắn với
+    Sheet `1IQmW…` ⇒ có thể phải xin Script ID của người dùng. Sau khi kéo code: đăng nhập `tk` (Training Hub `rhAuthMe`), phân quyền
+    (xem: mọi người · sửa/upload: Product Team · xoá: Admin), ID cố định cho sản phẩm + sheet `Files`, ghi bằng POST có `rid`.

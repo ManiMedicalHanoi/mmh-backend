@@ -151,5 +151,15 @@
     "scriptId": "1Yfl4MCUIxYTE90wHKOCvhYlNGQ5FXaUg1vJpPAEJTBcym9Em6uTUa_hC",
     "sheetId": "1s6ny0CSsF0WECR_8Zu41eU2kCFrmYHYbEa3GIWSbO1M",
     "url": "https://script.google.com/macros/s/AKfycbykuiMSXhyVeujpffSi0l8hU8yok1QTnsrT6ZnCOxdMFaq8e4g4TMB7PyY9QiCIY3qF/exec"
+  },
+  "product-data": {
+    "name": "Product Data (kho dữ liệu sản phẩm)",
+    "apps": [
+      "ManiMedicalHanoi/Product-Data"
+    ],
+    "deploymentId": "AKfycbxH-EoEvrR46I5TYdCmF8OiWy8JVH6udnOKMk8JEBH9UvMVZ5ltIIgXw21IqOWaJ1y_Og",
+    "scriptId": "",
+    "sheetId": "1IQmW_8kD-YqlxVR_FVvmyYvtZwMLBmvuMIfySbgKmAo",
+    "url": "https://script.google.com/macros/s/AKfycbxH-EoEvrR46I5TYdCmF8OiWy8JVH6udnOKMk8JEBH9UvMVZ5ltIIgXw21IqOWaJ1y_Og/exec"
   }
 }
