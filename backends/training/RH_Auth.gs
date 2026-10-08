@@ -239,7 +239,7 @@ function apiRhAuthStart(p) {
     '<p style="margin:0 0 4px;color:#5E738C;font-size:13px">Mã có hiệu lực trong ' + Math.round(RH_AUTH.OTP_TTL_SEC / 60) + ' phút. Sau khi đăng nhập, máy này được ghi nhớ ' + RH_AUTH.TOKEN_DAYS + ' ngày.</p>' +
     '<p style="margin:0;color:#5E738C;font-size:13px">Không phải bạn yêu cầu? Hãy bỏ qua email này — không ai vào được tài khoản nếu không có mã.</p>';
   try {
-    MailApp.sendEmail({
+    mmhMail_({
       to: email,
       subject: 'Mã đăng nhập ' + RH_AUTH.APP_NAME + ': ' + code,
       htmlBody: hubMailShell('MANI MEDICAL HANOI', RH_AUTH.APP_NAME, inner, 'Email tự động từ ' + RH_AUTH.APP_NAME + ' — vui lòng không trả lời. ' + RH_AUTH.APP_URL),

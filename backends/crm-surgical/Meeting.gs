@@ -345,7 +345,7 @@ function mtMail_(q) {
   if (cc.length) opt.cc = cc.join(",");
   var rp = String(q.replyTo || "").trim();
   if (MT_CFG.MAIL_RE.test(rp)) opt.replyTo = rp;
-  MailApp.sendEmail(opt);
+  mmhMail_(opt);
 
   /* đóng dấu đã gửi lên các biên bản của tuần */
   var ids = mtJ_(q.ids) || [], now = mtNow_();

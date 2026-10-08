@@ -101,11 +101,11 @@ function apiRhUpdMail(p) {
   var mail = {to: to.join(','), subject: (test ? '[TEST] ' : '') + subject, htmlBody: html, inlineImages: inline,
               attachments: files, name: app === 'crm' ? 'MMH CRM' : 'MMH Report Hub', noReply: true};
   if (cc.length) mail.cc = cc.join(',');
-  try { MailApp.sendEmail(mail); }
+  try { mmhMail_(mail); }
   catch (e) {
     if (!/noReply|no-reply|reply/i.test(String(e.message))) return {ok: false, error: 'Gửi email lỗi: ' + e.message};
     delete mail.noReply; mail.replyTo = me;
-    try { MailApp.sendEmail(mail); } catch (e2) { return {ok: false, error: 'Gửi email lỗi: ' + e2.message}; }
+    try { mmhMail_(mail); } catch (e2) { return {ok: false, error: 'Gửi email lỗi: ' + e2.message}; }
   }
   var out = {ok: true, sent: to.length + cc.length, to: to, cc: cc, test: test, files: files.length, linked: linked};
   try {

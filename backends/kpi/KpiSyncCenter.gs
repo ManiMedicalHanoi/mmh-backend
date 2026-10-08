@@ -2582,7 +2582,7 @@ function kscMailSend(f) {
   if (!to.length) return { ok: false, error: 'Chưa có người nhận (To).' };
   var html = kscMailHtml_(d, f), subject = f.subject || ('KPI T' + kscMon_(d.month) + ' · ' + d.pic);
   var plain = html.replace(/<br>/g, '\n').replace(/<\/(div|tr|li)>/g, '\n').replace(/<\/t[dh]>/g, '\t').replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
-  MailApp.sendEmail({ to: to.join(','), cc: cc.join(','), subject: subject, htmlBody: html, body: plain, name: d.full });
+  mmhMail_({ to: to.join(','), cc: cc.join(','), subject: subject, htmlBody: html, body: plain, name: d.full });
   var me = ''; try { me = Session.getActiveUser().getEmail(); } catch (e) {}
   try {
     var ss = SpreadsheetApp.getActive(), lg = ss.getSheetByName(KSC_MAIL.LOG);

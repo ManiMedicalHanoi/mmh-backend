@@ -17,3 +17,6 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
 - Thay đổi backend kèm thay đổi app: gộp backend **trước**, đợi Deploy xanh, rồi mới gộp frontend.
 - Việc còn dở / đã hứa: `TODO.md` — đọc trước khi bắt đầu.
 - `script.google.com` bị chặn trong môi trường Claude; GitHub Actions thì gọi được.
+- **Email gửi đi luôn dùng miền `@manimedicalhanoi.com`** (người dùng yêu cầu 08/10/2026 — `@mani.inc` hay bị chặn / vào spam): mỗi backend có
+  `MMH_MailDomain.gs` (`mmhMail_` / `mmhGmail_` / `mmhAddr_`) — **không gọi `MailApp.sendEmail` / `GmailApp.sendEmail` trực tiếp**, dùng `mmhMail_`.
+  Training Hub `SEND_DOMAIN = 'manimedicalhanoi.com'`. Đăng nhập vẫn nhận cả 2 miền. **Marketing chưa áp dụng** (đang có bản sửa dở trên trình soạn — chờ người dùng).

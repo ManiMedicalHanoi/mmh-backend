@@ -1583,7 +1583,7 @@ function sendApprovalEmail(sheet, tripData, hodEmail) {
                     (tripData.finishDate || 'N/A');
     
     // ✅ GỬI EMAIL với CC mới
-    MailApp.sendEmail({
+    mmhMail_({
       to: picEmail,
       cc: finalCC, // ✅ THAY ĐỔI: CC Director + AA emails
       subject: subject,
@@ -1647,7 +1647,7 @@ function sendRejectionEmail(sheet, tripData, hodComment, hodEmail) {
     Logger.log('✅ Email subject: ' + subject);
     Logger.log('📧 Sending rejection email...');
     
-    MailApp.sendEmail({
+    mmhMail_({
       to: picEmail,
       cc: directorEmail,
       subject: subject,
@@ -4875,7 +4875,7 @@ function sendProposalEmail(sheet, selectedRows, newRows, userEmail) {
         var dateStr = tripForEmail.startDate.replace(/\//g, '');
         var subject = 'Approval Business trip - ' + dateStr + ' - ' + picName;
         
-        MailApp.sendEmail({
+        mmhMail_({
           to: toRecipients,
           cc: ccRecipients,
           subject: subject,
@@ -5506,7 +5506,7 @@ function sendReportEmail(sheet, rowNumber, tripData, docLink, keyActivities, key
     const subject = `Business Trip Report - ${tripData.pic || 'PIC'} - ${tripData.destination} - From ${tripData.startDate} to ${tripData.finishDate}`;
     
     try {
-      MailApp.sendEmail({
+      mmhMail_({
         to: recipients,              // ✅ TO: Director only
         cc: ccRecipients || '',      // ✅ CC: HOD (if valid)
         subject: subject,
@@ -5773,7 +5773,7 @@ function testSendEmail() {
     Logger.log('Testing email from: ' + userEmail);
     
     // Gửi email test đến chính mình
-    MailApp.sendEmail({
+    mmhMail_({
       to: userEmail,
       subject: 'Test Email from Business Trip System',
       body: 'This is a test email. If you receive this, email sending is working correctly.',
@@ -6243,7 +6243,7 @@ function testEmailUIPreview() {
     const htmlBody = buildBusinessTripProposalEmailV2(greeting, picName, testTrips, sheetUrl);
     
     // Gửi test email cho chính mình
-    MailApp.sendEmail({
+    mmhMail_({
       to: userEmail,
       subject: 'TEST EMAIL - Business Trip Approval Request UI Preview',
       htmlBody: htmlBody,

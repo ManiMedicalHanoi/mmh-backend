@@ -2570,7 +2570,7 @@ function sendWeeklyReport(user, p){
       var ccArr = rr.cc.filter(function(e, i, a){ return e && toArr.indexOf(e) < 0 && a.indexOf(e) === i; });
       toField = toArr.join(','); ccField = ccArr.join(',');
     }
-    MailApp.sendEmail({
+    mmhMail_({
       to: toField, cc: ccField, subject: subject,
       htmlBody: buildCombinedEmailBody(recipient, thisFrom, thisTo, tKeys, nextFrom, nextTo, nKeys, oCur, oNext),
       attachments: [blob], name: appName_()
@@ -2806,7 +2806,7 @@ function sendMonthlyReport(user, p){
       var ccArr = rr.cc.filter(function(e, i, a){ return e && toArr.indexOf(e) < 0 && a.indexOf(e) === i; });
       toField = toArr.join(','); ccField = ccArr.join(',');
     }
-    MailApp.sendEmail({
+    mmhMail_({
       to: toField, cc: ccField,
       subject: 'RE: Monthly Report (' + teamLabel_() + ') ' + t.pic + ' — ' + mLabel + ' & plan ' + nLabel + (t.test ? ' (test)' : ''),
       htmlBody: buildMonthlyEmailBody(recipient, mLabel, nLabel, tRows, nRows),
@@ -4029,7 +4029,7 @@ function mtMail_(q) {
   if (cc.length) opt.cc = cc.join(",");
   var rp = String(q.replyTo || "").trim();
   if (MT_CFG.MAIL_RE.test(rp)) opt.replyTo = rp;
-  MailApp.sendEmail(opt);
+  mmhMail_(opt);
 
   var ids = mtJ_(q.ids) || [], now = mtNow_();
   if (typeof ids === "string") ids = ids.split(",");
@@ -5563,7 +5563,7 @@ function naSendMail_(o, kind, user, to, cc, wk){
     if(cc && cc.length) opt.cc = cc.join(',');
     var rt = NA_ENV.email(kind === 'submit' ? o.pic : user.pic); if(rt) opt.replyTo = rt;
     if(att.length) opt.attachments = att;
-    MailApp.sendEmail(opt);
+    mmhMail_(opt);
     out = { ok:true, to:to, cc:cc, files:att.length };
     if(skipped) out.warn = naL_(skipped + ' file quá lớn — chỉ gửi link', skipped + ' file(s) too large — linked only');
   }catch(e){ out = { ok:false, error:String(e && e.message || e), warn:naL_('Chưa gửi được email: ', 'E-mail not sent: ') + String(e && e.message || e) }; }
@@ -5834,7 +5834,7 @@ function krSend(user, p){
   var opt = { to:to.join(','), subject:subj, htmlBody:krMailHtml_(d, f), name:(d.full || d.member) };
   if(cc.length) opt.cc = cc.join(',');
   var rt = NA_ENV.email(user.pic); if(rt) opt.replyTo = rt;
-  MailApp.sendEmail(opt);
+  mmhMail_(opt);
   try{
     var book = krMasterSS_(), lg = book.getSheetByName(KR.LOG);
     if(lg) lg.appendRow([Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'dd/MM/yyyy HH:mm'), (NA_ENV.email(user.pic) || user.pic) + ' (CRM)', d.member, f.month,
@@ -6191,7 +6191,7 @@ function tripPropose2(user, p){
                   htmlBody: html, name: nm + ' (MMH CRM)' };
       if(mm.cc.length) opt.cc = mm.cc.join(',');
       if(mm.me) opt.replyTo = mm.me;
-      MailApp.sendEmail(opt); mailed = true;
+      mmhMail_(opt); mailed = true;
     }
   }catch(e){ mailErr = String(e && e.message || e); }
   try{ NA_ENV.log(user, 'trip', f.destination, start + ' – ' + fin + ' · row ' + row); }catch(e){}

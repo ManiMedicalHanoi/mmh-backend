@@ -1193,7 +1193,7 @@ function sendReport_(user, p, kind){
     if(option === 'self'){ to = [(USERS[user.pic] || {}).email].filter(Boolean); }
     else { var r = mailRule_(pic); to = r.to; cc = r.cc.filter(function(e){ return to.indexOf(e) < 0; }); }
     if(!to.length) throw new Error('No e-mail address for ' + user.pic);
-    MailApp.sendEmail({ to: to.join(','), cc: cc.join(','), replyTo: (USERS[pic] || {}).email || '', subject: R.subject,
+    mmhMail_({ to: to.join(','), cc: cc.join(','), replyTo: (USERS[pic] || {}).email || '', subject: R.subject,
       htmlBody: R.html, attachments: [blob], name: 'MMH CRM — ' + CFG.TEAM });
     sent.push(pic + ' → ' + to.join(', ') + (cc.length ? ' (cc ' + cc.join(', ') + ')' : ''));
   });
@@ -1714,7 +1714,7 @@ function mtMail_(q){
   if(attach.length) opt.attachments = attach;
   if(cc.length) opt.cc = cc.join(',');
   var rp = str_(q.replyTo); if(MT_CFG.MAIL_RE.test(rp)) opt.replyTo = rp;
-  MailApp.sendEmail(opt);
+  mmhMail_(opt);
   var now = mtNow_(), st = { 'Emailed at': now, 'Emailed to': to.concat(cc).join(', ') };
   if(pdf && pdf.url) st['PDF (Drive)'] = pdf.url;
   mtStamp_(q.ids, st);
@@ -3242,7 +3242,7 @@ function naSendMail_(o, kind, user, to, cc, wk){
     if(cc && cc.length) opt.cc = cc.join(',');
     var rt = NA_ENV.email(kind === 'submit' ? o.pic : user.pic); if(rt) opt.replyTo = rt;
     if(att.length) opt.attachments = att;
-    MailApp.sendEmail(opt);
+    mmhMail_(opt);
     out = { ok:true, to:to, cc:cc, files:att.length };
     if(skipped) out.warn = naL_(skipped + ' file quá lớn — chỉ gửi link', skipped + ' file(s) too large — linked only');
   }catch(e){ out = { ok:false, error:String(e && e.message || e), warn:naL_('Chưa gửi được email: ', 'E-mail not sent: ') + String(e && e.message || e) }; }
@@ -3513,7 +3513,7 @@ function krSend(user, p){
   var opt = { to:to.join(','), subject:subj, htmlBody:krMailHtml_(d, f), name:(d.full || d.member) };
   if(cc.length) opt.cc = cc.join(',');
   var rt = NA_ENV.email(user.pic); if(rt) opt.replyTo = rt;
-  MailApp.sendEmail(opt);
+  mmhMail_(opt);
   try{
     var book = krMasterSS_(), lg = book.getSheetByName(KR.LOG);
     if(lg) lg.appendRow([Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'dd/MM/yyyy HH:mm'), (NA_ENV.email(user.pic) || user.pic) + ' (CRM)', d.member, f.month,
@@ -3870,7 +3870,7 @@ function tripPropose2(user, p){
                   htmlBody: html, name: nm + ' (MMH CRM)' };
       if(mm.cc.length) opt.cc = mm.cc.join(',');
       if(mm.me) opt.replyTo = mm.me;
-      MailApp.sendEmail(opt); mailed = true;
+      mmhMail_(opt); mailed = true;
     }
   }catch(e){ mailErr = String(e && e.message || e); }
   try{ NA_ENV.log(user, 'trip', f.destination, start + ' – ' + fin + ' · row ' + row); }catch(e){}

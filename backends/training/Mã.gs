@@ -132,7 +132,7 @@ const CONFIG = {
 },
   // ★ v3.8: Both domains recognized for login, but only SEND_DOMAIN used for outgoing
   DOMAINS: ['manimedicalhanoi.com', 'mani.inc'],
-  SEND_DOMAIN: 'mani.inc'
+  SEND_DOMAIN: 'manimedicalhanoi.com'   // 08/10/2026: đổi từ mani.inc (hay bị chặn / spam)
 };
 
 // ★ v3.8: CC_EMAIL_LIST - ONLY @mani.inc domain
@@ -1033,7 +1033,7 @@ function sendPreTrainingEmails(selectedRows, ccEmailsStr, addToCalendar, timesDa
 
       var opts = { htmlBody: html };
       if (ccList.length > 0) opts.cc = ccList.join(',');
-      GmailApp.sendEmail(allToEmails.join(','), '(Notification) ' + actualDate + '_' + trainingCategory + ' Training_' + targetAudience, plain, opts);
+      mmhGmail_(allToEmails.join(','), '(Notification) ' + actualDate + '_' + trainingCategory + ' Training_' + targetAudience, plain, opts);
 
       sheet.getRange(rowIndex, CONFIG.REPORT_COLUMNS.PRE_TRAINING).setValue(true);
 
@@ -1400,7 +1400,7 @@ function sendAfterTrainingEmails(selectedRows, ccEmailsStr) {
 
       var opts = { htmlBody: htmlBody };
       if (ccList.length > 0) opts.cc = ccList.join(',');
-      GmailApp.sendEmail(allToEmails.join(','), subject, plain, opts);
+      mmhGmail_(allToEmails.join(','), subject, plain, opts);
 
       // ===== SET STATUS = "Completed" =====
       writeValueWithValidation(sheet, rowIndex, CONFIG.REPORT_COLUMNS.STATUS, 'Completed');

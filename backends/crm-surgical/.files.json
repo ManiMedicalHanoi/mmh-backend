@@ -1,5 +1,6 @@
 [
   "appsscript.json",
   "Mã.gs",
-  "Meeting.gs"
+  "Meeting.gs",
+  "MMH_MailDomain.gs"
 ]

@@ -1715,7 +1715,7 @@ function mmMail(user, p){
   var opt = { to:to.list.join(','), subject:subject, htmlBody:html, name:'MMH Report Hub' };
   if(cc.list.length) opt.cc = cc.list.join(',');
   if(user.email) opt.replyTo = user.email;
-  MailApp.sendEmail(opt);
+  mmhMail_(opt);
   var now = mmNow(), sentTo = to.list.concat(cc.list.map(function(e){ return 'cc:' + e; })).join(', ');
   f.s.getRange(f.row, 16, 1, 2).setNumberFormat('@').setValues([[now + ' (' + user.pic + ')', sentTo]]);
   try{ logActivity(user.pic, 'update', 'gửi email biên bản họp "' + mmTxt(f.r[1]) + '"', '', ''); }catch(e){}
@@ -1906,7 +1906,7 @@ function sendAssign(user, p){
       '<p style="margin:0"><b>'+esc(user.pic)+'</b>'+(user.title?' — '+esc(user.title):'')+'</p>'+
       '<p style="margin:0;color:#5A6A8A;font-size:10pt">MANI Medical Hanoi · Management</p>'+
     '</div>';
-  MailApp.sendEmail({ to:toEmail, cc:user.email, subject:'[MMH] \u2b50 Cong viec can uu tien - '+toPic, htmlBody:body, name:'MMH Report Hub' });
+  mmhMail_({ to:toEmail, cc:user.email, subject:'[MMH] \u2b50 Cong viec can uu tien - '+toPic, htmlBody:body, name:'MMH Report Hub' });
   logActivity(user.pic,'assign','giao/nhắc việc cho '+toPic+' ('+items.length+' việc)','','');
   return { ok:true, message:'Đã gửi nhắc việc ('+items.length+' công việc) tới '+toPic };
 }
@@ -1975,7 +1975,7 @@ function sendPriority(user, p){
       '<p style="margin:0"><b>'+esc(manager)+'</b>'+(user.title?' — '+esc(user.title):'')+'</p>'+
       '<p style="margin:0;color:#5A6A8A;font-size:10pt">MANI Medical Hanoi · Management</p></div>';
     var ccList=[user.email].concat(CC_PRIORITY).filter(function(e,i,a){ return e && e!==toEmail && a.indexOf(e)===i; });
-    MailApp.sendEmail({ to:toEmail, cc:ccList.join(','), subject:'[MMH] \u2b50 Công việc ưu tiên - '+pic, htmlBody:body, name:'MMH Report Hub' });
+    mmhMail_({ to:toEmail, cc:ccList.join(','), subject:'[MMH] \u2b50 Công việc ưu tiên - '+pic, htmlBody:body, name:'MMH Report Hub' });
     sent.push(pic+' ('+list.length+' việc)');
   });
   try{ savePriorityLog(items); }catch(e){}
@@ -2229,7 +2229,7 @@ function sendWeeklyReport(user, p){
       toField = toArr.join(','); ccField = ccArr.join(',');
     }
     if(!t.test && t.email && (','+toField+','+ccField+',').indexOf(','+t.email+',')<0) ccField=(ccField?ccField+',':'')+t.email;   /* ⭐ CC chính người báo cáo */
-    MailApp.sendEmail({
+    mmhMail_({
       to: toField, cc: ccField, subject: subject,
       htmlBody: buildCombinedEmailBody(recipient, thisFrom, thisTo, thisKeys, nextFrom, nextTo, nextKeys),
       attachments:[blob], name:t.pic+' (MMH Report Hub)', replyTo:t.email||undefined
@@ -2500,7 +2500,7 @@ function sendMonthlyReport(user, p){
       toField=toArr.join(','); ccField=ccArr.join(',');
     }
     if(!t.test && t.email && (','+toField+','+ccField+',').indexOf(','+t.email+',')<0) ccField=(ccField?ccField+',':'')+t.email;   /* ⭐ CC chính người báo cáo */
-    MailApp.sendEmail({
+    mmhMail_({
       to:toField, cc:ccField,
       subject:'RE: Monthly Report (Back Office) '+t.pic+' — '+mLabel+' & plan '+nLabel+(t.test?' (test)':''),
       htmlBody: buildMonthlyEmailBody(recipient, mLabel, nLabel, thisData, nextData),   // ⭐ v5.3: full data
