@@ -2,7 +2,7 @@
    ★ v3.15 (07/10/2026) · RH_UpdMail.gs — EMAIL THÔNG BÁO CẬP NHẬT HỆ THỐNG
    Report Hub / MMH CRM ▸ Thông báo cập nhật ▸ "Gửi email cập nhật" (chỉ Admin / Director).
    POST action=rhUpdMail, payload:
-     tk, app ('report' | 'crm'), subject, html (dùng <img src="cid:…">), images [{cid, url}], pdf {url, name},
+     tk, app ('report' | 'crm'), subject, html (dùng <img src="cid:…">), images [{cid, url}], pdfs [{url, name}] (hoặc pdf {url, name}),
      to [] / audience 'all' (mọi người dùng đang hoạt động trong RH_Users), cc [], test (true ⇒ chỉ gửi cho chính người bấm), rid.
    · Ảnh và file PDF chỉ lấy từ GitHub Pages của 2 app (manimedicalhanoi.github.io/MMH-Report | MMH-CRM) ⇒ không dùng làm cổng tải file lạ.
    · Người nhận chỉ email công ty (@mani.inc / @manimedicalhanoi.com), tối đa 200. Chống gửi trùng theo rid (6 giờ).
@@ -59,18 +59,23 @@ function apiRhUpdMail(p) {
   if (to.length + cc.length > RH_UPD.MAX_TO) return {ok: false, error: 'Quá nhiều người nhận (tối đa ' + RH_UPD.MAX_TO + ').'};
   try { if (MailApp.getRemainingDailyQuota() < to.length + cc.length) return {ok: false, error: 'Hết hạn mức gửi email hôm nay của hệ thống — thử lại ngày mai.'}; } catch (e) {}
 
-  var inline = {}, files = [];
+  var inline = {}, files = [], linked = [];
   try {
     (Array.isArray(p.images) ? p.images : []).slice(0, RH_UPD.MAX_IMG).forEach(function (im) {
       var cid = String(im && im.cid || '').replace(/[^\w\-]/g, '');
       if (!cid || html.indexOf('cid:' + cid) < 0) return;
       inline[cid] = rhUpdFetch(im.url, 'ảnh').setName(cid + '.jpg');
     });
-    if (p.pdf && p.pdf.url) {
-      var b = rhUpdFetch(p.pdf.url, 'file PDF');
-      if (b.getBytes().length > RH_UPD.MAX_PDF) return {ok: false, error: 'File PDF hướng dẫn quá lớn để đính kèm.'};
-      files.push(b.setName(hubNorm(p.pdf.name || 'User_Guide.pdf').replace(/[^\w\-. ]/g, '_')).setContentType('application/pdf'));
-    }
+    /* ⭐ v3.16 — nhiều file PDF (HDSD toàn hệ thống + HDSD riêng của bản cập nhật, EN / VN): đính kèm theo thứ tự tới khi đủ 22 MB,
+       file còn lại chỉ để link (nội dung email luôn có link tải) */
+    var pdfs = (Array.isArray(p.pdfs) ? p.pdfs : []).concat(p.pdf && p.pdf.url ? [p.pdf] : []).slice(0, 4), total = 0, seenU = {};
+    pdfs.forEach(function (f) {
+      if (!f || !f.url || seenU[f.url]) return; seenU[f.url] = 1;
+      var b = rhUpdFetch(f.url, 'file PDF'), n = b.getBytes().length;
+      if (total + n > RH_UPD.MAX_PDF) { linked.push(hubNorm(f.name || f.url)); return; }
+      total += n;
+      files.push(b.setName(hubNorm(f.name || 'User_Guide.pdf').replace(/[^\w\-. ]/g, '_')).setContentType('application/pdf'));
+    });
   } catch (e) { return {ok: false, error: e.message}; }
 
   var mail = {to: to.join(','), subject: (test ? '[TEST] ' : '') + subject, htmlBody: html, inlineImages: inline,
@@ -82,7 +87,7 @@ function apiRhUpdMail(p) {
     delete mail.noReply; mail.replyTo = me;
     try { MailApp.sendEmail(mail); } catch (e2) { return {ok: false, error: 'Gửi email lỗi: ' + e2.message}; }
   }
-  var out = {ok: true, sent: to.length + cc.length, to: to, cc: cc, test: test};
+  var out = {ok: true, sent: to.length + cc.length, to: to, cc: cc, test: test, files: files.length, linked: linked};
   try {
     var ss = hubSS(), sh = ss.getSheetByName(RH_UPD.LOG);
     if (!sh) { sh = ss.insertSheet(RH_UPD.LOG); sh.appendRow(['Time', 'By', 'App', 'Subject', 'Recipients', 'Test', 'Rid']); }
