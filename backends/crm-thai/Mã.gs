@@ -1169,6 +1169,9 @@ function monthlyTeamHtml_(month, isPlan){
 }
 function sendReport_(user, p, kind){
   var option = p.option || 'self', who = str_(p.toPic) || user.pic;
+  /* ⭐ Admin test mode (CRM v30.6): testTo = Admin's company e-mail ⇒ send the test copy only to Admin, no CC, no log */
+  var _tt = String(p.testTo || '').trim().toLowerCase();
+  if(_tt && /^[a-z0-9._%+\-]+@(mani\.inc|manimedicalhanoi\.com)$/.test(_tt) && option !== 'download') option = 'self'; else _tt = '';
   /* v1.17 — team export: 2 PDF files, no e-mail */
   if(kind === 'month' && option === 'teamFiles'){
     var R1 = monthlyTeamHtml_(p.month, false), R2 = monthlyTeamHtml_(p.month, true);
@@ -1190,14 +1193,14 @@ function sendReport_(user, p, kind){
     if(option === 'download'){ files.push({ name: fname + '.pdf', b64: Utilities.base64Encode(blob.getBytes()) }); return; }
     if(option !== 'self' && kind === 'week'){ var sv = savePdfToDrive_(blob); if(!sv.ok) pdfErr.push(pic + ': ' + sv.error); }   /* ⭐ v1.1 */
     var to, cc = [];
-    if(option === 'self'){ to = [(USERS[user.pic] || {}).email].filter(Boolean); }
+    if(option === 'self'){ to = [_tt || (USERS[user.pic] || {}).email].filter(Boolean); }
     else { var r = mailRule_(pic); to = r.to; cc = r.cc.filter(function(e){ return to.indexOf(e) < 0; }); }
     if(!to.length) throw new Error('No e-mail address for ' + user.pic);
     mmhMail_({ to: to.join(','), cc: cc.join(','), replyTo: (USERS[pic] || {}).email || '', subject: R.subject,
       htmlBody: R.html, attachments: [blob], name: 'MMH CRM — ' + CFG.TEAM });
     sent.push(pic + ' → ' + to.join(', ') + (cc.length ? ' (cc ' + cc.join(', ') + ')' : ''));
   });
-  log_(user.pic, 'report', 'report', (kind === 'week' ? 'Weekly report ' : 'Monthly report ') + (kind === 'week' ? dmy_(p.from) : p.month), option + ' · ' + pics.join(', '), '');
+  if(!_tt) log_(user.pic, 'report', 'report', (kind === 'week' ? 'Weekly report ' : 'Monthly report ') + (kind === 'week' ? dmy_(p.from) : p.month), option + ' · ' + pics.join(', '), '');
   if(option === 'download') return { ok: true, download: true, files: files, message: 'PDF created', otherCount: cnt };
   return { ok: true, message: 'Report sent: ' + sent.join(' · ') + (pdfErr.length ? ' · ⚠️ ' + pdfErr.join(' | ') : ''), otherCount: cnt };
 }
