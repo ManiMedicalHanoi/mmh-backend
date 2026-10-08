@@ -213,7 +213,7 @@ function rkvMail_(p, mode) {
   }
   var f = {pic: pic, month: month, greeting: String(p.greeting || ''), intro: String(p.intro || ''), showQ: String(p.showQ) !== '0',
            analysis: String(p.analysis || ''), highlights: String(p.highlights || ''), sign: String(p.sign || ''),
-           subject: String(p.subject || ''), to: String(p.to || ''), cc: String(p.cc || '')};
+           subject: String(p.subject || ''), to: String(p.to || ''), cc: String(p.cc || ''), lang: p.lang === 'en' ? 'en' : ''};
   if (mode === 'preview') return kscMailPreview(f);
   var only = function(s){ return String(s || '').split(/[,;\s]+/).filter(function(e){ return e; }).every(function(e){ return /@(mani\.inc|manimedicalhanoi\.com)$/i.test(e); }); };
   if (!only(f.to) || !only(f.cc)) return {ok: false, error: 'Chỉ gửi tới email công ty (@mani.inc / @manimedicalhanoi.com).'};
@@ -290,7 +290,7 @@ function rkvTotalData_() {
       var bb = rkvStr_(v4[k][1]);
       if (/^A\./.test(bb)) { part = 'A'; continue; }
       if (/^B\./.test(bb)) { part = 'B'; continue; }
-      if (part === 'A' && /^\d/.test(bb) && rkvStr_(v4[k][2])) out.rules.push({group: rkvStr_(v4[k][2]), kpis: rkvStr_(v4[k][3]).substring(0, 1500), vi: rkvStr_(v4[k][5]).substring(0, 3500), ref: rkvStr_(v4[k][6])});
+      if (part === 'A' && /^\d/.test(bb) && rkvStr_(v4[k][2])) out.rules.push({group: rkvStr_(v4[k][2]), kpis: rkvStr_(v4[k][3]).substring(0, 1500), vi: rkvStr_(v4[k][5]).substring(0, 3500), en: rkvStr_(v4[k][4]).substring(0, 3500), ref: rkvStr_(v4[k][6])});
       else if (part === 'B' && bb) out.guide.push(bb.substring(0, 600));
     }
   }
