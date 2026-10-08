@@ -2547,9 +2547,10 @@ function kscMailHtml_(d, f) {
   var h = ['<div style="font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#1A1A1A">'];
   h.push('<div>' + e(f.greeting || '').replace(/\n/g, '<br>') + '</div>');
   if (f.intro) h.push('<div>' + e(f.intro).replace(/\n/g, '<br>') + '</div>');
-  h.push('<div>KPI T' + mm + ' : <b style="color:' + color + '">' + (d.total == null ? 'chưa có số' : pc(d.total)) + '</b></div>');
-  if (f.showQ && d.qtotal != null) h.push('<div>KPI ' + e(d.q) + ' ' + e(d.fy) + ' (đến T' + mm + ') : <b>' + pc(d.qtotal) + '</b></div>');
-  h.push('<div>Chi tiết :</div><div style="margin-top:6px"><b>1. Performance Summary KPI</b></div>');
+  var en = f.lang === 'en';   /* nhóm Thái (CRM tiếng Anh) */
+  h.push('<div>KPI ' + (en ? '' : 'T') + mm + ' : <b style="color:' + color + '">' + (d.total == null ? (en ? 'no data yet' : 'chưa có số') : pc(d.total)) + '</b></div>');
+  if (f.showQ && d.qtotal != null) h.push('<div>KPI ' + e(d.q) + ' ' + e(d.fy) + (en ? ' (to ' : ' (đến T') + mm + ') : <b>' + pc(d.qtotal) + '</b></div>');
+  h.push('<div>' + (en ? 'Details:' : 'Chi tiết :') + '</div><div style="margin-top:6px"><b>1. Performance Summary KPI</b></div>');
   var th = function (t, c, w) { return '<th style="' + td + 'background:' + c + ';font-weight:normal;text-align:center;vertical-align:bottom' + (w ? ';width:' + w : '') + '">' + t + '</th>'; };
   h.push('<table style="border-collapse:collapse;margin:6px 0 10px 0"><tr>',
     th('Link', '#D0D0D0'), th('Type', '#D0D0D0'), th('KPI', '#D0D0D0'), th('Weight<br>' + e(d.q), '#D0D0D0'), th('Unit', '#EAD1DC'),
@@ -2588,6 +2589,7 @@ function kscMailSend(f) {
     if (!lg) { lg = ss.insertSheet(KSC_MAIL.LOG); lg.getRange(1, 1, 1, 8).setValues([['Thời điểm', 'Người gửi', 'PIC', 'Tháng', 'KPI tháng', 'To', 'CC', 'Tiêu đề']]).setFontWeight('bold'); try { lg.hideSheet(); } catch (e1) {} }
     lg.appendRow([Utilities.formatDate(new Date(), KSC.TZ, 'dd/MM/yyyy HH:mm'), me, d.pic, d.month, d.total == null ? '' : d.total, to.join(', '), cc.join(', '), subject]);
   } catch (e2) {}
+  if (f.lang === 'en') return { ok: true, msg: 'KPI email ' + kscMon_(d.month) + ' sent to ' + to.join(', ') + (cc.length ? ' · CC ' + cc.join(', ') : '') };
   return { ok: true, msg: 'Đã gửi email KPI T' + kscMon_(d.month) + ' tới ' + to.join(', ') + (cc.length ? ' · CC ' + cc.join(', ') : '') };
 }
 
