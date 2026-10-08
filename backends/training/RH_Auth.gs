@@ -299,7 +299,7 @@ function apiRhAuthMe(p) {
 // ---------------------------------------------------------------------------
 
 var RH_LEVELS = ['director', 'hod', 'lead', 'pic'];
-var RH_PERM_KEYS = {assign:1, report:1, trip:1, trn:1, mkt:1, mgmt:1};
+var RH_PERM_KEYS = {assign:1, report:1, trip:1, trn:1, mkt:1, mgmt:1, pd:1};   // ★ v3.19: pd = Product Data (sửa / upload)
 
 function rhAdminCaller(p) {
   var c = rhCheck(p.tk);
