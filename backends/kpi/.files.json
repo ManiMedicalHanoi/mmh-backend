@@ -2,5 +2,6 @@
   "appsscript.json",
   "Mã.gs",
   "KpiSyncCenter.gs",
-  "RH_KpiView.gs"
+  "RH_KpiView.gs",
+  "MMH_MailDomain.gs"
 ]

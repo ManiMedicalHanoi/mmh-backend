@@ -754,7 +754,7 @@ function processHODPICActions(picName, updates, sendPDF, sendReminder) {
       const subject = `[PDF REPORT] Theo dõi công việc ${picName} - Tuần ${weekLabel}`;
       const htmlBody = _buildDetailedPICProgressEmailHTML(picName, thisWeekRows, nextWeekRows, weekLabel, planLabel);
       
-      MailApp.sendEmail({
+      mmhMail_({
         to: currentUser,
         cc: CONFIG.MANAGER_EMAIL,
         subject: subject,
@@ -792,7 +792,7 @@ function processHODPICActions(picName, updates, sendPDF, sendReminder) {
       
       const emailBody = _buildHODPriorityReminderEmailHTML(picName, transformedTasks, weekLabel);
       
-      MailApp.sendEmail({
+      mmhMail_({
         to: picEmail,
         cc: currentUser,
         subject: subject,
@@ -1617,7 +1617,7 @@ function _rowToObj(row, rowIndex){
 
 function _sendMail({toList, ccList, subject, htmlBody}){
   const {to, cc} = _ensureRecipientsOrThrow(toList, ccList);
-  MailApp.sendEmail({ to, cc, subject, htmlBody, name: 'Marketing Task Bot' });
+  mmhMail_({ to, cc, subject, htmlBody, name: 'Marketing Task Bot' });
 }
 
 function _dedupeEmails(arr){
@@ -6038,7 +6038,7 @@ function _formatPlanResultForHTML(planResult) {
     console.log('PDF size:', pdfBlob.getBytes().length, 'bytes');
     
     // Test send email với PDF
-    MailApp.sendEmail({
+    mmhMail_({
       to: currentUser,
       subject: '[TEST] PDF Generation Fix v2 - Weekly Report',
       htmlBody: `
@@ -6392,7 +6392,7 @@ function _buildHTMLTaskList(title, tasks, includeResult) {
     console.log('Email body length:', emailBody.length, 'characters');
     
     // Send test email
-    MailApp.sendEmail({
+    mmhMail_({
       to: currentUser,
       subject: `[TEST] Enhanced Weekly Report - ${picName} | ${weekLabel}`,
       htmlBody: emailBody
@@ -6469,7 +6469,7 @@ This enhanced email format provides BETTER user experience than PDF attachments!
     );
     
     // Send test email
-    MailApp.sendEmail({
+    mmhMail_({
       to: currentUser,
       subject: '[DEBUG] PDF Test',
       htmlBody: 'Testing PDF generation - check attachment',
@@ -6924,7 +6924,7 @@ function generateMonthlyReport(selectedMonth, sendToDirector, additionalEmails) 
   }
   
   // Send email
-  MailApp.sendEmail({
+  mmhMail_({
     to: toEmails.join(','),
     cc: ccEmails.join(','),
     subject: subject,
@@ -13647,7 +13647,7 @@ function _sendMail({toList, ccList, subject, htmlBody, attachments}){
     emailConfig.attachments = attachments;
   }
   
-  MailApp.sendEmail(emailConfig);
+  mmhMail_(emailConfig);
   
   console.log(`✅ Email sent to: ${to}${cc ? `, CC: ${cc}` : ''}`);
 }
@@ -16072,7 +16072,7 @@ function sendHODPriorityReminderEmails(priorityTasks) {
       const subject = `⚠️ NHẮC NHỞ CÔNG VIỆC ƯU TIÊN - ${_formatDateDDMMYYYY(new Date())}`;
       
       try {
-        MailApp.sendEmail({
+        mmhMail_({
           to: picEmail,
           subject: subject,
           htmlBody: emailHTML
@@ -17008,7 +17008,7 @@ function _sendTeamReminderEmail(filteredTasks, weekLabel, hodEmail) {
     );
     
     // Send email
-    MailApp.sendEmail({
+    mmhMail_({
       to: recipientEmails,
       cc: hodEmail,
       subject: subject,
@@ -17062,7 +17062,7 @@ function _sendIndividualPICReminder(filteredTasks, weekLabel, currentDate, hodEm
       hodEmail
     );
     
-    MailApp.sendEmail({
+    mmhMail_({
       to: picEmail,
       cc: hodEmail,
       subject: subject,
@@ -17614,7 +17614,7 @@ function sendDailyPriorityReminders() {
           : `📌 Daily Deadline Reminder - ${picName} - ${_formatDateDDMMYYYY(today)}`;
         
         // Send email
-        MailApp.sendEmail({
+        mmhMail_({
           to: picEmail,
           cc: hodEmail,
           subject: subject,
@@ -18138,7 +18138,7 @@ function manualTestDailyReminder() {
   
   const subject = `[TEST] Daily Reminder - ${picName}`;
   
-  MailApp.sendEmail({
+  mmhMail_({
     to: testPICEmail,
     cc: hodEmail,
     subject: subject,
@@ -23223,7 +23223,7 @@ function sendMonthlyReportEmail(filterMonth, filterPIC) {
     
     // ✅ Send email with PDF attachment
     console.log(`📤 Sending email to: ${currentUser}`);
-    MailApp.sendEmail({
+    mmhMail_({
       to: currentUser,
       subject: subject,
       htmlBody: emailBody,

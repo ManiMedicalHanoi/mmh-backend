@@ -592,7 +592,7 @@ function mrpt_sendEmail(email, attachments, period, isQuarter) {
         'Generated automatically by MMH Monthly Report System · ' +
         new Date().toLocaleString('vi-VN') + '</p>' +
     '</div>';
-  MailApp.sendEmail({
+  mmhMail_({
     to: email, subject: subject, htmlBody: body,
     attachments: attachments, name: 'MMH Monthly Report'
   });

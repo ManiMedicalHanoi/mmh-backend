@@ -559,7 +559,7 @@ function rhxTripPropose(user, p){
   var trip = { row:row, destination:f.destination, workingDate:days, startDate:rhxDMY(rhxISO(f.startDate)), finishDate:rhxDMY(rhxISO(f.finishDate)),
                purpose:f.purpose, schedule:f.schedule, estimatedCost:f.estimatedCost, equipment:f.equipment };
   var html = rhxProposalHtml(rhxGreeting(rec.hod), tripPic, trip, sh.getParent().getUrl());
-  MailApp.sendEmail({ to:rec.to, cc:rec.cc, replyTo:picEmail,
+  mmhMail_({ to:rec.to, cc:rec.cc, replyTo:picEmail,
     subject:'Approval Business trip - ' + trip.startDate.replace(/\//g,'') + ' - ' + tripPic,
     htmlBody:html, name:'Mani Medical Hanoi - Business Trip System' });
   /* ⭐ v12.8: như hệ thống gốc — đã gửi email xin duyệt ⇒ "Already sent propose email"
@@ -705,7 +705,7 @@ function rhxTripReport(user, p){
     if(!rhxValidEmail(dir) || !rhxValidEmail(hod)){ var d = rhxDefaultEmails(t.pic); if(!rhxValidEmail(dir)) dir = d.director; if(!rhxValidEmail(hod)) hod = d.hod; }
     if(rhxValidEmail(dir)){
       try{
-        MailApp.sendEmail({ to:dir, cc:(rhxValidEmail(hod) && hod !== dir) ? hod : '', replyTo:rhxEmailOf(t.hubPic) || '',
+        mmhMail_({ to:dir, cc:(rhxValidEmail(hod) && hod !== dir) ? hod : '', replyTo:rhxEmailOf(t.hubPic) || '',
           subject:'Business Trip Report - ' + t.pic + ' - ' + t.dest + ' - From ' + rhxDMY(t.start) + ' to ' + rhxDMY(t.finish),
           htmlBody:rhxReportHtml(t, rhxHodName(hod), ka, kf, fu, folder), name:'Mani Medical Hanoi - Business Trip System' });
         mailed = true;
@@ -796,7 +796,7 @@ function rhxTripUpdate(user, p){
       var trip = { row:row, destination:f.destination, workingDate:days, startDate:rhxDMY(rhxISO(f.startDate)), finishDate:rhxDMY(rhxISO(f.finishDate)),
                    purpose:f.purpose, schedule:f.schedule, estimatedCost:f.estimatedCost, equipment:f.equipment };
       if(/reject/i.test(t.approval)) sh.getRange(row, T.COMMENT).setValue('');          /* như hệ thống gốc: gửi lại → xoá ý kiến cũ */
-      MailApp.sendEmail({ to:rec.to, cc:rec.cc, replyTo:picEmail || '',
+      mmhMail_({ to:rec.to, cc:rec.cc, replyTo:picEmail || '',
         subject:'Approval Business trip - ' + trip.startDate.replace(/\//g,'') + ' - ' + t.pic,
         htmlBody:rhxProposalHtml(rhxGreeting(rec.hod), t.pic, trip, sh.getParent().getUrl()), name:'Mani Medical Hanoi - Business Trip System' });
       sh.getRange(row, T.APPROVAL).setValue('Already sent propose email');
@@ -861,7 +861,7 @@ function rhxMailSend(user, p){
   if(!to.length) return { ok:false, error:'Chưa chọn người nhận (hoặc người nhận chưa có email trong danh bạ).' };
   var subject = String(p.subject||'').trim(), body = String(p.body||'').trim();
   if(!subject || !body) return { ok:false, error:'Thiếu tiêu đề hoặc nội dung email.' };
-  MailApp.sendEmail({ to:to.join(','), cc:cc.join(','), replyTo:me || undefined, subject:subject,
+  mmhMail_({ to:to.join(','), cc:cc.join(','), replyTo:me || undefined, subject:subject,
     body: body + '\n\n—\nGửi từ MMH Report Hub bởi ' + user.pic + (me ? ' <' + me + '>' : ''),
     name: user.pic + ' (MMH Report Hub)' });
   try{ if(typeof logActivity === 'function') logActivity(user.pic, 'assign', 'gửi email "' + subject + '" tới ' + to.join(', '), '', String(p.no||'')); }catch(e){}

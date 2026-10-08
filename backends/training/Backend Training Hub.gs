@@ -226,7 +226,7 @@ var HUB = {
 
   /** Email */
   DOMAINS      : ['mani.inc', 'manimedicalhanoi.com'],
-  SEND_DOMAIN  : 'mani.inc',     // mọi email gửi đi đều chuẩn hoá về domain này
+  SEND_DOMAIN  : 'manimedicalhanoi.com',   // mọi email gửi đi đều chuẩn hoá về domain này (08/10/2026: đổi từ mani.inc — hay bị chặn / spam)
   ADMIN_EMAIL  : 'mmh.product@mani.inc',
   COMPANY_NAME : 'MANI MEDICAL HANOI',
 
@@ -731,7 +731,7 @@ function hubMail(o) {
     delete o.cc; delete o.bcc;
     o.subject = '[TEST] ' + o.subject;
   }
-  MailApp.sendEmail(o);
+  mmhMail_(o);
 }
 
 /** Khoá ghi — tránh 2 người ghi đè lên nhau. Lồng nhau an toàn. */
@@ -1205,7 +1205,7 @@ function apiRequestOtp(p) {
     '<p style="margin:0;color:#5E738C;font-size:13px">Nếu bạn không yêu cầu mã này, vui lòng bỏ qua email.</p>';
 
   try {
-    MailApp.sendEmail({
+    mmhMail_({
       to: hubMailOf(email),
       subject: '[MMH Training Hub] Mã kích hoạt: ' + code,
       htmlBody: hubMailShell('MANI MEDICAL HANOI', hubEsc(cfg.APP_TITLE), inner, 'Email tự động từ MMH Training Hub — vui lòng không trả lời.'),

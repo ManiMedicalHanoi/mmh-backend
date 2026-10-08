@@ -83,7 +83,7 @@ function rhaEmailOf(pic) {
   var list = rhUsers(), k = hubKeyV(pic);
   for (var i = 0; i < list.length; i++) {
     var u = list[i];
-    if (hubKeyV(u.pic) === k && u.active) return u.lastEmail || (u.local + '@' + HUB.SEND_DOMAIN);
+    if (hubKeyV(u.pic) === k && u.active) return mmhAddr_(u.lastEmail || (u.local + '@' + HUB.SEND_DOMAIN));
   }
   return '';
 }
@@ -163,7 +163,7 @@ function apiRhAssignDone(p) {
         return '<tr><td style="color:#6B7B8C;padding:3px 16px 3px 0;vertical-align:top">' + r[0] + '</td><td style="font-weight:600">' + hubEsc(r[1]) + '</td></tr>';
       }).join('') + '</table>' + hubMailButton(RH_ASSIGN.APP_URL, 'Mở MMH Report Hub');
     try {
-      MailApp.sendEmail({to: to, cc: cc && cc !== to ? cc : undefined, replyTo: cc || undefined,
+      mmhMail_({to: to, cc: cc && cc !== to ? cc : undefined, replyTo: cc || undefined,
         subject: '[MMH] Đã hoàn thành: ' + a.name + ' [#' + a.id + ']',
         htmlBody: hubMailShell('MMH REPORT HUB', 'Việc bạn giao đã hoàn thành', inner, 'Email tự động từ MMH Report Hub.'),
         name: 'MMH Report Hub'});
@@ -194,7 +194,7 @@ function apiRhAssignReply(p) {
       '<div style="border-left:3px solid #CFE2F3;background:#F7FAFD;padding:10px 14px;margin:0 0 14px;white-space:pre-wrap">' + hubEsc(text) + '</div>' +
       hubMailButton(RH_ASSIGN.APP_URL, 'Trả lời trên MMH Report Hub');
     try {
-      MailApp.sendEmail({to: to, replyTo: from || undefined, subject: 'Re: [MMH] ' + item.name + ' [#' + item.id + ']',
+      mmhMail_({to: to, replyTo: from || undefined, subject: 'Re: [MMH] ' + item.name + ' [#' + item.id + ']',
         htmlBody: hubMailShell('MMH REPORT HUB', 'Trao đổi về việc được giao', inner, 'Trả lời email này sẽ tới thẳng ' + hubEsc(me.pic) + '. Nội dung đã được lưu vào công việc trên Report Hub.'),
         name: me.pic + ' (MMH Report Hub)'});
     } catch (e) { hubLog('ERROR', 'rhAssignReply', 'Không gửi được email trả lời ' + id, e.message); }
@@ -207,6 +207,6 @@ function apiRhDirectory(p) {
   var c = rhCheck(p.tk);
   if (c.err) return {ok:false, code:'AUTH', error: c.err};
   return {ok:true, people: rhUsers().filter(function(u){ return u.active; }).map(function(u){
-    return {pic: u.pic, email: u.lastEmail || (u.local + '@' + HUB.SEND_DOMAIN)};
+    return {pic: u.pic, email: mmhAddr_(u.lastEmail || (u.local + '@' + HUB.SEND_DOMAIN))};
   })};
 }
