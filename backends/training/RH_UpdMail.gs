@@ -1,6 +1,6 @@
 /* ════════════════════════════════════════════════════════════════════
    ★ v3.15 (07/10/2026) · RH_UpdMail.gs — EMAIL THÔNG BÁO CẬP NHẬT HỆ THỐNG
-   Report Hub / MMH CRM ▸ Thông báo cập nhật ▸ "Gửi email cập nhật" (chỉ Admin / Director).
+   Report Hub / MMH CRM ▸ Thông báo cập nhật ▸ "Gửi email cập nhật" (chỉ Admin).
    POST action=rhUpdMail, payload:
      tk, app ('report' | 'crm'), subject, html (dùng <img src="cid:…">), images [{cid, url}], pdfs [{url, name}] (hoặc pdf {url, name}),
      to [] / audience 'all' (mọi người dùng đang hoạt động trong RH_Users), cc [], test (true ⇒ chỉ gửi cho chính người bấm), rid.
@@ -36,7 +36,7 @@ function apiRhUpdMail(p) {
   var c = rhCheck(p.tk);
   if (c.err) return {ok: false, code: 'AUTH', error: c.err + ' Vui lòng đăng nhập bằng email.'};
   var u = c.u;
-  if (!(u.admin || u.level === 'director')) return {ok: false, code: 'FORBIDDEN', error: 'Chỉ Admin / Director được gửi email thông báo cập nhật.'};
+  if (!u.admin) return {ok: false, code: 'FORBIDDEN', error: 'Chỉ Admin được gửi email thông báo cập nhật.'};   /* v3.17: chỉ Admin (người dùng yêu cầu 08/10/2026) */
   var app = p.app === 'crm' ? 'crm' : 'report';
   var subject = hubNorm(p.subject).substring(0, 180), html = String(p.html || '');
   if (!subject || html.length < 40) return {ok: false, error: 'Thiếu tiêu đề hoặc nội dung email.'};
