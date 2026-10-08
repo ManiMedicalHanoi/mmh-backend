@@ -18,7 +18,8 @@ var RH_UPD = {
 /* ⭐ v3.18 — CHỮ KÝ theo người gửi (để trong kho riêng tư — không đưa SĐT / email nhân sự vào repo app công khai).
    Email có chỗ <!--SIGN--> ⇒ thay bằng chữ ký của người bấm gửi; chưa có chữ ký riêng ⇒ tên PIC. */
 var RH_UPD_SIGN = {
-  'mmh.product': '<div style="font-family:\'Times New Roman\',Times,serif;font-size:12pt;line-height:1.35;color:#000">' +
+  'mmh.product': '<p style="margin:0 0 14px;font-family:Aptos,Calibri,\'Segoe UI\',Arial,sans-serif;font-size:11pt;color:#000">Giang.</p>' +
+    '<div style="font-family:\'Times New Roman\',Times,serif;font-size:12pt;line-height:1.35;color:#000">' +
     '<b>NGUYỄN DOÃN TRƯỜNG GIANG</b><br><b>Surgical &amp; Product Team Leader – Marketing Department</b><br><b>MANI MEDICAL HÀ NỘI Co., Ltd</b><br>' +
     'Phone/Zalo: 0947 892 412<br><div style="height:6px"></div>Email: <a href="mailto:mmh.product@mani.inc">mmh.product@mani.inc</a><br>' +
     'Website: <a href="http://www.mani.co.jp/">http://www.mani.co.jp/</a></div>'
