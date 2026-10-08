@@ -15,6 +15,25 @@ var RH_UPD = {
   LOG: 'RH_UpdMail'
 };
 
+/* ⭐ v3.18 — CHỮ KÝ theo người gửi (để trong kho riêng tư — không đưa SĐT / email nhân sự vào repo app công khai).
+   Email có chỗ <!--SIGN--> ⇒ thay bằng chữ ký của người bấm gửi; chưa có chữ ký riêng ⇒ tên PIC. */
+var RH_UPD_SIGN = {
+  'mmh.product': '<div style="font-family:\'Times New Roman\',Times,serif;font-size:12pt;line-height:1.35;color:#000">' +
+    '<b>NGUYỄN DOÃN TRƯỜNG GIANG</b><br><b>Surgical &amp; Product Team Leader – Marketing Department</b><br><b>MANI MEDICAL HÀ NỘI Co., Ltd</b><br>' +
+    'Phone/Zalo: 0947 892 412<br><div style="height:6px"></div>Email: <a href="mailto:mmh.product@mani.inc">mmh.product@mani.inc</a><br>' +
+    'Website: <a href="http://www.mani.co.jp/">http://www.mani.co.jp/</a></div>'
+};
+function rhUpdSign(u) {
+  var s = RH_UPD_SIGN[String(u && u.local || '').toLowerCase()];
+  return s || ('<div style="font-family:Aptos,Calibri,Arial,sans-serif;font-size:11pt"><b>' + hubNorm(u && u.pic) + '</b><br>MANI Medical Hanoi</div>');
+}
+function apiRhUpdSign(p) {
+  var c = rhCheck(p.tk);
+  if (c.err) return {ok: false, code: 'AUTH', error: c.err};
+  if (!c.u.admin) return {ok: false, code: 'FORBIDDEN', error: 'Chỉ Admin.'};
+  return {ok: true, html: rhUpdSign(c.u)};
+}
+
 function rhUpdEmails(list) {
   var out = [], seen = {};
   (Array.isArray(list) ? list : String(list || '').split(/[,;\s]+/)).forEach(function (e) {
@@ -41,6 +60,7 @@ function apiRhUpdMail(p) {
   var subject = hubNorm(p.subject).substring(0, 180), html = String(p.html || '');
   if (!subject || html.length < 40) return {ok: false, error: 'Thiếu tiêu đề hoặc nội dung email.'};
   if (html.length > 400000) return {ok: false, error: 'Nội dung email quá dài.'};
+  html = html.split('<!--SIGN-->').join(rhUpdSign(u));
   var test = hubBool(p.test), me = (u.local + '@' + HUB.SEND_DOMAIN).toLowerCase();
 
   var rid = hubNorm(p.rid), sc = hubSC();
