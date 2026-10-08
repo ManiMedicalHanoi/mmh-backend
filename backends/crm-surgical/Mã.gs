@@ -2509,7 +2509,11 @@ function otherPdfBlock(list, isNext){
   }).join('');
 }
 function sendWeeklyReport(user, p){
-  try{ logAct(user, 'report', 'weekly', 'Báo cáo tuần', S(p.option) || 'send', ''); }catch(_e){}
+  /* ⭐ Chế độ thử của Admin (CRM v30.6): testTo = email công ty của Admin ⇒ chỉ gửi bản thử cho Admin, không CC, không ghi nhật ký */
+  var _tt = S(p.testTo).toLowerCase();
+  if (_tt && /^[a-z0-9._%+\-]+@(mani\.inc|manimedicalhanoi\.com)$/.test(_tt) && S(p.option) !== 'download'){ p.option = 'self'; user = Object.assign({}, user, { email:_tt }); }
+  else _tt = '';
+  if (!_tt) try{ logAct(user, 'report', 'weekly', 'Báo cáo tuần', S(p.option) || 'send', ''); }catch(_e){}
   var thisFrom = S(p.from), thisTo = S(p.to);
   if (!thisFrom || !thisTo) return { ok:false, error:'Thiếu khoảng ngày báo cáo' };
   var nextFrom = addDaysISO(thisFrom, 7), nextTo = addDaysISO(thisTo, 7);
@@ -2741,7 +2745,11 @@ function buildMonthlyEmailBody(user, mLabel, nLabel, tRows, nRows){
 }
 
 function sendMonthlyReport(user, p){
-  try{ logAct(user, 'report', 'monthly', 'Báo cáo tháng', S(p.option) || 'send', ''); }catch(_e){}
+  /* ⭐ Chế độ thử của Admin (CRM v30.6): testTo = email công ty của Admin ⇒ chỉ gửi bản thử cho Admin, không CC, không ghi nhật ký */
+  var _tt = S(p.testTo).toLowerCase();
+  if (_tt && /^[a-z0-9._%+\-]+@(mani\.inc|manimedicalhanoi\.com)$/.test(_tt) && S(p.option) !== 'download'){ p.option = 'self'; user = Object.assign({}, user, { email:_tt }); }
+  else _tt = '';
+  if (!_tt) try{ logAct(user, 'report', 'monthly', 'Báo cáo tháng', S(p.option) || 'send', ''); }catch(_e){}
   var month = String(p.month || '').replace(/\D/g, '').slice(0, 6);
   if (!month) return { ok:false, error:'Thiếu tháng báo cáo' };
   var nMonth = nextMonthStr(month);
