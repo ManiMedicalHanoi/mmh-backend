@@ -2,5 +2,6 @@
   "appsscript.json",
   "Mã.gs",
   "MMH_MailDomain.gs",
-  "MMH_TripFlow.gs"
+  "MMH_TripFlow.gs",
+  "MMH_SalesTasks.gs"
 ]

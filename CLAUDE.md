@@ -26,3 +26,7 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   `tfDecide` chỉ nhận phiên email Director — kiểm chữ ký bằng `RH_Secret` của Training Master (đọc qua Spreadsheet, KHÔNG dùng UrlFetch ⇒
   không thêm quyền mới). App gửi `tk` trong thân lệnh POST (CRM đọc JSON body, không đọc tham số URL).
   `tfTrips` (v1.1): lịch công tác của danh sách PIC đọc thẳng file Business Trip — CRM dùng thay cho bản sao trong file MKT (Sales Team không đồng bộ vào MKT nữa).
+- **"Ai về nhà đấy" (10/10/2026)**: dữ liệu Sales Team (Dental / Surgical / Eyeless) không nằm trong file MKT. `MMH_SalesTasks.gs` (giống hệt ở 3 CRM VN):
+  Công việc khác ở sheet **ALL TASK** của file CRM nhóm (header hàng 5, dữ liệu hàng 7; API như Report Hub, chỉ nhận khi `at=1`; `atImport` chống trùng theo
+  tên + PIC + ngày bắt đầu). Marketing `MMH_SalesMove.gs`: `VS_MOVED` ⇒ `vsSync` chỉ dọn dòng lịch đi địa bàn đã chép (cột U `V:` / `VK:`), đơn hàng `O:` giữ nguyên;
+  `salesTasksDrop` xoá key task Sales đã chuyển (khớp tên + PIC + ngày, bỏ qua dòng đồng bộ, cần phiên email).

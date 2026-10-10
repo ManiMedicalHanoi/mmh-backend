@@ -419,6 +419,11 @@ function handle(e, method){
       return reply(out, callback);
     }
     if (/^kr[A-Z]/.test(String(action))) return reply(krRoute_(String(action), user, p), callback);
+    /* ⭐ 10/10/2026 — MMH_SalesTasks.gs: Công việc khác của nhóm ở sheet ALL TASK của file này (app gửi at=1) */
+    if (S(p.at) === '1' && typeof stRoute_ === 'function'){
+      var _st = stRoute_(String(action), p);
+      if (_st){ if (_rid && WRITE_ACTIONS[action]) idemEnd_(_rid, _st); return reply(_st, callback); }
+    }
     /* ⭐ 10/10/2026 — MMH_TripFlow.gs: Giám đốc duyệt công tác từ web (tfPending / tfDecide) · nhật ký đề xuất (tfLog) */
     if (/^tf[A-Z]/.test(String(action)) && typeof tfRoute_ === 'function'){
       out = tfRoute_(String(action), user, p) || { ok:false, error:'Unknown action: ' + action };
@@ -516,7 +521,7 @@ function whoAmI(p){
 function isManager(user){ return user && user.role === 'manager'; }
 
 /* ⭐ v10.0 — các action GHI dữ liệu (dùng cho chống ghi trùng theo rid) */
-var WRITE_ACTIONS = { weeklyReport:1, monthlyReport:1, tripPropose2:1, tfDecide:1, saveOrders:1, saveOrder:1, saveCustomer:1, saveCBC:1, saveCustomerCbc:1, saveWeekly:1, saveMonthly:1,
+var WRITE_ACTIONS = { weeklyReport:1, monthlyReport:1, tripPropose2:1, tfDecide:1, addKey:1, addSub:1, atImport:1, saveOrders:1, saveOrder:1, saveCustomer:1, saveCBC:1, saveCustomerCbc:1, saveWeekly:1, saveMonthly:1,
                       savePresentation:1, saveADP:1, deleteRow:1, deleteAccount:1, uploadPhoto:1,
                       naSave:1, naSubmit:1, naDecide:1, naDelete:1 };
 

@@ -684,6 +684,8 @@ function vsSweepBlanks(sh, cap){
 /* ══════════════ ĐỒNG BỘ CHÍNH ══════════════ */
 function vsSync(opt){
   opt = opt || {};
+  /* ⭐ 10/10/2026 — lịch đi địa bàn của Sales không chép sang file MKT nữa (MMH_SalesMove.gs): chỉ dọn dòng cũ */
+  if (typeof VS_MOVED !== 'undefined' && VS_MOVED && typeof vsMovedPurge_ === 'function') return vsMovedPurge_();
   var T0 = Date.now();
   function timeUp(){ return (Date.now() - T0) > VS_TIME_BUDGET; }
 
