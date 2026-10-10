@@ -35,3 +35,7 @@
     Sheet `1IQmW…` ⇒ có thể phải xin Script ID của người dùng. Sau khi kéo code: đăng nhập `tk` (Training Hub `rhAuthMe`), phân quyền
     (xem: mọi người · sửa/upload: Admin hoặc `perms.pd.e` — Training Hub v3.19 `RH_PERM_KEYS.pd` · xoá: Admin), ID cố định cho sản phẩm + sheet `Files`, ghi bằng POST có `rid`.
     App v2.0 (08/10/2026) đã có đăng nhập + hàng đợi ghi; workflow Kéo code về KHÔNG tự tìm được Script ID (script gắn Sheet) ⇒ chờ người dùng gửi.
+13. ⏳ **Duyệt công tác từ web (10/10/2026, `MMH_TripFlow.gs`)**: đã có ở management · backoffice · crm-dental · crm-surgical · crm-eyeless
+    (email đề xuất đúng mẫu Business Trip gửi Giám đốc, nhật ký riêng tab "Business Trip Log", `tfPending` / `tfDecide` / `tfLog`).
+    **Marketing chưa có** — chờ người dùng quyết định bản sửa dở `ReportHub_Trip_Mail.gs` (deploy tự động dừng). Bản vá sẵn: chép
+    `MMH_TripFlow.gs` + 3 chỗ sửa giống backoffice (`tfRoute_` trong `dispatch`, `tfDecide` trong `RHX_ONCE`, `tfLogAppend_` trong `rhxTripPropose`).

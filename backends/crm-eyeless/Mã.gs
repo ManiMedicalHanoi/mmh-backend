@@ -419,6 +419,12 @@ function handle(e, method){
       return reply(out, callback);
     }
     if (/^kr[A-Z]/.test(String(action))) return reply(krRoute_(String(action), user, p), callback);
+    /* ⭐ 10/10/2026 — MMH_TripFlow.gs: Giám đốc duyệt công tác từ web (tfPending / tfDecide) · nhật ký đề xuất (tfLog) */
+    if (/^tf[A-Z]/.test(String(action)) && typeof tfRoute_ === 'function'){
+      out = tfRoute_(String(action), user, p) || { ok:false, error:'Unknown action: ' + action };
+      if (_rid && WRITE_ACTIONS[action]) idemEnd_(_rid, out);
+      return reply(out, callback);
+    }
     /* ⭐ v10.8 — đề xuất công tác ghi thẳng file Business Trip */
     if (/^trip(Master|Propose)2$/.test(String(action))){
       out = tripRoute_(String(action), user, p);
@@ -510,7 +516,7 @@ function whoAmI(p){
 function isManager(user){ return user && user.role === 'manager'; }
 
 /* ⭐ v10.0 — các action GHI dữ liệu (dùng cho chống ghi trùng theo rid) */
-var WRITE_ACTIONS = { weeklyReport:1, monthlyReport:1, tripPropose2:1, saveOrders:1, saveOrder:1, saveCustomer:1, saveCBC:1, saveCustomerCbc:1, saveWeekly:1, saveMonthly:1,
+var WRITE_ACTIONS = { weeklyReport:1, monthlyReport:1, tripPropose2:1, tfDecide:1, saveOrders:1, saveOrder:1, saveCustomer:1, saveCBC:1, saveCustomerCbc:1, saveWeekly:1, saveMonthly:1,
                       savePresentation:1, saveADP:1, deleteRow:1, deleteAccount:1, uploadPhoto:1,
                       naSave:1, naSubmit:1, naDecide:1, naDelete:1 };
 
@@ -6144,8 +6150,11 @@ function tripMail_(name, M){
 }
 function tripMaster2(user, p){
   var M = tripMasterRead_(tripBook_()), nm = tripName_(String(p.forPic || user.pic), M), mm = tripMail_(nm, M);
+  /* ⭐ 10/10/2026: người duyệt = Giám đốc (To), CC HOD + người đề xuất — như email gửi thật (tfSendProposal_) */
+  var pp = M.people[nm] || {}, dir = tfEmails_(pp.dir)[0] || TF.DIRECTOR.email;
+  var cc = tfUniq_(tfEmails_(pp.hod).concat(tfEmails_(pp.cc)).concat(mm.me ? [mm.me] : [])).filter(function(e){ return tfLocal_(e) !== tfLocal_(dir); });
   return { ok: true, master: { destinations: M.destinations, coTravelers: M.coTravelers, equipment: M.equipment }, tripName: nm,
-           to: mm.to.join(', '), cc: mm.cc.join(', '), file: TRIP_URL };
+           to: dir, cc: cc.join(', '), file: TRIP_URL };
 }
 function tripPropose2(user, p){
   var f = p.trip; if(typeof f === 'string'){ try{ f = JSON.parse(f); }catch(e){ f = null; } }
@@ -6182,29 +6191,22 @@ function tripPropose2(user, p){
     SpreadsheetApp.flush();
     try{ no = String(sh.getRange(row, 2).getValue() || ''); }catch(e){}
   } finally { lock.releaseLock(); }
-  var mm = tripMail_(nm, M), mailed = false, mailErr = '';
+  /* ⭐ 10/10/2026 — email xin duyệt ĐÚNG MẪU hệ thống Business Trip (MMH_TripFlow.gs): To Giám đốc · CC HOD + người đề xuất */
+  var pp = M.people[nm] || {}, mm = tripMail_(nm, M), mailed = false, mailErr = '', sent = { to:'', cc:'' };
   try{
-    if(mm.to.length){
-      var td = 'border:1px solid #BFBFBF;padding:6px 9px;font-size:13px;vertical-align:top;';
-      var rowH = function(k, v){ return '<tr><td style="' + td + 'background:#F2F2F2;font-weight:bold;width:170px">' + k + '</td><td style="' + td + '">' + wrRich_(v) + '</td></tr>'; };
-      var html = '<div style="font-family:Aptos,Calibri,Arial,sans-serif;font-size:14px;color:#000;line-height:1.5">' +
-        '<p>Dear anh/chị,</p><p>Em xin gửi đề xuất công tác dưới đây (đã ghi vào file Business Trip, dòng ' + row + ', Approval Status = Not Yet). Anh/chị vui lòng xem và phê duyệt.</p>' +
-        '<table cellpadding="0" cellspacing="0" style="border-collapse:collapse">' +
-        rowH('PIC', nm) + rowH('Thời gian', wrDmy_(start) + ' – ' + wrDmy_(fin)) + rowH('Destination', f.destination) + rowH('Co-traveler', f.coTraveler || 'No') +
-        rowH('Purpose', f.purpose) + rowH('Expected result', f.expectedResult) + rowH('Estimated costs (VND)', f.estimatedCost) +
-        rowH('Total estimated costs', (Number(f.totalCost) || 0).toLocaleString('en-US') + ' VND') + rowH('Schedule', f.schedule) + rowH('Equipment', f.equipment) + '</table>' +
-        '<p style="margin-top:14px"><a href="' + TRIP_URL + '" style="color:#3A5CAA;font-weight:bold">Mở file Business Trip ↗</a></p>' +
-        '<p>Trân trọng,<br>' + wrE_(nm) + '</p></div>';
-      var opt = { to: mm.to.join(','), subject: '[Business Trip] Đề xuất công tác — ' + nm + ' — ' + f.destination + ' — ' + wrDm_(start) + (fin !== start ? '–' + wrDm_(fin) : '') + '/' + start.slice(0, 4),
-                  htmlBody: html, name: nm + ' (MMH CRM)' };
-      if(mm.cc.length) opt.cc = mm.cc.join(',');
-      if(mm.me) opt.replyTo = mm.me;
-      mmhMail_(opt); mailed = true;
-    }
+    sent = tfSendProposal_({ tripPic:nm, picEmail:mm.me, hodEmail:pp.hod, dirEmail:pp.dir, ccExtra:tfEmails_(pp.cc), row:row,
+      destination:f.destination, start:start, finish:fin, purpose:f.purpose, schedule:f.schedule, estimatedCost:f.estimatedCost,
+      equipment:f.equipment, sheetUrl:TRIP_URL });
+    mailed = true;
+    try{ sh.getRange(row, 19).setValue('Already sent propose email'); }catch(e){}
   }catch(e){ mailErr = String(e && e.message || e); }
+  try{ tfLogAppend_({ pic:nm, row:row, no:no, start:start, finish:fin, destination:f.destination, coTraveler:f.coTraveler || 'No', purpose:f.purpose,
+    expectedResult:f.expectedResult, estimatedCost:f.estimatedCost, totalCost:f.totalCost, schedule:f.schedule, equipment:f.equipment,
+    status: mailed ? 'Already sent propose email' : 'Not Yet', to:sent.to, cc:sent.cc, rid:p.rid }); }catch(e){}
+  mm = { to:[sent.to].filter(String), cc:[sent.cc].filter(String) };
   try{ NA_ENV.log(user, 'trip', f.destination, start + ' – ' + fin + ' · row ' + row); }catch(e){}
   return { ok: true, row: row, no: no, tripName: nm, to: mm.to.join(', '), cc: mm.cc.join(', '),
-           message: 'Đã ghi đề xuất công tác vào file Business Trip (dòng ' + row + ')' + (mailed ? ' và gửi email xin duyệt tới ' + mm.to.join(', ') : (mailErr ? ' — chưa gửi được email: ' + mailErr : ' — chưa có email người duyệt trong sheet Master')) };
+           message: 'Đã ghi đề xuất công tác vào file Business Trip (dòng ' + row + ')' + (mailed ? ' và gửi email xin duyệt tới ' + mm.to.join(', ') : ' — chưa gửi được email: ' + mailErr) };
 }
 function tripRoute_(action, user, p){
   if(action === 'tripMaster2') return tripMaster2(user, p);

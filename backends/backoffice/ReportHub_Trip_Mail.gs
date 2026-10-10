@@ -562,6 +562,10 @@ function rhxTripPropose(user, p){
   mmhMail_({ to:rec.to, cc:rec.cc, replyTo:picEmail,
     subject:'Approval Business trip - ' + trip.startDate.replace(/\//g,'') + ' - ' + tripPic,
     htmlBody:html, name:'Mani Medical Hanoi - Business Trip System' });
+  /* ⭐ 10/10/2026: nhật ký đề xuất riêng của backend này (tab "Business Trip Log" — MMH_TripFlow.gs) */
+  try{ if(typeof tfLogAppend_ === 'function') tfLogAppend_({ pic:tripPic, row:row, no:no, start:rhxISO(f.startDate), finish:rhxISO(f.finishDate),
+    destination:f.destination, coTraveler:f.coTraveler, purpose:f.purpose, expectedResult:f.expectedResult, estimatedCost:f.estimatedCost,
+    totalCost:rhxNum(f.totalCost), schedule:f.schedule, equipment:f.equipment, to:rec.to, cc:rec.cc, rid:p.rid }); }catch(e){}
   /* ⭐ v12.8: như hệ thống gốc — đã gửi email xin duyệt ⇒ "Already sent propose email"
      (HOD Menu ▸ duyệt chỉ liệt kê các chuyến ở trạng thái này) */
   try{ sh.getRange(row, T.APPROVAL).setValue('Already sent propose email'); SpreadsheetApp.flush(); }catch(e){}
