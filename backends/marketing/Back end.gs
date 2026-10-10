@@ -198,6 +198,7 @@ var RHX_ONCE = { tfDecide:1, tripPropose:1, mailSend:1, tripReport:1, tripUpdate
 var RHX_ACTIONS = { tripSync:1, tripMaster:1, tripPropose:1, mailSend:1, tripInfo:1, tripReport:1, tripUpdate:1, tripDelete:1 };   /* ⭐ v12.8: xem / báo cáo / sửa / xoá công tác */
 function dispatch(action, user, p){
     var out;
+    if(action === 'salesTasksDrop' && typeof smDrop_ === 'function') return smDrop_(user, p);   /* ⭐ 10/10/2026: MMH_SalesMove.gs */
     if(/^tf[A-Z]/.test(String(action)) && typeof tfRoute_ === 'function'){   /* ⭐ 10/10/2026: MMH_TripFlow.gs — Giám đốc duyệt công tác từ web, nhật ký đề xuất */
       var _tf = tfRoute_(String(action), user, p); if(_tf) return _tf;
     }

@@ -5,5 +5,6 @@
   "Order_Sync.gs",
   "ReportHub_Trip_Mail.gs",
   "MMH_TripFlow.gs",
-  "MMH_MailDomain.gs"
+  "MMH_MailDomain.gs",
+  "MMH_SalesMove.gs"
 ]
