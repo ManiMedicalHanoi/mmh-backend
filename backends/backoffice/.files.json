@@ -2,5 +2,6 @@
   "appsscript.json",
   "Back end.gs",
   "ReportHub_Trip_Mail.gs",
-  "MMH_MailDomain.gs"
+  "MMH_MailDomain.gs",
+  "MMH_TripFlow.gs"
 ]
