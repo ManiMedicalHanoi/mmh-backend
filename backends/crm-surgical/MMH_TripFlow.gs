@@ -13,10 +13,11 @@
    ③ GIÁM ĐỐC DUYỆT TỪ WEB (Report Hub / CRM): tfPending (danh sách chờ duyệt của MỌI người) ·
       tfDecide (duyệt / từ chối nhiều chuyến 1 lần — mỗi chuyến 1 email riêng tới đúng người đề xuất).
       Chỉ Director (phiên đăng nhập email, kiểm chữ ký bằng khoá RH_Secret của Training Master).
+   ④ (v1.1) tfTrips: lịch công tác của các PIC (đọc thẳng file Business Trip) cho lịch CRM — Sales không còn lưu bản sao ở file MKT.
    Không dùng dịch vụ Google mới (chỉ Spreadsheet / Drive / Mail đã có) ⇒ không phải cấp quyền lại.
    ════════════════════════════════════════════════════════════════════════════════════════ */
 var TF = {
-  VER: '1.0',
+  VER: '1.1',
   TRIP_ID: '15dAQYOG1aJRX-jByVmRFeSFOIPRtdVW7wDvwC_nxJUA',          /* file "Vietnam - Business trip Approval and Report" */
   TRIP_TAB: 'MMH Travel report', DATA_ROW: 5,
   PARENT_FOLDER: '1HMrQ4xZWSEUIvD7varHG-m4s4nOKpX1o',
@@ -354,11 +355,63 @@ function tfDecide(user, p){
 /* nhật ký đề xuất công tác của backend này (báo cáo / lịch đọc từ đây) */
 function tfLog(user, p){ return { ok:true, source:tfSrc_(), items:tfLogRead_(tfS_(p.forPic)) }; }
 
+/* ───────── ④ LỊCH CÔNG TÁC CHO APP (v1.1) ─────────
+   p.pics = JSON ["Viet","Phuong",…] (tên trong app) ⇒ các chuyến từ 2 tháng trước tới 6 tháng sau, dạng giống
+   sub-task "Lịch công tác" của Report Hub (vSrc 'trip', vMeta {id,r,m}) để lịch / Họp tuần / báo cáo dùng chung. */
+function tfNorm_(s){ return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/gi,'d').toLowerCase().replace(/\s+/g,' ').trim(); }
+function tfPicOf_(tripPic, pics){
+  var t = tfNorm_(tripPic), hit = '';
+  pics.forEach(function(p){ var k = tfNorm_(p); if(!hit && k && (t === k || (' ' + t).slice(-(k.length + 1)) === ' ' + k)) hit = p; });
+  return hit;
+}
+function tfStatus_(ap, report, st, fi){
+  var today = Utilities.formatDate(new Date(), tfTz_(), 'yyyy-MM-dd');
+  if(/reject|từ chối/i.test(ap)) return { status:'Cancelled', pct:0 };
+  if(report) return { status:'Completed', pct:100 };
+  if(/approv|duyệt/i.test(ap) && !/not/i.test(ap)){
+    if(today < st) return { status:'To Do', pct:0 };
+    if(today <= fi) return { status:'In Progress', pct:50 };
+    return { status:'In Progress', pct:75 };
+  }
+  return { status:'To Do', pct:0 };
+}
+function tfTrips(user, p){
+  var pics = p.pics; if(typeof pics === 'string'){ try{ pics = JSON.parse(pics); }catch(e){ pics = String(pics).split(','); } }
+  pics = (Array.isArray(pics) ? pics : [user && user.pic]).map(tfS_).filter(String);
+  if(!pics.length) return { ok:true, trips:[] };
+  var c = CacheService.getScriptCache(), ck = 'tft_' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, pics.slice().sort().join('|'))).slice(0, 30);
+  if(!p.force){ try{ var hit = c.get(ck); if(hit) return JSON.parse(hit); }catch(e){} }
+  var sh = tfTripSheet_(), last = sh.getLastRow(), T = TF.C, out = [];
+  if(last >= TF.DATA_ROW){
+    var now = new Date(), from = Utilities.formatDate(new Date(now.getFullYear(), now.getMonth() - 2, 1), tfTz_(), 'yyyy-MM-dd'),
+        to = Utilities.formatDate(new Date(now.getFullYear(), now.getMonth() + 7, 0), tfTz_(), 'yyyy-MM-dd');
+    var V = sh.getRange(TF.DATA_ROW, 1, last - TF.DATA_ROW + 1, 28).getValues();
+    V.forEach(function(r, i){
+      var tp = tfS_(r[T.PIC-1]), st = tfIso_(r[T.START-1]); if(!tp || !st || st < from || st > to) return;
+      var pic = tfPicOf_(tp, pics); if(!pic) return;
+      var fi = tfIso_(r[T.FINISH-1]) || st, row = TF.DATA_ROW + i, no = tfS_(r[T.NO-1]).replace(/\.0$/, '');
+      var ap = tfS_(r[T.APPROVAL-1]) || 'Not Yet', rep = tfS_(r[T.REPORT-1]), s = tfStatus_(ap, rep, st, fi), days = tfDays_(st, fi);
+      var dest = tfS_(r[T.DEST-1]), m = st.replace(/-/g, '').slice(0, 6);
+      out.push({ no:'BT' + (no || row), row:0, keyTask:'Lịch công tác ' + m.slice(4, 6) + m.slice(0, 4), type:'Business trip', pic:pic,
+        subTask:'Đi công tác ' + (dest || '—') + ' · ' + days + ' ngày · Từ ' + tfDmy_(st) + ' đến ' + tfDmy_(fi),
+        result:'Kế hoạch công tác\n1. Mục đích: ' + (tfS_(r[T.PURPOSE-1]) || '—') + '\n2. Kết quả mong đợi: ' + (tfS_(r[T.EXPECT-1]) || '—')
+          + '\n\nCập nhật\n' + (rep || '(Chưa có Business trip Report)') + '\n\nPhê duyệt: ' + ap + (tfS_(r[T.COMMENT-1]) ? ' — ' + tfS_(r[T.COMMENT-1]) : ''),
+        start:st, planned:fi, revised:'', status:s.status, progress:s.pct, approval:ap,
+        vSrc:'trip', vMeta:{ id:'T' + (no || row) + '|' + tp, r:row, m:m } });
+    });
+  }
+  out.sort(function(a, b){ return a.start < b.start ? -1 : a.start > b.start ? 1 : 0; });
+  var res = { ok:true, trips:out, at:new Date().toISOString() };
+  try{ c.put(ck, JSON.stringify(res), 120); }catch(e){}
+  return res;
+}
+
 /* router: trả null nếu không phải action của module này */
 function tfRoute_(action, user, p){
   if(action === 'tfPending') return tfPending(user, p);
   if(action === 'tfDecide')  return tfDecide(user, p);
   if(action === 'tfLog')     return tfLog(user, p);
+  if(action === 'tfTrips')   return tfTrips(user, p);
   if(action === 'tfVer')     return { ok:true, ver:TF.VER, source:tfSrc_() };
   return null;
 }

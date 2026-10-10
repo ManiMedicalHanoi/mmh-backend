@@ -194,10 +194,13 @@ function handle(e, method){
   }
   return reply(out, callback);
 }
-var RHX_ONCE = { tripPropose:1, mailSend:1, tripReport:1, tripUpdate:1, tripDelete:1 };
+var RHX_ONCE = { tfDecide:1, tripPropose:1, mailSend:1, tripReport:1, tripUpdate:1, tripDelete:1 };
 var RHX_ACTIONS = { tripSync:1, tripMaster:1, tripPropose:1, mailSend:1, tripInfo:1, tripReport:1, tripUpdate:1, tripDelete:1 };   /* ⭐ v12.8: xem / báo cáo / sửa / xoá công tác */
 function dispatch(action, user, p){
     var out;
+    if(/^tf[A-Z]/.test(String(action)) && typeof tfRoute_ === 'function'){   /* ⭐ 10/10/2026: MMH_TripFlow.gs — Giám đốc duyệt công tác từ web, nhật ký đề xuất */
+      var _tf = tfRoute_(String(action), user, p); if(_tf) return _tf;
+    }
     if(RHX_ACTIONS[action]){                    /* ⭐ v11: file ReportHub_Trip_Mail.gs */
       if(typeof rhxDispatch !== 'function') return { ok:false, error:'Chưa thêm file ReportHub_Trip_Mail.gs vào project Apps Script (hoặc chưa deploy version mới).' };
       return rhxDispatch(action, user, p);
@@ -1611,7 +1614,7 @@ function mmMail(user, p){
   var opt = { to:to.list.join(','), subject:subject, htmlBody:html, name:'MMH Report Hub' };
   if(cc.list.length) opt.cc = cc.list.join(',');
   if(user.email) opt.replyTo = user.email;
-  MailApp.sendEmail(opt);
+  mmhMail_(opt);
   var now = mmNow(), sentTo = to.list.concat(cc.list.map(function(e){ return 'cc:' + e; })).join(', ');
   f.s.getRange(f.row, 16, 1, 2).setNumberFormat('@').setValues([[now + ' (' + user.pic + ')', sentTo]]);
   try{ logActivity(user.pic, 'update', 'gửi email biên bản họp "' + mmTxt(f.r[1]) + '"', '', ''); }catch(e){}
@@ -1801,7 +1804,7 @@ function sendAssign(user, p){
       '<p style="margin:0"><b>'+esc(user.pic)+'</b>'+(user.title?' — '+esc(user.title):'')+'</p>'+
       '<p style="margin:0;color:#5A6A8A;font-size:10pt">MANI Medical Hanoi · Marketing &amp; Product</p>'+
     '</div>';
-  MailApp.sendEmail({ to:toEmail, cc:user.email, subject:'[MMH] \u2b50 Cong viec can uu tien - '+toPic, htmlBody:body, name:'MMH Report Hub' });
+  mmhMail_({ to:toEmail, cc:user.email, subject:'[MMH] \u2b50 Cong viec can uu tien - '+toPic, htmlBody:body, name:'MMH Report Hub' });
   logActivity(user.pic,'assign','giao/nhắc việc cho '+toPic+' ('+items.length+' việc)','','');
   return { ok:true, message:'Đã gửi nhắc việc ('+items.length+' công việc) tới '+toPic };
 }
@@ -1862,7 +1865,7 @@ function sendPriority(user, p){
       '<p style="margin:0"><b>'+esc(manager)+'</b>'+(user.title?' — '+esc(user.title):'')+'</p>'+
       '<p style="margin:0;color:#5A6A8A;font-size:10pt">MANI Medical Hanoi · Marketing &amp; Product</p></div>';
     var ccList=[user.email].concat(CC_PRIORITY).filter(function(e,i,a){ return e && e!==toEmail && a.indexOf(e)===i; });
-    MailApp.sendEmail({ to:toEmail, cc:ccList.join(','), subject:'[MMH] \u2b50 Công việc ưu tiên - '+pic, htmlBody:body, name:'MMH Report Hub' });
+    mmhMail_({ to:toEmail, cc:ccList.join(','), subject:'[MMH] \u2b50 Công việc ưu tiên - '+pic, htmlBody:body, name:'MMH Report Hub' });
     sent.push(pic+' ('+list.length+' việc)');
   });
   try{ savePriorityLog(items); }catch(e){}
@@ -2127,7 +2130,7 @@ function sendWeeklyReport(user, p){
       toField = toArr.join(','); ccField = ccArr.join(',');
     }
     if(!t.test && t.email && (','+toField+','+ccField+',').indexOf(','+t.email+',')<0) ccField=(ccField?ccField+',':'')+t.email;   /* ⭐ CC chính người báo cáo */
-    MailApp.sendEmail({
+    mmhMail_({
       to: toField, cc: ccField, subject: subject,
       htmlBody: buildCombinedEmailBody(recipient, thisFrom, thisTo, thisKeys, nextFrom, nextTo, nextKeys),
       attachments:[blob], name:t.pic+' (MMH Report Hub)', replyTo:t.email||undefined
@@ -2393,7 +2396,7 @@ function sendMonthlyReport(user, p){
       toField=toArr.join(','); ccField=ccArr.join(',');
     }
     if(!t.test && t.email && (','+toField+','+ccField+',').indexOf(','+t.email+',')<0) ccField=(ccField?ccField+',':'')+t.email;   /* ⭐ CC chính người báo cáo */
-    MailApp.sendEmail({
+    mmhMail_({
       to:toField, cc:ccField,
       subject:'RE: Monthly Report '+t.pic+' — '+mLabel+' & plan '+nLabel+(t.test?' (test)':''),
       htmlBody: buildMonthlyEmailBody(recipient, mLabel, nLabel, tRows, nRows),

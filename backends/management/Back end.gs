@@ -210,7 +210,7 @@ function handle(e, method){
   }
   return reply(out, callback);
 }
-var MGMT_OPEN = { ping:1, version:1, roster:1, myTasks:1, tripSync:1, tfPending:1, tfDecide:1, tfLog:1, tfVer:1 };   /* tf*: tự kiểm phiên email (MMH_TripFlow.gs) */
+var MGMT_OPEN = { ping:1, version:1, roster:1, myTasks:1, tripSync:1, tfPending:1, tfDecide:1, tfLog:1, tfVer:1, tfTrips:1 };   /* tf*: tự kiểm phiên email (MMH_TripFlow.gs) */
 var RHX_ONCE = { tfDecide:1, tripPropose:1, mailSend:1, tripReport:1, tripUpdate:1, tripDelete:1 };
 var RHX_ACTIONS = { tripSync:1, tripMaster:1, tripPropose:1, mailSend:1, tripInfo:1, tripReport:1, tripUpdate:1, tripDelete:1 };   /* ⭐ v12.8: xem / báo cáo / sửa / xoá công tác */
 function dispatch(action, user, p){
