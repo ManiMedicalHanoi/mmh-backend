@@ -6186,7 +6186,7 @@ function tripPropose2(user, p){
     var d0 = new Date(start + 'T00:00:00'), d1 = new Date(fin + 'T00:00:00');
     sh.getRange(row, 4, 1, 3).setValues([[nm, d0, d1]]);                                       /* D PIC · E Start · F Finish */
     sh.getRange(row, 8, 1, 8).setValues([[ String(f.destination || ''), String(f.coTraveler || 'No'), String(f.purpose || ''),  /* H · I · J */
-      String(f.expectedResult || ''), String(f.estimatedCost || ''), Number(f.totalCost) || '', String(f.schedule || ''), String(f.equipment || '') ]]); /* K L M N O */
+      String(f.expectedResult || ''), String(f.estimatedCost || ''), (Number(f.totalCost) || String(f.totalCost || '')), String(f.schedule || ''), String(f.equipment || '') ]]); /* K L M N O */
     sh.getRange(row, 19).setValue('Not Yet');                                                  /* S Approval Status */
     if(row > TRIP_DATA){
       try{ sh.getRange(row - 1, 2, 1, 27).copyTo(sh.getRange(row, 2, 1, 27), SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false); }catch(e){}
