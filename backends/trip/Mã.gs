@@ -4832,7 +4832,7 @@ function sendProposalEmail(sheet, selectedRows, newRows, userEmail) {
         var toRecipients, ccRecipients;
         
         if (isDirectorUser) {
-          toRecipients = 'vt.hoa@mani.inc';
+          toRecipients = 'vtt.hoa@manimedicalhanoi.com';   // 12/10/2026: trước ghi nhầm vt.hoa ⇒ thư bị trả lại
           ccRecipients = userEmail;
           
           try {
