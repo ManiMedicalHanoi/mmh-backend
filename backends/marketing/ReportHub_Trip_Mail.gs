@@ -439,7 +439,7 @@ function rhxTripRecipients(tripPic, picEmail, rowVals){
   var dir = rowVals ? rhxStr(rowVals[T.EMAIL_DIRECTOR-1]) : '';
   if(!hod || !dir){ var d = rhxDefaultEmails(tripPic); if(!hod) hod = d.hod; if(!dir) dir = d.director; }
   var isDirector = /^nt\.ha@/i.test(String(picEmail||''));
-  if(isDirector) return { to:'vt.hoa@mani.inc', cc:picEmail, hod:hod, director:dir };
+  if(isDirector) return { to:'vtt.hoa@manimedicalhanoi.com', cc:picEmail, hod:hod, director:dir };
   var cc = [picEmail].filter(rhxValidEmail);
   if(rhxValidEmail(hod)) cc.unshift(hod);
   return { to:dir, cc:cc.join(','), hod:hod, director:dir };
