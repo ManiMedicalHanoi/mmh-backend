@@ -3821,19 +3821,26 @@ function tripMaster2(user, p){
   return { ok: true, master: { destinations: M.destinations, coTravelers: M.coTravelers, equipment: M.equipment }, tripName: nm,
            to: mm.to.join(', '), cc: mm.cc.join(', '), file: TRIP_URL };
 }
+function curCode_(c){ c = String(c || '').toUpperCase().trim(); return /^(VND|THB|USD)$/.test(c) ? c : 'THB'; }
+function curFmt_(n, c){ n = Math.round(Number(n) || 0); return c === 'VND' ? String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.') : n.toLocaleString('en-US'); }
 function tripPropose2(user, p){
   var f = p.trip; if(typeof f === 'string'){ try{ f = JSON.parse(f); }catch(e){ f = null; } }
   if(!f) return { ok: false, error: 'Thiếu dữ liệu đề xuất' };
   var start = wkIso_(f.startDate), fin = wkIso_(f.finishDate) || start;
   if(!start || !String(f.destination || '').trim()) return { ok: false, error: 'Cần ngày đi và Destination' };
-  /* Surgical Thailand: chi phí tính bằng Baht (THB), tên khoản chi phí tiếng Anh — dựng lại từ costLines nếu app gửi kèm */
+  /* Chi phí theo dòng, mỗi dòng 1 đơn vị tiền (mặc định THB) ⇒ cộng tổng RIÊNG từng đơn vị.
+     1 đơn vị ⇒ cột Total = số; nhiều đơn vị ⇒ cột Total = chữ "6,247 THB; 1.200.000 VND" */
   var cl = f.costLines; if(typeof cl === 'string'){ try{ cl = JSON.parse(cl); }catch(e){ cl = null; } }
+  var tot = {}, curs = [];
   if(Array.isArray(cl) && cl.length){
-    var sum = 0, lines = [];
-    cl.forEach(function(x){ var d = String((x && x.d) || '').trim(), a = Math.round(Number(x && x.a) || 0); if(!d && !a) return;
-      sum += a; lines.push((d || 'Expense') + ': ' + a.toLocaleString('en-US') + ' THB'); });
-    if(lines.length){ f.estimatedCost = lines.join('\n'); f.totalCost = String(sum); }
+    var lines = [];
+    cl.forEach(function(x){ var d = String((x && x.d) || '').trim(), a = Math.round(Number(x && x.a) || 0), c = curCode_(x && x.c);
+      if(!d && !a) return;
+      if(!(c in tot)){ tot[c] = 0; curs.push(c); } tot[c] += a;
+      lines.push((d || 'Expense') + ': ' + curFmt_(a, c) + ' ' + c); });
+    if(lines.length){ f.estimatedCost = lines.join('\n'); f.totalCost = curs.length === 1 ? String(tot[curs[0]]) : curs.map(function(c){ return curFmt_(tot[c], c) + ' ' + c; }).join('; '); }
   }
+  var totTxt = curs.length ? curs.map(function(c){ return curFmt_(tot[c], c) + ' ' + c; }).join(' + ') : (Number(f.totalCost) || 0).toLocaleString('en-US') + ' THB';
   var book = tripBook_(), sh = book.getSheetByName(TRIP_SHEET);
   if(!sh) return { ok: false, error: 'File Business Trip không có sheet "' + TRIP_SHEET + '"' };
   var M = tripMasterRead_(book), nm = tripName_(String(p.forPic || user.pic), M);
@@ -3854,7 +3861,7 @@ function tripPropose2(user, p){
     var d0 = new Date(start + 'T00:00:00'), d1 = new Date(fin + 'T00:00:00');
     sh.getRange(row, 4, 1, 3).setValues([[nm, d0, d1]]);                                       /* D PIC · E Start · F Finish */
     sh.getRange(row, 8, 1, 8).setValues([[ String(f.destination || ''), String(f.coTraveler || 'No'), String(f.purpose || ''),  /* H · I · J */
-      String(f.expectedResult || ''), String(f.estimatedCost || ''), Number(f.totalCost) || '', String(f.schedule || ''), String(f.equipment || '') ]]); /* K L M N O */
+      String(f.expectedResult || ''), String(f.estimatedCost || ''), (Number(f.totalCost) || String(f.totalCost || '')), String(f.schedule || ''), String(f.equipment || '') ]]); /* K L M N O */
     sh.getRange(row, 19).setValue('Not Yet');                                                  /* S Approval Status */
     if(row > TRIP_DATA){
       try{ sh.getRange(row - 1, 2, 1, 27).copyTo(sh.getRange(row, 2, 1, 27), SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false); }catch(e){}
@@ -3873,8 +3880,8 @@ function tripPropose2(user, p){
         '<p>Dear Sir/Madam,</p><p>Please review and approve the business trip proposal below (saved to the Business Trip file, row ' + row + ', Approval Status = Not Yet).</p>' +
         '<table cellpadding="0" cellspacing="0" style="border-collapse:collapse">' +
         rowH('PIC', nm) + rowH('Dates', wrDmy_(start) + ' – ' + wrDmy_(fin)) + rowH('Destination', f.destination) + rowH('Co-traveler', f.coTraveler || 'No') +
-        rowH('Purpose', f.purpose) + rowH('Expected result', f.expectedResult) + rowH('Estimated costs (THB)', f.estimatedCost) +
-        rowH('Total estimated costs', (Number(f.totalCost) || 0).toLocaleString('en-US') + ' THB') + rowH('Schedule', f.schedule) + rowH('Equipment', f.equipment) + '</table>' +
+        rowH('Purpose', f.purpose) + rowH('Expected result', f.expectedResult) + rowH('Estimated costs', f.estimatedCost) +
+        rowH('Total estimated costs', totTxt) + rowH('Schedule', f.schedule) + rowH('Equipment', f.equipment) + '</table>' +
         '<p style="margin-top:14px"><a href="' + TRIP_URL + '" style="color:#3A5CAA;font-weight:bold">Open the Business Trip file ↗</a></p>' +
         '<p>Best regards,<br>' + wrE_(nm) + '</p></div>';
       var opt = { to: mm.to.join(','), subject: '[Business Trip] Trip proposal — ' + nm + ' — ' + f.destination + ' — ' + wrDm_(start) + (fin !== start ? '–' + wrDm_(fin) : '') + '/' + start.slice(0, 4),
