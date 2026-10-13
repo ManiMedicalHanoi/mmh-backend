@@ -648,7 +648,9 @@ function kscTurnover_(ctx, why) {
     if (kscNorm_(x[cC]) === 'viet nam') vnTM[t + '|' + m] = (vnTM[t + '|' + m] || 0) + a;
   }
   var now = new Date(), curYm = ctx.curYm, day = Number(Utilities.formatDate(now, KSC.TZ, 'd'));
-  function closed(t, m) { return (m < curYm || (m === curYm && day >= 25)) && Math.abs(typeMonth[t + '|' + m] || 0) > 1e-9; }
+  /* 13/10/2026 (người dùng yêu cầu): BỎ luật "chỉ tháng đã đóng / từ ngày 25" — mọi tháng đến tháng hiện tại có Actual trong SUM TURNOVER
+     đều ghi ngay (real time): Turnover đổi ⇒ KPI nhảy số theo. Tháng tương lai vẫn không ghi. */
+  function closed(t, m) { return m <= curYm && Math.abs(typeMonth[t + '|' + m] || 0) > 1e-9; }
   var months = ctx.L.months, data = {}, noType = [];
   /* v1.13: Jizai amount trùng y hệt Composite amount (cùng NPP, cùng tháng) ⇒ số nguồn nhập nhầm ⇒ không ghi */
   var jzT = types['2 jizai amount'] ? '2 jizai amount' : Object.keys(types).filter(function (t) { return /jizai.*(amount|usd)/.test(t); })[0], coT = '3 composite amount', dup = {}, dupTxt = [], dupCodes = {};
@@ -692,7 +694,7 @@ function kscTurnover_(ctx, why) {
     if (f.country) flt.push('Country = ' + up(f.country)); if (f.prod) flt.push('Products = ' + up(f.prod));
     out.rules[f.code] = 'SUM TURNOVER, cột Actual USD · ' + flt.join(' · ') +
       ' · ' + (ctx.L.H['agg'] != null && ctx.L.rows[f.code] != null && String(ctx.L.V[ctx.L.rows[f.code]][ctx.L.H['agg']]).trim().toUpperCase() === 'SUM' ? 'số của từng tháng' : 'lũy kế từ tháng đầu năm tài chính') +
-      ' · chỉ tháng đã đóng (tháng trước tháng hiện tại, hoặc tháng hiện tại từ ngày 25, và Type đó đã có Actual).';
+      ' · mọi tháng đến tháng hiện tại đã có Actual (cập nhật real time theo file Turnover).';
   });
   var fixed = 0, fixMsg = '';
   try { fixed = kscFixKpiAct_(tss); } catch (e) { fixMsg = ' · ⚠ chưa sửa được công thức _KPI_ACT: ' + (e && e.message || e); }
@@ -709,7 +711,7 @@ function kscTurnover_(ctx, why) {
   if (dupTxt.length) out.status = 'error';
   return kscResult_(out, st, (dupTxt.length ? '⚠ SUM TURNOVER: Jizai amount TRÙNG Composite amount (' + dupTxt.join('; ') +
       ') ⇒ chưa ghi ' + Object.keys(dupCodes).join(', ') + ', cần sửa dòng 2 Jizai amount ở sheet Actual input / file kế toán · ' : '') +
-    rows.length + ' dòng SUM TURNOVER · tháng đã đóng: ' + (closedList.join(', ') || '(chưa có)') + (totTxt ? ' · ' + totTxt : '') +
+    rows.length + ' dòng SUM TURNOVER · tháng có số: ' + (closedList.join(', ') || '(chưa có)') + (totTxt ? ' · ' + totTxt : '') +
     (noType.length ? ' · SUM TURNOVER chưa có Type cho: ' + noType.join(', ') + ' (JIZAI cần Type "2 Jizai amount")' : '') +
     (fixed ? ' · đã bọc ARRAYFORMULA ' + fixed + ' ô công thức trong ' + KSC.TURNOVER_ACT : '') + fixMsg + pushMsg);
 }
@@ -2224,9 +2226,9 @@ function kscPlainRule_(code, X, E) {
   if (/^C3-1[01]$/.test(code)) return 'Số buổi Coaching do PIC thực hiện, đã Completed và có file PDF Review trong thư mục Review của buổi.';
   if (KSC_KBI.CODE_RE.test(code)) return 'Điểm tháng = 100 cộng điểm cộng, trừ điểm trừ (cột Total point by month).';
   var cd = /^last$/i.test(X.agg) ? ', cộng dồn từ tháng 9' : ', số của từng tháng';
-  if (/^F6-01/.test(code)) return 'Doanh số Composite bán cho NPP (Type 3 Composite amount, USD)' + cd + ', chỉ tính tháng đã chốt số.';
-  if (/^F6-02/.test(code)) return 'Doanh số JIZAI bán cho NPP (Type 2 Jizai amount, USD)' + cd + ', chỉ tính tháng đã chốt số.';
-  if (/^F/.test(code)) return 'Doanh số bán cho NPP (Type 1 Turnover, lọc theo Segment Report, USD)' + cd + ', chỉ tính tháng đã chốt số.';
+  if (/^F6-01/.test(code)) return 'Doanh số Composite bán cho NPP (Type 3 Composite amount, USD)' + cd + ', cập nhật real time theo Turnover (tháng đang chạy là số tạm tính).';
+  if (/^F6-02/.test(code)) return 'Doanh số JIZAI bán cho NPP (Type 2 Jizai amount, USD)' + cd + ', cập nhật real time theo Turnover (tháng đang chạy là số tạm tính).';
+  if (/^F/.test(code)) return 'Doanh số bán cho NPP (Type 1 Turnover, lọc theo Segment Report, USD)' + cd + ', cập nhật real time theo Turnover (tháng đang chạy là số tạm tính).';
   var M = KSC_MKT.CODES;
   if (code === M.mirEvent || code === M.mirProduct) return 'Số tin nhắn chia cho số người tiếp cận của quảng cáo ' + (code === M.mirEvent ? 'sự kiện' : 'sản phẩm') + '.';
   if (code === M.postOnTime) return 'Bài có link report điền trước hoặc đúng ngày on-air dự kiến, chia cho số bài kế hoạch (không tính bài hủy).';
