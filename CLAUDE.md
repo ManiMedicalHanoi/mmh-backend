@@ -61,3 +61,11 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   Ghi ngày mới luôn 00:00 (không ghi giờ). CRM Dental còn file tay cũ `Fix lỗi hiển thị ngày.gs` (ghi 12:00) — không dùng nữa.
 - **Đúng dòng (CRM v10.12)**: tab 6 — app gửi `_no` / `_acc` / `_pic` / `_start` ⇒ `wkResolve_` tìm lại dòng đã dời, không thấy ⇒ `stale` (không ghi / xoá nhầm); `saveWeekly` luôn có
   Start date, `wkHeal_` bù dòng trống ngày (dấu 🕒 ảnh / _LOG / Start Month). ALL TASK (`MMH_SalesTasks.gs` v1.1): `expect` / `parentName` = tên việc, ngày mặc định, rid.
+- **Hộp cát TEST của CRM (13/10/2026, `MMH_CrmSandbox.gs` GIỐNG HỆT ở crm-dental / surgical / eyeless + `MMH_TestMode.gs` v2.0 ở mọi backend)**: app gửi `tm=1&tmSb=1&tmAs=<PIC>`
+  + phiên email Admin ⇒ `tmSbOpen_` đổi `ss()`, thư mục ảnh / chứng từ / PDF, file Business Trip (`TRIP_FILE_ID`, `TF.TRIP_ID`) sang bản TEST; `VER_MAP_SB`, đệm `|SB`, nhật ký `ACTBUF_SB`
+  riêng; không đẩy KPI thật (`k68LinkAdapter_` push no-op); `tmSbWho_` = danh tính người đóng vai (dùng ở `tfWho_` / `ordMe_`). `tmSetup` / `tmReset` / `tmClean` ⇒ trigger
+  `tmSbBuild`: chép file CRM ("TEST · …") vào Drive "MMH CRM TEST/<Nhóm>", xoá dữ liệu thật (giữ tiêu đề, công thức, danh mục, KPI), chép 2 tab Business Trip, sinh dữ liệu ảo
+  (6 khách / PIC — 2 địa bàn mới đã đi thăm, 1 có đơn đầu tiên; CBC; 10 lượt đi địa bàn có ảnh + 3 kế hoạch; 5 đơn qua đúng NPP, 3 chờ duyệt; thuyết trình; ALL TASK; 1 công tác
+  chờ duyệt). Trạng thái `tmInfo` (Script Property `TM_SB_*`). Backend chưa có hộp cát nhận `tmSb=1` ⇒ từ chối (không bao giờ ghi thật dưới tên người thật).
+  Chạy tay trong trình soạn: `tmSbBuildNow()`. `nppByPic_` (bundle): NPP của từng PIC theo `K68_NPP` (đơn hàng Dental tự điền Partner).
+
