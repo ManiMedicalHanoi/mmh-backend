@@ -1,0 +1,155 @@
+/* MMH IFU · bố cục sách A4 (Paged.js) */
+@import url('fonts/fonts.css');
+:root{
+  --navy:#003047; --blue:#3A5CAA; --blue2:#7D97CE; --yellow:#FFE100; --pale:#F0F7FF; --soft:#E6EEF8;
+  --line:#E2E7EE; --ink:#1F2A33; --muted:#66727F; --hi:#FFF8D6; --hi-line:#F2D64B; --ok:#3E8E6B; --warn:#C2605C;
+}
+@page{
+  size:A4; margin:22mm 18mm 20mm 22mm;
+  @top-left{ content:string(chap); font:600 8pt 'Be Vietnam Pro'; color:#8A96A3; letter-spacing:.06em; text-transform:uppercase; }
+  @top-right{ content:'MMH · Hướng dẫn sử dụng hệ thống'; font:500 8pt 'Be Vietnam Pro'; color:#A9B3BE; }
+  @bottom-right{ content:counter(page); font:700 9pt 'Be Vietnam Pro'; color:var(--navy); }
+  @bottom-left{ content:string(sect); font:500 7.5pt 'Be Vietnam Pro'; color:#A9B3BE; }
+}
+@page :left{ margin-left:18mm; margin-right:22mm;
+  @top-left{ content:'MMH · Hướng dẫn sử dụng hệ thống'; font:500 8pt 'Be Vietnam Pro'; color:#A9B3BE; }
+  @top-right{ content:string(chap); font:600 8pt 'Be Vietnam Pro'; color:#8A96A3; letter-spacing:.06em; text-transform:uppercase; }
+  @bottom-left{ content:counter(page); font:700 9pt 'Be Vietnam Pro'; color:var(--navy); }
+  @bottom-right{ content:string(sect); font:500 7.5pt 'Be Vietnam Pro'; color:#A9B3BE; }
+}
+@page cover{ margin:0; @top-left{content:none} @top-right{content:none} @bottom-left{content:none} @bottom-right{content:none} }
+@page opener{ @top-left{content:none} @top-right{content:none} @bottom-left{content:none} }
+@page :blank{ @top-left{content:none} @top-right{content:none} @bottom-left{content:none} @bottom-right{content:none} }
+@page front{ @top-left{content:none} @top-right{content:none} @bottom-left{content:none} }
+
+html{ font-family:'Be Vietnam Pro',sans-serif; font-size:9.6pt; line-height:1.55; color:var(--ink); }
+body{ margin:0; }
+a{ color:var(--blue); text-decoration:none; }
+p{ margin:0 0 2.6mm; orphans:3; widows:3; text-align:left; }
+strong,b{ font-weight:650; color:#14202B; }
+h1,h2,h3,h4{ font-weight:700; color:var(--navy); line-height:1.25; break-after:avoid; }
+h2{ font-size:15pt; margin:9mm 0 3mm; padding-top:2mm; border-top:1.2pt solid var(--navy); string-set:sect content(text); }
+h2 .num{ color:var(--blue); margin-right:2.5mm; }
+h3{ font-size:11.5pt; margin:6mm 0 2mm; color:var(--navy); }
+h3::before{ content:''; display:inline-block; width:2.2mm; height:2.2mm; background:var(--yellow); border-radius:50%; margin-right:2.2mm; vertical-align:1.2pt; }
+h4{ font-size:10pt; margin:4mm 0 1.5mm; color:var(--blue); }
+ul,ol{ margin:0 0 3mm; padding-left:6mm; }
+li{ margin-bottom:1.2mm; }
+ul li::marker{ color:var(--blue); }
+ol{ counter-reset:st; list-style:none; padding-left:0; }
+ol > li{ counter-increment:st; position:relative; padding-left:8.5mm; min-height:6mm; }
+ol > li::before{ content:counter(st); position:absolute; left:0; top:.2mm; width:5.6mm; height:5.6mm; border-radius:50%; background:var(--navy); color:#fff;
+  font-size:8pt; font-weight:700; display:flex; align-items:center; justify-content:center; line-height:1; }
+code,kbd{ font-family:'Be Vietnam Pro'; font-size:8.6pt; background:#EEF2F7; border:0.6pt solid #D5DCE5; border-radius:1.2mm; padding:0 1.2mm; }
+kbd{ border-bottom-width:1.4pt; font-weight:600; }
+hr{ border:0; border-top:0.6pt solid var(--line); margin:5mm 0; }
+
+/* bảng */
+table{ width:100%; border-collapse:collapse; margin:2mm 0 4mm; font-size:8.8pt; break-inside:auto; }
+thead{ display:table-header-group; }
+th{ text-align:left; background:var(--soft); color:var(--navy); font-weight:700; padding:1.8mm 2mm; border-top:1pt solid var(--blue); border-bottom:1pt solid var(--blue); }
+td{ padding:1.6mm 2mm; border-bottom:0.5pt solid var(--line); vertical-align:top; }
+tr{ break-inside:avoid; }
+td:first-child{ font-weight:600; color:#14202B; }
+
+/* hình */
+figure{ margin:3mm 0 5mm; break-inside:avoid; }
+figure .frame{ border:0.7pt solid #CCD5DF; border-radius:2mm; overflow:hidden; background:#fff; }
+figure img{ display:block; width:100%; }
+figure.half{ width:72%; margin-left:auto; margin-right:auto; }
+figure.narrow{ width:52%; margin-left:auto; margin-right:auto; }
+figcaption{ font-size:8.2pt; color:var(--muted); margin-top:1.6mm; line-height:1.4; }
+figcaption b{ color:var(--navy); }
+.figrow{ display:flex; gap:4mm; justify-content:center; align-items:flex-start; }
+.figrow > div{ flex:1; min-width:0; }
+.phone .frame{ border:2.2mm solid #1E2933; border-radius:5mm; }
+.figrow.phone > div{ flex:0 0 31%; }
+.missing{ border:1pt dashed #C9D2DC; background:#F6F8FA; color:#8A96A3; padding:12mm 4mm; text-align:center; font-size:8pt; border-radius:2mm; }
+
+/* hộp */
+.box{ border-radius:2.2mm; padding:3mm 4mm 2mm 13mm; margin:3mm 0 4mm; position:relative; break-inside:avoid; font-size:9pt; }
+.box::before{ position:absolute; left:3.6mm; top:3mm; width:6mm; height:6mm; border-radius:50%; font-weight:800; font-size:9pt; color:#fff;
+  display:flex; align-items:center; justify-content:center; }
+.box .bt{ font-weight:700; display:block; margin-bottom:1mm; }
+.box.tip{ background:var(--pale); } .box.tip::before{ content:'i'; background:var(--blue); } .box.tip .bt{ color:var(--blue); }
+.box.note{ background:var(--hi); border:0.7pt solid var(--hi-line); } .box.note::before{ content:'!'; background:#C79A00; } .box.note .bt{ color:#8A6A00; }
+.box.warn{ background:#FBECEB; } .box.warn::before{ content:'!'; background:var(--warn); } .box.warn .bt{ color:var(--warn); }
+.box.rule{ background:#EEF6F1; } .box.rule::before{ content:'✓'; background:var(--ok); } .box.rule .bt{ color:var(--ok); }
+.box p:last-child,.box ul:last-child{ margin-bottom:1mm; }
+
+/* thẻ app / backend */
+.card{ border:0.7pt solid var(--line); border-radius:2.5mm; padding:3.2mm 4mm; margin:3mm 0 4mm; break-inside:avoid; background:#fff; }
+.card .ch{ display:flex; align-items:center; gap:2.5mm; margin-bottom:2mm; }
+.card .ch b{ font-size:10.5pt; color:var(--navy); }
+.card .ch .tag{ margin-left:auto; font-size:7.5pt; font-weight:700; color:var(--blue); background:var(--soft); padding:.6mm 2mm; border-radius:3mm; }
+.card dl{ display:grid; grid-template-columns:30mm 1fr; gap:1.2mm 3mm; margin:0; font-size:8.6pt; }
+.card dt{ color:var(--muted); } .card dd{ margin:0; }
+.links{ display:flex; flex-wrap:wrap; gap:2mm; margin-top:2.4mm; }
+.links a{ display:inline-flex; align-items:center; gap:1.5mm; border:0.7pt solid #CFD8E3; border-radius:4mm; padding:.8mm 2.6mm .8mm 1.6mm; font-size:8pt; font-weight:600; color:var(--navy); background:#FAFCFE; }
+.links a img{ width:4mm; height:4mm; }
+.ico{ width:3.6mm; height:3.6mm; vertical-align:-0.6mm; }
+
+/* bìa */
+.cover{ page:cover; height:297mm; width:210mm; position:relative; background:#fff; overflow:hidden; }
+.cover .band{ position:absolute; left:0; top:0; width:210mm; height:118mm; background:var(--navy); }
+.cover .yel{ position:absolute; right:-30mm; top:86mm; width:120mm; height:62mm; background:var(--yellow); transform:skewY(-12deg); }
+.cover .logo{ position:absolute; left:20mm; top:20mm; height:13mm; background:var(--yellow); padding:2mm 4mm; border-radius:1.5mm; }
+.cover .k{ position:absolute; left:20mm; top:52mm; color:#9FC0E6; font-weight:700; letter-spacing:.14em; font-size:9pt; }
+.cover h1{ position:absolute; left:20mm; top:60mm; margin:0; color:#fff; font-size:31pt; line-height:1.12; width:160mm; font-weight:800; }
+.cover .sub{ position:absolute; left:20mm; top:132mm; width:150mm; font-size:12pt; color:var(--navy); font-weight:600; line-height:1.45; }
+.cover .apps{ position:absolute; left:20mm; top:168mm; width:170mm; display:grid; grid-template-columns:1fr 1fr; gap:4mm; }
+.cover .apps div{ border:0.7pt solid var(--line); border-radius:3mm; padding:4mm; }
+.cover .apps b{ display:block; color:var(--navy); font-size:11pt; } .cover .apps span{ font-size:8.5pt; color:var(--muted); }
+.cover .meta{ position:absolute; left:20mm; bottom:20mm; font-size:8.5pt; color:var(--muted); line-height:1.6; }
+.cover .gl{ position:absolute; right:20mm; bottom:20mm; display:flex; gap:3mm; }
+.cover .gl img{ width:7mm; height:7mm; }
+
+.front{ page:front; break-before:page; }
+.front h2{ border-top:0; string-set:none; }
+/* mục lục */
+.toc{ page:front; break-before:right; }
+.toc h2{ font-size:20pt; border:0; margin-top:0; string-set:none; }
+.toc ol{ counter-reset:none; }
+.toc li{ list-style:none; padding:0; margin:0; }
+.toc li::before{ content:none; }
+.toc a{ display:flex; color:var(--ink); }
+.toc a::after{ content:target-counter(attr(href), page); margin-left:auto; padding-left:3mm; font-weight:700; color:var(--navy); }
+.toc .t1 > a{ font-weight:700; font-size:11pt; color:var(--navy); margin-top:4mm; padding:1.6mm 0; border-bottom:0.8pt solid var(--navy); }
+.toc .t2 > a{ font-size:9pt; padding:1mm 0 1mm 6mm; border-bottom:0.4pt dotted #CDD5DE; }
+.toc .t2 > a .n{ color:var(--blue); width:10mm; display:inline-block; font-weight:600; }
+
+/* mở chương */
+.chapter{ break-before:right; }
+.opener{ page:opener; height:240mm; position:relative; break-after:page; }
+.opener .no{ font-size:80pt; font-weight:800; color:var(--yellow); line-height:1; -webkit-text-stroke:0; margin-top:6mm; }
+.opener h1{ font-size:30pt; margin:2mm 0 2mm; string-set:chap content(text); color:var(--navy); }
+.opener .lead{ font-size:11.5pt; color:#3B4956; width:150mm; line-height:1.55; margin-bottom:6mm; }
+.opener .hero{ border:0.7pt solid #CCD5DF; border-radius:2.5mm; overflow:hidden; }
+.opener .hero img{ width:100%; display:block; }
+.opener .inch{ position:absolute; bottom:0; left:0; right:0; display:grid; grid-template-columns:1fr 1fr; gap:1mm 8mm; font-size:8.8pt; border-top:1pt solid var(--navy); padding-top:3mm; }
+.opener .inch b{ grid-column:1/3; font-size:8pt; color:var(--blue); letter-spacing:.1em; }
+.opener .inch span::before{ content:'›'; color:var(--blue); font-weight:800; margin-right:2mm; }
+
+.lede{ font-size:10.5pt; color:#2F3D49; }
+.cols2{ columns:2; column-gap:7mm; }
+.cols2 > *{ break-inside:avoid; }
+.kv{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:3mm; margin:3mm 0 5mm; break-inside:avoid; }
+.kv div{ background:var(--pale); border-radius:2.2mm; padding:3mm; }
+.kv b{ display:block; font-size:16pt; color:var(--navy); line-height:1.1; } .kv span{ font-size:8pt; color:var(--muted); }
+.flow{ display:flex; align-items:stretch; gap:0; margin:3mm 0 5mm; break-inside:avoid; }
+.flow div{ flex:1; background:var(--soft); padding:2.6mm 3mm; font-size:8.3pt; position:relative; margin-right:4mm; border-radius:2mm; }
+.flow div b{ display:block; color:var(--navy); font-size:9pt; margin-bottom:.8mm; }
+.flow div:not(:last-child)::after{ content:'›'; position:absolute; right:-3.6mm; top:50%; transform:translateY(-50%); color:var(--blue); font-weight:800; font-size:13pt; }
+.flow div:last-child{ margin-right:0; background:var(--navy); color:#E6EEF8; } .flow div:last-child b{ color:var(--yellow); }
+.chip{ display:inline-block; font-size:7.6pt; font-weight:700; padding:.3mm 2mm; border-radius:3mm; background:var(--soft); color:var(--navy); margin-right:1mm; }
+.chip.y{ background:var(--hi); color:#7A5E00; } .chip.g{ background:#E3F1E9; color:var(--ok); } .chip.r{ background:#FBE3E1; color:var(--warn); }
+.small{ font-size:8.3pt; color:var(--muted); }
+.pb{ break-before:page; }
+
+.keep{ break-inside:avoid; }
+figure > .frame{ width:fit-content; max-width:100%; margin:0 auto; }
+figure > .frame img{ max-height:112mm; width:auto; max-width:100%; margin:0 auto; }
+figure > figcaption{ text-align:center; }
+.figrow .frame img{ max-height:120mm; }
+.opener .hero{ max-height:118mm; }
+.opener .hero img{ max-height:118mm; object-fit:cover; object-position:top left; }

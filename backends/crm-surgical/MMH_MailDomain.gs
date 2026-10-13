@@ -14,8 +14,17 @@ function mmhMailOpts_(o) {
   if (o && typeof o === 'object') ['to', 'cc', 'bcc', 'replyTo'].forEach(function (k) { if (o[k]) o[k] = mmhAddr_(o[k]); });
   return o;
 }
+/* ⭐ 13/10/2026 — Chế độ TEST của Admin (MMH_TestMode.gs): lượt gọi TEST ⇒ mọi email chỉ về Admin, tiêu đề [TEST] */
+function mmhTestOn_() { return typeof tmMailHook_ === 'function' && typeof MMH_TEST !== 'undefined' && !!MMH_TEST; }
+function mmhMailObj_(a, b, c, d) {
+  if (a && typeof a === 'object') return a;
+  if (typeof d === 'string') return { to: a, replyTo: b, subject: c, body: d };
+  var o = {}; if (d && typeof d === 'object') for (var k in d) o[k] = d[k];
+  o.to = a; o.subject = b; o.body = c; return o;
+}
 /* MailApp.sendEmail(message) · (recipient, subject, body[, options]) · (to, replyTo, subject, body) */
 function mmhMail_(a, b, c, d) {
+  if (mmhTestOn_()) return MailApp.sendEmail(mmhMailOpts_(tmMailHook_(mmhMailObj_(a, b, c, d))));
   if (a && typeof a === 'object') return MailApp.sendEmail(mmhMailOpts_(a));
   if (arguments.length >= 4) {
     if (typeof d === 'string') return MailApp.sendEmail(mmhAddr_(a), mmhAddr_(b), c, d);
@@ -25,6 +34,11 @@ function mmhMail_(a, b, c, d) {
 }
 /* GmailApp.sendEmail(recipient, subject, body[, options]) */
 function mmhGmail_(a, b, c, d) {
+  if (mmhTestOn_()) {
+    var o = tmMailHook_(mmhMailObj_(a, b, c, d)), to = o.to, s = o.subject, bd = o.body || '';
+    delete o.to; delete o.subject; delete o.body;
+    return GmailApp.sendEmail(mmhAddr_(to), s, bd, mmhMailOpts_(o));
+  }
   if (arguments.length >= 4) return GmailApp.sendEmail(mmhAddr_(a), b, c, mmhMailOpts_(d));
   return GmailApp.sendEmail(mmhAddr_(a), b, c);
 }

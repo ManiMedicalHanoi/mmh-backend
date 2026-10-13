@@ -1,0 +1,79 @@
+{
+  "title": "Hệ thống quản lý dữ liệu nội bộ MMH",
+  "kicker": "HƯỚNG DẪN SỬ DỤNG · INSTRUCTION FOR USE",
+  "subtitle": "MMH CRM · MMH Report Hub · KPI · Training Hub: chức năng, cách dùng, người dùng và kết nối dữ liệu",
+  "edition": "Bản tự dựng từ mã nguồn hệ thống",
+  "owner": "Product Team · MANI Medical Hanoi",
+  "targets": {
+    "all": {
+      "out": "MMH_IFU_He_thong_du_lieu.pdf",
+      "front": [
+        "00-cach-doc.md"
+      ],
+      "chapters": [
+        "01-nen-tang.md",
+        "10-crm.md",
+        "20-report-hub.md",
+        "30-kpi.md",
+        "40-training-hub.md",
+        "90-phu-luc.md"
+      ]
+    },
+    "crm": {
+      "out": "MMH_IFU_01_CRM.pdf",
+      "title": "MMH CRM",
+      "subtitle": "Hướng dẫn sử dụng chi tiết cho đội Sales, Team Leader và quản lý",
+      "apps": [
+        "crm"
+      ],
+      "front": [
+        "00-cach-doc.md"
+      ],
+      "chapters": [
+        "10-crm.md"
+      ]
+    },
+    "rh": {
+      "out": "MMH_IFU_02_Report_Hub.pdf",
+      "title": "MMH Report Hub",
+      "subtitle": "Hướng dẫn sử dụng chi tiết cho các phòng ban",
+      "apps": [
+        "rh"
+      ],
+      "front": [
+        "00-cach-doc.md"
+      ],
+      "chapters": [
+        "20-report-hub.md"
+      ]
+    },
+    "kpi": {
+      "out": "MMH_IFU_03_KPI.pdf",
+      "title": "KPI: tự điền, tự liên kết, hiển thị",
+      "subtitle": "Số liệu KPI đến từ đâu, tính thế nào và xem ở đâu",
+      "apps": [
+        "kpi"
+      ],
+      "front": [
+        "00-cach-doc.md"
+      ],
+      "chapters": [
+        "30-kpi.md"
+      ]
+    },
+    "th": {
+      "out": "MMH_IFU_04_Training_Hub.pdf",
+      "title": "MMH Training Hub",
+      "subtitle": "Hướng dẫn sử dụng cho học viên, trainer và admin",
+      "apps": [
+        "th"
+      ],
+      "front": [
+        "00-cach-doc.md"
+      ],
+      "chapters": [
+        "40-training-hub.md"
+      ]
+    }
+  }
+}

@@ -1,0 +1,86 @@
+{
+  "backendRepo": "..",
+  "backendGithub": "ManiMedicalHanoi/mmh-backend",
+  "apps": [
+    {
+      "key": "crm",
+      "name": "MMH CRM",
+      "short": "đội Sales 4 nhóm",
+      "repo": "../../MMH-CRM",
+      "verRe": "MMH CRM v([0-9.]+)",
+      "notes": "updates/notes.js",
+      "notesVar": "MMH_UPDATES",
+      "url": "https://manimedicalhanoi.github.io/MMH-CRM/",
+      "github": "ManiMedicalHanoi/MMH-CRM",
+      "users": "Sales Dental · Surgical · Eyeless (tiếng Việt), Thailand Surgical (tiếng Anh), Team Leader, quản lý",
+      "backends": [
+        "crm-dental",
+        "crm-surgical",
+        "crm-eyeless",
+        "crm-thai",
+        "cust-data",
+        "turnover",
+        "thai-mkt",
+        "marketing",
+        "kpi",
+        "training"
+      ]
+    },
+    {
+      "key": "rh",
+      "name": "MMH Report Hub",
+      "short": "các phòng ban",
+      "repo": "../../MMH-Report",
+      "verRe": "id=\"ver-badge\"[^>]*>v([0-9.]+)",
+      "notes": "updates/notes.js",
+      "notesVar": "MMH_UPDATES",
+      "url": "https://manimedicalhanoi.github.io/MMH-Report/",
+      "github": "ManiMedicalHanoi/MMH-Report",
+      "users": "Marketing & Sales, Product Team, Back Office, Management, Director / HOD, Admin",
+      "backends": [
+        "marketing",
+        "management",
+        "backoffice",
+        "trip",
+        "mkt-online",
+        "mkt-offline",
+        "kpi",
+        "training"
+      ]
+    },
+    {
+      "key": "kpi",
+      "name": "KPI (MMH KPI FY68)",
+      "short": "tự điền · tự liên kết",
+      "repo": "../../MMH-Report",
+      "verRe": "id=\"ver-badge\"[^>]*>v([0-9.]+)",
+      "url": "https://manimedicalhanoi.github.io/MMH-Report/",
+      "github": "ManiMedicalHanoi/MMH-Report",
+      "users": "Mọi nhân sự (KPI của mình), Team Leader, HOD, Director",
+      "backends": [
+        "kpi",
+        "turnover",
+        "crm-dental",
+        "crm-surgical",
+        "crm-eyeless",
+        "crm-thai",
+        "training",
+        "mkt-online",
+        "mkt-offline"
+      ]
+    },
+    {
+      "key": "th",
+      "name": "MMH Training Hub",
+      "short": "đào tạo · đăng nhập chung",
+      "repo": "../../Training-Hub",
+      "verRe": "APP_VERSION = '([0-9.]+)'",
+      "url": "https://manimedicalhanoi.github.io/Training-Hub/",
+      "github": "ManiMedicalHanoi/Training-Hub",
+      "users": "Học viên (mọi nhân sự), Trainer, Admin",
+      "backends": [
+        "training"
+      ]
+    }
+  ]
+}

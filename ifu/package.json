@@ -1,0 +1,8 @@
+{
+  "name": "mmh-ifu",
+  "private": true,
+  "description": "Hướng dẫn sử dụng (IFU) hệ thống dữ liệu nội bộ MMH: dựng PDF dạng sách từ chapters/*.md",
+  "type": "module",
+  "scripts": { "build": "node build.mjs all", "crm": "node build.mjs crm", "rh": "node build.mjs rh", "kpi": "node build.mjs kpi", "th": "node build.mjs th" },
+  "dependencies": { "marked": "^12.0.0", "pagedjs": "^0.4.3", "playwright": "^1.56.0", "sharp": "^0.35.0" }
+}

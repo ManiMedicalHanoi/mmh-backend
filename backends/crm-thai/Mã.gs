@@ -1217,9 +1217,13 @@ function handle_(e, method){
     }
   }catch(x){}
   var out, act = String(p.action || ''), rid = str_(p.rid), hit = null;
+  /* ⭐ 13/10/2026 — MMH_TestMode.gs: Admin TEST mode (tm=1 / PIC "TEST") — admin session check, e-mails only to the Admin, TEST rows hidden from others */
+  var tmErr = (typeof tmBegin_ === 'function') ? tmBegin_(p, e) : null;
+  if(!tmErr && /^tm[A-Z]/.test(act) && typeof tmRoute_ === 'function') tmErr = tmRoute_(act, p);
   /* v1.9 — same request id seen before ⇒ give back the first answer, write nothing */
-  if(rid && WRITE_ACTIONS[act]) hit = idemBegin_(rid);
-  if(hit) out = hit;
+  if(!tmErr && rid && WRITE_ACTIONS[act]) hit = idemBegin_(rid);
+  if(tmErr) out = tmErr;
+  else if(hit) out = hit;
   else {
     try{ out = route_(p); }
     catch(err){ out = { ok: false, error: String(err && err.message || err) }; }
@@ -1227,6 +1231,7 @@ function handle_(e, method){
     if(out && out.ok && !out.unchanged && !out.dup && (K68_PUSH_ACTIONS[act] || act === 'naDecide') && str_(p.push) !== '0'){ try{ out.kpiPush = k68PushQuick_(); }catch(x){} }
     if(rid && WRITE_ACTIONS[act]) idemEnd_(rid, out);
   }
+  if(typeof tmScrub_ === 'function') out = tmScrub_(out);
   var txt = JSON.stringify(out);
   if(p.callback) return ContentService.createTextOutput(p.callback + '(' + txt + ');').setMimeType(ContentService.MimeType.JAVASCRIPT);
   return ContentService.createTextOutput(txt).setMimeType(ContentService.MimeType.JSON);
@@ -1234,7 +1239,7 @@ function handle_(e, method){
 /* answer "unchanged" when the client already holds the current version of this answer */
 function withVer_(p, deps, fn){
   var v = verOf_(deps);
-  if(p.cv && String(p.cv) === v) return { ok: true, unchanged: true, _ver: v };
+  if(p.cv && String(p.cv) === v && !(typeof tmOn_ === 'function' && tmOn_())) return { ok: true, unchanged: true, _ver: v };
   var o = fn(); o._ver = v; return o;
 }
 function route_(p){
@@ -2827,7 +2832,7 @@ function naReadAll_(){
   var sh = naSheet_(), lr = sh.getLastRow();
   if(lr < NA_DR) return [];
   var v = sh.getRange(NA_DR, NA_C0, lr - NA_DR + 1, NA_F.length).getValues(), out = [];
-  v.forEach(function(r, i){ if(naS_(r[0])) out.push(naRow2Obj_(r, NA_DR + i)); });
+  v.forEach(function(r, i){ if(!naS_(r[0])) return; var o = naRow2Obj_(r, NA_DR + i); if(typeof tmKeep_ !== 'function' || tmKeep_(o)) out.push(o); });
   return out;
 }
 function naFind_(id){ var all = naReadAll_(); for(var i = 0; i < all.length; i++) if(all[i].id === id) return all[i]; return null; }
@@ -2852,12 +2857,15 @@ function naIsAdmin_(user){ return NA_ENV.admins.indexOf(naS_(user && user.pic)) 
 function naApprovers_(pic){ try{ return NA_ENV.approvers(pic) || []; }catch(e){ return []; } }
 function naCanSee_(user, o){
   var me = naS_(user && user.pic);
+  if(typeof tmOn_ === 'function' && tmOn_() && tmIsTest_(o.pic)) return true;
   if(!me) return false;
   if(naIsAdmin_(user) || o.pic === me) return true;
   return naApprovers_(o.pic).indexOf(me) >= 0;
 }
 function naCanDecide_(user, o){
   var me = naS_(user && user.pic);
+  /* TEST mode: the Admin playing Manager / Director can decide ONLY the TEST cases */
+  if(typeof tmOn_ === 'function' && tmOn_() && tmIsTest_(o.pic)) return o.status === NA_ST.pending && /^(mgr|dir)$/.test(MMH_TEST.as);
   if(!me || o.status !== NA_ST.pending || o.pic === me) return false;
   return naApprovers_(o.pic).indexOf(me) >= 0 || NA_ENV.deciders.indexOf(me) >= 0;
 }
@@ -3150,7 +3158,7 @@ function naDecide(user, p){
     if(!o) return { ok:false, error:'Case not found' };
     if(o.status !== NA_ST.pending){ naDecorate_(user, o); return { ok:true, rec:o, dup:true, message:naL_('Case đã được xử lý: ', 'Already decided: ') + o.status + (o.decBy ? ' · ' + o.decBy : '') }; }
     if(!naCanDecide_(user, o)) return { ok:false, error:naL_('Bạn không có quyền duyệt case này.', 'You cannot decide this case.') };
-    o.decBy = naS_(user.pic); o.decAt = naNow_(); o.comment = cm;
+    o.decBy = (typeof tmOn_ === 'function' && tmOn_()) ? tmDecider_() : naS_(user.pic); o.decAt = naNow_(); o.comment = cm;
     if(dec === 'approve'){ o.status = NA_ST.approved; naLogLine_(o, user.pic, naL_('XÁC NHẬN', 'APPROVED') + (cm ? ' · ' + cm : '')); }
     else if(dec === 'return'){ o.status = NA_ST.draft; naLogLine_(o, user.pic, naL_('TRẢ LẠI BỔ SUNG · ', 'RETURNED FOR CHANGES · ') + cm); }
     else {
@@ -3802,6 +3810,7 @@ function tripMasterRead_(book){
 }
 /* tên PIC trên CRM ⇒ tên trong file Business Trip (ví dụ Phuong ⇒ "Vu Phuong") */
 function tripName_(pic, M){
+  if (typeof tmIsTest_ === 'function' && tmIsTest_(pic)) return String(pic).trim();      /* TEST mode: keep the TEST name */
   var k = wrN_(pic), names = Object.keys(M.people).concat(M.coTravelers);
   var hit = names.filter(function(x){ return wrN_(x) === k; })[0] ||
             names.filter(function(x){ return (' ' + wrN_(x)).slice(-(k.length + 1)) === ' ' + k; })[0] ||
