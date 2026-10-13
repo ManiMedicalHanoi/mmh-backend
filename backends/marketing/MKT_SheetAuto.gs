@@ -25,6 +25,7 @@
  *     REPORT_EVENT thêm cột "Hình thức" (Trực tiếp / Webinar) + "Bằng chứng tham dự (scan ký tên / báo cáo Zoom)".
  *     "Actual Participant" = số SĐT KHÁC NHAU ở CUSTOMER LIST cùng sự kiện + tháng, đủ Name / Tel / Province / Tittle /
  *     Workplace và "Xác nhận tham dự" = Ký tay / Zoom; chưa có bằng chứng tham dự ⇒ 0 (không tính KPI).
+ *     Chỉ áp cho sự kiện bắt đầu từ MKTA.RULE_FROM (14/10/2026) — sự kiện cũ giữ công thức cũ (KPI quá khứ không đổi).
  *  ⑤ CUSTOMER LIST: thêm "Xác nhận tham dự" (Ký tay / Zoom / Chưa xác nhận) + "Đồng ý sử dụng dữ liệu".
  *  ⑥ action=evProof — tải bằng chứng tham dự vào folder sự kiện (op=list | upload).
  * Chuyển đổi bố cục 1 lần (thêm cột, danh sách chọn, công thức): Script Property MKT_AUTO_V = MKTA_VER.
@@ -43,6 +44,7 @@ var MKTA = {
   CONF_LIST: ['Ký tay', 'Zoom', 'Chưa xác nhận'],
   CONSENT_LIST: ['Đã đồng ý (form online)', 'Đã đồng ý (ký tay)', 'Chưa'],
   ADS_PER_RUN: 6,
+  RULE_FROM: '20261014',   // sự kiện bắt đầu từ ngày này mới áp quy định xác nhận tham dự (sự kiện cũ giữ công thức cũ ⇒ KPI quá khứ không đổi)
   PROOF_MAX_MB: 25,
   PROOF_EXT: { pdf:'application/pdf', jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png',
                xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', csv:'text/csv' },
@@ -541,7 +543,12 @@ function mktaAds_(sh, rep, mig){
 }
 
 /* ══════════════ ④ REPORT_EVENT / PLAN_EVENT · ⑤ CUSTOMER LIST ══════════════ */
-function mktaOffMonthF_(D, r){ return '=IF(LEN(TRIM(TO_TEXT(' + D + r + ')))<6,"",IFERROR(VALUE(LEFT(TRIM(TO_TEXT(' + D + r + ')),6)),""))'; }
+function mktaOffMonthF_(D, r){ return '=IF(ISNUMBER(' + D + r + '),VALUE(TEXT(' + D + r + ',"yyyymm")),IF(LEN(TRIM(TO_TEXT(' + D + r + ')))<6,"",IFERROR(VALUE(LEFT(TRIM(TO_TEXT(' + D + r + ')),6)),"")))'; }
+/* ngày bắt đầu sự kiện (yyyymmdd) từ ô Date: ngày thật hoặc chữ "20261026-29" */
+function mktaEvDay_(v){
+  if (mktaIsDate_(v)) return Utilities.formatDate(v, 'Asia/Ho_Chi_Minh', 'yyyyMMdd');
+  var m = /^(\d{8})/.exec(mktaS_(v).replace(/\s+/g, '')); return m ? m[1] : '';
+}
 /* Actual Participant: SĐT khác nhau (9 số cuối) của khách cùng sự kiện + tháng, đủ thông tin bắt buộc, đã xác nhận Ký tay / Zoom; chưa có bằng chứng ⇒ 0 */
 function mktaPartF_(L, r){
   var q = "'CUSTOMER LIST'!", rg = function(c){ return q + '$' + c + '$' + L.first + ':$' + c; };
@@ -597,7 +604,8 @@ function mktaOffline_(ss, rep, mig){
           var has = mktaS_(v[C.date - 1]) || (C.type && mktaS_(v[C.type - 1])) || (C.prod && mktaS_(v[C.prod - 1]));
           if (!has) continue;
           if (C.month && mktaS_(v[C.date - 1]) && !mktaOurs_(f[C.month - 1], ['LEFT(TRIM(TO_TEXT(' + Dl + r + ')'])){ mktaPut_(W, r, C.month, mktaOffMonthF_(Dl, r), 'f'); fx++; }
-          if (L && C.part && C.ev && C.month && !mktaOurs_(f[C.part - 1], ['COUNTUNIQUE(FILTER(', '$' + L.proof + r, "'CUSTOMER LIST'!$" + L.conf + '$'])){
+          var evDay = mktaEvDay_(v[C.date - 1]);
+          if (L && C.part && C.ev && C.month && evDay && evDay >= MKTA.RULE_FROM && !mktaOurs_(f[C.part - 1], ['COUNTUNIQUE(FILTER(', '$' + L.proof + r, "'CUSTOMER LIST'!$" + L.conf + '$'])){
             mktaPut_(W, r, C.part, mktaPartF_(L, r), 'f'); fx++;
           }
         }

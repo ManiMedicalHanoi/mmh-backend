@@ -47,3 +47,17 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
 - **Tab KPI theo nhóm do KSC ghi lại mỗi lượt đồng bộ (`kpi/KpiGroupSheets.gs`)**: "KPI TRAINING FY68" (Training Master: mã KPI + ma trận HOẠT ĐỘNG ĐÀO TẠO THEO PIC + danh sách buổi),
   "KPI MKT Offline" (file MKT offline, C8 / C9 / C12 / C15 + danh sách sự kiện), "KPI MKT Online" (file Digital, C17-01→06 + chi tiết tháng / bài đăng / thiết kế).
   Target từ 3. Detail KPI, màu % như CRM (<90 xám · 90–<100 xanh · 100–120 vàng · >120 xanh lá). Không gõ tay vào các tab này. `training/Kết nối KPI.gs` đã ngừng (trigger tự gỡ).
+- **Sự kiện MKT ⇒ Key task Report Hub (`marketing/Event_Sync.gs`, 13/10/2026)**: REPORT_EVENT (+ PLAN_EVENT) ⇒ Key task `Marketing-Event` ở Weekly new (cột U `EK:`), bài đăng
+  EVENT REPORT (file Digital) ⇒ sub-task chỉ đọc (`E:`). Key `EK:` không đổi tên / không xoá từ app (sửa kết quả / trạng thái / hạn, thêm sub tay được). `MMH_MonthlyKeys.gs`
+  (GIỐNG HỆT ở marketing / backoffice / management): mỗi tháng 1 key "Internal Meeting MMYYYY · <Nhóm>" + "· MMH (toàn công ty)".
+- **Tự động 2 file MKT (`marketing/MKT_SheetAuto.gs`)**: EVENT / PRODUCT REPORT (Month theo On-air dự kiến, Ngày điền link, On-air thực tế = công thức, Status), ORDER REPORT
+  (Check deadline = công thức On time / Late), ADS REPORT (cột File Report ⇒ đọc file Ads Manager), REPORT_EVENT (Month theo Date, cột Hình thức + Bằng chứng tham dự,
+  Actual Participant chỉ đếm khách "Xác nhận tham dự" = Ký tay / Zoom, đủ trường, bỏ trùng SĐT — CHỈ sự kiện từ `MKTA.RULE_FROM` 14/10/2026, sự kiện cũ giữ công thức cũ),
+  CUSTOMER LIST (Xác nhận tham dự, Đồng ý sử dụng dữ liệu). `evProof` (list / upload bằng chứng vào folder sự kiện). mkt-online `Mã.gs` `mktaOnEdit_` = bản tức thì (onEdit).
+  cust-data v2.4: đọc thêm CUSTOMER LIST (chỉ khách đã xác nhận tham dự).
+- **Ngày tháng chuẩn (13/10/2026)**: CRM `crmDateFix_` (crm-dental / surgical / eyeless v10.12, crm-thai v1.19): tab 6 / 3 / 7 / 1 + ALL TASK — đảo ngày ↔ tháng (chỉ khi cột tháng
+  cùng dòng khớp sau khi đảo), bỏ giờ thừa, chữ ⇒ ngày, dd/MM/yyyy; file vùng en_US ⇒ en_GB (người dùng đồng ý); 1 lần sau deploy + trigger 02:00 hằng đêm; log `CRM_DATEFIX_LOG`
+  (ping trả `dateFix`). Report Hub `MMH_DateFix.gs` (GIỐNG HỆT marketing / backoffice / management): Weekly new J/K/L bỏ giờ thừa, ≤ 1 lần / 20 giờ ở ping / boot (không trigger).
+  Ghi ngày mới luôn 00:00 (không ghi giờ). CRM Dental còn file tay cũ `Fix lỗi hiển thị ngày.gs` (ghi 12:00) — không dùng nữa.
+- **Đúng dòng (CRM v10.12)**: tab 6 — app gửi `_no` / `_acc` / `_pic` / `_start` ⇒ `wkResolve_` tìm lại dòng đã dời, không thấy ⇒ `stale` (không ghi / xoá nhầm); `saveWeekly` luôn có
+  Start date, `wkHeal_` bù dòng trống ngày (dấu 🕒 ảnh / _LOG / Start Month). ALL TASK (`MMH_SalesTasks.gs` v1.1): `expect` / `parentName` = tên việc, ngày mặc định, rid.
