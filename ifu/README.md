@@ -48,3 +48,10 @@ Repo app phải được clone cạnh `mmh-backend` (mặc định `../../MMH-CR
 4. Gửi PDF mới cho người dùng; không đưa PDF lên repo app công khai (PDF có link tới dữ liệu thật của công ty).
 
 Kịch bản chụp được viết trong phiên dựng ban đầu: vài đường dẫn tuyệt đối ở đầu file (`/home/claude/ifu`, `/home/user/...`) cần chỉnh theo máy đang chạy.
+
+## Bản PPT giới thiệu (đi kèm IFU)
+
+`ppt/build_ppt.py` dựng file PPT giới thiệu hệ thống theo đúng thứ tự IFU (Nền tảng → CRM → Report Hub → KPI → Training Hub),
+template MMH, ảnh lấy từ `shots/`, ghi chú thuyết trình ở mọi slide; **cuối mỗi slide có link "Chi tiết: IFU x.y · trang n"**.
+Link IFU và số trang khai báo ở đầu file (`IFU_FOLDER`, `IFU_FILE`, `PAGE`): khi có link từng file PDF trên Drive hoặc số trang đổi sau khi dựng lại IFU,
+sửa ở đó rồi chạy lại. Cần `style_c.py` (đi kèm) và template `MMH_PPT_TEMPLATE.pptx` của skill mmh-brand (đường dẫn ở đầu file).
