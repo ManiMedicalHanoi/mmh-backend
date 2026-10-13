@@ -1,5 +1,5 @@
 /* ════════════════════════════════════════════════════════════════════════════════════════
-   MMH_TestMode.gs — v1.0 (13/10/2026) · CHẾ ĐỘ TEST CỦA ADMIN · GIỐNG HỆT NHAU ở mọi backend
+   MMH_TestMode.gs — v2.0 (13/10/2026) · CHẾ ĐỘ TEST CỦA ADMIN · GIỐNG HỆT NHAU ở mọi backend
    (crm-dental · crm-surgical · crm-eyeless · crm-thai · management · backoffice · marketing · kpi · training)
    — sửa 1 file thì chép sang các backend còn lại.
 
@@ -14,10 +14,14 @@
    ⑤ VAI DIỄN: Admin đóng vai Giám đốc / Quản lý (tmAs) — CHỈ duyệt được hồ sơ TEST (tmCanDecide_), hồ sơ thật vẫn cần người thật.
    ⑥ tmClean: xoá dữ liệu TEST — xoá NỘI DUNG các dòng có PIC "TEST" (giữ công thức, KHÔNG xoá dòng ⇒ số dòng của người khác
       không đổi), dòng TEST trên file Business Trip (+ folder đã tạo khi duyệt), file Drive tên "TEST_…" trong các folder của backend.
+   ⑦ v2.0 — HỘP CÁT (tmSb=1, backend có hàm tmSbOpen_ — hiện là CRM dental / surgical / eyeless): Admin đóng vai BẤT KỲ người dùng nào
+      (tmAs = tên PIC: sales, trưởng nhóm, HOD, Giám đốc, Admin) trên FILE SHEET TEST RIÊNG + THƯ MỤC DRIVE TEST RIÊNG có sẵn dữ liệu ảo
+      (backend tự tạo bằng tmSetup). Mọi quy tắc chạy như người thật (không đổi tên thành TEST), email vẫn chỉ về Admin.
+      tmOn_() = chế độ cũ (ghi dưới tên TEST) · tmSb_() = hộp cát · tmAny_() = một trong hai.
    Không dùng dịch vụ Google mới ⇒ không phải cấp quyền lại.
    ════════════════════════════════════════════════════════════════════════════════════════ */
 var TMODE = {
-  VER: '1.0',
+  VER: '2.0',
   MASTER_ID: '1byCL6NjhqBuEcd-K5pxYRrQj2XXs6GMIvR79x45mHRQ',        /* Training Master (RH_Users + RH_Secret) */
   KEYS: ['pic', 'PIC', 'Pic', 'picName', 'account', 'accountName', 'customer', 'assigner'],
   PIC_HDR: /^(pic|pic name|sales pic|nhan su|nguoi phu trach|person in charge|nguoi de xuat|assigner)$/,
@@ -29,7 +33,9 @@ var MMH_TEST = null;                                                 /* lượt 
 function tmS_(v){ return v == null ? '' : String(v).trim(); }
 /* "TEST", "TEST Dental", "TEST_20261013_…", "TEST (Giám đốc)" — chữ HOA, đứng đầu */
 function tmIsTest_(v){ return /^TEST(\b|_)/.test(tmS_(v)); }
-function tmOn_(){ return !!MMH_TEST; }
+function tmOn_(){ return !!MMH_TEST && !MMH_TEST.sb; }                 /* chế độ cũ: ghi dưới tên TEST */
+function tmSb_(){ return !!MMH_TEST && !!MMH_TEST.sb; }                  /* v2.0 — hộp cát: file TEST riêng, đóng vai người dùng thật */
+function tmAny_(){ return !!MMH_TEST; }
 function tmNorm_(s){ return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd').toLowerCase().replace(/\s+/g, ' ').trim(); }
 function tmLocal_(e){ return String(e || '').toLowerCase().split('@')[0].trim(); }
 function tmB64_(x){ return Utilities.base64EncodeWebSafe(x).replace(/=+$/, ''); }
@@ -74,12 +80,19 @@ function tmBegin_(p, e){
   var me = tmWho_(p.tk);
   if(me.err) return { ok:false, code:'TEST_AUTH', error:'Chế độ TEST: ' + me.err };
   if(!me.admin) return { ok:false, code:'TEST_ADMIN', error:'Chế độ TEST chỉ dành cho Admin.' };
-  MMH_TEST = { email:me.email, local:me.local, pic:me.pic, as:tmS_(p.tmAs), mails:[] };
+  if(tmS_(p.tmSb) === '1' && typeof tmSbOpen_ !== 'function') return { ok:false, code:'TEST_SB_NA', error:'Backend này chưa có dữ liệu TEST riêng.' };   /* không bao giờ ghi thật dưới tên người thật */
+  var sb = tmS_(p.tmSb) === '1';
+  MMH_TEST = { email:me.email, local:me.local, pic:me.pic, as:tmS_(p.tmAs), mails:[], sb:sb };
+  if(sb){
+    var r = null;
+    try{ r = tmSbOpen_(p); }catch(x){ r = { err:String(x && x.message || x) }; }
+    if(r && r.err){ var code = r.code || 'TEST_SB'; MMH_TEST = null; return { ok:false, code:code, error:r.err }; }
+  }
   return null;
 }
 
 /* vai Giám đốc / Quản lý trong chế độ TEST: chỉ hồ sơ TEST */
-function tmCanDecide_(recPic){ return !!MMH_TEST && tmIsTest_(recPic); }
+function tmCanDecide_(recPic){ return tmOn_() && tmIsTest_(recPic); }
 function tmDecider_(){ return 'TEST (' + (MMH_TEST && MMH_TEST.as === 'dir' ? 'vai Giám đốc' : MMH_TEST && MMH_TEST.as === 'mgr' ? 'vai Quản lý' : 'Admin') + ')'; }
 
 /* ───────── ③ EMAIL: gọi từ mmhMail_ / mmhGmail_ (MMH_MailDomain.gs) ───────── */
@@ -118,7 +131,7 @@ function tmWalk_(x, d){
 /* gọi trong reply(): obj ⇒ obj (đã lọc / đã gắn _tm) */
 function tmScrub_(obj){
   if(MMH_TEST){
-    if(obj && typeof obj === 'object' && !Array.isArray(obj)) obj._tm = { on:true, ver:TMODE.VER, admin:MMH_TEST.email, as:MMH_TEST.as, mails:MMH_TEST.mails || [] };
+    if(obj && typeof obj === 'object' && !Array.isArray(obj)) obj._tm = { on:true, ver:TMODE.VER, admin:MMH_TEST.email, as:MMH_TEST.as, sb:!!MMH_TEST.sb, mails:MMH_TEST.mails || [] };
     return obj;
   }
   try{ return tmWalk_(obj, 0); }catch(e){ return obj; }
@@ -222,6 +235,11 @@ function tmClean_(){
 
 /* router: trả null nếu không phải action của module này */
 function tmRoute_(action, p){
+  /* v2.0 — hộp cát: tạo / làm lại file TEST (chạy nền), trạng thái */
+  if(MMH_TEST && MMH_TEST.sb){
+    if(action === 'tmSetup' || action === 'tmReset' || action === 'tmClean') return (typeof tmSbSetupStart_ === 'function') ? tmSbSetupStart_(action !== 'tmSetup') : { ok:false, error:'Backend chưa hỗ trợ hộp cát.' };
+    if(action === 'tmInfo') return (typeof tmSbInfo_ === 'function') ? tmSbInfo_() : { ok:true, ver:TMODE.VER, sb:false };
+  }
   if(action === 'tmInfo') return { ok:true, ver:TMODE.VER, test:!!MMH_TEST, admin:MMH_TEST ? MMH_TEST.email : '',
     file:(function(){ try{ var b = (typeof ss === 'function') ? ss() : SpreadsheetApp.getActiveSpreadsheet(); return { name:b.getName(), url:b.getUrl() }; }catch(e){ return null; } })() };
   if(action === 'tmClean') return tmClean_();
