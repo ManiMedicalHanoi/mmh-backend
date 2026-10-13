@@ -1,5 +1,15 @@
 /*************************************************************************************************
- * MMH CRM — Google Apps Script backend  (v10.10)  ·  MỘT FILE CODE CHO CẢ 3 NHÓM
+ * MMH CRM — Google Apps Script backend  (v10.11)  ·  MỘT FILE CODE CHO CẢ 3 NHÓM
+ * ⭐ v10.11 (13/10/2026) · TỶ GIÁ CỐ ĐỊNH 26.700 · VISIT PHẢI CÓ ẢNH · MẪU EVENT REVIEW · ĐƠN HÀNG CÓ LOẠI + DUYỆT · T&E TỪ TRAINING MASTER · SẮP XẾP TAB
+ *   ① Tỷ giá VND/USD cố định 26.700 (K68_RATE_DEF) cho mọi tháng — bỏ cài tỷ giá (saveRates trả lỗi), ô D5 tab 9 = 26.700.
+ *   ② Lượt viếng thăm (C3) chỉ tính khi: Type action = Visiting · Status khác trống / Not Started / Cancel · ngày ≤ hôm nay · CÓ ẢNH (cột V)
+ *      · không phải dòng kế hoạch TBD. Ô D6 cố định YES.
+ *   ③ Product presentation: Event review theo mẫu cố định (5 dòng) + Actual participant > 0 — thiếu ⇒ không lưu, không tính KPI.
+ *      Dental C10-03/04/05 (đào tạo khách hàng T&E) lấy từ Training Master qua file KPI (key event_trn, tab 9 chỉ hiển thị).
+ *   ④ 3. SALE ORDER thêm cột Order Type · Trị giá trúng thầu · Tháng KQTT · Chứng từ · Duyệt · Người duyệt · Ngày duyệt · Ghi chú duyệt.
+ *      C5 chỉ cộng đơn "Đã duyệt" (đơn cũ trước ORDER_CUTOFF không có loại vẫn tính như trước). Action orderPending / orderDecide / orderDoc.
+ *   ⑤ crmMigrate_(): chạy 1 lần tự động (Script Property CRM_LAYOUT_V = 3161) — thêm cột đơn hàng, dựng lại tab 9, tô màu / xếp / ẩn tab,
+ *      khung nhập tay cho 6. WEEKLY REPORT · ALL TASK · 1. CUSTOMER CODE, mục hướng dẫn "Nhập trực tiếp trên sheet khi CRM gặp sự cố".
  * ⭐ v10.10 (05/10/2026) · BÁO CÁO THÁNG: bỏ hạng mục Management-KPI · nhóm Marketing (Marketing-Event cuối cùng) xếp xuống cuối
  *   Áp dụng cho email, PDF cá nhân và 2 file xuất cả team.
  * ⭐ v10.9 (05/10/2026) · BÁO CÁO THÁNG CẢ TEAM
@@ -397,6 +407,8 @@ function handle(e, method){
     if (_tmErr) return reply(_tmErr, callback);
     if (/^tm[A-Z]/.test(String(action)) && typeof tmRoute_ === 'function'){ var _tmr = tmRoute_(String(action), p); if (_tmr) return reply(_tmr, callback); }
     var user = whoAmI(p);
+    try { ordX_(); } catch(eX){}                                      /* ⭐ v10.11 — cột mới của 3. SALE ORDER */
+    if (/^(ping|boot|bundle|version)$/.test(String(action))) { try { crmMigrateMaybe_(); } catch(eM){} try { dfMaybe_(); } catch(eD){} }   /* ⭐ v10.11 — bố cục 1 lần · v10.12 — chuẩn hoá ngày */
 
     /* TRẢ LỜI RỖNG KHI DỮ LIỆU CHƯA ĐỔI (app gửi kèm cv = phiên bản nó đang giữ) */
     var _cv = (typeof tmOn_ === 'function' && tmOn_()) ? '' : S(p.cv);
@@ -440,11 +452,18 @@ function handle(e, method){
       if (_rid && WRITE_ACTIONS[action]) idemEnd_(_rid, out);
       return reply(out, callback);
     }
+    /* ⭐ v10.11 — đơn hàng: tải chứng từ · danh sách chờ duyệt · duyệt / từ chối */
+    if (/^order(Pending|Decide|Doc)$/.test(String(action))){
+      out = action === 'orderPending' ? orderPending(user, p) : action === 'orderDecide' ? orderDecide(user, p) : orderDoc(user, p);
+      if (out && out.ok && action === 'orderDecide' && !out.dup) out.kpiPush = k68PushQuick_();
+      if (_rid && WRITE_ACTIONS[action]) idemEnd_(_rid, out);
+      return reply(out, callback);
+    }
     if (action === 'kpiPush') return reply({ ok:true, kpiPush:k68PushQuick_() }, callback);
     if (action === 'kpiLate') return reply(kpiLate_(user, p), callback);               /* ⭐ v10.4 */
 
     switch (action) {
-      case 'ping'            : out = { ok:true, pong:true, source:TEAM(), app:appName_(), pic:user.pic, ver:'10.10', meeting:true, trip2:true, kpi68:true, tenderPrice:true, custLog:true, deleteAccount:true, na:true, kr:true, idem:true, kpiPush:true }; break;
+      case 'ping'            : out = { ok:true, pong:true, source:TEAM(), app:appName_(), pic:user.pic, ver:'10.12', rate:K68_RATE_DEF, dateFix:props_().getProperty('CRM_DATEFIX_LOG') || '', orderApproval:true, presentTpl:true, migrate:props_().getProperty('CRM_LAYOUT_V') || '', meeting:true, trip2:true, kpi68:true, tenderPrice:true, custLog:true, deleteAccount:true, na:true, kr:true, idem:true, kpiPush:true }; break;
       case 'boot'            : out = boot(user); break;
       case 'master'          : out = { ok:true, master: readMaster() }; break;
       case 'customerIndex'   : out = { ok:true, rows: customerIndex() }; break;
@@ -474,7 +493,7 @@ function handle(e, method){
       case 'saveOrder'       : out = saveRow(user, p, 'order'); break;
       case 'saveWeekly'      : out = saveWeekly(user, p); break;
       case 'saveMonthly'     : out = saveRow(user, p, 'monthly'); break;
-      case 'savePresentation': out = saveRow(user, p, 'present'); break;
+      case 'savePresentation': out = presCheckSave_(user, p); break;          /* ⭐ v10.11 — mẫu Event review + Actual participant */
       case 'saveADP'         : out = saveRow(user, p, 'adp'); break;
       case 'deleteRow'       : out = deleteRow(user, p); break;
       case 'deleteAccount'   : out = deleteAccount(user, p); break;              /* ⭐ v9.3 */
@@ -497,6 +516,7 @@ function handle(e, method){
   } catch(err){
     out = { ok:false, error: String(err && err.message || err) };
   }
+  try { if (_WKFIX) wkHealFlush_(); } catch(eH){}                    /* ⭐ v10.11 — bù Start date cho dòng thiếu (ngoài khoá) */
   return reply(out, callback);
 }
 
@@ -528,7 +548,8 @@ function isManager(user){ return user && user.role === 'manager'; }
 /* ⭐ v10.0 — các action GHI dữ liệu (dùng cho chống ghi trùng theo rid) */
 var WRITE_ACTIONS = { weeklyReport:1, monthlyReport:1, tripPropose2:1, tfDecide:1, addKey:1, addSub:1, atImport:1, saveOrders:1, saveOrder:1, saveCustomer:1, saveCBC:1, saveCustomerCbc:1, saveWeekly:1, saveMonthly:1,
                       savePresentation:1, saveADP:1, deleteRow:1, deleteAccount:1, uploadPhoto:1,
-                      naSave:1, naSubmit:1, naDecide:1, naDelete:1 };
+                      naSave:1, naSubmit:1, naDecide:1, naDelete:1, orderDoc:1, orderDecide:1,
+                      updateKey:1, updateSub:1, updateProgress:1, updateStatus:1, deleteKey:1, deleteSub:1, deletePhoto:1 };   /* ⭐ v10.11 — ALL TASK + xoá ảnh cũng chống trùng theo rid */
 
 /* CÁC CỘT LÀ CÔNG THỨC, TUYỆT ĐỐI KHÔNG GHI ĐÈ */
 var FORMULA_FIELDS = {
@@ -587,6 +608,7 @@ function sh(key){
 /* SỐ CỘT THẬT SỰ CẦN ĐỌC CỦA MỖI TAB */
 var _LASTCOL = {};
 function lastColOf(key){
+  if (key === 'order') { try { ordX_(); } catch(e){} }
   if (_LASTCOL[key]) return _LASTCOL[key];
   var m = COL[key] || {}, mx = 1;
   for (var k in m) if (m[k] > mx) mx = m[k];
@@ -709,6 +731,7 @@ function readTab(key){
 /* BÙ CÁC Ô SUY RA ĐƯỢC cho dòng gõ tay trên sheet */
 function fixDerived_(key, rows){
   if (!rows.length) return;
+  if (key === 'weekly'){ try { wkHeal_(rows); } catch(eH){} }
   var dateF = { order:'day', weekly:'start', present:'day' }[key];
   if (dateF){
     rows.forEach(function(r){
@@ -1078,15 +1101,17 @@ function saveRow(user, p, tab){
 
     var lock_ = FORMULA_FIELDS[tab] || {};
     var _old = cur.slice();
+    if (tab === 'order') ordGuard_(data);                               /* ⭐ v10.11 */
     for (var f in map){
       if (!(f in data)) continue;
       if (lock_[f]) continue;
       var v = data[f];
       if (v === null || v === undefined) continue;
       if (/^(start|finish|day|openDate)$/.test(f)) v = s2d(v);
-      if (/^(qty|price|amount|target|actual|targetAmt|actualAmt|zaloQty)$/.test(f) && v !== '') v = num(v);
+      if (/^(qty|price|amount|target|actual|targetAmt|actualAmt|zaloQty|tender)$/.test(f) && v !== '') v = num(v);
       cur[map[f] - 1] = v;
     }
+    if (tab === 'order') ordStatus_(isNew ? null : _old, cur, map);
     writeRowKeepFormulas_(s, row, cur, lastCol, lock_, map);
     try { ensureFormulas_(s, row, lock_, map, 1); } catch(e){}
 
@@ -1139,9 +1164,11 @@ function saveOrders(user, p){
 
     list.forEach(function(d){
       var row = parseInt(d._row || 0, 10);
+      ordGuard_(d);                                                     /* ⭐ v10.11 — app không tự ghi cột duyệt */
       if (row){
-        var cur = s.getRange(row, 1, 1, lastCol).getValues()[0];
+        var cur = s.getRange(row, 1, 1, lastCol).getValues()[0], _o = cur.slice();
         fillOrderCells_(cur, d, map, lockF);
+        ordStatus_(_o, cur, map);
         writeRowKeepFormulas_(s, row, cur, lastCol, lockF, map);
         rowsOut.push(row);
       } else { news.push(d); }
@@ -1150,7 +1177,7 @@ function saveOrders(user, p){
     if (news.length){
       var start = firstEmptyRow('order');
       var cur2 = s.getRange(start, 1, news.length, lastCol).getValues();
-      news.forEach(function(d, i){ fillOrderCells_(cur2[i], d, map, lockF); });
+      news.forEach(function(d, i){ fillOrderCells_(cur2[i], d, map, lockF); ordStatus_(null, cur2[i], map); });
       writeBlockKeepFormulas_(s, start, cur2, lastCol, lockF, map);
       try { ensureFormulas_(s, start, lockF, map, news.length); } catch(e){}
       news.forEach(function(d, i){ rowsOut.push(start + i); newData.push(d); });
@@ -1171,7 +1198,7 @@ function fillOrderCells_(cur, d, map, lockF){
     var v = d[f];
     if (v === null || v === undefined) continue;
     if (f === 'day') v = s2d(v);
-    if (/^(qty|price|amount|zaloQty)$/.test(f) && v !== '') v = num(v);
+    if (/^(qty|price|amount|zaloQty|tender)$/.test(f) && v !== '') v = num(v);
     cur[map[f] - 1] = v;
   }
   return cur;
@@ -1341,6 +1368,19 @@ function saveWeekly(user, p){
   if (typeof data === 'string'){ try { data = JSON.parse(data); } catch(e){ return { ok:false, error:'Dữ liệu không hợp lệ' }; } }
   if (!data) return { ok:false, error:'Thiếu dữ liệu' };
 
+  /* ⭐ v10.11 — ĐÚNG DÒNG: app gửi kèm _no (cột B) + account / PIC / ngày của bản trong máy ⇒ dòng đã dời thì tìm lại, không thấy thì báo "tải lại" */
+  var _r0 = parseInt(data._row || 0, 10);
+  if (_r0){
+    var _rs = wkResolve_(_r0, wkHints_(data));
+    if (_rs.stale) return _rs;
+    data._row = _rs.row;
+  }
+  /* ⭐ v10.11 — KHÔNG BAO GIỜ ĐỂ TRỐNG Start date: dòng mới thiếu ngày ⇒ hôm nay; cập nhật gửi ngày rỗng ⇒ bỏ qua (giữ ngày cũ) */
+  if (!_r0){ if (!S(data.start)) data.start = wkToday_(); if (!S(data.finish)) data.finish = data.start; }
+  else {
+    if ('start' in data && !S(data.start) && !data._clearDate) delete data.start;
+    if ('finish' in data && !S(data.finish) && !data._clearDate) delete data.finish;
+  }
   var pc = parseCheckName(data.account);
   var tbd = /^TBD$/i.test(pc.name || '');
 
@@ -1382,9 +1422,22 @@ function saveWeekly(user, p){
       if (!data.fy)    data.fy    = fyOfMonth(m[1] + m[2]);
     }
   }
-  if (!data.finish) data.finish = data.start;
+  if (!data.finish && S(data.start)) data.finish = data.start;
 
   var out = saveRow(user, { data:data }, 'weekly');
+  /* ⭐ v10.11 — kiểm lại: ô Start date phải là ngày. Không phải ⇒ ghi lại E / F + ghi nhật ký 'anomaly' */
+  if (out && out.ok && out.row){
+    try {
+      var _sw = sh('weekly'), _ef = _sw.getRange(out.row, COL.weekly.start, 1, 2).getValues()[0];
+      if (S(data.start) && !(_ef[0] instanceof Date)){
+        _sw.getRange(out.row, COL.weekly.start, 1, 2).setValues([[s2d(data.start), s2d(S(data.finish) || data.start)]]);
+        logAct(user, 'anomaly', 'weekly', 'Start date trống sau khi ghi — đã ghi lại', 'E=' + S(_ef[0]) + ' · start=' + S(data.start), out.row);
+        try { flushLog_(); } catch(eF){}
+      }
+      out.no = S(_sw.getRange(out.row, COL.weekly.no).getValue()).replace(/\.0$/, '') || S(out.no);
+      out.start = S(data.start) ? d2s(s2d(data.start)) : d2s(_ef[0]);
+    } catch(eV){}
+  }
   if (tbd && out && out.ok){
     out.tbd = true;
     out.message = 'Đã lưu kế hoạch đi địa bàn (chưa xác định account)';
@@ -1420,6 +1473,16 @@ function fyOfMonth(ym){
 function deleteRow(user, p){
   var tab = S(p.tab), row = parseInt(p.row || 0, 10);
   if (!COL[tab] || !row) return { ok:false, error:'Thiếu tab hoặc row' };
+  /* ⭐ v10.11 — tab 6: xoá ĐÚNG task (No / account / PIC / ngày) — số dòng cũ (đã có dòng khác bị xoá phía trên) không bao giờ xoá nhầm */
+  if (tab === 'weekly'){
+    var _h = wkHints_(p);
+    if (_h.no || _h.acc){
+      var _rs = wkResolve_(row, _h, { gone:true });
+      if (_rs.gone) return { ok:true, gone:true, message:'Task đã được xoá trước đó' };
+      if (_rs.stale) return _rs;
+      row = _rs.row;
+    }
+  }
   /* ⭐ v9.3 — quản lý xoá mọi dòng; sales xoá được task / account / CBC do CHÍNH MÌNH phụ trách */
   if (!isManager(user)){
     if (['weekly','cbc','customer'].indexOf(tab) < 0) return { ok:false, error:'Chỉ quản lý mới được xoá dòng ở tab này.' };
@@ -1592,6 +1655,7 @@ function uploadPhoto(user, p){
   gLine = (gLine ? gLine + '\n' : '') + '🕒 ' + upStamp;
 
   var row = parseInt(p.row || 0, 10);
+  if (row){ var _rs = wkResolve_(row, wkHints_(p)); if (_rs.stale) return _rs; row = _rs.row; }   /* ⭐ v10.11 — đúng dòng */
 
   var folder = DriveApp.getFolderById(photoFolderId_());
   /* TÊN ẢNH: <PIC>_<YYYYMMDD>_<Khách hàng>_<STT ảnh trong tháng> */
@@ -1752,6 +1816,7 @@ function renamePhotosToStandard(){
 function deletePhoto(user, p){
   var row = parseInt(p.row || p.rowIndex || 0, 10);
   if (!row) return { ok:false, error:'Thiếu số dòng' };
+  var _rs = wkResolve_(row, wkHints_(p)); if (_rs.stale) return _rs; row = _rs.row;   /* ⭐ v10.11 — đúng dòng */
   var s = sh('weekly'), c = COL.weekly.photo;
   var cur = S(s.getRange(row, c).getValue());
   if (!cur) return { ok:true, message:'Dòng này chưa có ảnh' };
@@ -1932,33 +1997,12 @@ function installKpiDailySync(){ return syncKpiFY68(); }
 function capQuyenDongBoKPI(){ return syncKpiFY68(); }
 function syncKpiFY68_silent_(){ var s = kpiTab_(); return s ? k68Sync_(s, 'vi', TEAM(), { manual:true }) : null; }
 /* ═════════ ⭐ v10.1 — TỶ GIÁ THEO THÁNG + TÍNH C5 / C6 / C7 BẰNG CODE ═════════ */
-var K68_RATE_DEF = 26050;
-function k68RatesRaw_(){ try { return JSON.parse(props_().getProperty('K68_RATES') || '{}') || {}; } catch(e){ return {}; } }
-/* tỷ giá hiệu lực của 12 tháng: tháng chưa nhập dùng tháng gần nhất trước đó, chưa có gì = 26.050 */
-function k68RatesEff_(months){
-  var raw = k68RatesRaw_(), keys = Object.keys(raw).filter(function(k){ return /^\d{6}$/.test(k) && num(raw[k]) > 0; }).sort();
-  return months.map(function(m){
-    var r = K68_RATE_DEF; m = String(m);
-    for (var i = 0; i < keys.length; i++){ if (keys[i] <= m) r = num(raw[keys[i]]); else break; }
-    return r;
-  });
-}
-function saveRates(user, p){
-  if (!isManager(user)) return { ok:false, error:'Chỉ quản lý / trưởng nhóm được đổi tỷ giá.' };
-  var d = p.rates; if (typeof d === 'string'){ try { d = JSON.parse(d); } catch(e){ d = null; } }
-  if (!d) return { ok:false, error:'Thiếu dữ liệu tỷ giá' };
-  var raw = k68RatesRaw_();
-  Object.keys(d).forEach(function(k){
-    if (!/^\d{6}$/.test(k)) return;
-    var x = num(d[k]);
-    if (x > 0){ if (x < 1000 || x > 100000) return; raw[k] = x; } else delete raw[k];
-  });
-  props_().setProperty('K68_RATES', JSON.stringify(raw));
-  logAct(user, 'update', 'kpi', 'Tỷ giá VND/USD', JSON.stringify(raw), '');
-  var push = k68PushQuick_();
-  bumpVersion(['kpi']);
-  return { ok:true, rates:raw, kpiPush:push, message:'Đã lưu tỷ giá — C5 tính lại theo tỷ giá mới' };
-}
+/* ⭐ v10.11 (13/10/2026) — TỶ GIÁ CỐ ĐỊNH 26.700 VND / USD cho MỌI tháng (người dùng yêu cầu) — không còn cài tỷ giá trên app,
+   Script Property K68_RATES (nếu còn) bị bỏ qua. */
+var K68_RATE_DEF = 26700;
+function k68RatesRaw_(){ return {}; }
+function k68RatesEff_(months){ return (months || []).map(function(){ return K68_RATE_DEF; }); }
+function saveRates(user, p){ return { ok:false, fixed:true, rate:K68_RATE_DEF, error:'Tỷ giá cố định 26.700 — không còn cài tỷ giá.' }; }
 function k68PicTokens_(s){ return String(s || '').split(/[,;\/&+]+/).map(function(x){ return normName_(x); }).filter(String); }
 /* ghi số C5 / C6 / C7 vào tab 9 (thay cho công thức) — dùng đúng dữ liệu app đang hiển thị */
 function k68CalcSupp_(sh){
@@ -1986,12 +2030,19 @@ function k68CalcSupp_(sh){
       if (k68PicTokens_(o.pic).indexOf(me) < 0) return;
       var ym = S(o.month).replace(/\D/g, '').slice(0, 6) || ymOfIso_(S(o.day));
       var k = idx[ym]; if (k == null || out[k] === '') return;
-      if (x.key === 'supp_amt'){ out[k] += num(o.amount) / (rates[k] || K68_RATE_DEF); return; }
+      if (x.key === 'supp_amt') return;                                  /* ⭐ v10.11 — C5 tính riêng theo loại đơn + duyệt (ordSuppAmt_) */
       var txt = (S(o.detail) + ' ' + S(o.ptype)).toLowerCase(), kws = x.key === 'supp_comp' ? kComp : kJz;
       if (!kws.some(function(w){ return txt.indexOf(w) >= 0; })) return;
       if (npp.length){ var pt = S(o.partner).toLowerCase(); if (!npp.some(function(w){ return pt.indexOf(w) >= 0; })) return; }
       out[k] += num(o.qty);
     });
+    if (x.key === 'supp_amt'){
+      ordSuppList_(orders).forEach(function(c){
+        if (k68PicTokens_(c.pic).indexOf(me) < 0) return;
+        var k = idx[c.ym]; if (k == null || out[k] === '') return;
+        out[k] += c.vnd / K68_RATE_DEF;
+      });
+    }
     out = out.map(function(a){ return a === '' ? '' : Math.round(a * 100) / 100; });
     var old = v[x.i].slice(K68.a0 - 1, K68.a0 - 1 + 12), diff = false;
     for (var q = 0; q < 12; q++){ var o1 = old[q] === '' || old[q] == null ? '' : Math.round(Number(old[q]) * 100) / 100; if (String(o1) !== String(out[q])) { diff = true; break; } }
@@ -2039,7 +2090,7 @@ function kpiLate_(user, p){
 
 /* ⭐ v9.7 — REALTIME: các thao tác lưu trên app làm đổi số KPI của tab 9 ⇒ đẩy ngay lên file KPI tổng */
 var K68_PUSH_ACTIONS = { saveOrders:1, saveOrder:1, saveCustomer:1, saveCBC:1, saveCustomerCbc:1, saveWeekly:1,
-                         savePresentation:1, deleteRow:1, deleteAccount:1 };
+                         savePresentation:1, deleteRow:1, deleteAccount:1, orderDecide:1 };
 function k68PushQuick_(){
   try {
     var s = kpiTab_(); if (!s) return { ok:false, error:'Chưa có tab KPI' };
@@ -4108,7 +4159,7 @@ function mtPdf_(q) {
  * KPI FY68 — TAB "MỤC TIÊU & KPI" THEO FILE MMH KPI FY68
  *  Cột A = nhãn máy đọc (kpi:…, grp, pic, tot, sku, months, mstart…) — ĐỪNG XOÁ, app đọc theo nhãn này.
  * ═══════════════════════════════════════════════════════════════════════════════════════════ */
-var K68_SPEC = {"dental":{"title":"MMH DENTAL SALES TEAM","lang":"envn","pics":[{"pic":"Viet","role":"Dental Sales Team Leader (North)","rows":[{"code":"F3-01","key":"turnover","name":"MMH Sales Amount to Distributors · Dental & MMG Vietnam North, Nam Dung Distributor","unit":"USD","agg":"SUM","w":0.2,"t":[127050.0,145200.0,145200.0,145200.0,163350.0,90750.0,181500.0,145200.0,145200.0,163350.0,217800.0,145200.0]},{"code":"F6-01a","key":"turnover","name":"MMH Sales Amount to Distributors · New & Relaunched Products · Composite · Nam Dung Distributor","unit":"USD","agg":"SUM","w":0.05,"t":[5376.0,6144.0,6144.0,6144.0,6912.0,3840.0,7680.0,6144.0,6144.0,6912.0,9216.0,6144.0]},{"code":"F6-02a","key":"turnover","name":"MMH Sales Amount to Distributors · New & Relaunched Products · JIZAI · Nam Dung Distributor","unit":"USD","agg":"SUM","w":0.05,"t":[2688.0,3072.0,3072.0,3072.0,3456.0,1920.0,3840.0,3072.0,3072.0,3456.0,4608.0,3072.0]},{"code":"C6-01","key":"supp_comp","name":"Sales Quantity Supported by MMH Team · Composite · Nam Dung Distributor","unit":"Pcs","agg":"SUM","w":0.1,"t":[60.0,60.0,60.0,60.0,60.0,60.0,60.0,60.0,60.0,60.0,60.0,60.0]},{"code":"C7-01","key":"supp_jizai","name":"Sales Quantity Supported by MMH Team · JIZAI · Nam Dung Distributor","unit":"Sheets","agg":"SUM","w":0.1,"t":[37.0,37.0,37.0,37.0,37.0,37.0,38.0,38.0,38.0,38.0,38.0,38.0]},{"code":"C3-01","key":"visit_dealer","name":"Number of Customer Visits · Dealers · Dental Vietnam North","unit":"Times","agg":"SUM","w":0.05,"t":[30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0]},{"code":"C3-04","key":"visit_other","name":"Number of Customer Visits · Distributors/End Customers · Dental Vietnam North","unit":"Times","agg":"SUM","w":0.05,"t":[30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0]},{"code":"C10-03","key":"event_mmh","name":"Number of T&E Events · Led by MMH Members · Customer Training · Dental Vietnam North","unit":"Times","agg":"SUM","w":0.05,"t":[1.0,1.0,1.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0]},{"code":"C5-01","key":"supp_amt","name":"Sales Amount Supported by MMH Team · Dental Vietnam North","unit":"USD","agg":"SUM","w":0.1,"t":[7490.0,7490.0,7490.0,7490.0,7490.0,7490.0,7490.0,7490.0,7490.0,7490.0,7490.0,7490.0]},{"code":"C1-01","key":"newacct_dealer","name":"Number of New Dealer Accounts & New SKU Listings · Dental Vietnam North","unit":"Accounts","agg":"SUM","w":0.05,"t":[0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0]}]},{"pic":"Vinh","role":"Dental Sales Representative (Central)","rows":[{"code":"F3-02","key":"turnover","name":"MMH Sales Amount to Distributors · Dental & MMG Vietnam Central, SPI Distributor","unit":"USD","agg":"SUM","w":0.2,"t":[78000.0,78000.0,82000.0,88000.0,60000.0,72000.0,77000.0,78000.0,78000.0,78000.0,93000.0,78000.0]},{"code":"F6-01b","key":"turnover","name":"MMH Sales Amount to Distributors · New & Relaunched Products · Composite · SPI Distributor","unit":"USD","agg":"SUM","w":0.05,"t":[3286.0,3286.0,3454.0,3708.0,2527.0,3033.0,3244.0,3286.0,3286.0,3286.0,3918.0,3286.0]},{"code":"F6-02b","key":"turnover","name":"MMH Sales Amount to Distributors · New & Relaunched Products · JIZAI · SPI Distributor","unit":"USD","agg":"SUM","w":0.05,"t":[1643.0,1643.0,1727.0,1854.0,1264.0,1516.0,1622.0,1643.0,1643.0,1643.0,1959.0,1643.0]},{"code":"C6-02","key":"supp_comp","name":"Sales Quantity Supported by MMH Team · Composite · SPI Distributor","unit":"Pcs","agg":"SUM","w":0.1,"t":[50.0,50.0,50.0,50.0,50.0,50.0,50.0,50.0,50.0,50.0,50.0,50.0]},{"code":"C7-02","key":"supp_jizai","name":"Sales Quantity Supported by MMH Team · JIZAI · SPI Distributor","unit":"Sheets","agg":"SUM","w":0.1,"t":[33.0,33.0,33.0,33.0,33.0,33.0,33.0,33.0,34.0,34.0,34.0,34.0]},{"code":"C3-02","key":"visit_dealer","name":"Number of Customer Visits · Dealers · Dental Vietnam Central","unit":"Times","agg":"SUM","w":0.05,"t":[30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0]},{"code":"C3-05","key":"visit_other","name":"Number of Customer Visits · Distributors/End Customers · Dental Vietnam Central","unit":"Times","agg":"SUM","w":0.05,"t":[30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0]},{"code":"C10-04","key":"event_mmh","name":"Number of T&E Events · Led by MMH Members · Customer Training · Dental Vietnam Central","unit":"Times","agg":"SUM","w":0.1,"t":[1.0,1.0,1.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0]},{"code":"C5-02","key":"supp_amt","name":"Sales Amount Supported by MMH Team · Dental Vietnam Central","unit":"USD","agg":"SUM","w":0.1,"t":[7490.0,7490.0,7490.0,7490.0,7490.0,7490.0,7490.0,7490.0,7490.0,7490.0,7490.0,7490.0]},{"code":"C1-02","key":"newacct_dealer","name":"Number of New Dealer Accounts & New SKU Listings · Dental Vietnam Central","unit":"Accounts","agg":"SUM","w":0.1,"t":[0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0]}]},{"pic":"Phuong","role":"Dental Sales Representative (South)","rows":[{"code":"F3-03","key":"turnover","name":"MMH Sales Amount to Distributors · Dental & MMG Vietnam South, Viet Thai + Meci Distributor","unit":"USD","agg":"SUM","w":0.2,"t":[169155.0,180036.0,180036.0,190807.0,184388.0,142063.0,195505.0,185247.0,180036.0,179314.0,179747.0,191747.0]},{"code":"F6-01c","key":"turnover","name":"MMH Sales Amount to Distributors · New & Relaunched Products · Composite · Viet Thai + Meci Distributor","unit":"USD","agg":"SUM","w":0.05,"t":[6553.0,6974.0,6974.0,7392.0,7143.0,5503.0,7573.0,7176.0,6975.0,6946.0,6963.0,7428.0]},{"code":"F6-02c","key":"turnover","name":"MMH Sales Amount to Distributors · New & Relaunched Products · JIZAI · Viet Thai + Meci Distributor","unit":"USD","agg":"SUM","w":0.05,"t":[3276.0,3488.0,3487.0,3695.0,3572.0,2751.0,3787.0,3588.0,3487.0,3474.0,3481.0,3714.0]},{"code":"C6-03","key":"supp_comp","name":"Sales Quantity Supported by MMH Team · Composite · Viet Thai + Meci Distributor","unit":"Pcs","agg":"SUM","w":0.1,"t":[45.0,45.0,45.0,45.0,45.0,45.0,45.0,45.0,45.0,45.0,45.0,45.0]},{"code":"C7-03","key":"supp_jizai","name":"Sales Quantity Supported by MMH Team · JIZAI · Viet Thai + Meci Distributor","unit":"Sheets","agg":"SUM","w":0.1,"t":[37.0,37.0,37.0,37.0,37.0,37.0,38.0,38.0,38.0,38.0,38.0,38.0]},{"code":"C3-03","key":"visit_dealer","name":"Number of Customer Visits · Dealers · Dental Vietnam South","unit":"Times","agg":"SUM","w":0.05,"t":[30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0]},{"code":"C3-06","key":"visit_other","name":"Number of Customer Visits · Distributors/End Customers · Dental Vietnam South","unit":"Times","agg":"SUM","w":0.05,"t":[30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0]},{"code":"C10-05","key":"event_mmh","name":"Number of T&E Events · Led by MMH Members · Customer Training · Dental Vietnam South","unit":"Times","agg":"SUM","w":0.1,"t":[1.0,1.0,1.0,1.0,1.0,1.0,2.0,2.0,2.0,2.0,2.0,2.0]},{"code":"C5-03","key":"supp_amt","name":"Sales Amount Supported by MMH Team · Dental Vietnam South","unit":"USD","agg":"SUM","w":0.1,"t":[7490.0,7490.0,7490.0,7490.0,7490.0,7490.0,7490.0,7490.0,7490.0,7490.0,7490.0,7490.0]},{"code":"C1-03","key":"newacct_dealer","name":"Number of New Dealer Accounts & New SKU Listings · Dental Vietnam South","unit":"Accounts","agg":"SUM","w":0.1,"t":[0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0]}]}]},"surgical":{"title":"MMH SURGICAL SALES TEAM","lang":"envn","pics":[{"pic":"Viet Ha","role":"Surgical Sales Representative (North)","rows":[{"code":"F2-01","key":"turnover","name":"MMH Sales Amount to Distributors · Knife / Sutures · Surgical Vietnam North, Hung Vi Distributor","unit":"USD","agg":"SUM","w":0.2,"t":[12443.0,22861.0,37312.0,25680.0,31254.0,24882.0,10796.0,43724.0,67019.0,23821.0,47845.0,47898.0]},{"code":"F2-02","key":"turnover","name":"MMH Sales Amount to Distributors · Manipler · Surgical Vietnam North, MHI Distributor","unit":"USD","agg":"SUM","w":0.05,"t":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]},{"code":"C10-01","key":"event_mmh","name":"Number of T&E Events · Led by MMH Members · Product Presentation / Case Demonstration · Surgical Vietnam North","unit":"Times","agg":"SUM","w":0.25,"t":[2.0,2.0,2.0,2.0,2.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0]},{"code":"C3-07","key":"visit_all","name":"Number of Customer Visits · Surgical Vietnam North","unit":"Times","agg":"SUM","w":0.25,"t":[30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0]},{"code":"C1-04","key":"newacct_all","name":"Number of New Customer Accounts & New SKU Listings · Surgical Vietnam North","unit":"Accounts","agg":"SUM","w":0.15,"t":[0.0,0.0,0.0,0.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0]}]},{"pic":"Khang","role":"Surgical Sales Representative (South)","rows":[{"code":"F2-03","key":"turnover","name":"MMH Sales Amount to Distributors · Knife / Sutures · Surgical Vietnam South, Icare Distributor","unit":"USD","agg":"SUM","w":0.2,"t":[20867.0,21326.0,27377.0,22076.0,15978.0,14198.0,15993.0,21323.0,32708.0,17110.0,26638.0,30038.0]},{"code":"F2-04","key":"turnover","name":"MMH Sales Amount to Distributors · Manipler · Surgical Vietnam South, An Tam Distributor (new)","unit":"USD","agg":"SUM","w":0.05,"t":[0.0,2559.0,2563.0,2868.0,0.0,0.0,1750.0,0.0,1414.0,0.0,1414.0,0.0]},{"code":"C10-02","key":"event_mmh","name":"Number of T&E Events · Led by MMH Members · Product Presentation / Case Demonstration · Surgical Vietnam South","unit":"Times","agg":"SUM","w":0.25,"t":[2.0,2.0,2.0,2.0,2.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0]},{"code":"C3-08","key":"visit_all","name":"Number of Customer Visits · Surgical Vietnam South","unit":"Times","agg":"SUM","w":0.25,"t":[30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0]},{"code":"C1-05","key":"newacct_all","name":"Number of New Customer Accounts & New SKU Listings · Surgical Vietnam South","unit":"Accounts","agg":"SUM","w":0.15,"t":[0.0,0.0,0.0,0.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0]}]}]},"eyeless":{"title":"MMH EYELESS SALES TEAM","lang":"envn","pics":[{"pic":"Trang","role":"Eyeless Sales Representative","rows":[{"code":"F5-00","key":"turnover","name":"MMH Sales Amount to Distributors · Eyeless Vietnam","unit":"USD","agg":"SUM","w":0.55,"t":[0.0,59323.0,0.0,0.0,59323.0,0.0,0.0,59323.0,0.0,0.0,59323.0,0.0]},{"code":"C3-09","key":"visit_all","name":"Number of Customer Visits · Eyeless Vietnam","unit":"Times","agg":"SUM","w":0.05,"t":[0.0,0.0,2.0,0.0,0.0,2.0,0.0,0.0,2.0,0.0,0.0,2.0]},{"code":"C12-01","key":"manual","name":"Number of T&E Events Led by KOLs & Exhibitions · Dental Vietnam","unit":"Times","agg":"SUM","w":0.15,"t":[3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,4.0,4.0]},{"code":"C12-02","key":"manual","name":"Number of T&E Events Led by KOLs & Exhibitions · Surgical Vietnam","unit":"Times","agg":"SUM","w":0.15,"t":[0.0,0.0,0.0,0.0,0.0,0.0,1.0,1.0,1.0,1.0,1.0,1.0]}]}]}};
+var K68_SPEC = {"dental":{"title":"MMH DENTAL SALES TEAM","lang":"envn","pics":[{"pic":"Viet","role":"Dental Sales Team Leader (North)","rows":[{"code":"F3-01","key":"turnover","name":"MMH Sales Amount to Distributors · Dental & MMG Vietnam North, Nam Dung Distributor","unit":"USD","agg":"SUM","w":0.2,"t":[127050.0,145200.0,145200.0,145200.0,163350.0,90750.0,181500.0,145200.0,145200.0,163350.0,217800.0,145200.0]},{"code":"F6-01a","key":"turnover","name":"MMH Sales Amount to Distributors · New & Relaunched Products · Composite · Nam Dung Distributor","unit":"USD","agg":"SUM","w":0.05,"t":[5376.0,6144.0,6144.0,6144.0,6912.0,3840.0,7680.0,6144.0,6144.0,6912.0,9216.0,6144.0]},{"code":"F6-02a","key":"turnover","name":"MMH Sales Amount to Distributors · New & Relaunched Products · JIZAI · Nam Dung Distributor","unit":"USD","agg":"SUM","w":0.05,"t":[2688.0,3072.0,3072.0,3072.0,3456.0,1920.0,3840.0,3072.0,3072.0,3456.0,4608.0,3072.0]},{"code":"C6-01","key":"supp_comp","name":"Sales Quantity Supported by MMH Team · Composite · Nam Dung Distributor","unit":"Pcs","agg":"SUM","w":0.1,"t":[60.0,60.0,60.0,60.0,60.0,60.0,60.0,60.0,60.0,60.0,60.0,60.0]},{"code":"C7-01","key":"supp_jizai","name":"Sales Quantity Supported by MMH Team · JIZAI · Nam Dung Distributor","unit":"Sheets","agg":"SUM","w":0.1,"t":[37.0,37.0,37.0,37.0,37.0,37.0,38.0,38.0,38.0,38.0,38.0,38.0]},{"code":"C3-01","key":"visit_dealer","name":"Number of Customer Visits · Dealers · Dental Vietnam North","unit":"Times","agg":"SUM","w":0.05,"t":[30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0]},{"code":"C3-04","key":"visit_other","name":"Number of Customer Visits · Distributors/End Customers · Dental Vietnam North","unit":"Times","agg":"SUM","w":0.05,"t":[30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0]},{"code":"C10-03","key":"event_trn","name":"Number of T&E Events · Led by MMH Members · Customer Training · Dental Vietnam North","unit":"Times","agg":"SUM","w":0.05,"t":[1.0,1.0,1.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0]},{"code":"C5-01","key":"supp_amt","name":"Sales Amount Supported by MMH Team · Dental Vietnam North","unit":"USD","agg":"SUM","w":0.1,"t":[7490.0,7490.0,7490.0,7490.0,7490.0,7490.0,7490.0,7490.0,7490.0,7490.0,7490.0,7490.0]},{"code":"C1-01","key":"newacct_dealer","name":"Number of New Dealer Accounts & New SKU Listings · Dental Vietnam North","unit":"Accounts","agg":"SUM","w":0.05,"t":[0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0]}]},{"pic":"Vinh","role":"Dental Sales Representative (Central)","rows":[{"code":"F3-02","key":"turnover","name":"MMH Sales Amount to Distributors · Dental & MMG Vietnam Central, SPI Distributor","unit":"USD","agg":"SUM","w":0.2,"t":[78000.0,78000.0,82000.0,88000.0,60000.0,72000.0,77000.0,78000.0,78000.0,78000.0,93000.0,78000.0]},{"code":"F6-01b","key":"turnover","name":"MMH Sales Amount to Distributors · New & Relaunched Products · Composite · SPI Distributor","unit":"USD","agg":"SUM","w":0.05,"t":[3286.0,3286.0,3454.0,3708.0,2527.0,3033.0,3244.0,3286.0,3286.0,3286.0,3918.0,3286.0]},{"code":"F6-02b","key":"turnover","name":"MMH Sales Amount to Distributors · New & Relaunched Products · JIZAI · SPI Distributor","unit":"USD","agg":"SUM","w":0.05,"t":[1643.0,1643.0,1727.0,1854.0,1264.0,1516.0,1622.0,1643.0,1643.0,1643.0,1959.0,1643.0]},{"code":"C6-02","key":"supp_comp","name":"Sales Quantity Supported by MMH Team · Composite · SPI Distributor","unit":"Pcs","agg":"SUM","w":0.1,"t":[50.0,50.0,50.0,50.0,50.0,50.0,50.0,50.0,50.0,50.0,50.0,50.0]},{"code":"C7-02","key":"supp_jizai","name":"Sales Quantity Supported by MMH Team · JIZAI · SPI Distributor","unit":"Sheets","agg":"SUM","w":0.1,"t":[33.0,33.0,33.0,33.0,33.0,33.0,33.0,33.0,34.0,34.0,34.0,34.0]},{"code":"C3-02","key":"visit_dealer","name":"Number of Customer Visits · Dealers · Dental Vietnam Central","unit":"Times","agg":"SUM","w":0.05,"t":[30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0]},{"code":"C3-05","key":"visit_other","name":"Number of Customer Visits · Distributors/End Customers · Dental Vietnam Central","unit":"Times","agg":"SUM","w":0.05,"t":[30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0]},{"code":"C10-04","key":"event_trn","name":"Number of T&E Events · Led by MMH Members · Customer Training · Dental Vietnam Central","unit":"Times","agg":"SUM","w":0.1,"t":[1.0,1.0,1.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0]},{"code":"C5-02","key":"supp_amt","name":"Sales Amount Supported by MMH Team · Dental Vietnam Central","unit":"USD","agg":"SUM","w":0.1,"t":[7490.0,7490.0,7490.0,7490.0,7490.0,7490.0,7490.0,7490.0,7490.0,7490.0,7490.0,7490.0]},{"code":"C1-02","key":"newacct_dealer","name":"Number of New Dealer Accounts & New SKU Listings · Dental Vietnam Central","unit":"Accounts","agg":"SUM","w":0.1,"t":[0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0]}]},{"pic":"Phuong","role":"Dental Sales Representative (South)","rows":[{"code":"F3-03","key":"turnover","name":"MMH Sales Amount to Distributors · Dental & MMG Vietnam South, Viet Thai + Meci Distributor","unit":"USD","agg":"SUM","w":0.2,"t":[169155.0,180036.0,180036.0,190807.0,184388.0,142063.0,195505.0,185247.0,180036.0,179314.0,179747.0,191747.0]},{"code":"F6-01c","key":"turnover","name":"MMH Sales Amount to Distributors · New & Relaunched Products · Composite · Viet Thai + Meci Distributor","unit":"USD","agg":"SUM","w":0.05,"t":[6553.0,6974.0,6974.0,7392.0,7143.0,5503.0,7573.0,7176.0,6975.0,6946.0,6963.0,7428.0]},{"code":"F6-02c","key":"turnover","name":"MMH Sales Amount to Distributors · New & Relaunched Products · JIZAI · Viet Thai + Meci Distributor","unit":"USD","agg":"SUM","w":0.05,"t":[3276.0,3488.0,3487.0,3695.0,3572.0,2751.0,3787.0,3588.0,3487.0,3474.0,3481.0,3714.0]},{"code":"C6-03","key":"supp_comp","name":"Sales Quantity Supported by MMH Team · Composite · Viet Thai + Meci Distributor","unit":"Pcs","agg":"SUM","w":0.1,"t":[45.0,45.0,45.0,45.0,45.0,45.0,45.0,45.0,45.0,45.0,45.0,45.0]},{"code":"C7-03","key":"supp_jizai","name":"Sales Quantity Supported by MMH Team · JIZAI · Viet Thai + Meci Distributor","unit":"Sheets","agg":"SUM","w":0.1,"t":[37.0,37.0,37.0,37.0,37.0,37.0,38.0,38.0,38.0,38.0,38.0,38.0]},{"code":"C3-03","key":"visit_dealer","name":"Number of Customer Visits · Dealers · Dental Vietnam South","unit":"Times","agg":"SUM","w":0.05,"t":[30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0]},{"code":"C3-06","key":"visit_other","name":"Number of Customer Visits · Distributors/End Customers · Dental Vietnam South","unit":"Times","agg":"SUM","w":0.05,"t":[30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0]},{"code":"C10-05","key":"event_trn","name":"Number of T&E Events · Led by MMH Members · Customer Training · Dental Vietnam South","unit":"Times","agg":"SUM","w":0.1,"t":[1.0,1.0,1.0,1.0,1.0,1.0,2.0,2.0,2.0,2.0,2.0,2.0]},{"code":"C5-03","key":"supp_amt","name":"Sales Amount Supported by MMH Team · Dental Vietnam South","unit":"USD","agg":"SUM","w":0.1,"t":[7490.0,7490.0,7490.0,7490.0,7490.0,7490.0,7490.0,7490.0,7490.0,7490.0,7490.0,7490.0]},{"code":"C1-03","key":"newacct_dealer","name":"Number of New Dealer Accounts & New SKU Listings · Dental Vietnam South","unit":"Accounts","agg":"SUM","w":0.1,"t":[0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0]}]}]},"surgical":{"title":"MMH SURGICAL SALES TEAM","lang":"envn","pics":[{"pic":"Viet Ha","role":"Surgical Sales Representative (North)","rows":[{"code":"F2-01","key":"turnover","name":"MMH Sales Amount to Distributors · Knife / Sutures · Surgical Vietnam North, Hung Vi Distributor","unit":"USD","agg":"SUM","w":0.2,"t":[12443.0,22861.0,37312.0,25680.0,31254.0,24882.0,10796.0,43724.0,67019.0,23821.0,47845.0,47898.0]},{"code":"F2-02","key":"turnover","name":"MMH Sales Amount to Distributors · Manipler · Surgical Vietnam North, MHI Distributor","unit":"USD","agg":"SUM","w":0.05,"t":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]},{"code":"C10-01","key":"event_mmh","name":"Number of T&E Events · Led by MMH Members · Product Presentation / Case Demonstration · Surgical Vietnam North","unit":"Times","agg":"SUM","w":0.25,"t":[2.0,2.0,2.0,2.0,2.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0]},{"code":"C3-07","key":"visit_all","name":"Number of Customer Visits · Surgical Vietnam North","unit":"Times","agg":"SUM","w":0.25,"t":[30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0]},{"code":"C1-04","key":"newacct_all","name":"Number of New Customer Accounts & New SKU Listings · Surgical Vietnam North","unit":"Accounts","agg":"SUM","w":0.15,"t":[0.0,0.0,0.0,0.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0]}]},{"pic":"Khang","role":"Surgical Sales Representative (South)","rows":[{"code":"F2-03","key":"turnover","name":"MMH Sales Amount to Distributors · Knife / Sutures · Surgical Vietnam South, Icare Distributor","unit":"USD","agg":"SUM","w":0.2,"t":[20867.0,21326.0,27377.0,22076.0,15978.0,14198.0,15993.0,21323.0,32708.0,17110.0,26638.0,30038.0]},{"code":"F2-04","key":"turnover","name":"MMH Sales Amount to Distributors · Manipler · Surgical Vietnam South, An Tam Distributor (new)","unit":"USD","agg":"SUM","w":0.05,"t":[0.0,2559.0,2563.0,2868.0,0.0,0.0,1750.0,0.0,1414.0,0.0,1414.0,0.0]},{"code":"C10-02","key":"event_mmh","name":"Number of T&E Events · Led by MMH Members · Product Presentation / Case Demonstration · Surgical Vietnam South","unit":"Times","agg":"SUM","w":0.25,"t":[2.0,2.0,2.0,2.0,2.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0]},{"code":"C3-08","key":"visit_all","name":"Number of Customer Visits · Surgical Vietnam South","unit":"Times","agg":"SUM","w":0.25,"t":[30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0]},{"code":"C1-05","key":"newacct_all","name":"Number of New Customer Accounts & New SKU Listings · Surgical Vietnam South","unit":"Accounts","agg":"SUM","w":0.15,"t":[0.0,0.0,0.0,0.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0]}]}]},"eyeless":{"title":"MMH EYELESS SALES TEAM","lang":"envn","pics":[{"pic":"Trang","role":"Eyeless Sales Representative","rows":[{"code":"F5-00","key":"turnover","name":"MMH Sales Amount to Distributors · Eyeless Vietnam","unit":"USD","agg":"SUM","w":0.55,"t":[0.0,59323.0,0.0,0.0,59323.0,0.0,0.0,59323.0,0.0,0.0,59323.0,0.0]},{"code":"C3-09","key":"visit_all","name":"Number of Customer Visits · Eyeless Vietnam","unit":"Times","agg":"SUM","w":0.05,"t":[0.0,0.0,2.0,0.0,0.0,2.0,0.0,0.0,2.0,0.0,0.0,2.0]},{"code":"C12-01","key":"manual","name":"Number of T&E Events Led by KOLs & Exhibitions · Dental Vietnam","unit":"Times","agg":"SUM","w":0.15,"t":[3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,4.0,4.0]},{"code":"C12-02","key":"manual","name":"Number of T&E Events Led by KOLs & Exhibitions · Surgical Vietnam","unit":"Times","agg":"SUM","w":0.15,"t":[0.0,0.0,0.0,0.0,0.0,0.0,1.0,1.0,1.0,1.0,1.0,1.0]}]}]}};
 
 var K68_MASTER_SHEET = '3. Detail KPI';
 var K68_N  = 20000;
@@ -4121,14 +4172,15 @@ var K68_SRC = {
 var K68 = { tag: 1, code: 2, pic: 3, name: 4, unit: 5, w: 6, agg: 7, tFY: 8, t0: 9, aFY: 21, a0: 22,
             pct: 34, ytd: 35, q0: 36, score: 40, src: 41, NC: 41 };
 var K68_SET = { fy: 'C4', rate: 'D5', photo: 'D6', comp1: 'D7', comp2: 'E7', jz1: 'D8', jz2: 'E8', link: 'D9', cur: 'D10', sync: 'D11' };
-var K68_MANUAL = { turnover: 1, manual: 1 };
-var K68_LAYOUT = 'k68v7';   /* v10.0 — C1 đếm case đã duyệt (sheet 16) · C6 / C7 lọc theo NPP phụ trách ⇒ tab tự dựng lại 1 lần */
+var K68_MANUAL = { turnover: 1, manual: 1, event_trn: 1 };   /* ⭐ v10.11 — event_trn: T&E đào tạo khách hàng (Training Master → file KPI → tab 9) */
+var K68_LAYOUT = 'k68v8';   /* v10.11 — visit bắt buộc ảnh + bỏ TBD · tỷ giá cố định · event_mmh chỉ đếm buổi đủ mẫu · Dental C10 = event_trn */
+var K68_LAYOUT_OLD = 'k68v7';   /* v10.0 — C1 đếm case đã duyệt (sheet 16) · C6 / C7 lọc theo NPP phụ trách ⇒ tab tự dựng lại 1 lần */
 
 var K68_TXT = {
   vi: {
     title: 'MỤC TIÊU & KPI', sub: 'theo file MMH KPI FY68',
     guide: 'Mỗi dòng = 1 mã KPI của 1 sales, đúng mã trong file MMH KPI FY68. Target 12 tháng lấy từ file KPI FY68 · Actual tự tính bằng công thức từ dữ liệu CRM · Doanh số NPP (mã F) lấy từ file KPI FY68 hoặc nhập tay.',
-    fy: 'FY áp dụng', rate: 'Tỷ giá VND / 1 USD', photo: 'Chỉ tính visit có ảnh', comp: 'Từ khoá Composite',
+    fy: 'FY áp dụng', rate: 'Tỷ giá VND / 1 USD (cố định)', photo: 'Chỉ tính visit có ảnh (cố định)', comp: 'Từ khoá Composite',
     jz: 'Từ khoá JIZAI', link: 'File KPI tổng (FY68)', cur: 'Tháng hiện tại (auto)', sync: 'Đồng bộ lần cuối',
     yes: 'CÓ', no: 'KHÔNG', linkHint: '← file KPI tổng · KPI Hub tự đồng bộ 2 chiều 5 phút/lần',
     legend: ['Ô nền vàng, chữ xanh = ô nhập tay (target, doanh số NPP, SKU mới)',
@@ -4152,15 +4204,16 @@ var K68_TXT = {
     src: {
       turnover: 'File MMH KPI FY68 (MMH Turnover Report) — đồng bộ tự động, hoặc nhập tay số của tháng',
       manual: 'Vietnam - Marketing Offline Plan & Report — đồng bộ từ file KPI FY68 hoặc nhập tay',
-      visit_dealer: '6. WEEKLY REPORT · Sales PIC + Start date trong tháng + Type action = Visiting + Task Status ≠ Not Started / Cancel + date ≤ today + Account type = Dealer',
-      visit_other: '6. WEEKLY REPORT · Sales PIC + Start date trong tháng + Type action = Visiting + Task Status ≠ Not Started / Cancel + date ≤ today + Account type ≠ Dealer',
-      visit_all: '6. WEEKLY REPORT · Sales PIC + Start date trong tháng + Type action = Visiting + Task Status ≠ Not Started / Cancel + date ≤ today',
+      visit_dealer: '6. WEEKLY REPORT · Sales PIC + Start date trong tháng + Type action = Visiting + Task Status khác trống / Not Started / Cancel + date ≤ today + CÓ ẢNH (cột V) + bỏ dòng kế hoạch TBD + Account type = Dealer',
+      visit_other: '6. WEEKLY REPORT · Sales PIC + Start date trong tháng + Type action = Visiting + Task Status khác trống / Not Started / Cancel + date ≤ today + CÓ ẢNH (cột V) + bỏ dòng kế hoạch TBD + Account type ≠ Dealer',
+      visit_all: '6. WEEKLY REPORT · Sales PIC + Start date trong tháng + Type action = Visiting + Task Status khác trống / Not Started / Cancel + date ≤ today + CÓ ẢNH (cột V) + bỏ dòng kế hoạch TBD',
       newacct_dealer: '16. NEW ACCOUNT & SKU · số case Status = Approved theo PIC + Month (tháng đơn đầu tiên) · Account type = Dealer',
       newacct_all: '16. NEW ACCOUNT & SKU · số case Status = Approved theo PIC + Month (tháng đơn đầu tiên)',
-      event_mmh: '7. PRODUCT PRESENTATION · đếm buổi theo MMH sales PIC + Month',
-      event_mmh_team: '7. PRODUCT PRESENTATION · đếm buổi của cả nhóm theo Month',
+      event_mmh: '7. PRODUCT PRESENTATION · đếm buổi theo MMH sales PIC + Month · chỉ buổi có Actual participant > 0 và Event review đủ mẫu',
+      event_mmh_team: '7. PRODUCT PRESENTATION · đếm buổi của cả nhóm theo Month · chỉ buổi có Actual participant > 0 và Event review đủ mẫu',
+      event_trn: 'Training Master (buổi đào tạo khách hàng T&E tạo trên CRM, Completed, có số người tham dự + review đủ mẫu) → file KPI → tab này (chỉ hiển thị)',
       event_kol_team: '6. WEEKLY REPORT · Type action = Event + Task Status ≠ Not Started / Cancel + date ≤ today (cả nhóm)',
-      supp_amt: '3. SALE ORDER · tổng Amount (VND) theo MMH sales PIC + Month ÷ tỷ giá của tháng (nhập trên app) — số do code ghi',
+      supp_amt: '3. SALE ORDER · đơn ĐÃ DUYỆT theo MMH sales PIC (Order Type 1 = trị giá trúng thầu ở tháng KQTT · 2 = đơn Account mở mới tới hết FY mở · 3 = đơn tư vấn; đơn cũ trước 10/2026 tính như trước) ÷ tỷ giá cố định 26.700 — số do code ghi',
       supp_comp: '3. SALE ORDER · tổng Quantity theo MMH sales PIC + Month, Detail/Product type chứa từ khoá Composite (D7/E7), Partner = NPP phụ trách (K68_NPP)',
       supp_jizai: '3. SALE ORDER · tổng Quantity theo MMH sales PIC + Month, Detail/Product type chứa từ khoá JIZAI (D8/E8), Partner = NPP phụ trách (K68_NPP)'
     },
@@ -4173,7 +4226,7 @@ var K68_TXT = {
   envn: {
     title: 'TARGET & KPI', sub: 'per the MMH KPI FY68 file',
     guide: 'One row = one KPI code of one sales PIC, exactly as in the MMH KPI FY68 file. Monthly targets come from the KPI FY68 file · Actuals are formulas on the CRM data · Distributor turnover (F codes) comes from the KPI FY68 file or is typed in.',
-    fy: 'Applied FY', rate: 'Rate (VND / 1 USD)', photo: 'Visits with photo only', comp: 'Composite keyword',
+    fy: 'Applied FY', rate: 'Rate VND / 1 USD (fixed)', photo: 'Visits with photo only (fixed)', comp: 'Composite keyword',
     jz: 'JIZAI keyword', link: 'KPI FY68 file link', cur: 'Current month (auto)', sync: 'Last sync',
     yes: 'YES', no: 'NO', linkHint: '← master KPI file · synced both ways automatically by the KPI file',
     legend: ['Yellow cell, blue text = typed input (targets, distributor turnover, new SKU)',
@@ -4197,15 +4250,16 @@ var K68_TXT = {
     src: {
       turnover: 'MMH KPI FY68 file (from SUM TURNOVER of the MMH Turnover Report) · synced automatically, or type the amount of the month',
       manual: 'Vietnam Marketing Offline Plan & Report · synced from the KPI FY68 file or typed in',
-      visit_dealer: '6. WEEKLY REPORT · Sales PIC + Start date in month + Type action = Visiting + Task Status not Not Started / Cancel + date ≤ today + Account type = Dealer',
-      visit_other: '6. WEEKLY REPORT · Sales PIC + Start date in month + Type action = Visiting + Task Status not Not Started / Cancel + date ≤ today + Account type not Dealer',
-      visit_all: '6. WEEKLY REPORT · Sales PIC + Start date in month + Type action = Visiting + Task Status not Not Started / Cancel + date ≤ today',
+      visit_dealer: '6. WEEKLY REPORT · Sales PIC + Start date in month + Type action = Visiting + Task Status not blank / Not Started / Cancel + date ≤ today + photo required (column V) + TBD plan rows excluded + Account type = Dealer',
+      visit_other: '6. WEEKLY REPORT · Sales PIC + Start date in month + Type action = Visiting + Task Status not blank / Not Started / Cancel + date ≤ today + photo required (column V) + TBD plan rows excluded + Account type not Dealer',
+      visit_all: '6. WEEKLY REPORT · Sales PIC + Start date in month + Type action = Visiting + Task Status not blank / Not Started / Cancel + date ≤ today + photo required (column V) + TBD plan rows excluded',
       newacct_dealer: 'NEW ACCOUNT & SKU sheet · approved cases by PIC + Month (month of the first order) · Account type = Dealer',
       newacct_all: 'NEW ACCOUNT & SKU sheet · approved cases by PIC + Month (month of the first order)',
-      event_mmh: '7. PRODUCT PRESENTATION · sessions by MMH sales PIC + Month',
-      event_mmh_team: '7. PRODUCT PRESENTATION · sessions of the whole team by Month',
+      event_mmh: '7. PRODUCT PRESENTATION · sessions by MMH sales PIC + Month · only sessions with Actual participant > 0 and a complete Event review',
+      event_mmh_team: '7. PRODUCT PRESENTATION · sessions of the whole team by Month · only sessions with Actual participant > 0 and a complete Event review',
+      event_trn: 'Training Master (customer training T&E sessions created in the CRM, Completed, with attendees + complete review) → KPI file → this tab (display only)',
       event_kol_team: '6. WEEKLY REPORT · Type action = Event + Task Status not Not Started / Cancel + date ≤ today (whole team)',
-      supp_amt: '3. SALE ORDER · total Amount (VND) by MMH sales PIC + Month ÷ exchange rate in D5',
+      supp_amt: '3. SALE ORDER · APPROVED orders by MMH sales PIC (Order Type 1 = tender value in the award month · 2 = new-account orders until the end of the opening FY · 3 = consulting orders; legacy rows before 10/2026 as before) ÷ fixed rate 26,700 VND/USD',
       supp_comp: '3. SALE ORDER · total Quantity by MMH sales PIC + Month where Detail / Product type contains the Composite keyword (D7/E7) and Partner = the PIC\'s distributor (K68_NPP)',
       supp_jizai: '3. SALE ORDER · total Quantity by MMH sales PIC + Month where Detail / Product type contains the JIZAI keyword (D8/E8) and Partner = the PIC\'s distributor (K68_NPP)'
     },
@@ -4247,10 +4301,11 @@ var K68_TXT = {
       visit_all: '6. CUSTOMER VISITING · Sales PIC + Start date in month + Type action = Visiting + Task Status ≠ Not Started / Cancel + date ≤ today',
       newacct_dealer: 'NEW ACCOUNT & SKU sheet · approved cases by PIC + Month (month of the first order) · Account type = Dealer',
       newacct_all: 'NEW ACCOUNT & SKU sheet · approved cases by PIC + Month (month of the first order)',
-      event_mmh: '7. PRODUCT PRESENTATION · sessions by MMH sales PIC + Month',
-      event_mmh_team: '7. PRODUCT PRESENTATION · sessions of the whole team by Month',
+      event_mmh: '7. PRODUCT PRESENTATION · sessions by MMH sales PIC + Month · only sessions with Actual participant > 0 and a complete Event review',
+      event_mmh_team: '7. PRODUCT PRESENTATION · sessions of the whole team by Month · only sessions with Actual participant > 0 and a complete Event review',
+      event_trn: 'Training Master (customer training T&E sessions created in the CRM, Completed, with attendees + complete review) → KPI file → this tab (display only)',
       event_kol_team: '6. CUSTOMER VISITING · Type action = Event + Task Status ≠ Not Started / Cancel + date ≤ today (KOL-led events & exhibitions, whole team) by Start date',
-      supp_amt: '3. SALE ORDER · Amount ÷ exchange rate (D5)', supp_comp: '3. SALE ORDER · Composite quantity', supp_jizai: '3. SALE ORDER · JIZAI quantity'
+      supp_amt: '3. SALE ORDER · approved orders ÷ fixed rate 26,700 (D5)', supp_comp: '3. SALE ORDER · Composite quantity', supp_jizai: '3. SALE ORDER · JIZAI quantity'
     },
     msgNoLink: 'No link to the MMH KPI FY68 file in cell D9 of the KPI tab.',
     msgNoMaster: 'Cannot open the KPI FY68 file (check the link and the access of the account running the script): ',
@@ -4317,7 +4372,7 @@ function k68Build_(sh, team, keep){
   r = row(); put(r, 2, T.guide, { fc: '#595959', i: 1 });
   row();
   var set = [
-    [4, T.fy, 'FY68', 'fy'], [5, T.rate, 26000, 'rate'], [6, T.photo, T.no, 'photo'],
+    [4, T.fy, 'FY68', 'fy'], [5, T.rate, K68_RATE_DEF, 'rate'], [6, T.photo, T.yes, 'photo'],   /* ⭐ v10.11 — cố định */
     [7, T.comp, 'composite', 'comp'], [8, T.jz, 'jizai', 'jz'], [9, T.link, K68_MASTER_LINK, 'link'],
     [10, T.cur, '=YEAR(TODAY())*100+MONTH(TODAY())', 'cur'], [11, T.sync, '', 'sync']];
   var useKw = spec.pics.some(function(p){ return p.rows.some(function(x){ return /^supp_/.test(x.key); }); });
@@ -4333,6 +4388,7 @@ function k68Build_(sh, team, keep){
     put(rr, 2, s[1], { b: 1 }); merges.push([rr, 2, rr, 3]);
     if(key === 'cur'){ put(rr, 4, s[2], { nf: '0', ha: 'left', fc: '#000000' }); return; }
     if(key === 'sync'){ put(rr, 4, '', { fc: '#595959', i: 1 }); return; }
+    if(key === 'rate' || key === 'photo'){ put(rr, 4, s[2], { bg: '#EDEDED', fc: '#000000', b: 1, nf: key === 'rate' ? '#,##0' : '@', ha: 'left' }); put(rr, 5, key === 'rate' ? (L === 'vi' ? '← cố định, không sửa' : '← fixed, do not edit') : (L === 'vi' ? '← cố định: chỉ tính lượt có ảnh' : '← fixed: only visits with a photo count'), { fc: '#7F7F7F', i: 1 }); return; }
     put(rr, 4, s[2], { bg: INP, fc: BLUE, nf: key === 'rate' ? '#,##0' : '@', ha: 'left' });
     if(key === 'comp'){ put(rr, 5, '', { bg: INP, fc: BLUE }); }
     if(key === 'jz'){ put(rr, 5, '', { bg: INP, fc: BLUE }); }
@@ -4388,19 +4444,21 @@ function k68Build_(sh, team, keep){
   function actualFormula(key, rr, i, picName){
     var X = AC(i), md = X + '$' + MD, mc = X + '$' + MC, pic = '$' + A(C.pic) + rr;
     var dates = rg('wk', 'E') + ',">="&' + md + ',' + rg('wk', 'E') + ',"<"&EDATE(' + md + ',1),' + rg('wk', 'E') + ',"<="&TODAY(),' + rg('wk', 'R') + ',"<>Not Started",' + rg('wk', 'R') + ',"<>Cancel*"';   /* v9.4 · bỏ lượt Cancel */
-    var vis = rg('wk', 'G') + ',' + pic + ',' + rg('wk', 'N') + ',"Visiting",' + dates;
+    var vis = rg('wk', 'G') + ',' + pic + ',' + rg('wk', 'N') + ',"Visiting",' + dates + ',' + rg('wk', 'R') + ',"<>",' + rg('wk', 'H') + ',"<>TBD/*",' + rg('wk', 'I') + ',"<>TBD"';   /* ⭐ v10.11 — bỏ status trống + dòng kế hoạch TBD */
     if(key === 'visit_dealer') vis += ',' + rg('wk', 'I') + ',"Dealer"';
     if(key === 'visit_other')  vis += ',' + rg('wk', 'I') + ',"<>Dealer"';
     if(/^visit_/.test(key)){
       if(!usePhoto) return '=COUNTIFS(' + vis + ')';
-      return '=IF(' + S.photo + '="' + T.yes + '",COUNTIFS(' + vis + ',' + rg('wk', 'V') + ',"<>"),COUNTIFS(' + vis + '))';
+      return '=COUNTIFS(' + vis + ',' + rg('wk', 'V') + ',"<>")';    /* ⭐ v10.11 — luôn bắt buộc có ảnh (D6 cố định YES) */
     }
     if(key === 'event_kol_team') return '=COUNTIFS(' + rg('wk', 'N') + ',"Event",' + dates + ')';
     /* ⭐ v10.0 — case Mở mới / SKU mới đã được quản lý XÁC NHẬN (sheet NEW ACCOUNT & SKU: D = PIC · G = Month · L = Account type · AA = Status) */
     if(key === 'newacct_dealer' || key === 'newacct_all')
       return '=COUNTIFS(' + rg('na', 'D') + ',' + pic + ',' + rg('na', 'G') + ',' + mc + ',' + rg('na', 'AA') + ',"Approved"' + (key === 'newacct_dealer' ? ',' + rg('na', 'L') + ',"Dealer"' : '') + ')';
-    if(key === 'event_mmh') return '=SUMPRODUCT((' + rg('pr', 'D', N2) + '=' + pic + ')*(' + rg('pr', 'H', N2) + '&""=' + mc + '&""))';
-    if(key === 'event_mmh_team') return '=SUMPRODUCT(--(' + rg('pr', 'H', N2) + '&""=' + mc + '&""))';
+    /* ⭐ v10.11 — chỉ buổi có Actual participant (M) > 0 và Event review (K) không trống (app + backend đã bắt đủ mẫu) */
+    var prOk = '*(IFERROR(' + rg('pr', 'M', N2) + '*1,0)>0)*(LEN(TRIM(' + rg('pr', 'K', N2) + '))>0)';
+    if(key === 'event_mmh') return '=SUMPRODUCT((' + rg('pr', 'D', N2) + '=' + pic + ')*(' + rg('pr', 'H', N2) + '&""=' + mc + '&"")' + prOk + ')';
+    if(key === 'event_mmh_team') return '=SUMPRODUCT((' + rg('pr', 'H', N2) + '&""=' + mc + '&"")' + prOk + ')';
     var odP = 'ISNUMBER(SEARCH(' + pic + ',' + rg('od', 'Q', N2) + '))*(' + rg('od', 'F', N2) + '&""=' + mc + '&"")';
     if(/^supp_/.test(key)) return '';   /* ⭐ v10.1 — số do code ghi (k68CalcSupp_), không dùng công thức */
     if(key === 'supp_amt') return '=IF(N(' + S.rate + ')>0,SUMPRODUCT(' + odP + '*IFERROR(' + rg('od', 'V', N2) + '*1,0))/' + S.rate + ',0)';
@@ -4528,7 +4586,7 @@ function k68Build_(sh, team, keep){
   }
 
   if(keep){
-    if(keep.set) for(var sk in keep.set){ var a1 = K68_SET[sk]; if(!a1 || sk === 'cur' || sk === 'fy') continue;
+    if(keep.set) for(var sk in keep.set){ var a1 = K68_SET[sk]; if(!a1 || sk === 'cur' || sk === 'fy' || sk === 'rate' || sk === 'photo') continue;   /* ⭐ v10.11 — D5 / D6 cố định */
       var m = /^([A-Z]+)(\d+)$/.exec(a1), cc = 0; for(var z = 0; z < m[1].length; z++) cc = cc * 26 + m[1].charCodeAt(z) - 64;
       if(sk === 'comp2' && String(keep.set[sk]).toLowerCase() === 'mmg') continue;
       if(sk === 'photo'){ var pv = k68Str_(keep.set[sk]).toUpperCase(); keep.set[sk] = (pv === 'CÓ' || pv === 'YES') ? T.yes : (pv === 'KHÔNG' || pv === 'NO') ? T.no : keep.set[sk]; }
@@ -4586,7 +4644,7 @@ function k68Write_(sh, B){
   sh.setFrozenColumns(4);
   var T = K68_TXT[B.lang];
   sh.getRange(K68_SET.fy).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['FY67','FY68','FY69','FY70','FY71'], true).build());
-  if(B.usePhoto) sh.getRange(K68_SET.photo).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList([T.yes, T.no], true).build());
+  if(B.usePhoto) sh.getRange(K68_SET.photo).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList([T.yes], true).build());   /* ⭐ v10.11 — cố định YES */
   var rules = [], lastTot = B.picTot[B.picTot.length - 1].r;
   [[B.rA + 2, Math.max(B.aRows.length, 1)], [B.MD + 1, lastTot - B.MD]].forEach(function(z){
     var rg0 = sh.getRange(z[0], K68.pct, z[1], 6), a1 = k68Col_(K68.pct) + z[0];
@@ -4678,7 +4736,7 @@ function k68Read_(sh){
 }
 /* khối "blocks" kiểu cũ cho thẻ Dashboard (visiting · present · newacct) */
 function k68Legacy_(R){
-  var map = { visiting: /^visit_/, present: /^event_mmh/, newacct: /^newacct_/ }, out = [];
+  var map = { visiting: /^visit_/, present: /^event_(mmh|trn)/, newacct: /^newacct_/ }, out = [];
   Object.keys(map).forEach(function(id){
     var t = 0, a = 0, hit = false;
     R.pics.forEach(function(p){ p.rows.forEach(function(x){
@@ -6229,4 +6287,715 @@ function tripRoute_(action, user, p){
   if(action === 'tripMaster2') return tripMaster2(user, p);
   if(action === 'tripPropose2') return tripPropose2(user, p);
   return { ok: false, error: 'Unknown action: ' + action };
+}
+
+/* ════════════════════════════════════════════════════════════════════════════════════════════════
+   ⭐ v10.11 (13/10/2026) · ① MẪU EVENT REVIEW (7. PRODUCT PRESENTATION) · ② ĐƠN HÀNG CÓ LOẠI + DUYỆT (3. SALE ORDER)
+   ③ crmMigrate_ — sắp xếp file CRM 1 lần (tô màu / xếp / ẩn tab, khung nhập tay, hướng dẫn khi CRM gặp sự cố)
+   ════════════════════════════════════════════════════════════════════════════════════════════════ */
+
+/* ───────── ① EVENT REVIEW THEO MẪU CỐ ĐỊNH ─────────
+   Buổi giới thiệu sản phẩm chỉ được lưu (và tính KPI) khi Actual participant > 0 và Event review có đủ 5 mục, mục nào cũng có nội dung. */
+var PRES_TPL = {
+  vi: ['Số lượng tham dự thực tế', 'Tóm tắt hoạt động', 'Phản hồi khách hàng', 'Doanh số', 'Hành động tiếp theo'],
+  en: ['Actual attendees', 'Activity summary', 'Customer feedback', 'Sales', 'Next actions']
+};
+function presNorm_(s){ return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase(); }
+/* ⇒ [] khi đủ mẫu, ngược lại danh sách mục còn thiếu nội dung */
+function presTplMissing_(review){
+  var txt = String(review || ''), best = null;
+  var low = txt.split('').map(function(c){ var x = presNorm_(c); return x ? x.charAt(0) : ' '; }).join('');   /* cùng độ dài với txt */
+  ['vi', 'en'].forEach(function(lg){
+    var labs = PRES_TPL[lg], pos = labs.map(function(l){
+      var re = new RegExp('(^|\\n)\\s*-?\\s*' + presNorm_(l).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*:', 'i');
+      var m = re.exec(low); return m ? { i:m.index + m[0].length, s:m.index } : null;
+    });
+    var miss = [];
+    labs.forEach(function(l, k){
+      if (!pos[k]){ miss.push(l); return; }
+      var end = txt.length;
+      pos.forEach(function(q, j){ if (j !== k && q && q.s >= pos[k].i && q.s < end) end = q.s; });
+      if (!txt.slice(pos[k].i, end).replace(/[\s\-–—.:]+/g, '')) miss.push(l);
+    });
+    if (!best || miss.length < best.length) best = miss;
+  });
+  return best || PRES_TPL.vi.slice();
+}
+function presCheckSave_(user, p){
+  var d = p.data;
+  if (typeof d === 'string'){ try { d = JSON.parse(d); } catch(e){ return { ok:false, error:'Dữ liệu không hợp lệ' }; } }
+  if (!d) return { ok:false, error:'Thiếu dữ liệu' };
+  if (!(num(d.actual) > 0)) return { ok:false, code:'PRES_ACTUAL', error:'Actual participant (số người tham dự thực tế) bắt buộc và phải lớn hơn 0.' };
+  var miss = presTplMissing_(d.review);
+  if (miss.length) return { ok:false, code:'PRES_REVIEW', miss:miss, error:'Event review phải theo mẫu và điền đủ nội dung — còn thiếu: ' + miss.join(' · ') };
+  return saveRow(user, { data:d, flush:p.flush }, 'present');
+}
+
+/* ───────── ② ĐƠN HÀNG: LOẠI ĐƠN + CHỨNG TỪ + DUYỆT ─────────
+   Cột mới ở cuối tab 3. SALE ORDER (sau AA "Ghi chú", tiêu đề hàng 3). Vị trí cột do crmMigrate_ ghi ở Script Property CRM_ORDER_XCOL.
+   Loại 1 · Đơn từ trúng thầu: cần chứng từ KQTT; KPI C5 tính "Trị giá trúng thầu" 1 lần ở "Tháng KQTT".
+   Loại 2 · Đơn từ Account mở mới: cần phiếu bán hàng & xuất kho của NPP; tính mọi tháng tới hết FY mở account (FY68 hết 202708);
+            account phải là case Approved ở 16. NEW ACCOUNT & SKU (chỉ cảnh báo nếu chưa).
+   Loại 3 · Đơn từ tư vấn (khách lẻ): cần phiếu bán hàng & xuất kho của NPP.
+   Chỉ đơn "Đã duyệt" được cộng vào C5. Đơn trước ORDER_CUTOFF không có loại = đơn cũ, tính như trước (không cần duyệt). */
+var ORDER_CUTOFF   = '202610';
+var ORDER_TYPES    = ['1. Đơn từ trúng thầu', '2. Đơn từ Account mở mới', '3. Đơn từ tư vấn (khách lẻ)'];
+var ORDER_ST       = { wait:'Chờ duyệt', ok:'Đã duyệt', no:'Từ chối' };
+var ORDER_APPROVERS = { dental:['Tuyen'], surgical:['Tuyen'], eyeless:['Tuyen'] };   /* người duyệt đơn của nhóm */
+var ORDER_DECIDERS  = ['Nguyen Ha', 'Giang'];                                       /* Director + Admin: duyệt được mọi đơn */
+var ORDER_XF   = ['otype', 'tender', 'kqtt', 'docs', 'appr', 'apprBy', 'apprAt', 'apprNote'];
+var ORDER_XHDR = ['Order Type', 'Trị giá trúng thầu (VND)', 'Tháng KQTT', 'Chứng từ', 'Duyệt', 'Người duyệt', 'Ngày duyệt', 'Ghi chú duyệt'];
+var ORDER_DOC_FOLDER = 'Sales Order docs';
+var _ORDX = false;
+function ordXPatch_(first){
+  first = parseInt(first, 10); if (!(first > 27)) return;
+  ORDER_XF.forEach(function(f, i){ COL.order[f] = first + i; });
+  delete _LASTCOL.order; _RAW = {};
+}
+function ordX_(){
+  if (_ORDX) return; _ORDX = true;
+  var o = null; try { o = JSON.parse(props_().getProperty('CRM_ORDER_XCOL') || 'null'); } catch(e){}
+  if (o && o.first) ordXPatch_(o.first);
+}
+function ordType_(v){ var m = /^\s*([123])/.exec(String(v == null ? '' : v)); return m ? m[1] : ''; }
+function ordAppr_(v){ var s = presNorm_(v); return /da duyet|approved/.test(s) ? 'ok' : /tu choi|reject/.test(s) ? 'no' : s ? 'wait' : ''; }
+function ordDocs_(v){
+  var out = [];
+  String(v == null ? '' : v).split(/\r?\n/).forEach(function(line){
+    var m = /(https?:\/\/\S+)/.exec(line); if (!m) return;
+    out.push({ name:line.replace(m[1], '').replace(/[|·\s]+$/, '').replace(/^\s*[|·]\s*/, '').trim() || 'file', url:m[1] });
+  });
+  return out;
+}
+function ordYm_(o){ return S(o.month).replace(/\D/g, '').slice(0, 6) || ymOfIso_(S(o.day)); }
+function ordFyEnd_(ym){ ym = String(ym || ''); if (!/^\d{6}$/.test(ym)) return ''; var y = +ym.slice(0, 4), m = +ym.slice(4, 6); return String(m >= 9 ? y + 1 : y) + '08'; }
+/* app không tự ghi cột duyệt — chỉ orderDecide ghi */
+function ordGuard_(d){
+  if (!d) return d;
+  ['appr', 'apprBy', 'apprAt', 'apprNote'].forEach(function(k){ delete d[k]; });
+  if ('kqtt' in d) d.kqtt = S(d.kqtt).replace(/\D/g, '').slice(0, 6);
+  if ('otype' in d && d.otype && !ordType_(d.otype)) d.otype = '';
+  if ('otype' in d && ordType_(d.otype)) d.otype = ORDER_TYPES[+ordType_(d.otype) - 1];
+  return d;
+}
+/* đơn mới / đơn đã sửa ⇒ trạng thái duyệt (old = giá trị cũ của dòng, null = dòng mới) */
+function ordStatus_(old, cur, map){
+  if (!map.appr) return;
+  var g = function(r, f){ var v = r[map[f] - 1]; return v instanceof Date ? v.getTime() : String(v == null ? '' : v).trim(); };
+  var ym = String(g(cur, 'month')).replace(/\D/g, '').slice(0, 6);
+  if (!ym && cur[map.day - 1] instanceof Date) ym = Utilities.formatDate(cur[map.day - 1], Session.getScriptTimeZone(), 'yyyyMM');
+  var need = !!ordType_(g(cur, 'otype')) || (ym && ym >= ORDER_CUTOFF);
+  var set = function(){ cur[map.appr - 1] = ORDER_ST.wait; cur[map.apprBy - 1] = ''; cur[map.apprAt - 1] = ''; };
+  if (!old){ if (need) set(); return; }
+  var st = ordAppr_(g(old, 'appr'));
+  var changed = ['amount', 'qty', 'price', 'otype', 'tender', 'kqtt', 'docs', 'month', 'day', 'name', 'pic'].some(function(f){ return map[f] && g(old, f) !== g(cur, f); });
+  if (!st){ if (need) set(); return; }
+  if (changed && st !== 'wait'){ var nt = S(cur[map.apprNote - 1]); set(); cur[map.apprNote - 1] = ('Sửa sau khi ' + (st === 'ok' ? 'đã duyệt' : 'bị từ chối') + (nt ? ' · ' + nt : '')).slice(0, 500); }
+}
+/* tháng mở account = tháng của case Approved ở sheet 16 (theo tên / mã account) — app dùng đúng rule này */
+var _ORDOPEN = null;
+function ordOpenMap_(){
+  if (_ORDOPEN) return _ORDOPEN;
+  var m = { na:{}, cu:{} };
+  try { naReadAll_().forEach(function(o){ if (o.status !== NA_ST.approved || !o.month) return; var k = normName_(o.account); if (k && (!m.na[k] || o.month < m.na[k])) m.na[k] = o.month;
+        var c = normName_(o.code); if (c && (!m.na['#' + c] || o.month < m.na['#' + c])) m.na['#' + c] = o.month; }); } catch(e){}
+  _ORDOPEN = m; return m;
+}
+/* các khoản tính vào C5: [{ pic, ym, vnd, row }] — dùng chung k68CalcSupp_ (app: k8Live cùng rule) */
+var _ORDSUPP = null;
+function ordSuppList_(orders){
+  if (_ORDSUPP && _ORDSUPP.src === orders) return _ORDSUPP.list;
+  var out = [], seen = {}, open = null;
+  (orders || []).forEach(function(o){
+    var ym = ordYm_(o), t = ordType_(o.otype), st = ordAppr_(o.appr);
+    if (!t && ym < ORDER_CUTOFF){ out.push({ pic:S(o.pic), ym:ym, vnd:num(o.amount), row:o._row, legacy:true }); return; }
+    if (st !== 'ok') return;
+    if (t === '1'){
+      var key = normName_(o.orderNo || ('r' + o._row)) + '|' + normName_(o.pic);
+      if (seen[key]) return; seen[key] = 1;
+      var tv = 0; (orders || []).forEach(function(x){ if (normName_(x.orderNo || ('r' + x._row)) + '|' + normName_(x.pic) === key) tv = Math.max(tv, num(x.tender)); });
+      out.push({ pic:S(o.pic), ym:S(o.kqtt).replace(/\D/g, '').slice(0, 6) || ym, vnd:tv, row:o._row, type:1 }); return;
+    }
+    if (t === '2'){
+      open = open || ordOpenMap_();
+      var k = normName_(o.name), om = open.na[k] || open.na['#' + normName_(o.code)] || ym, lim = ordFyEnd_(om);
+      if (lim && ym > lim) return;
+    }
+    out.push({ pic:S(o.pic), ym:ym, vnd:num(o.amount), row:o._row, type:+t || 3 });
+  });
+  _ORDSUPP = { src:orders, list:out };
+  return out;
+}
+/* gom các dòng sản phẩm thành đơn (Order No. + PIC + tháng) */
+function ordGroups_(rows){
+  var g = {}, list = [], open = null;
+  rows.forEach(function(o){
+    var ym = ordYm_(o), key = (S(o.orderNo) || ('row' + o._row)) + '|' + S(o.pic) + '|' + ym;
+    if (!g[key]){ g[key] = { key:key, orderNo:S(o.orderNo), pic:S(o.pic), month:ym, day:S(o.day), account:S(o.name), code:S(o.code), rows:[], lines:[],
+                             amount:0, otype:'', tender:0, kqtt:'', docs:[], appr:'', apprBy:'', apprAt:'', apprNote:'', partner:S(o.partner) }; list.push(g[key]); }
+    var x = g[key];
+    x.rows.push(o._row); x.amount += num(o.amount);
+    x.lines.push({ row:o._row, detail:S(o.detail).slice(0, 200), ptype:S(o.ptype), qty:num(o.qty), amount:num(o.amount) });
+    if (!x.otype && S(o.otype)) x.otype = S(o.otype);
+    x.tender = Math.max(x.tender, num(o.tender));
+    if (!x.kqtt && S(o.kqtt)) x.kqtt = S(o.kqtt).replace(/\D/g, '').slice(0, 6);
+    ordDocs_(o.docs).forEach(function(d){ if (!x.docs.some(function(y){ return y.url === d.url; })) x.docs.push(d); });
+    var st = ordAppr_(o.appr);
+    if (x.rows.length === 1){ x.appr = st; x.apprBy = S(o.apprBy); x.apprAt = o.apprAt instanceof Date ? Utilities.formatDate(o.apprAt, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm') : S(o.apprAt); x.apprNote = S(o.apprNote); }
+    else if (x.appr !== st) x.appr = (x.appr === 'wait' || st === 'wait' || !st || !x.appr) ? 'wait' : x.appr;
+  });
+  list.forEach(function(x){
+    var t = ordType_(x.otype), w = [];
+    x.need = !!t || (x.month && x.month >= ORDER_CUTOFF);
+    if (x.need && !x.appr) x.appr = 'wait';
+    if (x.need && !t) w.push('Chưa chọn Order Type');
+    if (t === '1'){ if (!(x.tender > 0)) w.push('Thiếu Trị giá trúng thầu'); if (!/^\d{6}$/.test(x.kqtt)) w.push('Thiếu Tháng KQTT'); if (!x.docs.length) w.push('Thiếu chứng từ KQTT'); }
+    if ((t === '2' || t === '3') && !x.docs.length) w.push('Thiếu phiếu bán hàng & xuất kho của NPP');
+    if (t === '2'){ open = open || ordOpenMap_(); if (!open.na[normName_(x.account)] && !open.na['#' + normName_(x.code)]) x.naWarn = 'Account chưa có case Approved ở 16. NEW ACCOUNT & SKU'; }
+    x.warn = w; x.ready = !w.length;
+    x.kpi = t === '1' ? x.tender : x.amount;
+    x.kpiMonth = t === '1' ? (x.kqtt || x.month) : x.month;
+  });
+  return list;
+}
+/* người gọi: phiên email (tk, kiểm chữ ký như MMH_TripFlow.gs) nếu có, không thì theo PIC như module Mở mới */
+function ordMe_(user, p){
+  var me = { pic:S(user && user.pic), admin:false, verified:false };
+  if (S(p.tk) && typeof tfWho_ === 'function'){
+    var w = tfWho_(p);
+    if (w.err) return { err:w.err };
+    var test = typeof tmOn_ === 'function' && tmOn_();
+    if (!test && me.pic && normName_(w.pic) !== normName_(me.pic)) return { err:'Phiên đăng nhập (' + w.pic + ') không khớp người dùng ' + me.pic + ' — đăng nhập lại.' };
+    me.pic = me.pic || w.pic; me.admin = !!w.admin; me.verified = true;
+  }
+  return me;
+}
+function ordIsApprover_(me){
+  var a = (ORDER_APPROVERS[TEAM()] || []).concat(ORDER_DECIDERS);
+  return !!me && (!!me.admin || a.some(function(x){ return normName_(x) === normName_(me.pic); }));
+}
+function ordCanDecide_(me, pic){
+  if (typeof tmOn_ === 'function' && tmOn_()) return tmIsTest_(pic) && /^(mgr|dir)$/.test(MMH_TEST.as || '');
+  if (!me || !me.pic || normName_(me.pic) === normName_(pic)) return false;
+  return ordIsApprover_(me);
+}
+function orderPending(user, p){
+  var me = ordMe_(user, p); if (me.err) return { ok:false, code:'AUTH', error:me.err };
+  var test = typeof tmOn_ === 'function' && tmOn_();
+  var appr = test || ordIsApprover_(me), all = S(p.all) === '1';
+  _RAW = {};
+  var rows = readTab('order'), groups = ordGroups_(rows), out = [], nP = 0;
+  groups.forEach(function(x){
+    if (!x.need) return;
+    if (test && !tmIsTest_(x.pic)) return;
+    if (!appr && normName_(x.pic) !== normName_(me.pic)) return;
+    var pend = x.appr === 'wait';
+    if (!pend && !all) return;
+    if (pend) nP++;
+    x.canDecide = pend && ordCanDecide_(me, x.pic);
+    out.push(x);
+  });
+  out.sort(function(a, b){ return (a.appr === 'wait' ? 0 : 1) - (b.appr === 'wait' ? 0 : 1) || String(b.month).localeCompare(String(a.month)) || a.pic.localeCompare(b.pic); });
+  if (out.length > 400) out = out.slice(0, 400);
+  var by = {}, list = [];
+  out.forEach(function(x){ var k = x.pic + '|' + x.month; if (!by[k]){ by[k] = { pic:x.pic, month:x.month, orders:[] }; list.push(by[k]); } by[k].orders.push(x); });
+  return { ok:true, approver:appr, testOnly:test, me:me.pic, verified:me.verified, pending:nP, groups:list, cutoff:ORDER_CUTOFF, types:ORDER_TYPES, rate:K68_RATE_DEF };
+}
+/* duyệt / từ chối: p.keys = JSON [key…] (từng đơn) hoặc p.pic + p.month (mọi đơn đang chờ của PIC trong tháng) */
+function orderDecide(user, p){
+  var me = ordMe_(user, p); if (me.err) return { ok:false, code:'AUTH', error:me.err };
+  var dec = S(p.decision).toLowerCase(), cm = S(p.comment);
+  if (!/^(approve|reject)$/.test(dec)) return { ok:false, error:'decision?' };
+  if (dec === 'reject' && cm.length < 3) return { ok:false, error:'Từ chối cần ghi lý do.' };
+  var keys = p.keys; if (typeof keys === 'string'){ try { keys = JSON.parse(keys); } catch(e){ keys = String(keys).split(','); } }
+  keys = (Array.isArray(keys) ? keys : []).map(S).filter(String);
+  var fPic = S(p.forPic || p.orderPic), fMonth = S(p.month).replace(/\D/g, '').slice(0, 6);
+  if (!keys.length && !(fPic && fMonth)) return { ok:false, error:'Chưa chọn đơn hàng nào.' };
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(25000); } catch(e){ return { ok:false, error:'Hệ thống đang bận, thử lại sau vài giây.' }; }
+  var res = [], byPic = {}, s = sh('order'), map = COL.order, who = (typeof tmOn_ === 'function' && tmOn_()) ? tmDecider_() : me.pic;
+  try {
+    if (!map.appr) return { ok:false, error:'Tab 3. SALE ORDER chưa có cột Duyệt — mở lại CRM sau 1 phút (hệ thống đang thêm cột).' };
+    _RAW = {};
+    var groups = ordGroups_(readTab('order')), now = new Date();
+    groups.forEach(function(x){
+      var hit = keys.length ? keys.indexOf(x.key) >= 0 : (normName_(x.pic) === normName_(fPic) && x.month === fMonth && x.appr === 'wait');
+      if (!hit) return;
+      var r = { key:x.key, orderNo:x.orderNo, pic:x.pic, account:x.account, ok:false };
+      try {
+        if (!x.need) throw new Error('Đơn cũ (trước ' + ORDER_CUTOFF + ', chưa có loại) không cần duyệt');
+        if (x.appr !== 'wait'){ r.ok = true; r.already = x.appr; res.push(r); return; }
+        if (!ordCanDecide_(me, x.pic)) throw new Error((typeof tmOn_ === 'function' && tmOn_()) ? 'Chế độ TEST chỉ duyệt được đơn của TEST' : 'Bạn không có quyền duyệt đơn này');
+        if (dec === 'approve' && !x.ready) throw new Error('Chưa đủ điều kiện: ' + x.warn.join(' · '));
+        var st = dec === 'approve' ? ORDER_ST.ok : ORDER_ST.no;
+        x.rows.forEach(function(row){ s.getRange(row, map.appr, 1, 4).setValues([[st, who, now, cm]]); });
+        r.ok = true; r.status = st; r.kpi = x.kpi; r.month = x.kpiMonth; r.otype = x.otype;
+        (byPic[x.pic] = byPic[x.pic] || []).push(r);
+      } catch(e){ r.error = String(e && e.message || e); }
+      res.push(r);
+    });
+    SpreadsheetApp.flush();
+  } finally { try { lock.releaseLock(); } catch(e){} }
+  var okN = res.filter(function(x){ return x.ok && !x.already; }).length;
+  if (okN){ bumpVersion(['order', 'customer', 'kpi']); _ORDSUPP = null; }
+  try { logAct({ pic:who }, dec, 'order', (fPic || '') + (fMonth ? ' ' + fMonth : ''), okN + ' đơn' + (cm ? ' · ' + cm : ''), ''); } catch(e){}
+  /* email tóm tắt tới từng PIC */
+  var mails = [];
+  Object.keys(byPic).forEach(function(pic){
+    try {
+      var u = userByPic(pic), to = u ? u.email : ''; if (!to && !(typeof tmOn_ === 'function' && tmOn_())) return;
+      var meU = userByPic(me.pic), L = byPic[pic];
+      var rowsH = L.map(function(r){ return '<tr><td style="padding:5px 9px;border-top:1px solid #E6EAEF">' + esc(r.orderNo || '—') + '</td><td style="padding:5px 9px;border-top:1px solid #E6EAEF">' + esc(r.account) +
+        '</td><td style="padding:5px 9px;border-top:1px solid #E6EAEF">' + esc(r.otype || '') + '</td><td style="padding:5px 9px;border-top:1px solid #E6EAEF;text-align:right">' + Math.round(r.kpi || 0).toLocaleString('en-US') + ' ₫</td></tr>'; }).join('');
+      var html = '<div style="font-family:Aptos,Calibri,Arial,sans-serif;font-size:13px;color:#1F2D3D">Dear ' + esc(pic) + ',<br><br>' + esc(who) + ' đã <b>' + (dec === 'approve' ? 'DUYỆT' : 'TỪ CHỐI') + '</b> ' + L.length + ' đơn hàng của bạn' +
+        (cm ? ' — ' + esc(cm) : '') + '.<br>' + (dec === 'approve' ? 'Các đơn này được tính vào KPI C5 (Sales Amount Supported) theo tỷ giá 26.700 VND/USD.' : 'Vui lòng bổ sung / sửa đơn trên CRM rồi chờ duyệt lại.') +
+        '<table style="border-collapse:collapse;margin:12px 0;font-size:12.5px"><tr style="background:#F0F5FB"><th style="padding:5px 9px;text-align:left">Order No.</th><th style="padding:5px 9px;text-align:left">Account</th><th style="padding:5px 9px;text-align:left">Order Type</th><th style="padding:5px 9px;text-align:right">Giá trị tính KPI</th></tr>' + rowsH + '</table>' +
+        'Mở CRM: <a href="' + NA_CRM_URL + '">' + NA_CRM_URL + '</a><br><br><span style="color:#8A97A6;font-size:11.5px">Email tự động từ MMH CRM — vui lòng không trả lời.</span></div>';
+      var opt = { to:to || (MMH_TEST && MMH_TEST.email) || '', subject:'[MMH CRM] ' + (dec === 'approve' ? 'ĐÃ DUYỆT' : 'TỪ CHỐI') + ' ' + L.length + ' đơn hàng · ' + pic, htmlBody:html, name:'MMH CRM · ' + who };
+      if (meU && meU.email && meU.email !== to) opt.cc = meU.email;
+      mmhMail_(opt); mails.push(to);
+    } catch(e){ mails.push('lỗi: ' + (e && e.message || e)); }
+  });
+  return { ok:okN > 0 || res.some(function(x){ return x.ok; }), results:res, done:okN, failed:res.filter(function(x){ return !x.ok; }).length, mails:mails,
+           error:okN || res.some(function(x){ return x.ok; }) ? '' : ((res[0] && res[0].error) || 'Không có đơn nào được xử lý'),
+           message:(dec === 'approve' ? 'Đã duyệt ' : 'Đã từ chối ') + okN + '/' + res.length + ' đơn hàng' };
+}
+/* chứng từ đơn hàng: lưu folder "Sales Order docs/<yyyy-MM>" trong folder chứng từ Mở mới của nhóm */
+function orderDoc(user, p){
+  var b64 = String(p.b64 || '').replace(/^data:[^,]*,/, ''); if (!b64) return { ok:false, error:'Chưa có file' };
+  var mime = S(p.mime) || 'application/octet-stream', ext = naExt_(p.name, mime);
+  var ym = S(p.month).replace(/\D/g, '').slice(0, 6) || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMM');
+  var pic = S(p.owner) || S(p.forPic) || S(user && user.pic) || 'PIC';
+  if (typeof tmOn_ === 'function' && tmOn_() && !tmIsTest_(pic)) pic = 'TEST';
+  var kind = ({ kqtt:'KQTT', npp:'PhieuNPP' })[S(p.kind)] || 'ChungTu';
+  var root = DriveApp.getFolderById(NA_ENV.folderId()), it = root.getFoldersByName(ORDER_DOC_FOLDER);
+  var base = it.hasNext() ? it.next() : root.createFolder(ORDER_DOC_FOLDER);
+  var mn = ym.slice(0, 4) + '-' + ym.slice(4), it2 = base.getFoldersByName(mn), folder = it2.hasNext() ? it2.next() : base.createFolder(mn);
+  var name = [naSafe_(pic, 20), naSafe_(S(p.orderNo).replace(/^No\.?\s*/i, 'No') || 'Order', 20), naSafe_(S(p.account) || 'Account', 50), kind,
+              Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'ddMMyyyy-HHmmss')].join('_') + '.' + ext;
+  var file = folder.createFile(Utilities.newBlob(Utilities.base64Decode(b64), mime, name));
+  try { file.setDescription('MMH CRM · đơn hàng ' + S(p.orderNo) + ' · ' + kind + ' · ' + S(user && user.pic)); } catch(e){}
+  try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch(e){}
+  return { ok:true, file:{ id:file.getId(), name:file.getName(), url:file.getUrl(), kind:S(p.kind) || 'other', size:file.getSize() } };
+}
+
+/* ───────── ③ SẮP XẾP FILE CRM 1 LẦN (crmMigrate_) ─────────
+   Chạy tự động (ping / boot / bundle / version): tạo trigger 1 lần chạy nền ngay sau đó (không làm chậm app); không tạo được ⇒ chạy luôn.
+   Chỉ THÊM cột ở cuối, đổi định dạng / màu / thứ tự / ẩn hiện tab, cố định hàng, data validation — không xoá dòng / cột có dữ liệu,
+   không đụng công thức. Xong ⇒ Script Property CRM_LAYOUT_V = '3161' (chạy lại tay: hàm crmMigrateRun, xoá property trước nếu muốn). */
+var CRM_LAYOUT_KEY = 'CRM_LAYOUT_V', CRM_LAYOUT_VER = '3161';
+var CRM_TAB_ORDER = ['0. HƯỚNG DẪN', '6. WEEKLY REPORT', 'ALL TASK', '1. CUSTOMER CODE', '2. CBC', '3. SALE ORDER', '7. PRODUCT PRESENTATION',
+                     '16. NEW ACCOUNT & SKU', '5. MONTHLY REPORT', '8. ADP', '9. TARGET & KPI'];
+var CRM_TAB_COLOR = { '0. HƯỚNG DẪN':'#003047', '6. WEEKLY REPORT':'#3A5CAA', '1. CUSTOMER CODE':'#3A5CAA', '2. CBC':'#3A5CAA', '3. SALE ORDER':'#3A5CAA',
+                      '5. MONTHLY REPORT':'#3A5CAA', '7. PRODUCT PRESENTATION':'#3A5CAA', '8. ADP':'#3A5CAA', '16. NEW ACCOUNT & SKU':'#3A5CAA',
+                      'ALL TASK':'#2E8B57', '9. TARGET & KPI':'#C9A227', '4. MASTER NAME NPP':'#9AA5B1', '10. MASTER LIST':'#9AA5B1' };
+var CRM_TAB_LAST = ['4. MASTER NAME NPP', '10. MASTER LIST'];
+var CRM_TAB_HIDE = /^(_LOG|_ORDER_LOG|_CUSTOMER_LOG|15\. TENDER PRICE LOG|_NA_THUMBS|BUSINESS TRIP LOG|9\. KPI CU.*|9\. OLD KPI.*|_PICK|11\. CODE MAP|12\. PRODUCT CODE)$/;
+function crmTabKey_(n){ return presNorm_(n).toUpperCase().replace(/\s+/g, ' ').trim(); }
+function crmMigrateMaybe_(){
+  var P = props_(); if (P.getProperty(CRM_LAYOUT_KEY) === CRM_LAYOUT_VER) return;
+  var c = CacheService.getScriptCache(); if (c.get('CRM_MIG_TRY')) return; c.put('CRM_MIG_TRY', '1', 600);
+  var tries = parseInt(P.getProperty('CRM_LAYOUT_TRIES') || '0', 10) || 0; if (tries >= 3) return;
+  try {
+    var exist = ScriptApp.getProjectTriggers().some(function(t){ return t.getHandlerFunction() === 'crmMigrateRun'; });
+    if (!exist) ScriptApp.newTrigger('crmMigrateRun').timeBased().after(5 * 1000).create();
+  } catch(e){ try { crmMigrate_(); } catch(e2){} }
+}
+/* trigger 1 lần (cũng chạy tay được từ trình soạn) */
+function crmMigrateRun(){
+  try { ScriptApp.getProjectTriggers().forEach(function(t){ if (t.getHandlerFunction() === 'crmMigrateRun') ScriptApp.deleteTrigger(t); }); } catch(e){}
+  return crmMigrate_();
+}
+function crmMigrate_(){
+  var P = props_(); if (P.getProperty(CRM_LAYOUT_KEY) === CRM_LAYOUT_VER) return { ok:true, already:true };
+  var lock = LockService.getScriptLock(); if (!lock.tryLock(20000)) return { ok:false, error:'busy' };
+  var log = [], err = [];
+  function step(name, f){ try { var r = f(); log.push(name + (r ? ': ' + r : '')); } catch(e){ err.push(name + ': ' + (e && e.message || e)); } }
+  try {
+    if (P.getProperty(CRM_LAYOUT_KEY) === CRM_LAYOUT_VER) return { ok:true, already:true };
+    step('order', crmMigOrder_);
+    step('kpi', crmMigKpi_);
+    step('weekly', crmMigWeekly_);
+    step('alltask', crmMigAllTask_);
+    step('customer', crmMigCustomer_);
+    step('guide', crmMigGuide_);
+    step('tabs', crmMigTabs_);
+    SpreadsheetApp.flush();
+  } finally { try { lock.releaseLock(); } catch(e){} }
+  var tries = (parseInt(P.getProperty('CRM_LAYOUT_TRIES') || '0', 10) || 0) + 1;
+  P.setProperty('CRM_LAYOUT_TRIES', String(tries));
+  P.setProperty('CRM_LAYOUT_LOG', (Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'dd/MM/yyyy HH:mm') + ' · ' + log.join(' · ') + (err.length ? ' · LỖI: ' + err.join(' · ') : '')).slice(0, 8000));
+  if (!err.length || tries >= 3) P.setProperty(CRM_LAYOUT_KEY, CRM_LAYOUT_VER);
+  try { bumpVersion(); } catch(e){}
+  return { ok:!err.length, log:log, errors:err };
+}
+/* cột mới của 3. SALE ORDER */
+function crmMigOrder_(){
+  var s = sh('order'), hr = HEADER_ROW, lc = Math.max(s.getLastColumn(), 27), H = s.getRange(hr, 1, 1, lc).getDisplayValues()[0], first = 0;
+  for (var j = 27; j < H.length; j++) if (S(H[j]).toLowerCase() === 'order type'){ first = j + 1; break; }
+  if (!first){
+    first = 28;
+    if (s.getMaxColumns() >= 28){
+      var w = Math.min(8, s.getMaxColumns() - 27), lr = Math.max(s.getLastRow(), hr);
+      var V = s.getRange(1, 28, lr, w).getDisplayValues(), busy = V.some(function(r){ return r.some(function(x){ return S(x) !== ''; }); });
+      if (busy) first = s.getLastColumn() + 1;
+    }
+  }
+  var need = first + ORDER_XHDR.length - 1;
+  if (s.getMaxColumns() < need) s.insertColumnsAfter(s.getMaxColumns(), need - s.getMaxColumns());
+  var hdr = s.getRange(hr, first, 1, ORDER_XHDR.length);
+  hdr.setValues([ORDER_XHDR]);
+  try { s.getRange(hr, 27).copyFormatToRange(s, first, need, hr, hr); } catch(e){}
+  hdr.setFontWeight('bold').setWrap(true).setBackground('#FFF2CC');
+  var n = Math.max(s.getMaxRows() - DATA_ROW + 1, 1);
+  s.getRange(DATA_ROW, first, n, 1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(ORDER_TYPES, true).setAllowInvalid(false)
+     .setHelpText('Loại đơn: 1 trúng thầu (cần KQTT) · 2 Account mở mới · 3 tư vấn / khách lẻ (cần phiếu bán hàng & xuất kho NPP)').build());
+  s.getRange(DATA_ROW, first + 1, n, 1).setNumberFormat('#,##0');
+  s.getRange(DATA_ROW, first + 2, n, 1).setNumberFormat('@');
+  s.getRange(DATA_ROW, first + 3, n, 1).setWrap(false);
+  s.getRange(DATA_ROW, first + 4, n, 1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList([ORDER_ST.wait, ORDER_ST.ok, ORDER_ST.no], true).setAllowInvalid(false).build());
+  s.getRange(DATA_ROW, first + 6, n, 1).setNumberFormat('dd/MM/yyyy HH:mm');
+  [190, 120, 80, 260, 92, 100, 118, 220].forEach(function(wd, i){ try { s.setColumnWidth(first + i, wd); } catch(e){} });
+  props_().setProperty('CRM_ORDER_XCOL', JSON.stringify({ first:first, at:new Date().toISOString() }));
+  ordXPatch_(first); _ORDX = true;
+  return 'cột ' + colA1_(first) + '→' + colA1_(need);
+}
+/* tab 9: dựng lại theo bố cục k68v8 (giữ ô nhập tay) · D5 = 26.700 · D6 = YES */
+function crmMigKpi_(){
+  var s = kpiTab_(); if (!s) return 'chưa có tab KPI';
+  var tag = S(s.getRange(1, 1).getValue());
+  if (tag !== K68_LAYOUT && K68_SPEC[TEAM()]){ k68Setup_(ss(), TABS.kpi, TEAM()); s = kpiTab_(); }
+  try { s.getRange(K68_SET.rate).setValue(K68_RATE_DEF); } catch(e){}
+  try { var T = K68_TXT[(K68_SPEC[TEAM()] || {}).lang || 'vi']; s.getRange(K68_SET.photo).setValue(T.yes); } catch(e){}
+  return 'bố cục ' + K68_LAYOUT;
+}
+function crmHead_(rg){ rg.setFontWeight('bold').setBackground('#CFE2F3').setFontColor('#003047').setWrap(true).setVerticalAlignment('middle'); }
+function crmValid_(s, row, col, n, dv){
+  try { if (s.getRange(row, col).getDataValidation()) return false; s.getRange(row, col, n, 1).setDataValidation(dv); return true; } catch(e){ return false; }
+}
+function crmMasterList_(field){
+  try { var m = sh('master'), c = COL.master[field], lr = Math.max(m.getLastRow(), DATA_ROW); return m.getRange(DATA_ROW, c, lr - DATA_ROW + 1, 1); } catch(e){ return null; }
+}
+function crmMigWeekly_(){
+  var s = sh('weekly'), W = COL.weekly, lc = Math.max(W.gpsInfo, 23), n = Math.max(s.getMaxRows() - DATA_ROW + 1, 1);
+  crmHead_(s.getRange(HEADER_ROW, 2, 1, lc - 1));
+  try { s.setFrozenRows(HEADER_ROW); } catch(e){}
+  try { s.setFrozenColumns(3); } catch(e){}
+  s.getRange(DATA_ROW, W.start, n, 2).setNumberFormat('dd/MM/yyyy');
+  var wd = { 2:46, 3:56, 4:70, 5:92, 6:92, 7:84, 8:260, 9:96, 10:110, 11:70, 12:120, 13:150, 14:110, 15:130, 16:300, 17:320, 18:110, 19:150, 20:150, 21:160, 22:180 };
+  for (var c in wd) try { s.setColumnWidth(+c, wd[c]); } catch(e){}
+  var dv = [];
+  var st = crmMasterList_('status'), ta = crmMasterList_('typeAction');
+  if (ta && crmValid_(s, DATA_ROW, W.typeAction, n, SpreadsheetApp.newDataValidation().requireValueInRange(ta, true).setAllowInvalid(true).build())) dv.push('Type action');
+  if (st && crmValid_(s, DATA_ROW, W.status, n, SpreadsheetApp.newDataValidation().requireValueInRange(st, true).setAllowInvalid(true).build())) dv.push('Task Status');
+  var healed = 0;
+  try { CacheService.getScriptCache().remove('WK_HEAL_AT'); _RAW = {}; readTab('weekly'); healed = wkHealFlush_(true); } catch(eH){}   /* bù Start date dòng thiếu */
+  return 'khung · ' + (dv.length ? 'dropdown ' + dv.join(', ') : 'dropdown giữ nguyên') + (healed ? ' · bù ngày ' + healed + ' dòng' : '');
+}
+function crmMigAllTask_(){
+  var s = (typeof stSheet_ === 'function') ? stSheet_() : ss().getSheetByName('ALL TASK'); if (!s) return 'không có';
+  var hr = (typeof ST !== 'undefined' ? ST.HDR : 5), dr = (typeof ST !== 'undefined' ? ST.DATA : 7), n = Math.max(s.getMaxRows() - dr + 1, 1);
+  crmHead_(s.getRange(hr, 2, 1, 18));
+  try { s.setFrozenRows(hr + 1); } catch(e){}
+  s.getRange(dr, 10, n, 3).setNumberFormat('dd/MM/yyyy'); s.getRange(dr, 16, n, 1).setNumberFormat('dd/MM/yyyy');
+  var wd = { 2:46, 3:56, 4:70, 5:120, 6:240, 7:260, 8:84, 9:300, 10:92, 11:100, 12:100, 13:70, 14:100, 15:80, 16:92 };
+  for (var c in wd) try { s.setColumnWidth(+c, wd[c]); } catch(e){}
+  crmValid_(s, dr, 14, n, SpreadsheetApp.newDataValidation().requireValueInList(['To Do', 'In Progress', 'Completed', 'Pending', 'Cancelled'], true).setAllowInvalid(true).build());
+  return 'khung';
+}
+function crmMigCustomer_(){
+  var s = sh('customer'), C = COL.customer, n = Math.max(s.getMaxRows() - DATA_ROW + 1, 1);
+  crmHead_(s.getRange(HEADER_ROW, 2, 1, C.note - 1));
+  try { s.setFrozenRows(HEADER_ROW); } catch(e){}
+  try { s.setFrozenColumns(3); } catch(e){}
+  s.getRange(DATA_ROW, C.openDate, n, 1).setNumberFormat('dd/MM/yyyy');
+  var wd = { 2:110, 3:260, 4:110, 5:260, 6:110, 7:70, 8:90, 9:60, 10:96, 11:80, 14:240 };
+  for (var c in wd) try { s.setColumnWidth(+c, wd[c]); } catch(e){}
+  var at = crmMasterList_('accountType');
+  if (at) crmValid_(s, DATA_ROW, C.type, n, SpreadsheetApp.newDataValidation().requireValueInRange(at, true).setAllowInvalid(true).build());
+  return 'khung';
+}
+var CRM_GUIDE_TITLE = 'NHẬP TRỰC TIẾP TRÊN SHEET KHI CRM GẶP SỰ CỐ';
+function crmMigGuide_(){
+  var book = ss(), g = null;
+  book.getSheets().forEach(function(x){ if (!g && /^0\.\s*HUONG DAN/.test(crmTabKey_(x.getName()))) g = x; });
+  if (!g) g = book.insertSheet('0. HƯỚNG DẪN', 0);
+  var lr = g.getLastRow(), lc = Math.max(g.getLastColumn(), 2);
+  if (lr){ var V = g.getRange(1, 1, lr, Math.min(lc, 6)).getDisplayValues(); if (V.some(function(r){ return r.some(function(x){ return presNorm_(x).indexOf(presNorm_(CRM_GUIDE_TITLE)) >= 0; }); })) return 'đã có'; }
+  var r0 = lr + 2, L = [
+    [CRM_GUIDE_TITLE],
+    ['Khi app MMH CRM không mở được, vẫn ghi việc trực tiếp vào các tab dưới đây (hàng tiêu đề đã cố định, cột ngày dạng dd/MM/yyyy, có danh sách chọn). Khi CRM chạy lại, dữ liệu tự hiện trên app.'],
+    ['① 6. WEEKLY REPORT (đi địa bàn) — mỗi lượt 1 dòng từ hàng 4: E Start date · F Finish date · G Sales PIC · H Check account name (Tên/Loại/Tỉnh/Khu vực) · M Type task · N Type action · O Sales Process · P Plan · Q Task Result · R Task Status · T Next Action. Ảnh: dán link Drive vào cột V (lượt Visiting chỉ tính KPI khi có ảnh).'],
+    ['② ALL TASK (công việc khác) — từ hàng 7: E Type · F Key Task (dòng việc lớn) hoặc G Sub Task (dòng việc con ngay dưới) · H PIC · I Kết quả / link · J Start · K Planned Deadline · N Status · O % Progress.'],
+    ['③ 1. CUSTOMER CODE (khách hàng mới) — từ hàng 4: C Account name · D Account type · E Address · F Province · G Area · H MMH sales PIC · J Ngày mở account. Cột B, K, L, M là công thức — không gõ.'],
+    ['④ 3. SALE ORDER — điền như cũ; từ 10/2026 thêm Order Type, chứng từ (link) ở các cột cuối. Cột Duyệt / Người duyệt / Ngày duyệt do quản lý duyệt trên CRM — sales không tự điền.'],
+    ['Không xoá dòng, không sửa ô có công thức (chữ đen trên nền xám / cột tự tính). Các tab ẩn (_LOG, nhật ký…) là dữ liệu hệ thống — không cần mở.']
+  ];
+  g.getRange(r0, 2, L.length, 1).setValues(L).setWrap(true).setVerticalAlignment('top');
+  g.getRange(r0, 2).setFontWeight('bold').setFontSize(12).setFontColor('#003047').setBackground('#FFF2CC');
+  try { if (g.getColumnWidth(2) < 600) g.setColumnWidth(2, 820); } catch(e){}
+  return 'đã thêm ở hàng ' + r0;
+}
+function crmMigTabs_(){
+  var book = ss(), all = book.getSheets(), byKey = {};
+  all.forEach(function(x){ byKey[crmTabKey_(x.getName())] = x; });
+  var pick = function(n){ return byKey[crmTabKey_(n)] || null; };
+  var hid = 0;
+  /* màu */
+  Object.keys(CRM_TAB_COLOR).forEach(function(n){ var x = pick(n); if (x) try { x.setTabColor(CRM_TAB_COLOR[n]); } catch(e){} });
+  /* ẩn tab nhật ký / phụ trợ (không bao giờ ẩn tab đang hiện duy nhất) */
+  all.forEach(function(x){ if (CRM_TAB_HIDE.test(crmTabKey_(x.getName())) && !x.isSheetHidden()) try { x.hideSheet(); hid++; } catch(e){} });
+  /* thứ tự: tab hay dùng lên đầu · danh mục NPP / MASTER LIST cuối · tab ẩn sau cùng */
+  var seq = [];
+  CRM_TAB_ORDER.forEach(function(n){ var x = pick(n); if (x && seq.indexOf(x) < 0) seq.push(x); });
+  all.forEach(function(x){ if (seq.indexOf(x) < 0 && !x.isSheetHidden() && CRM_TAB_LAST.map(crmTabKey_).indexOf(crmTabKey_(x.getName())) < 0) seq.push(x); });
+  CRM_TAB_LAST.forEach(function(n){ var x = pick(n); if (x && seq.indexOf(x) < 0) seq.push(x); });
+  all.forEach(function(x){ if (seq.indexOf(x) < 0) seq.push(x); });
+  var moved = 0;
+  seq.forEach(function(x, i){
+    try { if (x.getIndex() !== i + 1){ var vis = !x.isSheetHidden(); book.setActiveSheet(x); book.moveActiveSheet(i + 1); if (!vis) x.hideSheet(); moved++; } } catch(e){}
+  });
+  try { var f = pick('0. HƯỚNG DẪN') || pick('6. WEEKLY REPORT'); if (f) book.setActiveSheet(f); } catch(e){}
+  return hid + ' tab ẩn · ' + moved + ' tab đổi chỗ';
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════════════════════════
+   ⭐ v10.11 (13/10/2026) · TAB 6. WEEKLY REPORT — ĐÚNG DÒNG + KHÔNG CÒN TASK THIẾU NGÀY
+   Sự cố 13/10: 6 dòng tạo từ app (có PIC, account, ảnh + GPS) nhưng trống Start / Finish date ⇒ app không hiện.
+   ① saveWeekly: dòng mới luôn có ngày (mặc định hôm nay), cập nhật không xoá trắng ngày, ghi xong kiểm lại ô E.
+   ② wkHeal_: dòng có PIC + account mà trống ngày ⇒ lấy ngày từ dấu 🕒 của ảnh (cột W), nhật ký _LOG "add weekly", hoặc ngày 1
+      của Start Month; app thấy ngay (bù trong bộ nhớ) và ghi lại vào sheet (tối đa 10 phút / lần).
+   ③ wkResolve_: mọi lệnh theo số dòng (cập nhật · ảnh · xoá ảnh · xoá task) kiểm No (cột B) / account / PIC / ngày —
+      dòng đã dời thì tìm lại, không thấy thì trả stale (app tải lại) ⇒ không ghi / xoá nhầm dòng khác.
+   ════════════════════════════════════════════════════════════════════════════════════════════════ */
+function wkNo_(v){ return S(v).replace(/\.0+$/, ''); }
+function wkHints_(src){
+  src = src || {};
+  return { no:wkNo_(src._no), acc:S(src._acc), pic:S(src._pic), start:S(src._start).slice(0, 10) };
+}
+function wkAccKey_(a){ return normName_(parseCheckName(a).name || a); }
+/* ⇒ { row } (moved:true nếu đã dời) · { stale:true, ok:false, error } · { gone:true } (opts.gone: xoá mà không còn) */
+function wkResolve_(row, h, opts){
+  opts = opts || {};
+  if (!h || (!h.no && !h.acc)) return { row:row };
+  var s = sh('weekly'), W = COL.weekly, lr = s.getLastRow();
+  var match = function(no, acc, pic, st){
+    if (h.no && wkNo_(no) !== h.no) return false;
+    if (h.acc && wkAccKey_(acc) !== wkAccKey_(h.acc)) return false;
+    if (h.pic && normName_(pic) !== normName_(h.pic)) return false;
+    if (!h.no && h.start && st && st !== h.start) return false;
+    return true;
+  };
+  if (row >= DATA_ROW && row <= lr){
+    var v = s.getRange(row, 1, 1, W.account).getValues()[0];
+    if (match(v[W.no - 1], v[W.account - 1], v[W.pic - 1], d2s(v[W.start - 1]))) return { row:row };
+  }
+  if (lr >= DATA_ROW){
+    var n = lr - DATA_ROW + 1, V = s.getRange(DATA_ROW, 1, n, W.account).getValues(), best = 0, bd = 1e9;
+    for (var i = 0; i < n; i++){
+      var r = V[i];
+      if (h.no){ if (wkNo_(r[W.no - 1]) !== h.no) continue; if (h.pic && normName_(r[W.pic - 1]) !== normName_(h.pic)) continue; if (h.acc && wkAccKey_(r[W.account - 1]) !== wkAccKey_(h.acc)) continue; }
+      else if (!match(r[W.no - 1], r[W.account - 1], r[W.pic - 1], d2s(r[W.start - 1]))) continue;
+      var d = Math.abs(DATA_ROW + i - row); if (d < bd){ bd = d; best = DATA_ROW + i; }
+    }
+    if (best) return { row:best, moved:best !== row };
+  }
+  if (opts.gone) return { gone:true };
+  return { ok:false, stale:true, code:'STALE', error:'Dòng đã đổi — tải lại (task không còn ở dòng ' + row + ' trên sheet).' };
+}
+/* ngày bù cho dòng trống Start date */
+function wkHealDate_(r, logMap){
+  var g = /🕒\s*(\d{4}-\d{2}-\d{2})/.exec(S(r.gpsInfo));
+  if (g) return g[1];
+  if (logMap && logMap[r._row]) return logMap[r._row];
+  var m = S(r.month).replace(/\D/g, '').slice(0, 6);
+  if (/^\d{6}$/.test(m)) return m.slice(0, 4) + '-' + m.slice(4, 6) + '-01';
+  return '';
+}
+function wkLogAdds_(){
+  var out = {};
+  try {
+    var s = ss().getSheetByName(LOG_TAB); if (!s) return out;
+    var lr = s.getLastRow(); if (lr < 2) return out;
+    var n = Math.min(LOG_MAX + 200, lr - 1), V = s.getRange(lr - n + 1, 1, n, 7).getValues();
+    V.forEach(function(x){ if (S(x[2]) === 'add' && S(x[3]) === 'weekly' && x[6]){ var d = x[0] instanceof Date ? Utilities.formatDate(x[0], Session.getScriptTimeZone(), 'yyyy-MM-dd') : S(x[0]).slice(0, 10); if (/^\d{4}-\d{2}-\d{2}$/.test(d)) out[+x[6]] = d; } });
+  } catch(e){}
+  return out;
+}
+var _WKHEAL = false;
+function wkHeal_(rows){
+  var bad = rows.filter(function(r){ return !S(r.start) && S(r.pic) && S(r.account); });
+  if (!bad.length) return 0;
+  var logMap = bad.some(function(r){ return !/🕒/.test(S(r.gpsInfo)); }) ? wkLogAdds_() : null, fix = [];
+  bad.forEach(function(r){
+    var d = wkHealDate_(r, logMap); if (!d) return;
+    r.start = d; if (!S(r.finish)) r.finish = d; r._healed = 1;
+    if (!S(r.fy)) r.fy = fyOfIso_(d); if (!S(r.month)) r.month = ymOfIso_(d);
+    fix.push(r);
+  });
+  _WKFIX = fix;                                                     /* ghi lại vào sheet ở cuối lượt gọi (wkHealFlush_), ngoài mọi khoá */
+  return fix.length;
+}
+var _WKFIX = null;
+function wkHealFlush_(noLock){
+  var fix = _WKFIX; _WKFIX = null;
+  if (!fix || !fix.length || _WKHEAL) return 0;
+  _WKHEAL = true;
+  try {
+    var c = CacheService.getScriptCache(); if (c.get('WK_HEAL_AT')) return fix.length; c.put('WK_HEAL_AT', '1', 600);
+    var lock = noLock ? null : LockService.getScriptLock(); if (lock && !lock.tryLock(3000)) return fix.length;
+    try {
+      var s = sh('weekly'), W = COL.weekly, n = 0;
+      fix.forEach(function(r){
+        var cur = s.getRange(r._row, 1, 1, W.account).getValues()[0];
+        if (cur[W.start - 1] instanceof Date || S(cur[W.start - 1])) return;                       /* đã có ngày */
+        if (normName_(cur[W.pic - 1]) !== normName_(r.pic) || wkAccKey_(cur[W.account - 1]) !== wkAccKey_(r.account)) return;
+        s.getRange(r._row, W.start, 1, 2).setValues([[s2d(r.start), s2d(r.finish || r.start)]]);
+        if (!S(cur[W.month - 1])) s.getRange(r._row, W.month).setValue(ymOfIso_(r.start));
+        if (!S(cur[W.fy - 1])) s.getRange(r._row, W.fy).setValue(fyOfIso_(r.start));
+        n++;
+      });
+      if (n){ logAct({ pic:'system' }, 'heal', 'weekly', n + ' dòng thiếu Start date', 'bù ngày từ dấu giờ ảnh / nhật ký / Start Month', ''); try { flushLog_(); } catch(eF){} }
+    } finally { if (lock) lock.releaseLock(); }
+    return fix.length;
+  } catch(e){ return 0; }
+}
+
+
+
+/* ════════════════════════════════════════════════════════════════════════════════════════════════
+   ⭐ v10.12 (13/10/2026) · NGÀY THÁNG CHUẨN Ở MỌI TAB (người dùng báo: Surgical đếm theo ngày trong tuần bị thiếu / lệch)
+   Kiểm 13/10 (bản xuất 4 file CRM): ① ngày bị ĐẢO ngày ↔ tháng khi gõ tay trên sheet đặt vùng Mỹ (gõ 10/09 ⇒ 9 tháng 10):
+   Surgical 421 dòng tab 6 (cả dòng tháng 08 + 09/2026), Dental 446 dòng cũ + 127 đơn hàng cũ; ② ngày có GIỜ (10:00 / 12:00)
+   ⇒ công thức đếm "≤ ngày cuối kỳ" bỏ sót; ③ ngày dạng chữ ("02/07/0205", "undefined/undefined/22/11/2025").
+   crmDateFix_: mọi ô ngày của tab 6 (Start / Finish), 3 (Day), 7 (Day), 1 (Ngày mở account), ALL TASK (Start / Planned / Revised / Actual finish)
+   ⇒ ngày thật 00:00, định dạng dd/MM/yyyy. Đảo ngày ↔ tháng chỉ sửa khi cột tháng cùng dòng (Start Month / Month) khớp sau khi đảo.
+   File đặt vùng Mỹ (en_US) ⇒ đổi sang en_GB (gõ 10/09/2026 = 10 tháng 9, công thức vẫn dùng dấu phẩy) — người dùng đồng ý 13/10.
+   Múi giờ file khác múi giờ script ⇒ đổi về múi giờ script và ghi lại ngày theo đúng ngày đang hiện.
+   Chạy 1 lần sau khi deploy (ping / boot) + mỗi đêm 02:00 (sửa ô gõ tay mới). Chạy tay: crmDateFixNow(); kết quả ở Script Property CRM_DATEFIX_LOG.
+   ════════════════════════════════════════════════════════════════════════════════════════════════ */
+var DF_KEY = 'CRM_DATEFIX_V', DF_VER = '1';
+function dfPad_(n){ return ('0' + n).slice(-2); }
+function dfMk_(y, mo, d){
+  if (y < 1990 || y > 2100 || mo < 1 || mo > 12 || d < 1 || d > 31) return '';
+  var t = new Date(y, mo - 1, d); if (t.getMonth() !== mo - 1) return '';
+  return y + '-' + dfPad_(mo) + '-' + dfPad_(d);
+}
+/* ngày đang HIỆN trên sheet của 1 ô (Date theo múi giờ file · chữ yyyy-mm-dd / dd/mm/yyyy kiểu VN) — năm hỏng (0205) lấy theo cột tháng */
+function dfIso_(v, tz, ym){
+  if (v instanceof Date) return isNaN(v) ? '' : Utilities.formatDate(v, tz, 'yyyy-MM-dd');
+  if (typeof v === 'number' || typeof v === 'boolean') return '';
+  var s = String(v == null ? '' : v).trim(); if (!s) return '';
+  var m = /(\d{4})-(\d{1,2})-(\d{1,2})/.exec(s); if (m) return dfMk_(+m[1], +m[2], +m[3]);
+  var all = s.match(/\d{1,2}\/\d{1,2}\/\d{2,4}/g); if (!all) return '';
+  var x = all[all.length - 1].split('/'), y = +x[2];
+  if (y < 100) y += 2000;
+  if (y < 1990 && /^\d{6}$/.test(ym || '')) y = +ym.slice(0, 4);
+  return dfMk_(y, +x[1], +x[0]);
+}
+function dfYm_(v){ return String(v == null ? '' : v).replace(/\.0+$/, '').replace(/\D/g, '').slice(0, 6); }
+function dfSwap_(iso, ym){
+  if (!iso || !/^\d{6}$/.test(ym) || iso.slice(0, 7).replace('-', '') === ym) return '';
+  var y = +iso.slice(0, 4), mo = +iso.slice(5, 7), d = +iso.slice(8, 10);
+  if (d > 12) return '';
+  var sw = dfMk_(y, d, mo);
+  return sw && sw.slice(0, 7).replace('-', '') === ym ? sw : '';
+}
+function dfDays_(a, b){ return (Date.UTC(+b.slice(0, 4), +b.slice(5, 7) - 1, +b.slice(8, 10)) - Date.UTC(+a.slice(0, 4), +a.slice(5, 7) - 1, +a.slice(8, 10))) / 864e5; }
+/* 1 tab: cols = [{c, swap?:true, pairOf?:cột bắt đầu}] · monthCol = cột tháng (đối chiếu đảo ngày) */
+function dfFixTab_(s, row0, cols, monthCol, tzOld, tzNew, force, st){
+  if (!s) return;
+  var last = s.getLastRow(); if (last < row0) return;
+  var n = last - row0 + 1, mVals = monthCol ? s.getRange(row0, monthCol, n, 1).getValues() : null;
+  var olds = {}, news = {};
+  cols.forEach(function(spec){
+    var c = spec.c, rg = s.getRange(row0, c, n, 1), V = rg.getValues(), F = rg.getFormulas(), out = [], ch = {}, nCh = 0;
+    var sNew = spec.pairOf ? news[spec.pairOf] : null, sOld = spec.pairOf ? olds[spec.pairOf] : null, o = [], nw = [];
+    for (var i = 0; i < n; i++){
+      var v = V[i][0], f = F[i][0];
+      out.push([v]); o.push(''); nw.push('');
+      if (f || v === '' || v === null) continue;
+      var ym = mVals ? dfYm_(mVals[i][0]) : '', iso = dfIso_(v, tzOld, ym);
+      if (!iso){ if (!(v instanceof Date) && /\d/.test(String(v))) st.bad.push(s.getName() + '!' + String.fromCharCode(64 + c) + (row0 + i) + '="' + String(v).slice(0, 30) + '"'); continue; }
+      o[i] = iso; nw[i] = iso;
+      var fix = iso, why = '';
+      if (!(v instanceof Date)) why = 'text';
+      else if (Utilities.formatDate(v, tzOld, 'HH:mm:ss') !== '00:00:00') why = 'time';
+      if (spec.swap){ var sw = dfSwap_(iso, ym); if (sw){ fix = sw; why = 'swap'; } }
+      if (sNew && sNew[i]){                                                      /* Finish: theo Start cùng dòng (Start vừa đảo ⇒ Finish trùng ngày cũ đổi theo) */
+        if (sOld[i] && sNew[i] !== sOld[i] && iso === sOld[i]){ fix = sNew[i]; why = 'swap'; }
+        else {
+          var sw2 = +iso.slice(8, 10) <= 12 ? dfMk_(+iso.slice(0, 4), +iso.slice(8, 10), +iso.slice(5, 7)) : '';
+          var dNow = dfDays_(sNew[i], iso), dSw = sw2 ? dfDays_(sNew[i], sw2) : -1;
+          if (sw2 && !(dNow >= 0 && dNow <= 92) && dSw >= 0 && dSw <= 92){ fix = sw2; why = 'swap'; }
+        }
+      }
+      if (why || force){
+        out[i] = [Utilities.parseDate(fix, tzNew, 'yyyy-MM-dd')]; ch[i] = 1; nCh++; nw[i] = fix;
+        st[why || 'tz'] = (st[why || 'tz'] || 0) + 1;
+        if (why === 'swap' && st.ex.length < 12) st.ex.push(s.getName() + ' dòng ' + (row0 + i) + ': ' + iso + ' → ' + fix);
+      }
+    }
+    olds[c] = o; news[c] = nw;
+    if (nCh){                                                                 /* chỉ ghi các đoạn ô đổi (không ghi đè cả cột) */
+      for (var j = 0; j < n; j++){
+        if (!ch[j]) continue;
+        var k2 = j; while (k2 + 1 < n && ch[k2 + 1]) k2++;
+        s.getRange(row0 + j, c, k2 - j + 1, 1).setValues(out.slice(j, k2 + 1));
+        j = k2;
+      }
+    }
+    try { rg.setNumberFormat('dd/MM/yyyy'); } catch(e){}
+  });
+}
+function crmDateFix_(){
+  var lock = LockService.getScriptLock(); if (!lock.tryLock(25000)) return { ok:false, error:'busy' };
+  var st = { text:0, time:0, swap:0, tz:0, bad:[], ex:[], notes:[] };
+  try {
+    var book = ss(), tzOld = book.getSpreadsheetTimeZone() || Session.getScriptTimeZone(), tzNew = Session.getScriptTimeZone(), force = false, now = new Date();
+    if (Utilities.formatDate(now, tzOld, 'Z') !== Utilities.formatDate(now, tzNew, 'Z')){ force = true; st.notes.push('múi giờ file ' + tzOld + ' → ' + tzNew); }
+    var loc = ''; try { loc = book.getSpreadsheetLocale(); } catch(e){}
+    if (/^en_US$/i.test(loc)){ try { book.setSpreadsheetLocale('en_GB'); st.notes.push('vùng ' + loc + ' → en_GB (gõ ngày dd/mm/yyyy)'); } catch(e){ st.notes.push('không đổi được vùng ' + loc); } }
+    if (force){ try { book.setSpreadsheetTimeZone(tzNew); } catch(e){ force = false; tzNew = tzOld; st.notes.push('không đổi được múi giờ'); } }
+    var W = COL.weekly, O = COL.order, Pr = COL.present, Cu = COL.customer;
+    var tab = function(k){ try { return sh(k); } catch(e){ return null; } };
+    dfFixTab_(tab('weekly'), DATA_ROW, [{ c:W.start, swap:true }, { c:W.finish, pairOf:W.start }], W.month, tzOld, tzNew, force, st);
+    dfFixTab_(tab('order'), DATA_ROW, [{ c:O.day, swap:true }], O.month, tzOld, tzNew, force, st);
+    dfFixTab_(tab('present'), DATA_ROW, [{ c:Pr.day, swap:true }], Pr.month, tzOld, tzNew, force, st);
+    dfFixTab_(tab('customer'), DATA_ROW, [{ c:Cu.openDate, swap:true }], Cu.openMonth, tzOld, tzNew, force, st);
+    var at = book.getSheetByName('ALL TASK');
+    if (at) dfFixTab_(at, 7, [{ c:10 }, { c:11 }, { c:12 }, { c:16 }], 0, tzOld, tzNew, force, st);
+    SpreadsheetApp.flush();
+  } catch(err){ st.notes.push('LỖI ' + (err && err.message || err)); }
+  finally { try { lock.releaseLock(); } catch(e){} }
+  var msg = Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'dd/MM/yyyy HH:mm') + ' · đảo ngày↔tháng ' + st.swap + ' · bỏ giờ ' + st.time + ' · chữ→ngày ' + st.text +
+            (st.tz ? ' · ghi lại theo múi giờ ' + st.tz : '') + (st.notes.length ? ' · ' + st.notes.join(' · ') : '') +
+            (st.bad.length ? ' · KHÔNG ĐỌC ĐƯỢC ' + st.bad.length + ': ' + st.bad.slice(0, 8).join(', ') : '') + (st.ex.length ? ' · VD ' + st.ex.slice(0, 6).join(' ; ') : '');
+  try { props_().setProperty('CRM_DATEFIX_LOG', msg.slice(0, 8000)); } catch(e){}
+  if (st.swap + st.time + st.text + st.tz){
+    try { _RAW = {}; bumpVersion(); } catch(e){}
+    try { logAct({ pic:'system' }, 'datefix', 'weekly', 'Chuẩn hoá ngày', msg.slice(0, 380), ''); flushLog_(); } catch(e){}
+  }
+  return { ok:true, swap:st.swap, time:st.time, text:st.text, tz:st.tz, notes:st.notes, bad:st.bad, examples:st.ex, log:msg };
+}
+function crmDateFixNow(){ var r = crmDateFix_(); Logger.log(JSON.stringify(r)); return r; }
+function crmDateFixRun(){
+  try { ScriptApp.getProjectTriggers().forEach(function(t){ if (t.getHandlerFunction() === 'crmDateFixRun') ScriptApp.deleteTrigger(t); }); } catch(e){}
+  var r = crmDateFix_();
+  if (r.ok) props_().setProperty(DF_KEY, DF_VER);
+  return r;
+}
+function crmDateFixDaily(){ return crmDateFix_(); }
+/* gọi ở ping / boot: chạy 1 lần sau mỗi lần nâng DF_VER + cài lịch mỗi đêm 02:00 */
+function dfMaybe_(){
+  var P = props_(), c = CacheService.getScriptCache();
+  if (c.get('DF_TRY')) return; c.put('DF_TRY', '1', 900);
+  try {
+    var T = ScriptApp.getProjectTriggers();
+    if (!T.some(function(t){ return t.getHandlerFunction() === 'crmDateFixDaily'; }))
+      ScriptApp.newTrigger('crmDateFixDaily').timeBased().everyDays(1).atHour(2).inTimezone('Asia/Ho_Chi_Minh').create();
+    if (P.getProperty(DF_KEY) !== DF_VER && !T.some(function(t){ return t.getHandlerFunction() === 'crmDateFixRun'; }))
+      ScriptApp.newTrigger('crmDateFixRun').timeBased().after(40 * 1000).create();
+  } catch(e){}
 }

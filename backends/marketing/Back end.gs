@@ -182,6 +182,9 @@ function handle(e, method){
     if(action === 'uploadRef'){                       /* ⭐ v13.3: file tham chiếu — tự chống trùng + khoá ghi riêng */
       return reply(refUploadHandler(user, p), callback);
     }
+    if(action === 'evProof'){                         /* ⭐ 13/10/2026: MKT_SheetAuto.gs — bằng chứng tham dự sự kiện (op=list | upload) */
+      return reply((typeof mktProofHandler_ === 'function') ? mktProofHandler_(user, p) : { ok:false, error:'Thiếu MKT_SheetAuto.gs' }, callback);
+    }
     if(RHX_ONCE[action]){
       /* ⭐ v11: gửi email / đề xuất công tác — chống gửi trùng theo rid, KHÔNG giữ khoá ghi (có thể mất vài giây) */
       var _rid = String(p.rid||'').trim();
@@ -211,7 +214,12 @@ function dispatch(action, user, p){
       return rhxDispatch(action, user, p);
     }
     switch(action){
-      case 'ping':          out = { ok:true, pong:true, pic:user.pic, source:SOURCE }; break;
+      case 'ping':          try{ if(typeof rhDateFix_==='function') rhDateFix_(); }catch(_e){}   /* ⭐ 13/10 chuẩn hoá ngày */
+                                     try{ if(typeof evsEnsureTriggers_==='function') evsEnsureTriggers_(); }catch(_e){}
+                            try{ if(typeof mktaPing_==='function') mktaPing_(); }catch(_e){}   /* ⭐ 13/10/2026: MKT_SheetAuto.gs — chuyển đổi bố cục 2 file MKT (1 lần) */
+                            out = { ok:true, pong:true, pic:user.pic, source:SOURCE }; break;
+      case 'mktAuto':       out = (typeof mktaApi_==='function') ? mktaApi_(user, p) : { ok:false, error:'Thiếu MKT_SheetAuto.gs' }; break;   /* ⭐ 13/10/2026: tự động hoá 2 file MKT */
+      case 'eventSync':     out = (typeof evsApiSync==='function') ? evsApiSync(user, p) : { ok:false, error:'Thiếu Event_Sync.gs' }; break;   /* ⭐ 13/10/2026: sự kiện MKT ⇒ key task */
       case 'version':       out = dataVersion(); break;   /* ⭐ v5.11: dấu vân tay dữ liệu */
       case 'sheets':        out = sheetInfo(); break;    /* ⭐ v5.12: kiểm tra đang đọc đúng sheet nào */
       case 'boot':          out = boot(user); break;
@@ -331,11 +339,14 @@ function boot(user){
      tối đa 1 lần / 5 phút thay vì MỖI lần mở web ⇒ boot nhanh hơn rõ rệt. */
   /* ⭐ v12.2: khi trigger "làm ấm" (warmCache) đang chạy, 2 việc nặng dưới đây do trigger lo
      ⇒ người mở web KHÔNG phải chờ. Chưa có trigger thì chạy như cũ (tối đa 1 lần / 5 phút). */
+  try{ if(typeof evsEnsureTriggers_==='function') evsEnsureTriggers_(); }catch(_e){}   /* ⭐ 13/10/2026: trigger đồng bộ sự kiện MKT */
   if(!warmActive()){
     ensureWarmTrigger();
     if(throttleOk('auto_start', 300)){ try{ autoStartDueTasks(); }catch(e){} }
     if(throttleOk('vs_sync', 300)){ _vsSyncSafe(); touchVersion(); }
   }
+    try{ if(typeof mkEnsureMonthly_==='function') mkEnsureMonthly_(); }catch(_e){}   /* ⭐ 13/10/2026: key Internal Meeting chung hằng tháng */
+    try{ if(typeof rhDateFix_==='function') rhDateFix_(); }catch(_e){}            /* ⭐ 13/10/2026: chuẩn hoá ngày Weekly new (≤ 1 lần / 20 giờ) */
   var bkey = 'boot_' + dataVersion().v;       /* ⭐ v10.2: cả gói dữ liệu boot qua bộ nhớ đệm */
   var data = cGetBig(bkey);
   if(!data){
@@ -1083,7 +1094,8 @@ function updateWeeklyRow(user, p){
   if(!row) return { ok:false, stale:true, error:'Không tìm thấy task '+(p.no||p.row||'')+STALE_MSG };
   var pic = String(sh.getRange(row, 8).getValue()||'');
   if(_vsLocked(sh, row)) return { ok:false, error:_vsMsg() };   /* ⭐ v9 */
-  if(!canEditPic(user, pic)) return { ok:false, error:'Bạn chỉ được sửa task của mình ('+pic+' không phải bạn).' };
+  var _evKey = (typeof evsIsEventKeyRow==='function') && evsIsEventKeyRow(sh, row);   /* ⭐ 13/10/2026: key sự kiện — giữ tên / loại */
+  if(!canEditPic(user, pic) && !(_evKey && canAssignUser(user))) return { ok:false, error:'Bạn chỉ được sửa task của mình ('+pic+' không phải bạn).' };
   var _prevSt = String(sh.getRange(row,14).getValue()||'');   /* ⭐ v12.4: trạng thái TRƯỚC khi sửa */
   var u = p.updates;
   if(typeof u === 'string'){ try{ u = JSON.parse(u); }catch(e){ u = null; } }
@@ -1094,6 +1106,7 @@ function updateWeeklyRow(user, p){
   };
   var COL = { result:9, start:10, planned:11, revised:12, status:14, progress:15,
               pic:8, keyTask:6, subTask:7, type:5, name:7 };
+  if(_evKey){ delete u.keyTask; delete u.type; delete u.name; delete u.subTask; }
   Object.keys(u).forEach(function(k){
     if(u[k]===undefined || u[k]===null) return;
     if(!COL[k]) return;
@@ -1658,6 +1671,7 @@ function deleteWeeklyRow(user, p){
   if(!canEditPic(user,pic)) return { ok:false, error:'Bạn chỉ xoá task của mình.' };
   var nm=String(sh.getRange(row,7).getValue()||sh.getRange(row,6).getValue()||'');
   if(_vsLocked(sh, row)) return { ok:false, error:_vsMsg() };   /* ⭐ v9 */
+  if(typeof evsIsEventKeyRow==='function' && evsIsEventKeyRow(sh, row)) return { ok:false, error:EVS_LOCK_MSG };   /* ⭐ 13/10/2026 */
   if(no.indexOf('.')<0){
     if(!isManager(user)) return { ok:false, error:'Chỉ quản lý được xoá cả Key Task.' };
     var info=keyBlockInfo(sh,no);
@@ -1680,6 +1694,7 @@ function deleteByNo(user, p, kind){
   var pic=String(sh.getRange(row,8).getValue()||'');
   var nm=String(sh.getRange(row,7).getValue()||sh.getRange(row,6).getValue()||'');
   if(_vsLocked(sh, row)) return { ok:false, error:_vsMsg() };   /* ⭐ v9 */
+  if(typeof evsIsEventKeyRow==='function' && evsIsEventKeyRow(sh, row)) return { ok:false, error:EVS_LOCK_MSG };   /* ⭐ 13/10/2026 */
   if(kind==='key' || no.indexOf('.')<0){
     if(!canAssignUser(user)) return { ok:false, error:'Chỉ Quản lý/Trưởng nhóm được xoá cả Key Task.' };
     var info=keyBlockInfo(sh,no);

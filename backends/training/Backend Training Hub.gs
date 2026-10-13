@@ -552,7 +552,10 @@ var HUB_ROUTES = {
   'rhAssignReply'   : {fn:'apiRhAssignReply',   auth:0},
   'rhDirectory'     : {fn:'apiRhDirectory',     auth:0},
   'rhUpdMail'       : {fn:'apiRhUpdMail',       auth:0},  // ★ v3.15 — email thông báo cập nhật hệ thống (RH_UpdMail.gs)
-  'rhUpdSign'       : {fn:'apiRhUpdSign',       auth:0}   // ★ v3.18 — chữ ký email cập nhật của người gửi (xem trước)
+  'rhUpdSign'       : {fn:'apiRhUpdSign',       auth:0},  // ★ v3.18 — chữ ký email cập nhật của người gửi (xem trước)
+  // ★ 13/10/2026 — RH_CustTrain.gs: bằng chứng Coaching (PDF Review) + đào tạo khách hàng (T&E) từ CRM
+  'rhCoachReview'   : {fn:'apiRhCoachReview',   auth:0},
+  'rhCustTrain'     : {fn:'apiRhCustTrain',     auth:0}
 };
 
 /** Lấy tham chiếu hàm theo tên — an toàn cho cả runtime V8 và Rhino */
@@ -598,6 +601,7 @@ function hubDispatch(action, p) {
     /* ⭐ 13/10/2026 — MMH_TestMode.gs: Chế độ TEST của Admin trên Report Hub / CRM (tham số tm=1 — KHÁC test=1 của Training Hub) */
     var tmErr = (typeof tmBegin_ === 'function') ? tmBegin_(p) : null;
     if (tmErr) return tmErr;
+    try { if (typeof hubMigrate1013_ === 'function') hubMigrate1013_(); } catch (eMig) { try { console.error('[hub] migrate ' + eMig); } catch (e2) {} }   // ★ 13/10/2026 — nâng cấp 1 lần (RH_CustTrain.gs)
     if (/^tm[A-Z]/.test(String(action)) && typeof tmRoute_ === 'function') { var tmr = tmRoute_(String(action), p); if (tmr) return tmr; }
     var route = HUB_ROUTES[action];
     if (!route) return {ok:false, error:'Không tìm thấy chức năng: ' + action};
@@ -2017,6 +2021,10 @@ function apiSaveSession(p, user) {
       pick('audience', 6), hubNorm(p.status) || cur[7] || 'Plan',
       pick('meetingLink', 8), pick('recordLink', 9), pick('summary', 10)
     ];
+    // ★ 13/10/2026 — Coaching: chỉ chuyển Completed khi thư mục Review của buổi đã có file PDF
+    if (hubIsCoaching(vals[1]) && vals[7] === 'Completed' && (isNew || existing.status !== 'Completed')) {
+      if (isNew || !hubCoachReview_(existing).hasPdf) return {ok:false, code:'COACH_PDF', error:hubCoachNeedPdfMsg_()};
+    }
     sh.getRange(row, C.DATE, 1, width).setValues([vals]);
     sh.getRange(row, C.SID).setValue(sid);
     if (p.timeFrom !== undefined || p.timeTo !== undefined) {
@@ -2137,7 +2145,7 @@ function hubApplySharing(item) {
 }
 
 function hubEnsureFolder(sh, row, info) {
-  var parent = hubCategoryFolder(info.category);
+  var parent = hubParentFolder_(info.type, info.category);       // ★ 13/10/2026 — Coaching / Customer Training có thư mục mẹ riêng
   var name = hubFolderName(info.date, info.type, info.category, info.audience);
   var it = parent.getFoldersByName(name);
   var folder = it.hasNext() ? it.next() : parent.createFolder(name);
@@ -2173,7 +2181,7 @@ function hubSessionSource(s) {
   var name = s.folderName || hubFolderName(s.date, s.type, s.category, s.audience);
   if (!name) return null;
   var places = [];
-  try { places.push(hubCategoryFolder(s.category)); } catch (e) {}
+  try { places.push(hubParentFolder_(s.type, s.category)); } catch (e) {}
   try { places.push(DriveApp.getFolderById(HUB.DRIVE.PARENT)); } catch (e) {}
   for (var i = 0; i < places.length; i++) {
     var it = places[i].getFoldersByName(name);
@@ -2617,6 +2625,10 @@ function apiUploadInit(p, user) {
   var mime = hubNorm(p.mime) || 'application/octet-stream';
   if (!name) return {ok:false, error:'Tên file không hợp lệ.'};
   if (size > HUB.UPLOAD_MAX_MB * 1048576) return {ok:false, error:'File lớn hơn ' + HUB.UPLOAD_MAX_MB + 'MB — hãy tải thẳng lên Drive.'};
+  // ★ 13/10/2026 — thư mục Review của buổi Coaching chỉ nhận PDF
+  var seg0 = hubList(p.path)[0];
+  if (hubIsCoaching(s.type) && seg0 && hubKey(seg0) === 'review' && !(mime === 'application/pdf' || /\.pdf$/i.test(name)))
+    return {ok:false, code:'COACH_PDF', error:'Thư mục Review của buổi Coaching chỉ nhận file PDF.'};
 
   var root = hubUploadRoot(s);
   var segs = hubList(p.path);
@@ -2730,7 +2742,7 @@ function hubRelocateFolder(before, after, sh, row) {
     notes.push('đổi tên thư mục');
   }
   try {
-    var oldCat = hubCategoryFolder(before.category), newCat = hubCategoryFolder(after.category);
+    var oldCat = hubParentFolder_(before.type, before.category), newCat = hubParentFolder_(after.type, after.category);
     if (oldCat.getId() !== newCat.getId()) {
       var ps = folder.getParents(), inOld = false;
       while (ps.hasNext()) if (ps.next().getId() === oldCat.getId()) inOld = true;
@@ -5302,7 +5314,7 @@ function hubRhFolder(s) {
   if (s.folderUrl) return {s:s, created:false, written:true};
   var res = hubWithLock(function(){
     var sh = hubReportSheet(), C = HUB.COL;
-    var parent = hubCategoryFolder(s.category);
+    var parent = hubParentFolder_(s.type, s.category);
     var name = hubFolderName(s.date, s.type, s.category, s.audience);
     var it = parent.getFoldersByName(name);
     var folder = it.hasNext() ? it.next() : parent.createFolder(name);

@@ -228,7 +228,8 @@ function dispatch(action, user, p){
       return rhxDispatch(action, user, p);
     }
     switch(action){
-      case 'ping':          out = { ok:true, pong:true, pic:user.pic, source:SOURCE, allowed:mgmtAllowed(user), full:mgmtFull(user) }; break;
+      case 'ping':          try{ if(typeof rhDateFix_==='function') rhDateFix_(); }catch(_e){}   /* ⭐ 13/10 chuẩn hoá ngày */
+                                     out = { ok:true, pong:true, pic:user.pic, source:SOURCE, allowed:mgmtAllowed(user), full:mgmtFull(user) }; break;
       case 'roster':        out = { ok:true, source:SOURCE, picList: rosterList() }; break;   /* danh bạ cho màn đăng nhập — không cần quyền */
       case 'version':       out = dataVersion(); break;   /* ⭐ v5.11: dấu vân tay dữ liệu */
       case 'sheets':        out = sheetInfo(); break;    /* ⭐ v5.12: kiểm tra đang đọc đúng sheet nào */
@@ -403,6 +404,8 @@ function boot(user){
     ensureWarmTrigger();
     if(throttleOk('auto_start', 300)){ try{ autoStartDueTasks(); }catch(e){} }
   }
+    try{ if(typeof mkEnsureMonthly_==='function') mkEnsureMonthly_(); }catch(_e){}   /* ⭐ 13/10/2026: key Internal Meeting chung hằng tháng */
+    try{ if(typeof rhDateFix_==='function') rhDateFix_(); }catch(_e){}            /* ⭐ 13/10/2026: chuẩn hoá ngày Weekly new (≤ 1 lần / 20 giờ) */
   var bkey = 'boot_' + dataVersion().v;       /* ⭐ v10.2: cả gói dữ liệu boot qua bộ nhớ đệm */
   var data = cGetBig(bkey);
   if(!data){

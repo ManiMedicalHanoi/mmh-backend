@@ -7,8 +7,10 @@
      deleteKey · deleteSub) — chỉ nhận khi app gửi kèm at=1 (để không trùng tên action cũ của CRM, vd. boot).
    · atImport: chuyển 1 lần các Công việc khác cũ của nhóm từ file MKT sang (chống trùng theo nội dung).
    · Báo cáo tuần / tháng vẫn tách riêng: đi địa bàn (6. WEEKLY REPORT) và Công việc khác (sheet này).
+   · v1.1 (13/10/2026): app gửi expect (tên việc) ⇒ No lệch thì tìm lại theo tên, không thấy ⇒ báo "đã đổi — tải lại" (không ghi / xoá nhầm dòng);
+     thêm việc luôn có ngày bắt đầu (mặc định hôm nay) + hạn (mặc định = ngày bắt đầu); cập nhật không xoá trắng ngày; mọi lệnh ghi chống trùng theo rid.
    ════════════════════════════════════════════════════════════════════════════════════════ */
-var ST = { VER:'1.0', SHEET:'ALL TASK', HDR:5, DATA:7, W:21,
+var ST = { VER:'1.1', SHEET:'ALL TASK', HDR:5, DATA:7, W:21,
   HEAD:['No','FY','Month','Type','Key Task','Sub Task','PIC','Task result / Link','Start','Planned Deadline','Revised Deadline',
         'Leadtime','Status','% Progress','Actual finish','Behavior','Priority','Priority mail at','','Sync key','Sync meta'],
   ACTIONS:{ weekly:1, boot:1, addKey:1, addSub:1, updateKey:1, updateSub:1, updateProgress:1, updateStatus:1, deleteKey:1, deleteSub:1, atImport:1 } };
@@ -82,7 +84,18 @@ function stRenumber_(){
   });
   sh.getRange(ST.DATA, 2, n, 16).setValues(out);
 }
-function stFind_(no){ no = String(no || '').replace(/\.0$/, ''); return stRead_().all.filter(function(x){ return x.no === no; })[0] || null; }
+/* ⭐ v1.1 (13/10/2026) — tìm task theo No + KIỂM TÊN (expect): No đã lệch (có người thêm / xoá dòng) ⇒ tìm lại theo tên (+ PIC),
+   không thấy ⇒ báo "đã đổi — tải lại" thay vì ghi / xoá nhầm dòng khác. Không gửi expect (app cũ) ⇒ như trước. */
+function stFind_(no, expect, pic){
+  no = String(no || '').replace(/\.0$/, '');
+  var all = stRead_().all, hit = all.filter(function(x){ return x.no === no; })[0] || null, ex = stNorm_(expect);
+  if(!ex) return hit;
+  var nm = function(x){ return stNorm_(x.keyTask || x.subTask || x.name); };
+  if(hit && nm(hit) === ex) return hit;
+  var c = all.filter(function(x){ return nm(x) === ex && (!pic || !x.pic || stNorm_(x.pic) === stNorm_(pic)); });
+  if(c.length) return c[0];
+  var e = new Error('Việc "' + stS_(expect) + '" đã đổi trên sheet ALL TASK — tải lại rồi thử lại.'); e.stale = true; throw e;
+}
 function stKeyEnd_(key){ var s = key.subs || []; return s.length ? s[s.length - 1].row : key.row; }
 function stLastRow_(){ var a = stRead_().all; return a.length ? a[a.length - 1].row : ST.DATA - 1; }
 function stWrite_(row, o){
@@ -129,8 +142,9 @@ function stAddKey_(me, p){
     var sh = stSheet_(); row = stLastRow_() + 1;
     if(row > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), 50);
     var f = stFix_(p.status || 'To Do', p.progress);
-    stWrite_(row, { type:p.type || '', keyTask:name, subTask:'', pic:p.pic || me.pic, result:p.result || '', start:p.start || stToday_(),
-      planned:p.planned || '', revised:'', status:f.status || 'To Do', progress:f.progress || 0 });
+    var st0 = stIso_(p.start) || stToday_();                         /* v1.1 — không bao giờ để trống ngày bắt đầu / hạn */
+    stWrite_(row, { type:p.type || '', keyTask:name, subTask:'', pic:p.pic || me.pic, result:p.result || '', start:st0,
+      planned:stIso_(p.planned) || st0, revised:'', status:f.status || 'To Do', progress:f.progress || 0 });
     stRenumber_(); SpreadsheetApp.flush();
   } finally { L.releaseLock(); }
   stLog_(me, 'add', name, 'Key task', row);
@@ -140,14 +154,15 @@ function stAddSub_(me, p){
   var name = stS_(p.name || p.subTask); if(!name) throw new Error('Thiếu tên Sub task');
   var L = stLock_(), row;
   try{
-    var key = stFind_(p.parentNo);
+    var key = stFind_(p.parentNo, p.parentName || p.expectKey, '');
     if(!key || !key.subs) throw new Error('Không tìm thấy Key task ' + p.parentNo + ' — tải lại rồi thử lại.');
     var sh = stSheet_(), after = stKeyEnd_(key);
     sh.insertRowsAfter(after, 1); row = after + 1;
     sh.getRange(row, 2, 1, ST.W).clearContent();
     var f = stFix_(p.status || 'To Do', p.progress);
-    stWrite_(row, { type:'', keyTask:'', subTask:name, pic:p.pic || me.pic, result:p.result || '', start:p.start || stToday_(),
-      planned:p.planned || '', revised:'', status:f.status || 'To Do', progress:f.progress || 0 });
+    var st1 = stIso_(p.start) || stToday_();
+    stWrite_(row, { type:'', keyTask:'', subTask:name, pic:p.pic || me.pic, result:p.result || '', start:st1,
+      planned:stIso_(p.planned) || st1, revised:'', status:f.status || 'To Do', progress:f.progress || 0 });
     stRenumber_(); SpreadsheetApp.flush(); _ST = null;
     stRollup_(key.no); stRenumber_();
   } finally { L.releaseLock(); }
@@ -157,12 +172,14 @@ function stAddSub_(me, p){
 function stUpdate_(me, p, isKey){
   var L = stLock_(), t;
   try{
-    t = stFind_(p.no); if(!t) throw new Error('Không tìm thấy task ' + p.no + ' — tải lại rồi thử lại.');
+    t = stFind_(p.no, p.expect, p.expectPic); if(!t) throw new Error('Không tìm thấy task ' + p.no + ' — tải lại rồi thử lại.');
     stCanEdit_(me, t.pic);
     var o = {};
     if(isKey && p.keyTask !== undefined) o.keyTask = stS_(p.keyTask);
     if(!isKey && p.name !== undefined) o.subTask = stS_(p.name);
     ['type','pic','result','start','planned','revised'].forEach(function(f){ if(p[f] !== undefined && !(f === 'type' && !isKey)) o[f] = p[f]; });
+    if(o.start !== undefined && !stIso_(o.start)) delete o.start;          /* v1.1 — cập nhật không bao giờ xoá trắng ngày */
+    if(o.planned !== undefined && !stIso_(o.planned)) delete o.planned;
     var f = stFix_(p.status, p.progress);
     if(f.status !== undefined) o.status = f.status;
     if(f.progress !== undefined) o.progress = f.progress;
@@ -177,7 +194,8 @@ function stUpdate_(me, p, isKey){
 function stDelete_(me, p, isKey){
   var L = stLock_(), t;
   try{
-    t = stFind_(p.no); if(!t) throw new Error('Không tìm thấy task ' + p.no + ' — tải lại rồi thử lại.');
+    try { t = stFind_(p.no, p.expect, p.expectPic); } catch(eF){ if(eF && eF.stale) t = null; else throw eF; }
+    if(!t){ if(stS_(p.expect)) return { ok:true, gone:true, message:'Việc đã được xoá trước đó', keyTasks:stRead_().keys, source:'crm' }; throw new Error('Không tìm thấy task ' + p.no + ' — tải lại rồi thử lại.'); }
     stCanEdit_(me, t.pic);
     var sh = stSheet_();
     if(isKey && t.subs){ sh.deleteRows(t.row, stKeyEnd_(t) - t.row + 1); }
@@ -234,11 +252,11 @@ function stRoute_(action, p){
       case 'addSub': return stAddSub_(me, p);
       case 'updateKey': return stUpdate_(me, p, true);
       case 'updateSub': return stUpdate_(me, p, false);
-      case 'updateProgress': case 'updateStatus': return stUpdate_(me, { no:p.no, status:p.status, progress:p.progress, actor:p.actor, pic:p.pic }, !!(stFind_(p.no) || {}).subs);
+      case 'updateProgress': case 'updateStatus': return stUpdate_(me, { no:p.no, expect:p.expect, expectPic:p.expectPic, status:p.status, progress:p.progress, actor:p.actor, pic:p.pic }, !!(stFind_(p.no, p.expect, p.expectPic) || {}).subs);
       case 'deleteKey': return stDelete_(me, p, true);
       case 'deleteSub': return stDelete_(me, p, false);
       case 'atImport': return stImport_(me, p);
     }
-  }catch(e){ return { ok:false, error:String(e && e.message || e) }; }
+  }catch(e){ return { ok:false, stale:!!(e && e.stale), error:String(e && e.message || e) }; }
   return null;
 }

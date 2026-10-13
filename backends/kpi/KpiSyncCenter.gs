@@ -198,7 +198,7 @@ var KSC = {
   EDIT_WAIT_S : 30,          // giây: lần sửa mới chờ tối đa bấy nhiêu nếu đang có lượt khác chạy (không bỏ lần sửa)
   STATUS_EVERY: 2,           // phút: ghi lại sheet KPI SYNC STATUS tối đa 1 lần trong khoảng này
   TEAM_LABEL  : { dental: 'CRM Dental', surgical: 'CRM Surgical', eyeless: 'CRM Eyeless', thai: 'CRM Thailand Surgical' },
-  CRM_MANUAL  : { turnover: 1, manual: 1, event_hub: 1 },          // các dòng CRM nhận số TỪ file KPI
+  CRM_MANUAL  : { turnover: 1, manual: 1, event_hub: 1, event_trn: 1 },   // các dòng CRM nhận số TỪ file KPI (event_trn: Dental C10-03/04/05 — T&E từ Training Master, CRM v10.11)
   EVENT_CODES : ['C11-01', 'C11-01a', 'C13-00']                     // KPI Hub đếm từ REPORT_EVENT (Marketing Offline Thái)
 };
 
@@ -266,7 +266,13 @@ var KSC_TRAIN = {
   RULES     : [
     { code: 'L1-00',  type: 'internal', cat: 'product',  trainer: '*',       text: 'Internal · Category = Product · mọi Trainer' },
     { code: 'L2-*',   type: 'internal', cat: '!product', trainer: '@member', text: 'Internal · Category khác Product · Trainer = người của dòng KPI' },
-    { code: 'C10-06', type: 'external', cat: '*',        trainer: 'Giang',   text: 'External · mọi Category · Trainer = Giang' }
+    { code: 'C10-06', type: 'external', cat: '*',        trainer: 'Giang',   complete: true, text: 'External · mọi Category · Trainer = Giang (buổi Customer Training: Actual > 0, review đủ 5 dòng)' },
+    /* 13/10/2026 — đào tạo khách hàng (T&E) tạo từ CRM (Training Hub rhCustTrain) · Dental Bắc / Trung / Nam = PIC của dòng KPI (Viet / Vinh / Phuong) */
+    { code: 'C10-03', codes: ['C10-03', 'C10-04', 'C10-05'], type: 'external', cat: 'customer training', trainer: '@member', complete: true,
+      text: 'External · Category = Customer Training (CRM) · Trainer = người của dòng KPI · T&E Actual > 0 · review đủ 5 dòng' },
+    /* 13/10/2026 — đi kèm coaching Sales Dental / Surgical (Tuyen / Giang = PIC của dòng KPI) · bằng chứng = PDF trong thư mục Review của buổi */
+    { code: 'C3-10', codes: ['C3-10', 'C3-11'], type: 'coaching', cat: '*', trainer: '@member', evidence: 'pdf',
+      text: 'Training Type = Coaching · Trainer = người của dòng KPI · có file PDF trong thư mục Review của buổi' }
   ]
 };
 
@@ -492,7 +498,7 @@ function kscPlan() {
   steps.push({ id: 'rollup', title: 'Dòng tổng của 3. Detail KPI', file: ss.getName(), sheet: KSC.DETAIL, codes: 'Các mã dòng tổng (SUMIF / AVERAGEIF)' });
   steps.push({ id: 'zero', title: 'Sheet 5 · Target = 0 ⇒ 100%', file: ss.getName(), sheet: KSC_M5.SHEET, codes: 'Cột % tháng / quý / năm' });
   steps.push({ id: 'turnover', title: 'Doanh số NPP (Turnover)', file: 'MMH Turnover Report FY67-FY68', sheet: KSC.TURNOVER_SUM + ' (Type 1 Turnover · 3 Composite amount)', codes: KSC_TURNOVER.map(function (x) { return x.code; }).join(' · ') });
-  steps.push({ id: 'training', title: 'Đào tạo (Training Master)', file: 'MMH - Training Master', sheet: 'Training Report FYxx', codes: 'L1-00 · L2-01→L2-06 · C10-06' });
+  steps.push({ id: 'training', title: 'Đào tạo (Training Master)', file: 'MMH - Training Master', sheet: 'Training Report FYxx', codes: 'L1-00 · L2-01→L2-06 · C10-03→C10-06 · C3-10 · C3-11' });
   steps.push({ id: 'kbi', title: 'Điểm hành vi (KBI)', file: 'Key Behavioral Indicators Report', sheet: KSC_KBI.SHEET, codes: 'L3-01 → L3-22 (theo PIC)' });
   steps.push({ id: 'moff', title: 'MKT offline VN (sự kiện)', file: 'Vietnam - Marketing Offline Plan & Report FY68', sheet: KSC_MOFF.SHEET, codes: 'C8-00 · C9-00 · C12-01 · C12-02 · C15-01 · C15-02' });
   steps.push({ id: 'mkt', title: 'MKT online & Design', file: '3. Vietnam - Digital Marketing & Design FY68', sheet: 'ADS REPORT · EVENT REPORT · PRODUCT REPORT · ORDER REPORT', codes: 'C17-01 → C17-06' });
@@ -642,7 +648,9 @@ function kscTurnover_(ctx, why) {
     if (kscNorm_(x[cC]) === 'viet nam') vnTM[t + '|' + m] = (vnTM[t + '|' + m] || 0) + a;
   }
   var now = new Date(), curYm = ctx.curYm, day = Number(Utilities.formatDate(now, KSC.TZ, 'd'));
-  function closed(t, m) { return (m < curYm || (m === curYm && day >= 25)) && Math.abs(typeMonth[t + '|' + m] || 0) > 1e-9; }
+  /* 13/10/2026 (người dùng yêu cầu): BỎ luật "chỉ tháng đã đóng / từ ngày 25" — mọi tháng đến tháng hiện tại có Actual trong SUM TURNOVER
+     đều ghi ngay (real time): Turnover đổi ⇒ KPI nhảy số theo. Tháng tương lai vẫn không ghi. */
+  function closed(t, m) { return m <= curYm && Math.abs(typeMonth[t + '|' + m] || 0) > 1e-9; }
   var months = ctx.L.months, data = {}, noType = [];
   /* v1.13: Jizai amount trùng y hệt Composite amount (cùng NPP, cùng tháng) ⇒ số nguồn nhập nhầm ⇒ không ghi */
   var jzT = types['2 jizai amount'] ? '2 jizai amount' : Object.keys(types).filter(function (t) { return /jizai.*(amount|usd)/.test(t); })[0], coT = '3 composite amount', dup = {}, dupTxt = [], dupCodes = {};
@@ -686,7 +694,7 @@ function kscTurnover_(ctx, why) {
     if (f.country) flt.push('Country = ' + up(f.country)); if (f.prod) flt.push('Products = ' + up(f.prod));
     out.rules[f.code] = 'SUM TURNOVER, cột Actual USD · ' + flt.join(' · ') +
       ' · ' + (ctx.L.H['agg'] != null && ctx.L.rows[f.code] != null && String(ctx.L.V[ctx.L.rows[f.code]][ctx.L.H['agg']]).trim().toUpperCase() === 'SUM' ? 'số của từng tháng' : 'lũy kế từ tháng đầu năm tài chính') +
-      ' · chỉ tháng đã đóng (tháng trước tháng hiện tại, hoặc tháng hiện tại từ ngày 25, và Type đó đã có Actual).';
+      ' · mọi tháng đến tháng hiện tại đã có Actual (cập nhật real time theo file Turnover).';
   });
   var fixed = 0, fixMsg = '';
   try { fixed = kscFixKpiAct_(tss); } catch (e) { fixMsg = ' · ⚠ chưa sửa được công thức _KPI_ACT: ' + (e && e.message || e); }
@@ -703,7 +711,7 @@ function kscTurnover_(ctx, why) {
   if (dupTxt.length) out.status = 'error';
   return kscResult_(out, st, (dupTxt.length ? '⚠ SUM TURNOVER: Jizai amount TRÙNG Composite amount (' + dupTxt.join('; ') +
       ') ⇒ chưa ghi ' + Object.keys(dupCodes).join(', ') + ', cần sửa dòng 2 Jizai amount ở sheet Actual input / file kế toán · ' : '') +
-    rows.length + ' dòng SUM TURNOVER · tháng đã đóng: ' + (closedList.join(', ') || '(chưa có)') + (totTxt ? ' · ' + totTxt : '') +
+    rows.length + ' dòng SUM TURNOVER · tháng có số: ' + (closedList.join(', ') || '(chưa có)') + (totTxt ? ' · ' + totTxt : '') +
     (noType.length ? ' · SUM TURNOVER chưa có Type cho: ' + noType.join(', ') + ' (JIZAI cần Type "2 Jizai amount")' : '') +
     (fixed ? ' · đã bọc ARRAYFORMULA ' + fixed + ' ô công thức trong ' + KSC.TURNOVER_ACT : '') + fixMsg + pushMsg);
 }
@@ -730,9 +738,10 @@ function kscTraining_(ctx, why) {
               codes: targets.map(function (t) { return t.code; }), rules: {} };
   try { if (S.sheets.length) out.url = kscUrl_(tss, tss.getSheetByName(S.sheets[S.sheets.length - 1])); } catch (eu) {}
   targets.forEach(function (t) {
-    out.rules[t.code] = 'Đếm buổi ở sheet Training Report FYxx: Training Type ' + (t.rule.type === 'internal' ? 'Internal' : 'External') +
-      ' · ' + (t.rule.cat === 'product' ? 'Category = Product' : t.rule.cat === '!product' ? 'Category khác Product' : 'mọi Category') +
+    out.rules[t.code] = 'Đếm buổi ở sheet Training Report FYxx: Training Type ' + (t.rule.type === 'internal' ? 'Internal' : t.rule.type === 'coaching' ? 'Coaching' : 'External') +
+      ' · ' + (t.rule.cat === 'product' ? 'Category = Product' : t.rule.cat === '!product' ? 'Category khác Product' : t.rule.cat === '*' ? 'mọi Category' : 'Category = Customer Training') +
       ' · ' + (t.trainerKey === '*' ? 'mọi Trainer' : 'Trainer = ' + (t.rule.trainer === '@member' ? t.member : t.rule.trainer)) +
+      (t.rule.evidence === 'pdf' ? ' · có file PDF trong thư mục Review của buổi' : '') + (t.rule.cat === 'customer training' ? ' · T&E Actual > 0 · review đủ 5 dòng mẫu' : '') +
       ' · Status = Completed · tháng theo Actual Date (trống thì cột Month) · bỏ phiên TEST, mỗi Session ID đếm 1 lần.';
   });
   var back = '';
@@ -750,7 +759,8 @@ function kscTrainTargets_(L) {
       var pre = rule.code.replace(/\*$/, '');
       Object.keys(L.rows).forEach(function (c) { if (c.indexOf(pre) === 0 && !/-00$/.test(c)) codes.push(c); });
       codes.sort();
-    } else if (L.rows[rule.code] != null) codes.push(rule.code);
+    } else if (rule.codes) rule.codes.forEach(function (c) { if (L.rows[c] != null) codes.push(c); });
+    else if (L.rows[rule.code] != null) codes.push(rule.code);
     codes.forEach(function (code) {
       var r = L.rows[code], member = cell(r, mCol), who = rule.trainer === '@member' ? member : rule.trainer;
       if (rule.trainer === '@member' && (!who || /,|^-/.test(who))) return;
@@ -778,11 +788,11 @@ function kscTrainPeople_(tss) {
   return map;
 }
 function kscTrainSessions_(tss, people) {
-  var list = [], seen = {}, sheets = [];
+  var list = [], seen = {}, sheets = [], budget = { n: KGS.PDF_MAX_LOOKUPS };
   tss.getSheets().forEach(function (s) {
     if (!KSC_TRAIN.REPORT_RE.test(kscNorm_(s.getName()))) return;
-    var lr = s.getLastRow(), lc = Math.min(s.getLastColumn(), 40); if (lr < 2) return;
-    var V = s.getRange(1, 1, lr, lc).getValues(), hr = -1, C = {};
+    var lr = s.getLastRow(), lc = Math.min(s.getLastColumn(), 80); if (lr < 2) return;      // 13/10: tới 80 cột (cột T&E ở cuối sheet)
+    var V = s.getRange(1, 1, lr, lc).getValues(), hr = -1, C = {}, RT = null;
     for (var i = 0; i < Math.min(lr, 10) && hr < 0; i++) {
       var h = V[i].map(kscNorm_);
       if (h.indexOf('training type') >= 0 && h.indexOf('trainer') >= 0) { hr = i; h.forEach(function (x, k) { if (x && C[x] == null) C[x] = k; }); }
@@ -790,20 +800,42 @@ function kscTrainSessions_(tss, people) {
     if (hr < 0) return;
     sheets.push(s.getName());
     function g(row, key) { return C[key] == null ? '' : row[C[key]]; }
+    function folderUrl(r) {                                          /* link thư mục buổi (ô Training Folder: rich text / công thức / chữ) */
+      var c = C['training folder']; if (c == null) return '';
+      if (!RT) { try { var rg = s.getRange(1, c + 1, lr, 1); RT = { t: rg.getRichTextValues(), f: rg.getFormulas() }; } catch (e) { RT = { t: [], f: [] }; } }
+      var u = ''; try { u = RT.t[r] && RT.t[r][0] ? (RT.t[r][0].getLinkUrl() || '') : ''; if (!u && RT.t[r] && RT.t[r][0]) RT.t[r][0].getRuns().forEach(function (x) { if (!u && x.getLinkUrl()) u = x.getLinkUrl(); }); } catch (e) {}
+      if (!u && RT.f[r] && RT.f[r][0]) { var m = /"(https?:[^"]+)"/.exec(RT.f[r][0]); if (m) u = m[1]; }
+      if (!u && /^https?:/.test(String(V[r][c]))) u = String(V[r][c]);
+      return u;
+    }
     for (var r = hr + 1; r < lr; r++) {
       var row = V[r], type = kscNorm_(g(row, 'training type')), trainerRaw = String(g(row, 'trainer') || '').trim();
-      if (!type || (type.indexOf('internal') !== 0 && type.indexOf('external') !== 0)) continue;
+      if (!type || (type.indexOf('internal') !== 0 && type.indexOf('external') !== 0 && type.indexOf('coaching') !== 0)) continue;   // 13/10: + Coaching
       var sid = String(g(row, 'session id') || '').trim(), topic = String(g(row, 'training topic') || '').trim();
       if (/^test/i.test(sid) || /^\[test\]/i.test(topic)) continue;
       if (sid) { if (seen[sid]) continue; seen[sid] = 1; }
       var name = trainerRaw.indexOf('@') > 0 ? (people[trainerRaw.toLowerCase()] || trainerRaw) : trainerRaw;
       var key = kscNorm_(name); if (KSC_TRAIN.ALIAS[key]) key = kscNorm_(KSC_TRAIN.ALIAS[key]);
       var date = g(row, 'actual date'), status = String(g(row, 'status') || '').trim();
-      list.push({ sheet: s.getName(), row: r + 1, sid: sid, topic: topic, audience: String(g(row, 'target audience') || '').trim(),
+      var catKey = kscNorm_(g(row, 'training category')), done = KSC_TRAIN.DONE.indexOf(kscNorm_(status)) >= 0;
+      var it = { sheet: s.getName(), row: r + 1, sid: sid, topic: topic, audience: String(g(row, 'target audience') || '').trim(),
         date: kscIsDate_(date) ? Utilities.formatDate(date, KSC.TZ, 'dd/MM/yyyy') : String(date || ''),
-        ym: kscYm_(date, g(row, 'month')), type: type.indexOf('internal') === 0 ? 'Internal' : 'External',
-        cat: String(g(row, 'training category') || '').trim(), catKey: kscNorm_(g(row, 'training category')),
-        trainer: name, trainerKey: key, status: status, done: KSC_TRAIN.DONE.indexOf(kscNorm_(status)) >= 0 });
+        ym: kscYm_(date, g(row, 'month')), type: type.indexOf('internal') === 0 ? 'Internal' : type.indexOf('coaching') === 0 ? 'Coaching' : 'External',
+        cat: String(g(row, 'training category') || '').trim(), catKey: catKey,
+        trainer: name, trainerKey: key, status: status, done: done, ok: true, why: '' };
+      /* 13/10/2026 — điều kiện tính: Coaching cần PDF Review · Customer Training (T&E) cần Actual > 0 + review đủ 5 dòng */
+      it.kind = kscTrainKind_(it.type, catKey);
+      if (it.kind === 'coach') {
+        it.pdf = false;
+        if (done) { var pr = kscCoachPdf_(sid || (s.getName() + ':' + (r + 1)), folderUrl(r), budget); it.pdf = pr.ok; it.pdfWhy = pr.why; }
+        if (!it.pdf) { it.ok = false; it.why = it.pdfWhy || 'chưa có file PDF trong thư mục Review'; }
+      }
+      if (catKey === 'customer training') {
+        var rv = String(g(row, 't&e review') || g(row, 'summary') || ''), ra = kscTeReview_(rv);
+        it.isTe = true; it.teActual = kscNum_(g(row, 't&e actual')) || 0; it.teOk = it.teActual > 0 && ra.ok;
+        if (!it.teOk) { it.ok = false; it.why = it.teActual > 0 ? 'review chưa đủ 5 dòng (' + ra.missing.join(' ') + ')' : 'T&E Actual (số tham dự thực tế) = 0'; }
+      }
+      list.push(it);
     }
   });
   return { list: list, sheets: sheets };
@@ -814,6 +846,9 @@ function kscTrainMatch_(s, t) {
   if (kscNorm_(s.type) !== r.type) return false;
   if (r.cat === 'product' && s.catKey !== 'product') return false;
   if (r.cat === '!product' && s.catKey === 'product') return false;
+  if (r.cat !== '*' && r.cat !== 'product' && r.cat !== '!product' && s.catKey !== r.cat) return false;   // 13/10: vd. 'customer training'
+  if (r.evidence === 'pdf' && s.pdf === false) return false;      // Coaching: chưa có PDF Review (undefined = chỉ xét kế hoạch)
+  if (r.complete && s.teOk === false) return false;               // T&E: Actual = 0 hoặc review thiếu dòng
   if (t.trainerKey !== '*' && s.trainerKey !== t.trainerKey) return false;
   return true;
 }
@@ -828,57 +863,9 @@ function kscTrainCount_(list, targets, months) {
   });
   return { counts: counts, hits: hits };
 }
+/* 13/10/2026 — tab "KPI TRAINING FY68" dựng lại ở KpiGroupSheets.gs (bảng mã KPI + ma trận theo PIC + danh sách buổi, có màu % đạt) */
 function kscTrainWriteBack_(tss, ctx, targets, res, S, force) {
-  var L = kscLayout_(ctx.sh), name = KSC_TRAIN.OUT_PREFIX + L.fy, NC = 7 + L.months.length * 2, grid = [];
-  function pad(a) { while (a.length < NC) a.push(''); return a; }
-  function num(x) { return (x === '' || x === null || x === undefined || isNaN(Number(x))) ? '' : Number(x); }
-  grid.push(pad(['MMH TRAINING ⇄ KPI ' + L.fy + ' · số liệu tự động từ file KPI (KpiSyncCenter) · không gõ tay vào tab này']));
-  grid.push(pad(['Cập nhật: ' + Utilities.formatDate(new Date(), KSC.TZ, 'dd/MM/yyyy HH:mm') + ' · nguồn: ' + S.sheets.join(', ')]));
-  grid.push(pad(['']));
-  var hdr = ['KPI Code', 'Detail KPI', 'PIC', 'Rule đếm', L.fy + ' Target', L.fy + ' Actual', L.fy + ' %'];
-  L.months.forEach(function (m) { hdr.push(m + ' Target'); });
-  L.months.forEach(function (m) { hdr.push(m + ' Actual'); });
-  grid.push(hdr);
-  targets.forEach(function (t) {
-    var r = t.row, row = [t.code, t.name, t.member, t.rule.text,
-      L.fyT >= 0 ? num(L.V[r][L.fyT]) : '', L.fyA >= 0 ? num(L.V[r][L.fyA]) : '', L.fyP >= 0 ? num(L.V[r][L.fyP]) : ''];
-    L.months.forEach(function (m) { row.push(L.tCol[m] != null ? num(L.V[r][L.tCol[m]]) : ''); });
-    L.months.forEach(function (m) { var c = L.aCol[m]; row.push(c != null && kscKind_(L.F[r][c]) !== 'placeholder' ? num(L.V[r][c]) : ''); });
-    grid.push(row);
-  });
-  grid.push(pad(['']));
-  grid.push(pad(['DANH SÁCH BUỔI ĐÀO TẠO TRONG ' + L.fy]));
-  grid.push(pad(['Session ID', 'Training Topic', 'Trainer', 'Training Type', 'Training Category', 'Actual Date', 'Month', 'Status', 'Tính vào mã KPI', 'Ghi chú', 'Sheet · dòng']));
-  var fy = [];
-  S.list.forEach(function (s, i) { if (s.ym && L.months.indexOf(s.ym) >= 0) fy.push([s, i]); });
-  fy.sort(function (a, b) { return a[0].ym - b[0].ym; });
-  fy.forEach(function (p) {
-    var s = p[0], hit = res.hits[p[1]] || [], note = '';
-    if (!s.done) note = 'Chưa tính: Status = ' + (s.status || '(trống)') + ', chỉ đếm Completed';
-    else if (!hit.length) note = 'Chưa tính: không khớp rule (Trainer ' + s.trainer + ' / ' + s.type + ' / ' + (s.cat || 'không Category') + ')';
-    else if (s.ym > ctx.curYm) note = 'Tháng chưa tới';
-    grid.push(pad([s.sid, s.topic, s.trainer, s.type, s.cat, s.date, s.ym, s.status, hit.join(', '), note, s.sheet + ' · ' + s.row]));
-  });
-  if (!fy.length) grid.push(pad(['(chưa có buổi đào tạo nào trong ' + L.fy + ')']));
-  var hash = Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, JSON.stringify(grid.slice(2))));
-  var P = PropertiesService.getScriptProperties(), out = tss.getSheetByName(name), isNew = !out;
-  if (!out) out = tss.insertSheet(name);
-  if (!force && !isNew && P.getProperty('KSC_TRAIN_HASH') === hash) return { tab: name, changed: false };
-  out.clearContents();
-  if (out.getMaxColumns() < NC) out.insertColumnsAfter(out.getMaxColumns(), NC - out.getMaxColumns());
-  if (out.getMaxRows() < grid.length + 5) out.insertRowsAfter(out.getMaxRows(), grid.length + 5 - out.getMaxRows());
-  out.getRange(1, 1, grid.length, NC).setValues(grid);
-  try {
-    var h2 = 4 + targets.length + 3;
-    out.getRange(1, 1).setFontWeight('bold').setFontSize(13).setFontColor('#003047');
-    out.getRange(4, 1, 1, NC).setFontWeight('bold').setBackground('#CFE2F3').setWrap(true);
-    out.getRange(h2 - 1, 1).setFontWeight('bold').setFontColor('#003047');
-    out.getRange(h2, 1, 1, 11).setFontWeight('bold').setBackground('#CFE2F3');
-    if (targets.length) out.getRange(5, 7, targets.length, 1).setNumberFormat('0%');
-    out.setFrozenRows(4);
-  } catch (e) {}
-  P.setProperty('KSC_TRAIN_HASH', hash);
-  return { tab: name, changed: true };
+  return kscTrainSheet_(tss, ctx, targets, res, S, force);
 }
 
 /* ════════════════ NGUỒN 3 · CÁC FILE CRM (đăng ký ở _CRM_LINKS) ════════════════ */
@@ -971,12 +958,15 @@ function kscMkt_(ctx, why) {
   Object.keys(data).forEach(function (c) { if (ctx.L.rows[c] == null) delete data[c]; });
   var st = kscWrite_(ctx, 'mkt', data, { why: why });
   if (X.miss.length) out.status = 'error';
+  var tabMsg = '';                                                   // 13/10/2026 — tab "KPI MKT Online" trong file Digital Marketing & Design (KpiGroupSheets.gs)
+  try { var tb = kscMktSheet_(mss, ctx, X, why === 'manual'); tabMsg = ' · tab "' + tb.tab + '" ' + (tb.changed ? 'đã cập nhật' : 'không đổi'); }
+  catch (eTab) { tabMsg = ' · ⚠ chưa ghi được tab KPI MKT Online: ' + (eTab && eTab.message || eTab); }
   var show = function (c, m, pct) { var v = data[c] && data[c][m]; return v == null ? '(trống)' : pct ? (Math.round(v * 10000) / 100) + '%' : Math.round(v * 100) / 100; };
   var txt = months.slice(-2).map(function (m) {
     return m + ': MIR Event ' + show(K.mirEvent, m, 1) + ', MIR Product ' + show(K.mirProduct, m, 1) + ', đăng đúng hạn ' + show(K.postOnTime, m, 1) +
       ', content ' + show(K.content, m) + ', thiết kế đúng hạn ' + show(K.designOnTime, m, 1) + ', điểm thiết kế ' + show(K.score, m);
   }).join(' | ');
-  return kscResult_(out, st, (X.miss.length ? '⚠ không đọc được: ' + X.miss.join(', ') + ' · ' : '') + txt);
+  return kscResult_(out, st, (X.miss.length ? '⚠ không đọc được: ' + X.miss.join(', ') + ' · ' : '') + txt + tabMsg);
 }
 /* gom dữ liệu MKT theo tháng (dùng cho đồng bộ và cho báo cáo PDF) */
 function kscMktCollect_(mss, months) {
@@ -1810,13 +1800,15 @@ function kscCrmTab_(css, link) {
 function kscCell_(r, c) { var v = r[c - 1]; return v === undefined || v === null ? '' : v; }
 function kscCrmVisits_(o, key, pic, eff) {
   var T = o.tab(KSC_CRMEV.WEEKLY); if (!T) return null;
-  var W = KSC_CRMEV.WK, p = kscNorm_(pic), today = new Date(), photo = /^(yes|co)$/.test(kscNorm_(o.set.photo)), out = [];
+  /* CRM v10.11 (13/10/2026): cùng rule công thức tab 9 — luôn bắt buộc có ảnh, bỏ status trống và dòng kế hoạch TBD */
+  var W = KSC_CRMEV.WK, p = kscNorm_(pic), today = new Date(), photo = true, out = [];
   T.V.forEach(function (r) {
     var d = kscCell_(r, W.start); if (!kscIsDate_(d) || d > today) return;
     var ym = kscYm_(d); if (eff.indexOf(ym) < 0) return;
     if (kscNorm_(kscCell_(r, W.pic)) !== p || kscNorm_(kscCell_(r, W.action)) !== 'visiting') return;
-    var st = kscNorm_(kscCell_(r, W.status)); if (st === 'not started' || /^cancel/.test(st)) return;
+    var st = kscNorm_(kscCell_(r, W.status)); if (!st || st === 'not started' || /^cancel/.test(st)) return;
     var at = String(kscCell_(r, W.atype)).trim();
+    if (kscNorm_(at) === 'tbd' || /^tbd\//.test(kscNorm_(kscCell_(r, W.account)))) return;
     if (key === 'visit_dealer' && kscNorm_(at) !== 'dealer') return;
     if (key === 'visit_other' && kscNorm_(at) === 'dealer') return;
     if (photo && !String(kscCell_(r, W.photo)).trim()) return;
@@ -1846,6 +1838,7 @@ function kscCrmPresent_(o, pic, eff) {
   T.V.forEach(function (r) {
     var ym = kscYm_(null, kscCell_(r, R.month)); if (eff.indexOf(ym) < 0) return;
     if (pic && kscNorm_(kscCell_(r, R.pic)) !== p) return;
+    if (!(kscNum_(kscCell_(r, R.actual)) > 0) || !String(kscCell_(r, 11)).trim()) return;   /* CRM v10.11 — chỉ buổi có người tham dự + Event review (cột K) */
     var day = kscCell_(r, R.day);
     out.push({ ym: ym, day: kscIsDate_(day) ? Utilities.formatDate(day, KSC.TZ, 'dd/MM') : (kscNum_(day) ? kscPad2_(kscNum_(day)) + '/' + String(ym).slice(4) : ''),
       account: String(kscCell_(r, R.account)).trim(), people: kscNum_(kscCell_(r, R.actual)) });
@@ -2034,7 +2027,7 @@ function kscExplain_(ctx, X, R, E) {
   var src = (E.codes()[code] || {}).src || '';
 
   /* đào tạo (Training Master) */
-  if (/^L1-00$|^L2-\d|^C10-06$/.test(code)) {
+  if (/^L1-00$|^L2-\d|^C10-0[3-6]$|^C3-1[01]$/.test(code)) {      // 13/10: + T&E (C10-03→05) + Coaching (C3-10/11)
     var tr = E.train(); X.label = 'Training Master'; X.url = tr.url || ''; X.sheet = (tr.S && tr.S.sheets.slice(-1)[0]) || '';
     if (tr.err) return ['Chưa đọc được Training Master (' + tr.err + ').'];
     var tg = tr.T.filter(function (x) { return x.code === code; })[0];
@@ -2198,7 +2191,7 @@ function kscExplain_(ctx, X, R, E) {
       if (A != null && X.a > ev.list.length) out.push('Phần còn lại là SKU mới nhập tay ở tab KPI của CRM.');
       return out;
     }
-    if (key === 'event_hub' || key === 'manual' || key === 'turnover') X.url = o.urls.kpi || '';
+    if (key === 'event_hub' || key === 'event_trn' || key === 'manual' || key === 'turnover') X.url = o.urls.kpi || '';
     return kscExplainPlain_(code, X, A, reach);
   }
   if (KSC.EVENT_CODES.indexOf(code) >= 0) { X.label = 'Marketing Offline Thailand'; X.sheet = 'REPORT_EVENT'; }
@@ -2229,11 +2222,13 @@ function kscPlainRule_(code, X, E) {
   if (code === 'L1-00') return 'Số buổi đào tạo nội bộ về sản phẩm (Internal, Category Product) đã hoàn thành.';
   if (/^L2-\d/.test(code)) return 'Số buổi đào tạo nội bộ không phải sản phẩm (Internal, Category khác Product) do chính PIC đứng lớp, đã hoàn thành.';
   if (code === 'C10-06') return 'Số buổi đào tạo khách hàng (External) do Giang đứng lớp, đã hoàn thành.';
+  if (/^C10-0[3-5]$/.test(code)) return 'Số buổi đào tạo khách hàng (Customer Training, tạo từ CRM) do PIC đứng lớp, đã Completed, có số tham dự thực tế > 0 và review đủ 5 dòng.';
+  if (/^C3-1[01]$/.test(code)) return 'Số buổi Coaching do PIC thực hiện, đã Completed và có file PDF Review trong thư mục Review của buổi.';
   if (KSC_KBI.CODE_RE.test(code)) return 'Điểm tháng = 100 cộng điểm cộng, trừ điểm trừ (cột Total point by month).';
   var cd = /^last$/i.test(X.agg) ? ', cộng dồn từ tháng 9' : ', số của từng tháng';
-  if (/^F6-01/.test(code)) return 'Doanh số Composite bán cho NPP (Type 3 Composite amount, USD)' + cd + ', chỉ tính tháng đã chốt số.';
-  if (/^F6-02/.test(code)) return 'Doanh số JIZAI bán cho NPP (Type 2 Jizai amount, USD)' + cd + ', chỉ tính tháng đã chốt số.';
-  if (/^F/.test(code)) return 'Doanh số bán cho NPP (Type 1 Turnover, lọc theo Segment Report, USD)' + cd + ', chỉ tính tháng đã chốt số.';
+  if (/^F6-01/.test(code)) return 'Doanh số Composite bán cho NPP (Type 3 Composite amount, USD)' + cd + ', cập nhật real time theo Turnover (tháng đang chạy là số tạm tính).';
+  if (/^F6-02/.test(code)) return 'Doanh số JIZAI bán cho NPP (Type 2 Jizai amount, USD)' + cd + ', cập nhật real time theo Turnover (tháng đang chạy là số tạm tính).';
+  if (/^F/.test(code)) return 'Doanh số bán cho NPP (Type 1 Turnover, lọc theo Segment Report, USD)' + cd + ', cập nhật real time theo Turnover (tháng đang chạy là số tạm tính).';
   var M = KSC_MKT.CODES;
   if (code === M.mirEvent || code === M.mirProduct) return 'Số tin nhắn chia cho số người tiếp cận của quảng cáo ' + (code === M.mirEvent ? 'sự kiện' : 'sản phẩm') + '.';
   if (code === M.postOnTime) return 'Bài có link report điền trước hoặc đúng ngày on-air dự kiến, chia cho số bài kế hoạch (không tính bài hủy).';
@@ -2753,11 +2748,14 @@ function kscMoff_(ctx, why, force) {
   out.codes = Object.keys(data);
   var st = kscWrite_(ctx, 'moff', data, { why: why, force: !!force });
   PP.setProperty('KSC_MOFF_LASTID', mid);
+  var tabMsg = '';                                                   // 13/10/2026 — tab "KPI MKT Offline" trong file MKT offline (KpiGroupSheets.gs)
+  try { var tb = kscMoffSheet_(mss, ctx, X, why === 'manual'); tabMsg = ' · tab "' + tb.tab + '" ' + (tb.changed ? 'đã cập nhật' : 'không đổi'); }
+  catch (eTab) { tabMsg = ' · ⚠ chưa ghi được tab KPI MKT Offline: ' + (eTab && eTab.message || eTab); }
   var noSeg = X.rows.filter(function (r) { return !r.seg && months.indexOf(r.ym) >= 0; }).length;
   var last = months.slice(-2).map(function (m) {
     return m + ': ' + data[K.evD][m] + ' sự kiện Dental/MMG, ' + data[K.evS][m] + ' Surgical/Eyeless (có folder) · ' + data[K.ppD][m] + ' / ' + data[K.ppS][m] + ' người tham dự · Composite ' + data[K.comp][m] + ' · JIZAI ' + data[K.jz][m];
   }).join(' | ');
-  return kscResult_(out, st, 'File "' + mss.getName() + '" · ' + X.rows.length + ' dòng REPORT_EVENT (' + fyRows + ' dòng ' + L.fy + ') · ' + last + (noSeg ? ' · ' + noSeg + ' dòng chưa ghi Segment' : ''));
+  return kscResult_(out, st, 'File "' + mss.getName() + '" · ' + X.rows.length + ' dòng REPORT_EVENT (' + fyRows + ' dòng ' + L.fy + ') · ' + last + (noSeg ? ' · ' + noSeg + ' dòng chưa ghi Segment' : '') + tabMsg);
 }
 /* ngày sự kiện dạng 20260910 / 20261026-29 / ngày tháng */
 function kscMoffDate_(d, ym) {

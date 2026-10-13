@@ -501,6 +501,7 @@ function mmhWrite_(p) {
         cell.setValue(v);
       });
       if (linkChanged && X.auto >= 0 && data.link) sh.getRange(row, X.auto + 1).setValue(new Date());
+      try { if (kind !== 'offline' && typeof mktaFixRows_ === 'function') mktaFixRows_(sh, row, 1); } catch (e) {}   // ⭐ 13/10/2026: On-air thực tế / Status / Month ngay (Mã.gs của project mkt-online)
       mmhWLog_(op, kind, row, check || data.event || data.topic || data.date || '', by);
     }
     SpreadsheetApp.flush();

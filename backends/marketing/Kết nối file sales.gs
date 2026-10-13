@@ -1017,7 +1017,8 @@ function vsSyncTick(){
 }
 
 function vsIsLockedRow(sh, row){
-  try { return !!String(sh.getRange(row, VISIT_COL_KEY).getValue() || '').trim(); }
+  /* ⭐ 13/10/2026: key sự kiện MKT ("EK:") sửa được kết quả / trạng thái — chặn đổi tên / xoá ở Event_Sync.gs */
+  try { var _u = String(sh.getRange(row, VISIT_COL_KEY).getValue() || '').trim(); return !!_u && _u.indexOf('EK:') !== 0; }
   catch (e) { return false; }
 }
 var VS_LOCK_MSG = 'Task "Customer visiting" đồng bộ tự động từ sheet Field Report của Sales — ' +

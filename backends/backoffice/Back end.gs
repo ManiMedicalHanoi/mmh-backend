@@ -228,7 +228,8 @@ function dispatch(action, user, p){
       return rhxDispatch(action, user, p);
     }
     switch(action){
-      case 'ping':          out = { ok:true, pong:true, pic:user.pic, source:SOURCE }; break;
+      case 'ping':          try{ if(typeof rhDateFix_==='function') rhDateFix_(); }catch(_e){}   /* ⭐ 13/10 chuẩn hoá ngày */
+                                     out = { ok:true, pong:true, pic:user.pic, source:SOURCE }; break;
       case 'version':       out = dataVersion(); break;   /* ⭐ v5.11: dấu vân tay dữ liệu */
       case 'sheets':        out = sheetInfo(); break;    /* ⭐ v5.12: kiểm tra đang đọc đúng sheet nào */
       case 'boot':          out = boot(user); break;
@@ -356,6 +357,8 @@ function boot(user){
     if(throttleOk('auto_start', 300)){ try{ autoStartDueTasks(); }catch(e){} }
     if(throttleOk('vs_sync', 300)){ _vsSyncSafe(); touchVersion(); }
   }
+    try{ if(typeof mkEnsureMonthly_==='function') mkEnsureMonthly_(); }catch(_e){}   /* ⭐ 13/10/2026: key Internal Meeting chung hằng tháng */
+    try{ if(typeof rhDateFix_==='function') rhDateFix_(); }catch(_e){}            /* ⭐ 13/10/2026: chuẩn hoá ngày Weekly new (≤ 1 lần / 20 giờ) */
   var bkey = 'boot_' + dataVersion().v;       /* ⭐ v10.2: cả gói dữ liệu boot qua bộ nhớ đệm */
   var data = cGetBig(bkey);
   if(!data){
