@@ -151,7 +151,7 @@ function evsReadEvents_(){
         tJ: evsNum_(evsGet_(t, r, ['Target sales JIZAI'])), tC: evsNum_(evsGet_(t, r, ['Target sales Composite'])),
         aJ: evsNum_(evsGet_(t, r, ['Actual sales - Jizai', 'Actual sales Jizai'])),
         aC: evsNum_(evsGet_(t, r, ['Actual sales - Composite', 'Actual sales Composite'])),
-        proof: evsS_(evsGet_(t, r, ['Scan danh sách ký tên', 'Bằng chứng tham dự']))
+        proof: evsS_(evsGet_(t, r, ['Bằng chứng tham dự', 'Scan danh sách ký tên']))
       });
     });
   }
@@ -446,8 +446,12 @@ function evsIsEventKeyRow(sh, row){
 var EVS_LOCK_MSG = 'Key task sự kiện đồng bộ từ file MKT Offline — đổi tên / xoá sự kiện ở file "2. Vietnam - Marketing Offline FY68".';
 
 /* ══════════════ TRIGGER / API ══════════════ */
-function evsSyncTick(){ evsSync({}); }
+function evsSyncTick(){
+  try { if (typeof mktaRun_ === 'function') mktaRun_({}); } catch(_e){}          /* MKT_SheetAuto.gs: Month / On-air / Status / Check deadline / Ads */
+  evsSync({});
+}
 function evsOnChange(e){
+  try { if (typeof mktaOnChange_ === 'function') mktaOnChange_(e); } catch(_e){}  /* MKT_SheetAuto.gs — chỉ file vừa đổi */
   var c = CacheService.getScriptCache();
   if (c.get('evs_busy')) { c.put('evs_again', '1', 120); return; }
   c.put('evs_busy', '1', 25);

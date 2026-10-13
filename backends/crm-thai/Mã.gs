@@ -161,7 +161,7 @@ function iso_(v){
   if(m) return m[3] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[1]).slice(-2);
   return '';
 }
-function date_(s){ var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s || '')); return m ? new Date(+m[1], +m[2] - 1, +m[3]) : ''; }
+function date_(s){ var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s || '')); return m ? Utilities.parseDate(m[0], tz_(), 'yyyy-MM-dd') : ''; }   /* v1.19 — 00:00 theo múi giờ của file (cùng múi giờ iso_ đọc lại) */
 function ymOf_(isoStr){ var m = /^(\d{4})-(\d{2})/.exec(String(isoStr || '')); return m ? m[1] + m[2] : ''; }
 function fyOfYm_(ym){ ym = String(ym || '').replace(/\D/g, ''); if(ym.length < 6) return '';
   var y = +ym.slice(0, 4), mm = +ym.slice(4, 6); return 'FY' + ((mm >= 9 ? y : y - 1) - 1958); }
@@ -1246,13 +1246,14 @@ function route_(p){
   var a = String(p.action || '');
   var pic = str_(p.actor) || str_(p.pic);
   var user = { pic: USERS[pic] ? pic : (pic || 'Dao') };
+  if(/^(ping|boot)$/.test(a)){ try { dfMaybe_(); } catch(eD){} }        /* v1.19 — chuẩn hoá ngày (1 lần + mỗi đêm) */
   if(/^na[A-Z]/.test(a)) return naRoute_(a, user, p);                    /* v1.9 */
   if(/^kr[A-Z]/.test(a)) return krRoute_(a, user, p);                    /* v1.9 */
   if(/^trip(Master|Propose)2$/.test(a)) return tripRoute_(a, user, p);  /* v1.16 */
   switch(a){
     case 'kpiPush': return { ok: true, kpiPush: k68PushQuick_() };       /* v1.9 */
     case 'kpiLate': return kpiLate_(user, p);                            /* v1.12 */
-    case 'ping': return { ok: true, team: CFG.TEAM, cors: true, ver: '1.18', trip2: true, kpi68: true, tenderPrice: true, custLog: true, delAccount: true, na: true, kr: true, idem: true, kpiPush: true };
+    case 'ping': return { ok: true, team: CFG.TEAM, cors: true, ver: '1.19', dateFix: props_().getProperty('CRM_DATEFIX_LOG') || '', trip2: true, kpi68: true, tenderPrice: true, custLog: true, delAccount: true, na: true, kr: true, idem: true, kpiPush: true };
     case 'sheetInfo': return { ok: true, id: ss_().getId(), name: ss_().getName(), team: CFG.TEAM };
     case 'version': { var vv = vers_(); return { ok: true, ver: vv._all, vers: vv }; }
     case 'bumpCache': bump_(); return { ok: true, ver: vers_()._all, message: 'Cache refreshed' };
@@ -3908,4 +3909,138 @@ function tripRoute_(action, user, p){
   if(action === 'tripMaster2') return tripMaster2(user, p);
   if(action === 'tripPropose2') return tripPropose2(user, p);
   return { ok: false, error: 'Unknown action: ' + action };
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════════════════════════
+   ⭐ v1.19 (13/10/2026) · DATES NORMALISED ON EVERY TAB — same module as crm-dental v10.12 (crmDateFix_); Thai tabs: 6. CUSTOMER VISITING, 7, 1, ALL TASK
+   Kiểm 13/10 (bản xuất 4 file CRM): ① ngày bị ĐẢO ngày ↔ tháng khi gõ tay trên sheet đặt vùng Mỹ (gõ 10/09 ⇒ 9 tháng 10):
+   Surgical 421 dòng tab 6 (cả dòng tháng 08 + 09/2026), Dental 446 dòng cũ + 127 đơn hàng cũ; ② ngày có GIỜ (10:00 / 12:00)
+   ⇒ công thức đếm "≤ ngày cuối kỳ" bỏ sót; ③ ngày dạng chữ ("02/07/0205", "undefined/undefined/22/11/2025").
+   crmDateFix_: mọi ô ngày của tab 6 (Start / Finish), 3 (Day), 7 (Day), 1 (Ngày mở account), ALL TASK (Start / Planned / Revised / Actual finish)
+   ⇒ ngày thật 00:00, định dạng dd/MM/yyyy. Đảo ngày ↔ tháng chỉ sửa khi cột tháng cùng dòng (Start Month / Month) khớp sau khi đảo.
+   File đặt vùng Mỹ (en_US) ⇒ đổi sang en_GB (gõ 10/09/2026 = 10 tháng 9, công thức vẫn dùng dấu phẩy) — người dùng đồng ý 13/10.
+   Múi giờ file khác múi giờ script ⇒ đổi về múi giờ script và ghi lại ngày theo đúng ngày đang hiện.
+   Chạy 1 lần sau khi deploy (ping / boot) + mỗi đêm 02:00 (sửa ô gõ tay mới). Chạy tay: crmDateFixNow(); kết quả ở Script Property CRM_DATEFIX_LOG.
+   ════════════════════════════════════════════════════════════════════════════════════════════════ */
+var DF_KEY = 'CRM_DATEFIX_V', DF_VER = '1';
+function dfPad_(n){ return ('0' + n).slice(-2); }
+function dfMk_(y, mo, d){
+  if (y < 1990 || y > 2100 || mo < 1 || mo > 12 || d < 1 || d > 31) return '';
+  var t = new Date(y, mo - 1, d); if (t.getMonth() !== mo - 1) return '';
+  return y + '-' + dfPad_(mo) + '-' + dfPad_(d);
+}
+/* ngày đang HIỆN trên sheet của 1 ô (Date theo múi giờ file · chữ yyyy-mm-dd / dd/mm/yyyy kiểu VN) — năm hỏng (0205) lấy theo cột tháng */
+function dfIso_(v, tz, ym){
+  if (v instanceof Date) return isNaN(v) ? '' : Utilities.formatDate(v, tz, 'yyyy-MM-dd');
+  if (typeof v === 'number' || typeof v === 'boolean') return '';
+  var s = String(v == null ? '' : v).trim(); if (!s) return '';
+  var m = /(\d{4})-(\d{1,2})-(\d{1,2})/.exec(s); if (m) return dfMk_(+m[1], +m[2], +m[3]);
+  var all = s.match(/\d{1,2}\/\d{1,2}\/\d{2,4}/g); if (!all) return '';
+  var x = all[all.length - 1].split('/'), y = +x[2];
+  if (y < 100) y += 2000;
+  if (y < 1990 && /^\d{6}$/.test(ym || '')) y = +ym.slice(0, 4);
+  return dfMk_(y, +x[1], +x[0]);
+}
+function dfYm_(v){ return String(v == null ? '' : v).replace(/\.0+$/, '').replace(/\D/g, '').slice(0, 6); }
+function dfSwap_(iso, ym){
+  if (!iso || !/^\d{6}$/.test(ym) || iso.slice(0, 7).replace('-', '') === ym) return '';
+  var y = +iso.slice(0, 4), mo = +iso.slice(5, 7), d = +iso.slice(8, 10);
+  if (d > 12) return '';
+  var sw = dfMk_(y, d, mo);
+  return sw && sw.slice(0, 7).replace('-', '') === ym ? sw : '';
+}
+function dfDays_(a, b){ return (Date.UTC(+b.slice(0, 4), +b.slice(5, 7) - 1, +b.slice(8, 10)) - Date.UTC(+a.slice(0, 4), +a.slice(5, 7) - 1, +a.slice(8, 10))) / 864e5; }
+/* 1 tab: cols = [{c, swap?:true, pairOf?:cột bắt đầu}] · monthCol = cột tháng (đối chiếu đảo ngày) */
+function dfFixTab_(s, row0, cols, monthCol, tzOld, tzNew, force, st){
+  if (!s) return;
+  var last = s.getLastRow(); if (last < row0) return;
+  var n = last - row0 + 1, mVals = monthCol ? s.getRange(row0, monthCol, n, 1).getValues() : null;
+  var olds = {}, news = {};
+  cols.forEach(function(spec){
+    var c = spec.c, rg = s.getRange(row0, c, n, 1), V = rg.getValues(), F = rg.getFormulas(), out = [], ch = {}, nCh = 0;
+    var sNew = spec.pairOf ? news[spec.pairOf] : null, sOld = spec.pairOf ? olds[spec.pairOf] : null, o = [], nw = [];
+    for (var i = 0; i < n; i++){
+      var v = V[i][0], f = F[i][0];
+      out.push([v]); o.push(''); nw.push('');
+      if (f || v === '' || v === null) continue;
+      var ym = mVals ? dfYm_(mVals[i][0]) : '', iso = dfIso_(v, tzOld, ym);
+      if (!iso){ if (!(v instanceof Date) && /\d/.test(String(v))) st.bad.push(s.getName() + '!' + String.fromCharCode(64 + c) + (row0 + i) + '="' + String(v).slice(0, 30) + '"'); continue; }
+      o[i] = iso; nw[i] = iso;
+      var fix = iso, why = '';
+      if (!(v instanceof Date)) why = 'text';
+      else if (Utilities.formatDate(v, tzOld, 'HH:mm:ss') !== '00:00:00') why = 'time';
+      if (spec.swap){ var sw = dfSwap_(iso, ym); if (sw){ fix = sw; why = 'swap'; } }
+      if (sNew && sNew[i]){                                                      /* Finish: theo Start cùng dòng (Start vừa đảo ⇒ Finish trùng ngày cũ đổi theo) */
+        if (sOld[i] && sNew[i] !== sOld[i] && iso === sOld[i]){ fix = sNew[i]; why = 'swap'; }
+        else {
+          var sw2 = +iso.slice(8, 10) <= 12 ? dfMk_(+iso.slice(0, 4), +iso.slice(8, 10), +iso.slice(5, 7)) : '';
+          var dNow = dfDays_(sNew[i], iso), dSw = sw2 ? dfDays_(sNew[i], sw2) : -1;
+          if (sw2 && !(dNow >= 0 && dNow <= 92) && dSw >= 0 && dSw <= 92){ fix = sw2; why = 'swap'; }
+        }
+      }
+      if (why || force){
+        out[i] = [Utilities.parseDate(fix, tzNew, 'yyyy-MM-dd')]; ch[i] = 1; nCh++; nw[i] = fix;
+        st[why || 'tz'] = (st[why || 'tz'] || 0) + 1;
+        if (why === 'swap' && st.ex.length < 12) st.ex.push(s.getName() + ' dòng ' + (row0 + i) + ': ' + iso + ' → ' + fix);
+      }
+    }
+    olds[c] = o; news[c] = nw;
+    if (nCh){                                                                 /* chỉ ghi các đoạn ô đổi (không ghi đè cả cột) */
+      for (var j = 0; j < n; j++){
+        if (!ch[j]) continue;
+        var k2 = j; while (k2 + 1 < n && ch[k2 + 1]) k2++;
+        s.getRange(row0 + j, c, k2 - j + 1, 1).setValues(out.slice(j, k2 + 1));
+        j = k2;
+      }
+    }
+    try { rg.setNumberFormat('dd/MM/yyyy'); } catch(e){}
+  });
+}
+function crmDateFix_(){
+  var lock = LockService.getScriptLock(); if (!lock.tryLock(25000)) return { ok:false, error:'busy' };
+  var st = { text:0, time:0, swap:0, tz:0, bad:[], ex:[], notes:[] };
+  try {
+    var book = ss_(), tzOld = book.getSpreadsheetTimeZone() || Session.getScriptTimeZone(), tzNew = Session.getScriptTimeZone(), force = false, now = new Date();
+    if (Utilities.formatDate(now, tzOld, 'Z') !== Utilities.formatDate(now, tzNew, 'Z')){ force = true; st.notes.push('múi giờ file ' + tzOld + ' → ' + tzNew); }
+    var loc = ''; try { loc = book.getSpreadsheetLocale(); } catch(e){}
+    if (/^en_US$/i.test(loc)){ try { book.setSpreadsheetLocale('en_GB'); st.notes.push('vùng ' + loc + ' → en_GB (gõ ngày dd/mm/yyyy)'); } catch(e){ st.notes.push('không đổi được vùng ' + loc); } }
+    if (force){ try { book.setSpreadsheetTimeZone(tzNew); } catch(e){ force = false; tzNew = tzOld; st.notes.push('không đổi được múi giờ'); } }
+    var cI = function(t, f){ return 2 + TABS[t].f.indexOf(f); }, tab = function(n){ try { return sh_(n); } catch(e){ return null; } };
+    dfFixTab_(tab(CFG.SH_WK), CFG.DATA, [{ c:cI('weekly', 'start'), swap:true }, { c:cI('weekly', 'finish'), pairOf:cI('weekly', 'start') }], cI('weekly', 'month'), tzOld, tzNew, force, st);
+    dfFixTab_(tab(CFG.SH_PRES), CFG.DATA, [{ c:cI('present', 'day'), swap:true }], cI('present', 'month'), tzOld, tzNew, force, st);
+    dfFixTab_(tab(CFG.SH_CUST), CFG.DATA, [{ c:cI('customer', 'openDate'), swap:true }], cI('customer', 'openMonth'), tzOld, tzNew, force, st);
+    dfFixTab_(tab(CFG.SH_ALL), CFG.AT_DATA, [{ c:10 }, { c:11 }, { c:12 }, { c:16 }], 0, tzOld, tzNew, force, st);
+    SpreadsheetApp.flush();
+  } catch(err){ st.notes.push('LỖI ' + (err && err.message || err)); }
+  finally { try { lock.releaseLock(); } catch(e){} }
+  var msg = Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'dd/MM/yyyy HH:mm') + ' · đảo ngày↔tháng ' + st.swap + ' · bỏ giờ ' + st.time + ' · chữ→ngày ' + st.text +
+            (st.tz ? ' · ghi lại theo múi giờ ' + st.tz : '') + (st.notes.length ? ' · ' + st.notes.join(' · ') : '') +
+            (st.bad.length ? ' · KHÔNG ĐỌC ĐƯỢC ' + st.bad.length + ': ' + st.bad.slice(0, 8).join(', ') : '') + (st.ex.length ? ' · VD ' + st.ex.slice(0, 6).join(' ; ') : '');
+  try { props_().setProperty('CRM_DATEFIX_LOG', msg.slice(0, 8000)); } catch(e){}
+  if (st.swap + st.time + st.text + st.tz){
+    try { bump_(['weekly', 'present', 'customer', 'alltask']); } catch(e){}
+    try { _SS = null; _SH = {}; } catch(e){}
+  }
+  return { ok:true, swap:st.swap, time:st.time, text:st.text, tz:st.tz, notes:st.notes, bad:st.bad, examples:st.ex, log:msg };
+}
+function crmDateFixNow(){ var r = crmDateFix_(); Logger.log(JSON.stringify(r)); return r; }
+function crmDateFixRun(){
+  try { ScriptApp.getProjectTriggers().forEach(function(t){ if (t.getHandlerFunction() === 'crmDateFixRun') ScriptApp.deleteTrigger(t); }); } catch(e){}
+  var r = crmDateFix_();
+  if (r.ok) props_().setProperty(DF_KEY, DF_VER);
+  return r;
+}
+function crmDateFixDaily(){ return crmDateFix_(); }
+/* gọi ở ping / boot: chạy 1 lần sau mỗi lần nâng DF_VER + cài lịch mỗi đêm 02:00 */
+function dfMaybe_(){
+  var P = props_(), c = CacheService.getScriptCache();
+  if (c.get('DF_TRY')) return; c.put('DF_TRY', '1', 900);
+  try {
+    var T = ScriptApp.getProjectTriggers();
+    if (!T.some(function(t){ return t.getHandlerFunction() === 'crmDateFixDaily'; }))
+      ScriptApp.newTrigger('crmDateFixDaily').timeBased().everyDays(1).atHour(2).inTimezone('Asia/Ho_Chi_Minh').create();
+    if (P.getProperty(DF_KEY) !== DF_VER && !T.some(function(t){ return t.getHandlerFunction() === 'crmDateFixRun'; }))
+      ScriptApp.newTrigger('crmDateFixRun').timeBased().after(40 * 1000).create();
+  } catch(e){}
 }

@@ -1,6 +1,11 @@
 /*************************************************************************************************
- * MMH — EVENT CUSTOMER BACKEND  (v2.3 · 01/10/2026)
+ * MMH — EVENT CUSTOMER BACKEND  (v2.4 · 13/10/2026)
  * ───────────────────────────────────────────────────────────────────────────────────────────────
+ * ⭐ v2.4 — NGUỒN THỨ 3: file "2. Vietnam - Marketing Offline FY68" ▸ tab CUSTOMER LIST (đọc thẳng bằng openById —
+ *   quyền Sheets sẵn có, không thêm dịch vụ mới). Chỉ lấy khách ĐÃ XÁC NHẬN THAM DỰ ("Xác nhận tham dự" = Ký tay / Zoom)
+ *   và đủ Name · Tel · Province · Tittle · Workplace; trùng SĐT chỉ lấy 1. Nhóm: Target Product / tên sự kiện có
+ *   "Ophthalmic / Nhãn khoa / Surgical" ⇒ Nhãn khoa (CRM Surgical), còn lại ⇒ Nha khoa (CRM Dental).
+ *   Gộp với 2 sheet nguồn cũ (vẫn giữ) trước khi chống trùng ⇒ khách đã có trong CRM chỉ được bổ sung ghi chú event.
  * Dán file này vào Apps Script của Google Sheet DỮ LIỆU KHÁCH HÀNG EVENT
  *   https://docs.google.com/spreadsheets/d/1fJlW-23rgyZEdYXPfcojTRX0P9xEDrgI4QUxw5kUXgw/edit
  *
@@ -344,7 +349,48 @@ function readAllEvents_(){
     try { out = out.concat(readEventSource_(EVENT_SOURCES[i])); }
     catch(e){ /* một sheet hỏng không chặn sheet còn lại */ }
   }
+  return out.concat(mktOffFor_(''));                            /* ⭐ v2.4 */
+}
+
+/* ══════════════ ⭐ v2.4 — NGUỒN MKT OFFLINE ▸ CUSTOMER LIST ══════════════ */
+var MKT_OFF = { id:'16vIDYRhm6Cj9DN4C26rvbBPW1hF3vAnZ7lgl6Bd02w8', tab:'CUSTOMER LIST', label:'MKT Offline' };
+var _MKT_OFF_ROWS = null;                                         /* đọc 1 lần mỗi lượt chạy */
+function mktOffRead_(){
+  if (_MKT_OFF_ROWS) return _MKT_OFF_ROWS;
+  var sh = SpreadsheetApp.openById(MKT_OFF.id).getSheetByName(MKT_OFF.tab);
+  if (!sh) throw new Error('File MKT Offline không có tab ' + MKT_OFF.tab);
+  var lc = Math.max(1, sh.getLastColumn()), lr = sh.getLastRow(), top = sh.getRange(1, 1, Math.min(8, lr), lc).getValues(), hr = 0;
+  for (var r = 0; r < top.length && !hr; r++) if (top[r].some(function(h){ return key_(h) === 'tel'; })) hr = r + 1;
+  if (!hr) throw new Error('Tab ' + MKT_OFF.tab + ' không có cột Tel');
+  var C = {};
+  top[hr - 1].forEach(function(h, i){ var k = key_(h); if (k && !(k in C)) C[k] = i; });
+  var pick = function(names){ for (var i = 0; i < names.length; i++){ if (names[i] in C) return C[names[i]]; for (var k in C) if (k.indexOf(names[i]) === 0) return C[k]; } return -1; };
+  var X = { name:pick(['name']), tel:pick(['tel']), address:pick(['address']), province:pick(['province']), email:pick(['email']),
+            title:pick(['tittle', 'title']), work:pick(['workplace']), spec:pick(['speciality', 'specialty']), ev:pick(['eventname']),
+            fy:pick(['eventfy']), date:pick(['eventdate']), prod:pick(['targetproduct']), conf:pick(['xacnhanthamdu']), consent:pick(['dongysudungdulieu']) };
+  var out = [], seen = {};
+  if (X.conf < 0 || lr <= hr){ _MKT_OFF_ROWS = out; return out; }   /* chưa có cột "Xác nhận tham dự" ⇒ chưa đồng bộ khách nào */
+  var V = sh.getRange(hr + 1, 1, lr - hr, lc).getValues();
+  var g = function(v, c){ return c < 0 ? '' : S_(v[c]); };
+  for (var i = 0; i < V.length; i++){
+    var v = V[i], name = g(v, X.name), phone = g(v, X.tel);
+    if (!/^(ky tay|zoom)$/.test(norm_(g(v, X.conf)))) continue;
+    if (!name || !phoneKey_(phone) || !g(v, X.province) || !g(v, X.title) || !g(v, X.work)) continue;
+    var pk = phoneKey_(phone); if (seen[pk]) continue; seen[pk] = 1;
+    var ev = g(v, X.ev), team = /ophthal|nhan ?khoa|surg|eye/i.test(norm_(g(v, X.prod) + ' ' + ev)) ? 'ophthalmic' : 'dental';
+    var d = X.date >= 0 && v[X.date] instanceof Date ? Utilities.formatDate(v[X.date], Session.getScriptTimeZone(), 'yyyy-MM-dd') : eventDate_(ev);
+    out.push({ src:team, srcLabel:MKT_OFF.label, row:hr + 1 + i, no:'', name:name, phone:phone, phoneKey:pk,
+               address:g(v, X.address), province:g(v, X.province), title:g(v, X.title), workplace:g(v, X.work),
+               speciality:g(v, X.spec), email:g(v, X.email), event:ev, eventDate:d, fy:g(v, X.fy), isEvent:true,
+               attend:g(v, X.conf), consent:g(v, X.consent) });
+  }
+  _MKT_OFF_ROWS = out;
   return out;
+}
+/* khách MKT Offline của 1 nhóm ('' = mọi nhóm) — lỗi đọc file không chặn 2 nguồn cũ */
+function mktOffFor_(team){
+  try { return mktOffRead_().filter(function(r){ return !team || r.src === team; }); }
+  catch(e){ console.warn('MKT Offline: ' + (e.message || e)); return []; }
 }
 
 /* ══════════════════════════ ĐỌC PHÍA CRM ══════════════════════════ */
@@ -450,7 +496,7 @@ function syncOneTeam_(srcKey, limit){
   try { lock.waitLock(30000); } catch(e){ return { ok:false, error:'Đang có lượt đồng bộ khác chạy' }; }
 
   try {
-    var events = readEventSource_(cfg);        /* CHỈ khách của nhóm này */
+    var events = readEventSource_(cfg).concat(mktOffFor_(srcKey));   /* CHỈ khách của nhóm này · ⭐ v2.4 + MKT Offline ▸ CUSTOMER LIST */
     var accs   = crmAccounts_(srcKey);
     var cbc    = crmCbc_(srcKey);
     var sh     = cbc.sheet;
@@ -671,7 +717,7 @@ function handle_(e){
   var out;
   try {
     switch (S_(p.action) || 'list'){
-      case 'ping':     out = { ok:true, pong:true, app:APP_NAME, ver:'2.3' }; break;
+      case 'ping':     out = { ok:true, pong:true, app:APP_NAME, ver:'2.4' }; break;
       case 'list':     out = apiList_(p);   break;
       case 'events':   out = apiEvents_(S_(p.team));  break;
       case 'sync':     out = S_(p.team) ? syncOneTeam_(S_(p.team), parseInt(p.limit,10) || 300)
@@ -753,7 +799,9 @@ function onOpen(){
 
 function menuCheck(){
   var ui = SpreadsheetApp.getUi(), L = [];
-  L.push('APP: ' + APP_NAME + ' v2.3');
+  L.push('APP: ' + APP_NAME + ' v2.4');
+  try { L.push('MKT Offline ▸ CUSTOMER LIST: ' + mktOffRead_().length + ' khách đã xác nhận tham dự (Ký tay / Zoom, đủ thông tin)'); }
+  catch(e){ L.push('MKT Offline ▸ CUSTOMER LIST: lỗi — ' + (e.message || e)); }
   L.push('');
   L.push('── SHEET NGUỒN ──');
   EVENT_SOURCES.forEach(function(cfg){

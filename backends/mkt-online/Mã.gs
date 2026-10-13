@@ -52,6 +52,7 @@ function onOpen() {
 }
 
 function onEdit(e) {
+  try { mktaOnEdit_(e); } catch (_e) {}            // ⭐ 13/10/2026: Ngày điền link / On-air thực tế / Status / Check deadline — phản hồi tức thì
   var name = e.source.getActiveSheet().getName();
   if (name === "PRODUCT REPORT") updateCalendarProduct();
   else if (name === "EVENT REPORT") updateCalendarEvent();
@@ -575,3 +576,97 @@ function fmtDate(val) {
 }
 
 function initStatusCount() { var m = {}; ALL_STATUSES.forEach(function(s) { m[s] = 0; }); return m; }
+
+// ============================================================
+// ⭐ 13/10/2026 — TỰ ĐỘNG KHI SỬA (bản đầy đủ + chuyển đổi bố cục chạy ở backend marketing ▸ MKT_SheetAuto.gs,
+//    trigger onChange + 10 phút/lần). Ở đây chỉ xử lý NGAY các dòng vừa sửa — công thức GIỐNG HỆT bản backend.
+//    EVENT REPORT / PRODUCT REPORT: có Link report ⇒ Ngày điền link = hôm nay (xoá link ⇒ xoá ngày) · On-air thực tế = công thức
+//      theo Ngày điền link · Month = công thức theo On-air dự kiến · Status = On air đúng hạn / On air muộn (không đụng Cancel).
+//    ORDER REPORT: có Task Result ⇒ Ngày điền link = hôm nay · Check deadline report = công thức On time / Late.
+//    Chỉ dùng SpreadsheetApp của chính file ⇒ không cần cấp quyền mới (trigger đơn giản).
+// ============================================================
+var MKTA_TABS = { 'EVENT REPORT': 'post', 'PRODUCT REPORT': 'post', 'ORDER REPORT': 'order' };
+
+function mktaK_(s) {
+  return String(s == null ? '' : s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/đ/g, 'd').replace(/[^a-z0-9]/g, '');
+}
+function mktaA1c_(c) { var s = ''; while (c > 0) { var m = (c - 1) % 26; s = String.fromCharCode(65 + m) + s; c = (c - m - 1) / 26; } return s; }
+function mktaD_(v) {
+  if (v instanceof Date && !isNaN(v)) return new Date(v.getFullYear(), v.getMonth(), v.getDate());
+  var s = String(v == null ? '' : v).trim(), m;
+  if ((m = s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/))) return new Date(+m[1], +m[2] - 1, +m[3]);
+  if ((m = s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/))) return new Date(+m[3], +m[2] - 1, +m[1]);
+  return null;
+}
+function mktaHasF_(f, marks) {
+  var x = String(f || '').replace(/\s+/g, '').toUpperCase(); if (!x) return false;
+  for (var i = 0; i < marks.length; i++) if (x.indexOf(String(marks[i]).replace(/\s+/g, '').toUpperCase()) < 0) return false;
+  return true;
+}
+function mktaOnEdit_(e) {
+  if (!e || !e.range) return;
+  var sh = e.range.getSheet(), c1 = e.range.getColumn(), c2 = c1 + e.range.getNumColumns() - 1;
+  if (!MKTA_TABS[sh.getName()]) return;
+  mktaFixRows_(sh, e.range.getRow(), e.range.getNumRows(), [c1, c2]);
+}
+/* xử lý các dòng r0 … r0+n-1 (gọi từ onEdit hoặc mmhWrite) · cols = [c1,c2] cột vừa sửa (bỏ trống = mọi cột) */
+function mktaFixRows_(sh, r0, n, cols) {
+  var kind = MKTA_TABS[sh.getName()]; if (!kind) return;
+  var hr = 0, H = null, lc = sh.getLastColumn(), top = sh.getRange(1, 1, Math.min(8, sh.getLastRow()), lc).getValues();
+  var must = kind === 'order' ? 'deadline' : 'onairthucte';
+  for (var r = 0; r < top.length && !hr; r++) if (top[r].some(function (h) { return mktaK_(h) === must; })) { hr = r + 1; H = top[r]; }
+  if (!hr) return;
+  if (r0 <= hr) { n -= hr - r0 + 1; r0 = hr + 1; }
+  if (n <= 0 || n > 400) return;                                     // dán khối lớn ⇒ để backend xử lý
+  var C = {}; H.forEach(function (h, i) { var k = mktaK_(h); if (k && !C[k]) C[k] = i + 1; });
+  var col = function (names) {
+    for (var i = 0; i < names.length; i++) if (C[names[i]]) return C[names[i]];
+    for (var j = 0; j < names.length; j++) for (var k in C) if (k.indexOf(names[j]) === 0) return C[k];
+    return 0;
+  };
+  var hit = function (c) { return !cols || (c && c >= cols[0] && c <= cols[1]); };
+  var V = sh.getRange(r0, 1, n, lc).getValues(), F = sh.getRange(r0, 1, n, lc).getFormulas();
+  var t = new Date(), today = new Date(t.getFullYear(), t.getMonth(), t.getDate());
+  if (kind === 'post') {
+    var cm = col(['month']), ck = col(['onairdukien']), cl = col(['onairthucte']), cs = col(['status']), co = col(['linkreport']), cp = col(['ngaydienlink']);
+    if (!ck || !cl || !cs || !co || !cp) return;
+    if (!(hit(co) || hit(ck) || hit(cl) || hit(cs))) return;
+    var K = mktaA1c_(ck), O = mktaA1c_(co), P = mktaA1c_(cp), ON = 'On air đúng hạn', LATE = 'On air muộn';
+    try {
+      var dv = sh.getRange(hr + 1, cs).getDataValidation(), L = dv ? (dv.getCriteriaValues()[0] || []) : [];
+      L.forEach(function (x) { if (mktaK_(x) === 'onairdunghan') ON = String(x); if (mktaK_(x) === 'onairmuon') LATE = String(x); });
+    } catch (x) {}
+    for (var i = 0; i < n; i++) {
+      var row = r0 + i, v = V[i], f = F[i], link = String(v[co - 1] || '').trim(), plan = v[ck - 1];
+      if (!link && !String(plan || '').trim() && !String(v[cp - 1] || '').trim()) continue;
+      var sDay = mktaD_(v[cp - 1]), man = !f[cl - 1] ? mktaD_(v[cl - 1]) : null;
+      if (link) {
+        if (man && (!sDay || sDay.getTime() !== man.getTime())) { sDay = man; sh.getRange(row, cp).setValue(man); }
+        else if (!sDay) { sDay = today; sh.getRange(row, cp).setValue(today); }
+      } else if (String(v[cp - 1] || '').trim() !== '') { sDay = null; sh.getRange(row, cp).setValue(''); }
+      if (!mktaHasF_(f[cl - 1], ['IFERROR(INT(' + P + row + ')', 'TRIM(' + O + row + ')']))
+        sh.getRange(row, cl).setFormula('=IF(OR(TRIM(' + O + row + ')="",' + P + row + '=""),"",IFERROR(INT(' + P + row + '),""))').setNumberFormat('dd/mm/yyyy');
+      if (cm && String(plan || '').trim() && !mktaHasF_(f[cm - 1], ['"yyyymm"', K + row]))
+        sh.getRange(row, cm).setFormula('=IF(' + K + row + '="","",IFERROR(VALUE(TEXT(IF(ISNUMBER(' + K + row + '),' + K + row + ',DATEVALUE(' + K + row + ')),"yyyymm")),""))');
+      var pDay = mktaD_(plan), st = String(v[cs - 1] || '').trim();
+      if (link && pDay && sDay && !/cancel/i.test(st)) {
+        var want = sDay.getTime() <= pDay.getTime() ? ON : LATE;
+        if (mktaK_(st) !== mktaK_(want)) sh.getRange(row, cs).setValue(want);
+      }
+    }
+  } else {
+    var cd = col(['deadline']), ct = col(['keytaskevent', 'keytask']), cr = col(['taskresult']), cc = col(['checkdeadlinereport']), cq = col(['ngaydienlink']);
+    if (!cd || !cr || !cc || !cq) return;
+    if (!(hit(cr) || hit(cd) || hit(ct) || hit(cc) || hit(cq))) return;
+    var D = mktaA1c_(cd), Q = mktaA1c_(cq);
+    for (var j = 0; j < n; j++) {
+      var rw = r0 + j, w = V[j];
+      if (!String(w[cd - 1] || '').trim() && !(ct && String(w[ct - 1] || '').trim())) continue;
+      if (String(w[cr - 1] || '').trim() && String(w[cq - 1] || '').trim() === '') sh.getRange(rw, cq).setValue(today);
+      if (!mktaHasF_(F[j][cc - 1], ['"On time"', 'INT(' + Q + rw + ')', 'INT(' + D + rw + ')']))
+        sh.getRange(rw, cc).setFormula('=IFERROR(IF(' + D + rw + '="","",IF(' + Q + rw + '<>"",IF(INT(' + Q + rw + ')<=INT(' + D + rw + '),"On time","Late"),' +
+          'IF(TODAY()>INT(' + D + rw + '),"Late",""))),"")');
+    }
+  }
+}
