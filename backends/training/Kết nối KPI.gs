@@ -1,5 +1,6 @@
 /* ════════════════════════════════════════════════════════════════════
-   MMH TRAINING HUB  ·  TrainingKpiLink.gs                          v1.0
+   MMH TRAINING HUB  ·  TrainingKpiLink.gs                          v1.0 · ĐÃ NGỪNG 13/10/2026
+   ⚠ Không dùng nữa: KpiSyncCenter (backend kpi) đọc Training Master và ghi file KPI FY68. trkTick / trkOnEdit chỉ tự gỡ trigger.
    Kết nối 2 chiều:  MMH - Training Master  ⇄  MMH KPI FY68 (sheet 3. Detail KPI)
    ────────────────────────────────────────────────────────────────────
    CÁCH CÀI (làm 1 lần):
@@ -54,26 +55,16 @@ var TRK_RULES = [
     text: 'External · mọi Category · Trainer = Giang' }
 ];
 
-/* ── chạy 1 LẦN: trigger 10 phút + trigger khi sửa Training Master + đồng bộ lần đầu ── */
+/* ── ĐÃ NGỪNG (13/10/2026): phần đồng bộ Training ⇄ KPI chạy ở KpiSyncCenter (backend kpi, file KPI FY68 mới).
+      File này trỏ tới file KPI CŨ (1iWV0P…) ⇒ không tạo trigger nữa, chỉ gỡ trigger cũ còn sót. ── */
 function trkSetup() {
-  ScriptApp.getProjectTriggers().forEach(function (t) {
-    var h = t.getHandlerFunction();
-    if (h === 'trkTick' || h === 'trkOnEdit') ScriptApp.deleteTrigger(t);
-  });
-  ScriptApp.newTrigger('trkTick').timeBased().everyMinutes(TRK.EVERY_MIN).create();
-  ScriptApp.newTrigger('trkOnEdit').forSpreadsheet(TRK.TRAINING_ID).onEdit().create();
-  return trkSyncNow();
-}
-
-/* ── đồng bộ ngay (chạy từ editor được) ── */
-function trkSyncNow() {
-  var msg;
-  try { msg = trkRun_('manual', true).message; }
-  catch (e) { msg = '⚠ ' + (e && e.message || e); }
+  var msg = trkStop() + ' TrainingKpiLink đã ngừng — KpiSyncCenter (file KPI FY68) đang làm việc này.';
   Logger.log(msg);
-  try { SpreadsheetApp.getUi().alert('Training ⇄ KPI FY68', msg, SpreadsheetApp.getUi().ButtonSet.OK); } catch (e2) {}
   return msg;
 }
+
+/* ── đồng bộ ngay: ĐÃ NGỪNG (tránh 2 nơi cùng ghi file KPI) ── */
+function trkSyncNow() { return trkSetup(); }
 
 /* ── gỡ trigger (khi cần tạm dừng) ── */
 function trkStop() {
@@ -85,22 +76,9 @@ function trkStop() {
   return 'Đã gỡ ' + n + ' trigger của TrainingKpiLink.';
 }
 
-/* ── trigger ── */
-function trkTick() {
-  var lock = LockService.getScriptLock();
-  if (!lock.tryLock(20000)) return;
-  try { trkRun_('auto', false); } catch (e) { Logger.log('trkTick: ' + e); }
-  finally { lock.releaseLock(); }
-}
-function trkOnEdit(e) {
-  try {
-    if (!e || !e.range) return;
-    if (!TRK.REPORT_RE.test(trkNorm_(e.range.getSheet().getName()))) return;
-    var lock = LockService.getScriptLock();
-    if (!lock.tryLock(15000)) return;
-    try { SpreadsheetApp.flush(); trkRun_('edit', false); } finally { lock.releaseLock(); }
-  } catch (err) { Logger.log('trkOnEdit: ' + err); }
-}
+/* ── trigger cũ (10 phút / khi sửa Training Master): KHÔNG làm gì nữa, tự gỡ trigger của chính nó ── */
+function trkTick() { try { trkStop(); } catch (e) { Logger.log('trkTick (đã ngừng): ' + e); } }
+function trkOnEdit(e) { try { trkStop(); } catch (err) { Logger.log('trkOnEdit (đã ngừng): ' + err); } }
 
 /* ════════════════ LÕI ════════════════ */
 function trkRun_(why, force) {

@@ -403,6 +403,7 @@ function boot(user){
     ensureWarmTrigger();
     if(throttleOk('auto_start', 300)){ try{ autoStartDueTasks(); }catch(e){} }
   }
+    try{ if(typeof mkEnsureMonthly_==='function') mkEnsureMonthly_(); }catch(_e){}   /* ⭐ 13/10/2026: key Internal Meeting chung hằng tháng */
   var bkey = 'boot_' + dataVersion().v;       /* ⭐ v10.2: cả gói dữ liệu boot qua bộ nhớ đệm */
   var data = cGetBig(bkey);
   if(!data){

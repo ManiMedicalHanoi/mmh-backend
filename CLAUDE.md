@@ -37,3 +37,13 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   lượt TEST thì gắn `_tm.mails`), `tmKeep_` lọc ở `readTab` / `naReadAll_` (TEST không vào báo cáo / KPI của người thật). Email: `mmhMail_` gọi `tmMailHook_` ⇒
   chỉ tới Admin, tiêu đề `[TEST]`, bỏ CC/BCC. Vai `tmAs=dir|mgr`: duyệt CHỈ hồ sơ TEST (`tfDecide`, `naCanDecide_`). `tmClean`: xoá nội dung dòng PIC TEST (giữ công thức,
   không xoá dòng), dòng TEST file Business Trip + folder, file Drive "TEST_…" trong folder của backend. Tham số `tm` (KHÔNG dùng `test` — Training Hub đã dùng `test=1`).
+- **Coaching (13/10/2026, training `RH_CustTrain.gs`)**: Training Type "Coaching" (Master!C5, nâng cấp 1 lần tự chạy — Script Property `HUB_MIG_VER`).
+  Thư mục buổi nằm trong thư mục mẹ "Coaching" (`HUB_COACHING_FOLDER`); bằng chứng = **PDF trong thư mục con `Review`** (upload `rhUploadInit` path `["Review"]`, chỉ nhận PDF).
+  Chuyển Completed khi Review/ chưa có PDF ⇒ `saveSession` / `rhSaveSession` từ chối. `rhCoachReview` (op=status&sid) ⇒ `{files, hasPdf}`.
+  KSC đếm C3-10 / C3-11 (Trainer = PIC dòng KPI) chỉ khi có PDF (`kscCoachPdf_`, đệm CacheService).
+- **Đào tạo khách hàng T&E từ CRM — `rhCustTrain`** (training, rhKey + phiên `tk`, mọi sales; Admin / Director / HOD / lead xem cả nhóm): `op=list|save|delete`
+  (hợp đồng ở đầu `RH_CustTrain.gs`). Dòng Training Report: External · Category "Customer Training" · Trainer = PIC + cột cuối `T&E Team/Product/Place/Target/Actual/Review/Audience (JSON)`.
+  Completed cần Actual > 0 + review đủ 5 dòng mẫu (VN/EN). `tm=1` ⇒ ghi sheet `HUB_TestSessions` (SID `TEST-`, Topic `[TEST]`). KSC đếm C10-03/04/05 (Viet/Vinh/Phuong = PIC dòng KPI).
+- **Tab KPI theo nhóm do KSC ghi lại mỗi lượt đồng bộ (`kpi/KpiGroupSheets.gs`)**: "KPI TRAINING FY68" (Training Master: mã KPI + ma trận HOẠT ĐỘNG ĐÀO TẠO THEO PIC + danh sách buổi),
+  "KPI MKT Offline" (file MKT offline, C8 / C9 / C12 / C15 + danh sách sự kiện), "KPI MKT Online" (file Digital, C17-01→06 + chi tiết tháng / bài đăng / thiết kế).
+  Target từ 3. Detail KPI, màu % như CRM (<90 xám · 90–<100 xanh · 100–120 vàng · >120 xanh lá). Không gõ tay vào các tab này. `training/Kết nối KPI.gs` đã ngừng (trigger tự gỡ).
