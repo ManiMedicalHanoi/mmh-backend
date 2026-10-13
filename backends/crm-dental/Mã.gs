@@ -284,6 +284,24 @@ var K68_NPP = {
   }
 };
 
+/* ⭐ v10.13 — NPP của từng PIC = tên đầy đủ (Check account name) trong danh mục khách hàng khớp từ khoá K68_NPP
+   (Dental: Viet → Nam Dũng · Vinh → S.P.I · Phuong → Meci / Việt Thái). App tự điền ô Partner của đơn hàng theo PIC. */
+function nppByPic_(){
+  var map = (K68_NPP[TEAM()] || {}), out = {};
+  if (!Object.keys(map).length) return out;
+  var accs = [];
+  try { readTab('customer').forEach(function(r){ if (/distributor/i.test(S(r.type))) accs.push([S(r.name), S(r.type), S(r.province), S(r.area)].join('/')); }); } catch(e){ return out; }
+  Object.keys(map).forEach(function(pic){
+    var L = [];
+    map[pic].forEach(function(k){
+      var kk = naNorm_(k), hit = accs.filter(function(a){ return naNorm_(a.split('/')[0]).indexOf(kk) >= 0; })[0];
+      if (hit && L.indexOf(hit) < 0) L.push(hit);
+    });
+    if (L.length) out[pic] = L;
+  });
+  return out;
+}
+
 /* MỘT FILE CODE DÙNG CHO CẢ BA BACKEND (Dental · Surgical · Eyeless). Nhóm nhận diện tự động theo tên file.
    Muốn ép cứng thì đặt Script Property 'TEAM' = dental | surgical | eyeless. */
 var TEAM_CFG = {
@@ -463,7 +481,7 @@ function handle(e, method){
     if (action === 'kpiLate') return reply(kpiLate_(user, p), callback);               /* ⭐ v10.4 */
 
     switch (action) {
-      case 'ping'            : out = { ok:true, pong:true, source:TEAM(), app:appName_(), pic:user.pic, ver:'10.12', rate:K68_RATE_DEF, dateFix:props_().getProperty('CRM_DATEFIX_LOG') || '', orderApproval:true, presentTpl:true, migrate:props_().getProperty('CRM_LAYOUT_V') || '', meeting:true, trip2:true, kpi68:true, tenderPrice:true, custLog:true, deleteAccount:true, na:true, kr:true, idem:true, kpiPush:true }; break;
+      case 'ping'            : out = { ok:true, pong:true, source:TEAM(), app:appName_(), pic:user.pic, ver:'10.13', sandbox:true, rate:K68_RATE_DEF, dateFix:props_().getProperty('CRM_DATEFIX_LOG') || '', orderApproval:true, presentTpl:true, migrate:props_().getProperty('CRM_LAYOUT_V') || '', meeting:true, trip2:true, kpi68:true, tenderPrice:true, custLog:true, deleteAccount:true, na:true, kr:true, idem:true, kpiPush:true }; break;
       case 'boot'            : out = boot(user); break;
       case 'master'          : out = { ok:true, master: readMaster() }; break;
       case 'customerIndex'   : out = { ok:true, rows: customerIndex() }; break;
@@ -579,9 +597,14 @@ function writeRowKeepFormulas_(s, row, cur, lastCol, lock, map){
 }
 
 /* ══════════════════════ SHEET HELPERS ══════════════════════ */
-function ss(){ return SHEET_ID ? SpreadsheetApp.openById(SHEET_ID) : SpreadsheetApp.getActiveSpreadsheet(); }
+function ss(){
+  if (typeof sbOn_ === 'function' && sbOn_()) return sbBook_();       /* ⭐ v10.13 — hộp cát TEST: mọi đọc / ghi vào file TEST (MMH_CrmSandbox.gs) */
+  return SHEET_ID ? SpreadsheetApp.openById(SHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
+}
+function ssReal_(){ return SHEET_ID ? SpreadsheetApp.openById(SHEET_ID) : SpreadsheetApp.getActiveSpreadsheet(); }
 function appName_(){ return (TEAM_CFG[TEAM()] || TEAM_CFG.dental).app; }
 function photoFolderId_(){
+  if (typeof sbOn_ === 'function' && sbOn_() && SB && SB.sub && SB.sub.photo) return SB.sub.photo;   /* ⭐ v10.13 — hộp cát TEST */
   var c = TEAM_CFG[TEAM()] || TEAM_CFG.dental;
   return c.photoFolder || TEAM_CFG.dental.photoFolder || DRIVE_FOLDER_ID;
 }
@@ -1706,7 +1729,7 @@ function photoName_(pic, dayIso, acc, seq){
 function photoSeq_(pic, dayIso, rowSkip){
   var ym0 = S(dayIso).replace(/-/g, '').slice(0, 6);
   if (!ym0) return 1;
-  var ck = 'PSEQ|' + TEAM() + '|' + S(pic).toLowerCase() + '|' + ym0;
+  var ck = 'PSEQ|' + TEAM() + ((typeof sbOn_ === 'function' && sbOn_()) ? '|SB' : '') + '|' + S(pic).toLowerCase() + '|' + ym0;
   try {
     var c = CacheService.getScriptCache(), hit = c.get(ck);
     if (hit){
@@ -2925,7 +2948,7 @@ var _VER = null;
 function verAll_(){
   if (_VER) return _VER;
   var raw = '';
-  try { raw = props_().getProperty('VER_MAP') || ''; } catch(e){}
+  try { raw = props_().getProperty(verKey_()) || ''; } catch(e){}
   var o = {};
   if (raw){ try { o = JSON.parse(raw) || {}; } catch(e){ o = {}; } }
   if (!o._all){ o._all = String(Date.now()); saveVer_(o); }
@@ -2933,8 +2956,9 @@ function verAll_(){
   return o;
 }
 function saveVer_(o){
-  try { props_().setProperty('VER_MAP', JSON.stringify(o)); } catch(e){}
+  try { props_().setProperty(verKey_(), JSON.stringify(o)); } catch(e){}
 }
+function verKey_(){ return 'VER_MAP' + ((typeof sbOn_ === 'function' && sbOn_()) ? '_SB' : ''); }   /* ⭐ v10.13 — hộp cát có phiên bản dữ liệu riêng */
 function dataVersion(){ return String(verAll_()._all); }
 /* Chuỗi phiên bản gộp của danh sách tab — dùng làm khoá cache */
 function tabVersion(tabs){
@@ -2988,7 +3012,7 @@ function cached_(name, fn){
 }
 /* cache theo ĐÚNG các tab mà kết quả phụ thuộc vào */
 function cachedFor_(name, tabs, fn){
-  var key = 'D3|' + tabVersion(tabs) + '|' + name + ((typeof tmOn_ === 'function' && tmOn_()) ? '|TEST' : '');
+  var key = 'D3|' + tabVersion(tabs) + '|' + name + ((typeof sbOn_ === 'function' && sbOn_()) ? '|SB' : (typeof tmOn_ === 'function' && tmOn_()) ? '|TEST' : '');
   var hit = cacheGet_(key);
   if (hit) { hit._cache = true; return hit; }
   var val = fn();
@@ -3283,7 +3307,8 @@ function bundle(user, p){
       kpi      : kpiReport({ fy:fy }),
       picList  : picListAll_(),
       stats    : quickStats(),
-      driveFolder: photoFolderId_()
+      driveFolder: photoFolderId_(),
+      nppByPic : nppByPic_()
     };
   });
 
@@ -3299,6 +3324,7 @@ function bundle(user, p){
     fyCurrent: core.fyCurrent,
     cidxCols : core.cidxCols,
     cidx     : core.cidx,
+    nppByPic : core.nppByPic || {},                                     /* ⭐ v10.13 — NPP của từng PIC (đơn hàng tự điền) */
     kpi      : core.kpi,
     stats    : core.stats,
     driveFolder: core.driveFolder,
@@ -3869,7 +3895,7 @@ function mtCell_(s) {
 function mtCacheKey_() {
   var v = "0";
   try { v = PropertiesService.getScriptProperties().getProperty("mt_ver") || "0"; } catch (e) {}
-  return "mt_list_" + v;
+  return "mt_list_" + v + ((typeof sbOn_ === 'function' && sbOn_()) ? "_sb" : "");
 }
 function mtBump_() {
   try { PropertiesService.getScriptProperties().setProperty("mt_ver", String(Date.now())); } catch (e) {}
@@ -4759,7 +4785,8 @@ function k68LinkAdapter_(link){
   var id = k68IdOf_(link) || k68IdOf_(K68_MASTER_LINK); if(!id) throw new Error('no-link');
   var ms = SpreadsheetApp.openById(id);
   return { mode: 'link', ss: ms, pull: function(codes){ return kh_read_(ms, codes); },
-    push: function(src, rows){ var st = kh_write_(ms, src, rows); if(st.cells) kh_log_(ms, src, 'push', st.codes + ' mã · ' + st.cells + ' ô'); return st; } };
+    push: function(src, rows){ if (typeof sbOn_ === 'function' && sbOn_()) return { cells:0, codes:0, sandbox:true };   /* ⭐ v10.13 — hộp cát TEST không ghi file KPI thật */
+      var st = kh_write_(ms, src, rows); if(st.cells) kh_log_(ms, src, 'push', st.codes + ' mã · ' + st.cells + ' ô'); return st; } };
 }
 function k68Master_(link){ return k68LinkAdapter_(link); }
 function k68Register_(masterSS, crmSS, tab, source, lang){
@@ -5050,7 +5077,7 @@ var NA_ENV = {
   teamLabel: function(){ return (TEAM_CFG[TEAM()] || TEAM_CFG.dental).team; },
   ss: function(){ return ss(); },
   tz: function(){ return Session.getScriptTimeZone() || 'Asia/Ho_Chi_Minh'; },
-  folderId: function(){ return NA_FOLDERS[TEAM()] || NA_FOLDERS.dental; },
+  folderId: function(){ if (typeof sbOn_ === 'function' && sbOn_() && SB && SB.sub && SB.sub.na) return SB.sub.na; return NA_FOLDERS[TEAM()] || NA_FOLDERS.dental; },
   email: function(pic){ var u = userByPic(S(pic)); return u ? u.email : ''; },
   title: function(pic){ var u = userByPic(S(pic)); return u ? u.title : ''; },
   teamPics: function(){
@@ -6593,6 +6620,7 @@ var CRM_TAB_LAST = ['4. MASTER NAME NPP', '10. MASTER LIST'];
 var CRM_TAB_HIDE = /^(_LOG|_ORDER_LOG|_CUSTOMER_LOG|15\. TENDER PRICE LOG|_NA_THUMBS|BUSINESS TRIP LOG|9\. KPI CU.*|9\. OLD KPI.*|_PICK|11\. CODE MAP|12\. PRODUCT CODE)$/;
 function crmTabKey_(n){ return presNorm_(n).toUpperCase().replace(/\s+/g, ' ').trim(); }
 function crmMigrateMaybe_(){
+  if (typeof sbOn_ === 'function' && sbOn_()) return;
   var P = props_(); if (P.getProperty(CRM_LAYOUT_KEY) === CRM_LAYOUT_VER) return;
   var c = CacheService.getScriptCache(); if (c.get('CRM_MIG_TRY')) return; c.put('CRM_MIG_TRY', '1', 600);
   var tries = parseInt(P.getProperty('CRM_LAYOUT_TRIES') || '0', 10) || 0; if (tries >= 3) return;
@@ -6989,6 +7017,7 @@ function crmDateFixRun(){
 function crmDateFixDaily(){ return crmDateFix_(); }
 /* gọi ở ping / boot: chạy 1 lần sau mỗi lần nâng DF_VER + cài lịch mỗi đêm 02:00 */
 function dfMaybe_(){
+  if (typeof sbOn_ === 'function' && sbOn_()) return;
   var P = props_(), c = CacheService.getScriptCache();
   if (c.get('DF_TRY')) return; c.put('DF_TRY', '1', 900);
   try {

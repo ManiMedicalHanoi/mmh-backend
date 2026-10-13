@@ -14,6 +14,8 @@
       tfDecide (duyệt / từ chối nhiều chuyến 1 lần — mỗi chuyến 1 email riêng tới đúng người đề xuất).
       Chỉ Director (phiên đăng nhập email, kiểm chữ ký bằng khoá RH_Secret của Training Master).
    ④ (v1.1) tfTrips: lịch công tác của các PIC (đọc thẳng file Business Trip) cho lịch CRM — Sales không còn lưu bản sao ở file MKT.
+   ⑥ (v1.3 · 13/10/2026) HỘP CÁT TEST (MMH_TestMode.gs v2.0, tmSbWho_ ở backend CRM): tfWho_ trả danh tính người Admin đang đóng vai,
+      file Business Trip / thư mục công tác = bản TEST (backend đổi TF.TRIP_ID / TF.PARENT_FOLDER khi mở hộp cát).
    ⑤ (v1.2 · 13/10/2026) CHẾ ĐỘ TEST của Admin (MMH_TestMode.gs): Admin đóng vai Giám đốc duyệt được CHỈ đề xuất của PIC "TEST…";
       đề xuất thật vẫn cần Giám đốc thật. Email trong lượt TEST tự về Admin (tiêu đề [TEST]).
    Không dùng dịch vụ Google mới (chỉ Spreadsheet / Drive / Mail đã có) ⇒ không phải cấp quyền lại.
@@ -247,6 +249,7 @@ function tfB64_(x){ return Utilities.base64EncodeWebSafe(x).replace(/=+$/, ''); 
 function tfSame_(a, b){ a = String(a||''); b = String(b||''); if(a.length !== b.length) return false; var d = 0; for(var i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i); return d === 0; }
 /* ⇒ { local, pic, level, admin } hoặc { err } */
 function tfWho_(p){
+  if(typeof tmSbWho_ === 'function'){ var _sw = tmSbWho_(); if(_sw) return _sw; }   /* v1.3 — hộp cát TEST: danh tính = người Admin đang đóng vai */
   var tk = tfS_(p.tk), dot = tk.indexOf('.');
   if(dot < 10) return { err:'Cần đăng nhập bằng email công ty để duyệt công tác.' };
   var data = tk.substring(0, dot), sig = tk.substring(dot + 1), t;
@@ -387,7 +390,7 @@ function tfTrips(user, p){
   var pics = p.pics; if(typeof pics === 'string'){ try{ pics = JSON.parse(pics); }catch(e){ pics = String(pics).split(','); } }
   pics = (Array.isArray(pics) ? pics : [user && user.pic]).map(tfS_).filter(String);
   if(!pics.length) return { ok:true, trips:[] };
-  var c = CacheService.getScriptCache(), ck = 'tft_' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, pics.slice().sort().join('|'))).slice(0, 30);
+  var c = CacheService.getScriptCache(), ck = 'tft_' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, pics.slice().sort().join('|'))).slice(0, 30) + ((typeof tmSb_ === 'function' && tmSb_()) ? '_sb' : '');
   if(!p.force){ try{ var hit = c.get(ck); if(hit) return JSON.parse(hit); }catch(e){} }
   var sh = tfTripSheet_(), last = sh.getLastRow(), T = TF.C, out = [];
   if(last >= TF.DATA_ROW){
