@@ -90,6 +90,55 @@ SC.m_photo = async b => { const p = await newPage(b, { mobile:true }); await ev(
 SC.m_cust = async b => { const p = await newPage(b, { mobile:true }); await ev(p, () => go('cust')); await W(1500); await shot(p, 'm_cust'); return p; };
 SC.m_more = async b => { const p = await newPage(b, { mobile:true }); await ev(p, () => V30.more()); await W(900); await shot(p, 'm_more'); return p; };
 
+/* ───── ĐIỆN THOẠI: bản điện thoại của các màn chính (cặp máy tính + điện thoại) ───── */
+const MO = { mobile:true };
+SC.m_cust_profile = async b => { const p = await newPage(b, MO); await ev(p, () => go('cust')); await W(800); await ev(p, () => openAcc('NHN-HP0001', 'BV Răng Hàm Mặt TW Hà Nội')); await W(2500); await shot(p, 'm_cust_profile'); return p; };
+SC.m_stake = async b => { const p = await newPage(b, MO); await ev(p, () => go('stake')); await W(2000); await shot(p, 'm_stake'); return p; };
+SC.m_adp = async b => { const p = await newPage(b, MO); await ev(p, () => go('adp')); await W(2000); await shot(p, 'm_adp'); return p; };
+SC.m_orders = async b => { const p = await newPage(b, MO); await ev(p, () => go('order')); await W(2000); await shot(p, 'm_orders'); return p; };
+SC.m_present = async b => { const p = await newPage(b, MO); await ev(p, () => go('present')); await W(2000); await shot(p, 'm_present'); return p; };
+SC.m_monthly = async b => { const p = await newPage(b, MO); await ev(p, () => go('monthly')); await W(2000); await shot(p, 'm_monthly'); return p; };
+SC.m_other = async b => { const p = await newPage(b, MO); await ev(p, () => go('weekly')); await W(600); await ev(p, () => setWkTab('other')); await W(1500); await shot(p, 'm_other'); return p; };
+SC.m_trip_propose = async b => { const p = await newPage(b, MO); await ev(p, () => go('weekly')); await W(800); await ev(p, () => tripProposeOpen('2026-10-26')); await W(1800); await shot(p, 'm_trip_propose'); return p; };
+SC.m_trip_report = async b => { const p = await newPage(b, MO); await ev(p, () => go('weekly')); await W(800);
+  await ev(p, () => { const it = calItems().find(i => i.kind === 't' && /Bac Ninh/.test(i.title)); if (it) calOpen(it.id); }); await W(2500); await shot(p, 'm_trip_report'); return p; };
+SC.m_trip_approve = async b => { const p = await newPage(b, { mobile:true, pic:'Nguyen Ha', level:'director', keep:{ tfa:true } }); await W(1000); await ev(p, () => TFA.open()); await W(2000); await shot(p, 'm_trip_approve'); return p; };
+SC.m_newacc = async b => { const p = await newPage(b, MO); await ev(p, () => go('newacc')); await W(2000); await shot(p, 'm_newacc'); return p; };
+SC.m_newacc_review = async b => { const p = await newPage(b, { mobile:true, naDecide:true }); await ev(p, () => go('newacc')); await W(1500); await ev(p, () => naView('NA-DE-261005161500-731')); await W(2000); await shot(p, 'm_newacc_review'); return p; };
+SC.m_kpi = async b => { const p = await newPage(b, MO); await ev(p, () => go('kpi')); await W(3000); await shot(p, 'm_kpi'); return p; };
+SC.m_kpi_report = async b => { const p = await newPage(b, MO); await ev(p, () => go('kpi')); await W(2000); await ev(p, () => KR.open('Viet', '202609')); await W(2000); await shot(p, 'm_kpi_report'); return p; };
+SC.m_dashboard = async b => { const p = await newPage(b, MO); await ev(p, () => go('dash')); await W(2500); await shot(p, 'm_dashboard'); return p; };
+SC.m_meet = async b => { const p = await newPage(b, MO); await ev(p, () => go('meet')); await W(2500); await shot(p, 'm_meet'); return p; };
+SC.m_send_report = async b => { const p = await newPage(b, MO); await ev(p, () => go('report')); await W(2500); await shot(p, 'm_send_report'); return p; };
+SC.mmhcal = async b => { const p = await newPage(b, {}); await ev(p, () => openMMHCalendar()); await W(2000); await shot(p, 'mmhcal'); return p; };
+SC.m_mmhcal = async b => { const p = await newPage(b, MO); await ev(p, () => openMMHCalendar()); await W(2000); await shot(p, 'm_mmhcal'); return p; };
+
+/* ───── CHẾ ĐỘ TEST (testflow.js) ───── */
+function tfOpt(mobile, role){ return { mobile, pic:'Giang', level:'lead', admin:true, keep:{ tfa:true }, ls:{ mmh_test_crm:JSON.stringify({ on:1, scope:'dental', role:role || 'sales', at:Date.now() }) } }; }
+async function tfRun(p){
+  const post = b => p.evaluate(b => apiPost(b).catch(() => null), b);
+  await post({ action:'saveWeekly', pic:'TEST', row:0, data:JSON.stringify({ account:'TEST Nha khoa Minh Tam/Clinic/Ha Noi/North', status:'Completed', typeAction:'Visiting sales' }), rid:'t1' }); await W(400);
+  await post({ action:'uploadPhoto', pic:'TEST', row:1287, account:'TEST Nha khoa Minh Tam/Clinic/Ha Noi/North', b64:'x'.repeat(160000), rid:'t2' }); await W(400);
+  await post({ action:'saveOrders', pic:'TEST', data:JSON.stringify({ account:'TEST Nha khoa Minh Tam', qty:20, ptype:'Composite' }), rid:'t3' }); await W(400);
+  await post({ action:'tripPropose2', pic:'TEST', forPic:'TEST', trip:JSON.stringify({ destination:'Da Nang', startDate:'2026-10-26', finishDate:'2026-10-27', purpose:'TEST — thử luồng công tác' }), rid:'t4' }); await W(400);
+  await post({ action:'weeklyReport', pic:'TEST', from:'2026-10-06', to:'2026-10-12', rid:'t5' }); await W(400);
+  await post({ action:'naSubmit', pic:'TEST', id:'NA-DE-261007091500-417', rid:'t6' }); await W(400);
+  await p.evaluate(() => fetch(KPI_HUB_URL, { method:'POST', body:new URLSearchParams({ action:'rhKpiMailSend', payload:JSON.stringify({ pic:'Vinh', month:'202609', subject:'KPI T09/2026 · Vinh' }) }) }).catch(() => null)); await W(1200);
+  await p.evaluate(() => { const t = document.getElementById('tf-ts'); if (t) t.innerHTML = ''; });
+}
+async function tfPanel(p){ await ev(p, () => TESTFLOW.open()); await W(600); await ev(p, () => { const s = document.querySelector('#tf-pn .tf-sc'), h = s && s.querySelector('.tf-tl'); if (h) s.scrollTop = h.offsetTop - 10; }); await W(300); }
+SC.test_pick = async b => { const p = await newPage(b, { pic:'Giang', level:'lead', admin:true }); await W(500); await ev(p, () => TESTFLOW.pick()); await W(600); await shot(p, 'test_pick'); return p; };
+SC.m_test_pick = async b => { const p = await newPage(b, { mobile:true, pic:'Giang', level:'lead', admin:true }); await W(500); await ev(p, () => TESTFLOW.pick()); await W(600); await shot(p, 'm_test_pick'); return p; };
+SC.test_flow = async b => { const p = await newPage(b, tfOpt(false)); await tfRun(p); await tfPanel(p); await shot(p, 'test_flow'); return p; };
+SC.m_test_flow = async b => { const p = await newPage(b, tfOpt(true)); await tfRun(p); await tfPanel(p); await shot(p, 'm_test_flow'); return p; };
+SC.test_steps = async b => { const p = await newPage(b, tfOpt(false)); await tfRun(p); await ev(p, () => TESTFLOW.open()); await W(700); await shot(p, 'test_steps'); return p; };
+SC.test_tfa = async b => { const p = await newPage(b, Object.assign(tfOpt(false, 'dir'), { onReq:(h, a, q, d) => a === 'tfPending' ? Object.assign({}, d, { director:true, testOnly:true, items:(d.items || []).concat([{ row:612, no:'608', pic:'TEST', start:'2026-10-26', finish:'2026-10-27', days:2, dest:'Da Nang', co:'No', purpose:'TEST — thử luồng công tác', expect:'Kiểm tra email duyệt', estCost:'Công tác phí: 760.000', total:760000, schedule:'26/10: Hà Nội → Đà Nẵng', equip:'Laptop', status:'Already sent propose email', test:true }]) }) : null })); await W(800);
+  await ev(p, () => { const o = document.getElementById('tfa-ov'); if (o) o.remove(); TFA.open(); }); await W(1800);
+  await ev(p, () => { const c = document.querySelector('#tfa-ov [data-ck="612"]'); if (c){ c.click(); c.scrollIntoView({ block:'center' }); } }); await W(500); await shot(p, 'test_tfa'); return p; };
+SC.m_test_tfa = async b => { const p = await newPage(b, Object.assign(tfOpt(true, 'dir'), { onReq:(h, a, q, d) => a === 'tfPending' ? Object.assign({}, d, { director:true, testOnly:true, items:[{ row:612, no:'608', pic:'TEST', start:'2026-10-26', finish:'2026-10-27', days:2, dest:'Da Nang', co:'No', purpose:'TEST — thử luồng công tác', expect:'Kiểm tra email duyệt', estCost:'Công tác phí: 760.000', total:760000, schedule:'26/10: Hà Nội → Đà Nẵng', equip:'Laptop', status:'Already sent propose email', test:true }].concat(d.items || []) }) : null })); await W(800);
+  await ev(p, () => { const o = document.getElementById('tfa-ov'); if (o) o.remove(); TFA.open(); }); await W(1800);
+  await ev(p, () => { const c = document.querySelector('#tfa-ov [data-ck="612"]'); if (c) c.click(); }); await W(500); await shot(p, 'm_test_tfa'); return p; };
+
 /* ───── THÁI (tiếng Anh) ───── */
 SC.thai_cal = async b => { const p = await newPage(b, { pic:'Dao', team:'thai', level:'lead', wait:7000 }); await openCal(p); await shot(p, 'thai_cal'); return p; };
 SC.thai_kpi = async b => { const p = await newPage(b, { pic:'Dao', team:'thai', level:'lead', wait:7000 }); await ev(p, () => go('kpi')); await W(3000); await shot(p, 'thai_kpi'); return p; };

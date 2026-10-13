@@ -23,8 +23,9 @@ async function newPage(b,o){
     if(o.lang) localStorage.setItem('mmh_lang',o.lang);
     if(o.theme) localStorage.setItem('mmh_theme',o.theme);
     localStorage.setItem('mmh_tour_seen',JSON.stringify({start:1,addtask:1,update:1,calendar:1,mmhcal:1,search:1,assign:1,trip:1,approve:1,report:1,kpi:1,meet:1,news:1,theme:1,admin:1}));
-    if(o.tk) localStorage.setItem('mmh_tk',JSON.stringify({tk:'mocktk.'+o.tk,exp:Date.now()+30*864e5,user:{email:o.tk+'@mani.inc',local:o.tk,pic:o.who,level:'pic'}})); }catch(_){} },
-    {who:pic,nopic:!!o.nopic,tk,src:o.src,lang:o.lang,theme:o.theme});
+    if(o.tk) localStorage.setItem('mmh_tk',JSON.stringify({tk:'mocktk.'+o.tk,exp:Date.now()+30*864e5,user:{email:(o.admin?'admin@example.com':o.tk+'@mani.inc'),local:o.tk,pic:o.who,level:'pic',admin:!!o.admin}}));
+    Object.keys(o.ls||{}).forEach(k=>localStorage.setItem(k,o.ls[k])); }catch(_){} },
+    {who:pic,nopic:!!o.nopic,tk,src:o.src,lang:o.lang,theme:o.theme,admin:!!o.admin,ls:o.ls||{}});
   await p.clock.setFixedTime(new Date(o.time||TODAY));
   await M.install(p,o);
   await p.goto(APP);
@@ -35,9 +36,10 @@ async function newPage(b,o){
     if(!o.letter && window.NT){ var f=NT.open; NT.open=function(m){ if(m===true) return f.apply(this,arguments); }; }
   },o);
   if(o.gate) return p;
-  await p.waitForFunction((who)=>window.S&&S.user&&S.user.pic===who&&document.getElementById('app').style.display==='block',pic,{timeout:25000});
+  await p.waitForFunction((who)=>window.S&&S.user&&S.user.pic===who&&document.getElementById('app').style.display==='block',o.ls&&o.ls.mmh_test_rh?'TEST':pic,{timeout:25000});
   await p.waitForFunction(()=>window.MC&&MC.st&&MC.st.trip&&MC.st.trip.s&&MC.st.trip.s!=='load',null,{timeout:25000}).catch(()=>{});
   await p.waitForTimeout(o.wait||1500);
+  if(o.admin) await p.evaluate(()=>{ var u0=AUTH.user; AUTH.user=function(){ var u=u0.apply(AUTH,arguments); if(u) u.email='admin@example.com'; return u; }; try{ var o=JSON.parse(localStorage.getItem('mmh_tk')); o.user.email='admin@example.com'; localStorage.setItem('mmh_tk',JSON.stringify(o)); }catch(_){} });
   await clean(p,o);
   return p;
 }
@@ -208,6 +210,49 @@ S.whatsnew=async b=>{ const p=await newPage(b,{pic:'Giang',upd:true,time:'2026-1
   await shot(p,'whats_new');
   await ev(p,()=>{ UPD.close(); UPM.open(); }); await wait(p,2000); await shot(p,'update_email'); };
 
+
+/* ═══════════ 10. ĐIỆN THOẠI (cặp với ảnh máy tính) ═══════════ */
+const MOBP={mobile:true,pic:'Giang'};
+S.mob=async b=>{
+  let p=await newPage(b,MOBP); await ev(p,()=>{ switchTab('detail'); S.detailPics=[]; setDetailTime('week'); setDetailView('list'); }); await wait(p,1000); await clean(p); await shot(p,'m_task_list');
+  await ev(p,()=>{ switchTab('overview'); try{ setDateMode('week'); }catch(_){} }); await wait(p,1500); await clean(p); await shot(p,'m_overview');
+  await ev(p,()=>{ switchTab('gantt'); S.ganttPics=[]; setDateMode('week'); }); await wait(p,1200); await clean(p); await shot(p,'m_progress');
+  await ev(p,()=>switchTab('report')); await wait(p,1000); await clean(p); await shot(p,'m_weekly_report');
+  await ev(p,()=>{ S.monthPics=[]; S._monthPicInit=true; switchTab('month'); }); await wait(p,1000); await clean(p); await shot(p,'m_monthly');
+  await ev(p,()=>switchTab('meet')); await wait(p,1500); await clean(p); await shot(p,'m_minutes');
+  await ev(p,()=>switchTab('kpi')); await wait(p,3000); await clean(p); await shot(p,'m_kpi');
+  await ev(p,()=>{ switchTab('calendar'); C10.pics=[]; c10View('week'); }); await wait(p,900); await clean(p); await shot(p,'m_work_cal');
+  await p.context().close();
+  p=await newPage(b,MOBP); await openCal(p,[2026,9,1],'month'); await shot(p,'m_mmh_cal');
+  await ev(p,()=>MC.open('training:S20261014-01')); await wait(p,1300); await shot(p,'m_training');
+  await p.context().close();
+  p=await newPage(b,MOBP); await openCal(p,[2026,9,1],'month'); await ev(p,()=>MC.create('trip','2026-10-27')); await p.waitForSelector('#tp-purpose',{timeout:8000}).catch(()=>{}); await wait(p,600); await shot(p,'m_trip_propose');
+  await p.context().close();
+  p=await newPage(b,{mobile:true,pic:'Nguyen Ha',tfa:true}); await wait(p,1500);
+  await ev(p,()=>{ var o=JSON.parse(localStorage.getItem('mmh_tk')); o.user.level='director'; localStorage.setItem('mmh_tk',JSON.stringify(o)); });
+  await wait(p,2500); await ev(p,()=>{ var o=document.getElementById('tfa-ov'); if(o) o.remove(); TFA.open(); }); await p.waitForSelector('.tfa-it').catch(()=>{}); await wait(p,600); await shot(p,'m_trip_approve');
+  await p.context().close();
+  p=await newPage(b,{mobile:true,pic:'Thuong'}); await ev(p,()=>AT.open('byme')); await wait(p,900); await shot(p,'m_assign_track'); await p.context().close();
+};
+/* ═══════════ 11. CHẾ ĐỘ TEST ═══════════ */
+const TFO=(mobile,role)=>({mobile,pic:'Giang',tk:'mmh.product',admin:true,tfa:role==='dir',ls:{mmh_test_rh:JSON.stringify({on:1,scope:'marketing',role:role||'staff',at:Date.now()})}});
+async function tfRun(p){
+  await ev(p,()=>apiPost({action:'addKey',keyTask:'TEST — chuẩn bị hội thảo nha khoa',pic:'Vinh',status:'To Do',start:'2026-10-07',planned:'2026-10-10'})); await wait(p,900);
+  await ev(p,()=>apiPost({action:'tripPropose',trip:JSON.stringify({destination:'Da Nang',startDate:'2026-10-24',finishDate:'2026-10-25',purpose:'TEST — thử luồng công tác'}),rid:'t1'})); await wait(p,900);
+  await ev(p,()=>apiPost({action:'weeklyReport',from:'2026-10-05',to:'2026-10-11',rid:'w1'})); await wait(p,900);
+  await ev(p,()=>{ var t=document.getElementById('tf-ts'); if(t) t.innerHTML=''; });
+}
+async function tfPanel(p){ await ev(p,()=>TESTFLOW.open()); await wait(p,600); await ev(p,()=>{ var s=document.querySelector('#tf-pn .tf-sc'),h=s&&s.querySelector('.tf-tl'); if(h) s.scrollTop=h.offsetTop-10; }); await wait(p,300); }
+S.testmode=async b=>{
+  let p=await newPage(b,{pic:'Giang',tk:'mmh.product',admin:true}); await wait(p,800); await ev(p,()=>TESTFLOW.pick()); await wait(p,600); await shot(p,'test_pick'); await p.context().close();
+  p=await newPage(b,{mobile:true,pic:'Giang',tk:'mmh.product',admin:true}); await wait(p,800); await ev(p,()=>TESTFLOW.pick()); await wait(p,600); await shot(p,'m_test_pick'); await p.context().close();
+  p=await newPage(b,TFO(false)); await tfRun(p); await tfPanel(p); await shot(p,'test_flow'); await p.context().close();
+  p=await newPage(b,TFO(true)); await tfRun(p); await tfPanel(p); await shot(p,'m_test_flow'); await p.context().close();
+  p=await newPage(b,TFO(false,'dir')); await wait(p,1500); await ev(p,()=>{ var o=document.getElementById('tfa-ov'); if(o) o.remove(); TFA.open(); }); await wait(p,1500);
+  await ev(p,()=>{ var c=document.querySelector('#tfa-ov [data-ck="612"]'); if(c){ c.click(); c.scrollIntoView({block:'center'}); } }); await wait(p,400); await shot(p,'test_tfa'); await p.context().close();
+  p=await newPage(b,TFO(true,'dir')); await wait(p,1500); await ev(p,()=>{ var o=document.getElementById('tfa-ov'); if(o) o.remove(); TFA.open(); }); await wait(p,1500);
+  await ev(p,()=>{ var c=document.querySelector('#tfa-ov [data-ck="612"]'); if(c){ c.click(); c.scrollIntoView({block:'center'}); } }); await wait(p,400); await shot(p,'m_test_tfa'); await p.context().close();
+};
 module.exports={S,newPage,shot,ev};
 if(require.main===module)(async()=>{
   const b=await chromium.launch({args:['--lang=vi-VN']});

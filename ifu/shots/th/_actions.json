@@ -1,0 +1,21 @@
+{
+ "requestOtp": 1,
+ "bootstrap": 49,
+ "sessionFull": 28,
+ "fileMeta": 4,
+ "fileChunk": 4,
+ "myQuizStatus": 6,
+ "quizStart": 4,
+ "quizSubmit": 1,
+ "notifications": 2,
+ "myCertificates": 1,
+ "previewInvite": 3,
+ "getQuiz": 1,
+ "uploadInit": 4,
+ "uploadChunk": 10,
+ "sessionResults": 1,
+ "getStats": 1,
+ "listUsers": 1,
+ "ping": 2,
+ "getLogs": 1
+}

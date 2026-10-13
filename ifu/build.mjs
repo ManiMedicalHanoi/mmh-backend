@@ -50,6 +50,10 @@ function figure(ids, cap, kind) {
   ids = ids.split(',').map(s => s.trim()).filter(Boolean); figNo++;
   const lab = `<b>Hình ${chapNo}.${figNo}.</b> `;
   const one = (id, w) => { const u = img(id, w); return `<div class="frame">${u ? `<img src="${u}">` : `<div class="missing">Chưa có ảnh: ${esc(id)}</div>`}</div>`; };
+  const isM = id => /(^|\/)m_/.test(id);
+  if (ids.length > 1 && kind !== 'phone' && ids.some(isM) && ids.some(i => !isM(i))) {   /* cặp máy tính + điện thoại */
+    return `<figure class="dm ${kind}"><div class="figrow dm">${ids.map(i => isM(i) ? `<div class="pm phone">${one(i, 600)}</div>` : `<div class="pd">${one(i, 1400)}</div>`).join('')}</div><figcaption>${lab}${inline(cap)}</figcaption></figure>`;
+  }
   if (ids.length > 1 || kind === 'phone') {
     const w = kind === 'phone' ? 700 : 1100;
     return `<figure class="${kind === 'phone' ? '' : kind}"><div class="figrow ${kind === 'phone' ? 'phone' : ''}">${ids.map(i => `<div>${one(i, w)}</div>`).join('')}</div><figcaption>${lab}${inline(cap)}</figcaption></figure>`;

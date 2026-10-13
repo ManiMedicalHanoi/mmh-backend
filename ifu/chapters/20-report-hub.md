@@ -1,7 +1,7 @@
 ---
 number: 3
 ---
-[[opener 3 | MMH Report Hub | Bảng việc chung của các phòng ban. Mỗi người cập nhật key task / sub task của mình; báo cáo tuần, Monthly Report, biên bản họp được tạo từ chính dữ liệu đó. Report Hub còn có MMH Calendar (lịch chung của công ty), giao việc có email, đề xuất và duyệt công tác, tạo buổi đào tạo, và tab KPI. | rh/work_cal_week | Ai dùng, bố cục màn hình; Cập nhật công việc: key task và sub task; Lịch làm việc, Pending, Today task; Tiến độ, Tổng quan, Tình hình đội; Báo cáo tuần, Monthly Report, biên bản họp; MMH Calendar; Sự kiện offline và bài đăng Marketing; Đào tạo trên lịch; Công tác; Giao việc và trao đổi; Nhắc việc, thông báo, quản trị; Dữ liệu và kết nối]]
+[[opener 3 | MMH Report Hub | Bảng việc chung của các phòng ban. Mỗi người cập nhật key task / sub task của mình; báo cáo tuần, Monthly Report, biên bản họp được tạo từ chính dữ liệu đó. Report Hub còn có MMH Calendar (lịch chung của công ty), giao việc có email, đề xuất và duyệt công tác, tạo buổi đào tạo, và tab KPI. | rh/work_cal_week | Ai dùng, bố cục màn hình; Dữ liệu: nguồn, cách lưu, lưu ở đâu; Chức năng chính; Cập nhật công việc; MMH Calendar: lịch làm việc; Biểu đồ thống kê; Hệ thống báo cáo; MMH Calendar: lịch chung; Sự kiện, bài đăng; Đào tạo; Công tác; Giao việc; Nhắc việc, quản trị]]
 
 ## Ai dùng, bố cục màn hình
 
@@ -45,6 +45,55 @@ Report Hub có **ba phòng ban**, mỗi phòng ban một file dữ liệu (backe
 
 [[fig rh/dept_backoffice | Phòng ban **Back Office**: cùng cách cập nhật, loại việc riêng của phòng.]]
 
+## Dữ liệu của Report Hub: nguồn, cách lưu, lưu ở đâu
+
+Report Hub không có cơ sở dữ liệu riêng: mỗi loại dữ liệu ghi thẳng vào **file Google Sheet nguồn** của nó qua backend Apps Script. Dữ liệu một phòng ban nằm ở file của phòng đó; công tác ở file Business Trip; sự kiện, bài đăng ở file Marketing; đào tạo, giao việc ở Training Master.
+
+<div class="flow"><div><b>1 · Tạo / sửa trên app</b>Thẻ việc, lịch, khung đề xuất… cập nhật màn hình ngay.</div><div><b>2 · Hàng đợi ghi</b>Lệnh ghi chạy lần lượt, thử lại khi mất mạng, đổi số tạm sang số dòng thật.</div><div><b>3 · Backend đúng loại dữ liệu</b>Marketing · Management · Back Office · Business Trip · MKT Online / Offline · Training.</div><div><b>4 · Tổng hợp</b>Báo cáo tuần / tháng, MMH Calendar, KPI, email.</div></div>
+
+| Dữ liệu | Tạo / sửa ở đâu trên app | Lưu ở (file ▸ tab) | Đi tiếp tới |
+|---|---|---|---|
+| **Key task / Sub-task**: PIC, ngày, hạn, trạng thái, %, kết quả | **+ Thêm việc** · thẻ việc ▸ Cập nhật · kiểu Bảng | File công việc của phòng (backend marketing / management / backoffice) ▸ tab theo dõi tuần | Lịch làm việc, Tiến độ, Tổng quan, Báo cáo tuần |
+| **Hạng mục tháng** | **Monthly Report** | File của phòng ▸ tab báo cáo tháng | Báo cáo tháng |
+| **Biên bản họp** | **Biên bản họp** | File của phòng ▸ tab biên bản | Email biên bản |
+| **Giao việc** + trao đổi | Thêm việc cho người khác (tick email) · **Việc đã giao** | Training Master ▸ **RH_Assign** | Popup "Việc mới được giao", email |
+| **Đề xuất · duyệt · báo cáo công tác** | **Đề xuất công tác** · **Duyệt công tác** · MMH Calendar ▸ chuyến | File **Business Trip** ▸ MMH Travel report; nhật ký **Business Trip Log** của từng backend | MMH Calendar, email |
+| **Sự kiện offline** | MMH Calendar ▸ sự kiện ▸ Sửa | **MKT Offline** ▸ REPORT_EVENT | KPI Sự kiện, Người tham dự (C12, C15) |
+| **Bài đăng, thiết kế** | MMH Calendar ▸ bài đăng ▸ Sửa | **MKT Online** ▸ EVENT / PRODUCT REPORT | KPI Digital & Design (C17) |
+| **Buổi đào tạo** | MMH Calendar ▸ **Tạo mới ▸ Đào tạo** | **Training Master** ▸ sessions | Training Hub, KPI Đào tạo (L1, L2) |
+| KPI | Chỉ xem: **KPI** | File **MMH_KPI_FY68** | Báo cáo KPI tháng, Total KPI |
+
+### Sơ đồ file nguồn
+
+<div class="flow"><div><b>Người dùng</b>Cập nhật task, sự kiện, bài đăng, công tác, đào tạo</div><div><b>Report Hub</b>Ghi vào đúng file theo loại dữ liệu</div><div><b>7 file nguồn</b>Marketing · Management · Back Office · Business Trip · MKT Online · MKT Offline · Training</div><div><b>Tổng hợp</b>Báo cáo tuần, MMH Calendar, KPI</div></div>
+
+| Loại dữ liệu | File (backend) |
+|---|---|
+| Task Marketing & Sales, biên bản họp, Công việc khác (Report Hub) | marketing |
+| Task Management | management |
+| Task Back Office | backoffice |
+| Công tác (đề xuất, duyệt, báo cáo) | trip (file Business Trip); nhật ký riêng ở từng backend |
+| Bài đăng sự kiện / sản phẩm, thiết kế | mkt-online |
+| Sự kiện offline | mkt-offline |
+| Đào tạo, đăng nhập, phân quyền, giao việc, email cập nhật | training |
+| KPI | kpi (chỉ đọc) |
+
+[[backend marketing]]
+[[backend management]]
+[[backend backoffice]]
+[[backend trip]]
+[[backend mkt-online]]
+[[backend mkt-offline]]
+
+## Chức năng chính
+
+| Nhóm chức năng | Gồm | Mục |
+|---|---|---|
+| **Cập nhật công việc** | Key task, sub task, tiến độ, kết quả, file tham chiếu, giao việc | 3.4 · 3.12 |
+| **MMH Calendar** | Kế hoạch cá nhân / đội nhóm: lịch làm việc, kế hoạch & báo cáo công tác, sự kiện, bài đăng, đào tạo | 3.5 · 3.8 → 3.11 |
+| **Hệ thống báo cáo** | Báo cáo tuần, Monthly Report, biên bản họp, báo cáo KPI tháng, tự đánh giá quý (Chương 4) | 3.7 |
+| **Biểu đồ thống kê** | Tiến độ công việc, Tổng quan, Tình hình đội, KPI | 3.6 |
+
 ## Cập nhật công việc: key task và sub task
 
 Mọi việc trong Report Hub được tổ chức hai tầng:
@@ -52,7 +101,7 @@ Mọi việc trong Report Hub được tổ chức hai tầng:
 - **Key task**: việc lớn, có loại việc (ví dụ *Product - Plan*, *Marketing - Event*), PIC, ngày bắt đầu, hạn.
 - **Sub task**: các bước nhỏ của key task, mỗi sub task có PIC, hạn, % tiến độ, trạng thái (*To Do · In Progress · Completed · Cancelled*), kết quả / link.
 
-[[fig rh/task_list | Mục **Cập nhật công việc** dạng Danh sách: key task mở ra các sub task, có tiến độ, PIC, hạn, trạng thái.]]
+[[fig rh/task_list, rh/m_task_list | Mục **Cập nhật công việc** dạng Danh sách: key task mở ra các sub task, có tiến độ, PIC, hạn, trạng thái — máy tính (trái) và điện thoại (phải).]]
 
 ### Thêm key task / sub task
 
@@ -90,11 +139,11 @@ Mọi việc trong Report Hub được tổ chức hai tầng:
 | Chip **Tất cả tiến độ · To Do · In Progress · Completed · Cancelled** | Lọc nhanh trạng thái |
 | **Xóa lọc** · **Tài liệu tham chiếu** · **Nhắc việc ưu tiên** | Bỏ mọi bộ lọc; mở tài liệu chung; gửi nhắc việc |
 
-## Lịch làm việc, Pending, Today task
+## MMH Calendar: lịch làm việc, Pending, Today task
 
 **Lịch làm việc** hiển thị sub task theo ngày bắt đầu / hạn, kèm công tác và đào tạo nếu bật.
 
-[[fig rh/work_cal_week | Lịch làm việc theo tuần: thẻ việc có trạng thái, %, *Còn n ngày*, *Quá hạn*, *Đến hạn hôm nay*, nhãn *Email từ …* khi được giao qua email.]]
+[[fig rh/work_cal_week, rh/m_work_cal | Lịch làm việc theo tuần: thẻ việc có trạng thái, %, *Còn n ngày*, *Quá hạn*, *Đến hạn hôm nay*, nhãn *Email từ …* khi được giao qua email — máy tính (trái) và điện thoại (phải).]]
 
 | Điều khiển | Tác dụng |
 |---|---|
@@ -110,17 +159,17 @@ Mọi việc trong Report Hub được tổ chức hai tầng:
 
 [[fig rh/work_cal_pending | Kiểu **Pending**: ba cột *Trễ hạn · Đến hạn hôm nay / ngày mai · Đang thực hiện*, mỗi thẻ có nút **Hoàn thành** và **Gia hạn**.]]
 
-## Tiến độ, Tổng quan, Tình hình đội
+## Biểu đồ thống kê: tiến độ, tổng quan, tình hình đội
 
 ### Tiến độ công việc
 
-[[fig rh/task_progress | **Tiến độ công việc**: mỗi key task một thanh, màu theo mức hoàn thành; mở ra để xem sub task.]]
+[[fig rh/task_progress, rh/m_progress | **Tiến độ công việc**: mỗi key task một thanh, màu theo mức hoàn thành; mở ra để xem sub task — máy tính (trái) và điện thoại (phải).]]
 
 Xem theo **Theo ngày · Công việc trong tuần · Công việc trong tháng**. Thanh tô màu theo % (0–25 · 25–50 · 50–75 · 75–99 · 100%) và đánh dấu quá hạn. Bấm **Mở / Ẩn sub-task**.
 
 ### Tổng quan
 
-[[fig rh/overview | **Tổng quan**: ô số việc, hiệu suất theo nhân sự, biểu đồ sub task theo loại và theo trạng thái.]]
+[[fig rh/overview, rh/m_overview | **Tổng quan**: ô số việc, hiệu suất theo nhân sự, biểu đồ sub task theo loại và theo trạng thái — máy tính (trái) và điện thoại (phải).]]
 
 Ô **Tổng số việc · Công việc hôm nay · Đã hoàn thành gần đây · Đang thực hiện · Quá hạn** (bấm để xem chi tiết). **Hiệu suất theo nhân sự**: số việc trong kỳ, đã xong, % của từng người. **Phân tích & tiến độ**: sub task theo loại công việc, theo trạng thái.
 
@@ -130,11 +179,11 @@ Xem theo **Theo ngày · Công việc trong tuần · Công việc trong tháng*
 
 [[fig rh/team_status, rh/activity | **Tình hình đội** (trái): số việc, số việc trễ của từng người. **Hoạt động** (phải): bảng tin ai vừa thêm / báo cáo gì, lọc theo tuần, tháng, người.]]
 
-## Báo cáo tuần, Monthly Report, biên bản họp
+## Hệ thống báo cáo: tuần, tháng, biên bản họp
 
 ### Báo cáo tuần
 
-[[fig rh/weekly_report | **Báo cáo tuần**: bảng *Kết quả tuần này* và *Plan tuần sau*, tô đỏ dòng quá hạn.]]
+[[fig rh/weekly_report, rh/m_weekly_report | **Báo cáo tuần**: bảng *Kết quả tuần này* và *Plan tuần sau*, tô đỏ dòng quá hạn — máy tính (trái) và điện thoại (phải).]]
 
 :::rule Báo cáo tuần lấy việc nào
 **Kết quả tuần** = mọi task có ngày bắt đầu / hạn / ngày hoàn thành chạm vào tuần, cộng task quá hạn chưa xong. **Plan tuần sau** = task chưa xong có ngày bắt đầu hoặc hạn chạm vào tuần sau, kể cả việc quá hạn gánh sang. Không cần gõ lại: cập nhật task đủ là báo cáo đủ.
@@ -149,24 +198,24 @@ Xem theo **Theo ngày · Công việc trong tuần · Công việc trong tháng*
 
 ### Monthly Report
 
-[[fig rh/monthly_report | **Monthly Report**: mỗi mục một thẻ (tên việc, loại, người phụ trách, nội dung tháng).]]
+[[fig rh/monthly_report, rh/m_monthly | **Monthly Report**: mỗi mục một thẻ (tên việc, loại, người phụ trách, nội dung tháng) — máy tính (trái) và điện thoại (phải).]]
 
 Chọn tháng, lọc **Loại việc · Nhân sự**; **+ Thêm mục**, mỗi thẻ có **Cập nhật** / **Xóa**. **Xuất PDF báo cáo tháng** để gửi hoặc lưu.
 
 ### Biên bản họp
 
-[[fig rh/minutes | **Biên bản họp**: nhóm, ngày họp, khoảng review, thành phần tham dự, nội dung theo mục, ghi chú, follow-up action.]]
+[[fig rh/minutes, rh/m_minutes | **Biên bản họp**: nhóm, ngày họp, khoảng review, thành phần tham dự, nội dung theo mục, ghi chú, follow-up action — máy tính (trái) và điện thoại (phải).]]
 
 1. Bấm **+ Biên bản mới**. Chọn **Nhóm**, **Ngày họp**, **Khoảng thời gian review** (từ lần họp trước, tuần này, tuần trước, 2 tuần, tháng này, tháng trước).
 2. Chọn **Thành phần tham dự**. App tự đưa các task trong khoảng review vào từng mục **Plan · Tender · Training · Other**.
 3. Ghi **Ghi chú họp** và **Follow-up action** cho từng mục.
 4. **Lưu biên bản** (sheet *MEETING LOG*); **Gửi email** cho người tham dự; **Lịch sử** để mở biên bản cũ.
 
-## MMH Calendar
+## MMH Calendar: lịch chung của công ty
 
 **MMH Calendar** gom bốn loại lịch của công ty vào một màn hình. Mở bằng nút **MMH Calendar** trên thanh trên cùng (có ở cả Report Hub và CRM).
 
-[[fig rh/mmh_cal_month | MMH Calendar · kiểu Tháng: ô tổng hợp bốn loại lịch, bộ lọc bên trái, lịch tháng ở giữa.]]
+[[fig rh/mmh_cal_month, rh/m_mmh_cal | MMH Calendar · kiểu Tháng: ô tổng hợp bốn loại lịch, bộ lọc bên trái, lịch tháng ở giữa — máy tính (trái) và điện thoại (phải).]]
 
 | Ô tổng hợp | Nguồn dữ liệu | Số hiển thị |
 |---|---|---|
@@ -228,21 +277,21 @@ Trainer tạo buổi đào tạo ngay trên MMH Calendar; dữ liệu ghi vào T
 2. Bấm **Lưu buổi đào tạo** (trạng thái *Plan*) hoặc **Lưu & soạn email mời**.
 3. Trong **Thư mời**: chọn người nhận / CC, sửa tiêu đề, thêm lời nhắn. Bấm **Gửi email** (hoặc **Soạn bằng Gmail**). Thư mục tài liệu trên Drive được tạo khi gửi; email có link tới thư mục.
 
-[[fig rh/training_detail | Chi tiết buổi đào tạo (trainer): gửi lại thư mời, sửa buổi, kéo thả tài liệu vào thư mục, xem / tải tài liệu.]]
+[[fig rh/training_detail, rh/m_training | Chi tiết buổi đào tạo (trainer): gửi lại thư mời, sửa buổi, kéo thả tài liệu vào thư mục, xem / tải tài liệu — máy tính (trái) và điện thoại (phải).]]
 
 Người không phải trainer chỉ xem được buổi đào tạo mình được mời; khung chi tiết ghi rõ *chỉ xem*.
 
-## Công tác
+## MMH Calendar: kế hoạch và báo cáo công tác
 
 ### Đề xuất
 
-[[fig rh/trip_propose | Khung **Đề xuất công tác** trên Report Hub (giống CRM).]]
+[[fig rh/trip_propose, rh/m_trip_propose | Khung **Đề xuất công tác** trên Report Hub (giống CRM) — máy tính (trái) và điện thoại (phải).]]
 
 Bấm **Đề xuất công tác** trên thanh lịch. Điền ngày đi / về, nơi đến, người đi cùng, mục đích, kết quả mong đợi, chi phí dự trù (nhiều dòng, tự cộng), lịch trình, thiết bị mang theo. Bấm **Gửi đề xuất**: ghi vào file Business Trip, gửi email *Business Trip Approval Request* tới Giám đốc.
 
 ### Duyệt (Giám đốc)
 
-[[fig rh/trip_approve, rh/trip_approve_done | **Duyệt đề xuất công tác**: chọn một hoặc nhiều chuyến, ghi chú, **Duyệt** hoặc **Từ chối** (phải ghi lý do).]]
+[[fig rh/trip_approve, rh/m_trip_approve | **Duyệt đề xuất công tác**: chọn một hoặc nhiều chuyến, ghi chú, **Duyệt** hoặc **Từ chối** (phải ghi lý do).]]
 
 ### Chi tiết và báo cáo sau chuyến
 
@@ -260,7 +309,7 @@ Sau chuyến đi: mở chuyến › **Cập nhật báo cáo công tác** › đ
 
 [[fig rh/assign_popup | Người nhận mở app: popup **Việc mới được giao**, bấm **Mở công việc** hoặc **Đã hiểu**.]]
 
-[[fig rh/assign_track, rh/assign_thread | **Việc đã giao & trao đổi**: danh sách việc đã giao kèm trạng thái *Đã xem · Chưa xem · Hoàn thành* (trái); trao đổi trong từng việc (phải).]]
+[[fig rh/assign_track, rh/m_assign_track | **Việc đã giao & trao đổi**: danh sách việc đã giao kèm trạng thái *Đã xem · Chưa xem · Hoàn thành* (trái); trao đổi trong từng việc (phải).]]
 
 Mở bằng nút **Việc đã giao** trên thanh trên cùng: tab **Tôi đã giao** / **Giao cho tôi**. Khi người nhận chuyển việc sang *Completed*, người giao nhận email báo hoàn thành.
 
@@ -304,30 +353,16 @@ Admin xem danh sách người dùng (sheet RH_Users): email, tên, phòng ban, c
 
 [[fig rh/tour_catalog, rh/theme | Danh mục **Hướng dẫn** (trái) và **màu giao diện** (phải).]]
 
-[[phones rh/m_main, rh/m_calendar, rh/m_tour | Report Hub trên điện thoại: trang chính, MMH Calendar, hướng dẫn từng bước.]]
+[[phones rh/m_task_list, rh/m_mmh_cal, rh/m_tour | Report Hub trên điện thoại: trang chính, MMH Calendar, hướng dẫn từng bước.]]
 
-## Dữ liệu và kết nối
 
-<div class="flow"><div><b>Người dùng</b>Cập nhật task, sự kiện, bài đăng, công tác, đào tạo</div><div><b>Report Hub</b>Ghi vào đúng file theo loại dữ liệu</div><div><b>7 file nguồn</b>Marketing · Management · Back Office · Business Trip · MKT Online · MKT Offline · Training</div><div><b>Tổng hợp</b>Báo cáo tuần, MMH Calendar, KPI</div></div>
+### Chế độ TEST (Admin)
 
-| Loại dữ liệu | File (backend) |
-|---|---|
-| Task Marketing & Sales, biên bản họp, Công việc khác (Report Hub) | marketing |
-| Task Management | management |
-| Task Back Office | backoffice |
-| Công tác (đề xuất, duyệt, báo cáo) | trip (file Business Trip); nhật ký riêng ở từng backend |
-| Bài đăng sự kiện / sản phẩm, thiết kế | mkt-online |
-| Sự kiện offline | mkt-offline |
-| Đào tạo, đăng nhập, phân quyền, giao việc, email cập nhật | training |
-| KPI | kpi (chỉ đọc) |
+[[fig rh/test_flow, rh/m_test_flow | Chế độ TEST: thao tác dưới tên TEST, bảng Luồng dữ liệu cho biết dữ liệu đi vào file nào, dòng nào, email lẽ ra gửi tới ai.]]
 
-[[backend marketing]]
-[[backend management]]
-[[backend backoffice]]
-[[backend trip]]
-[[backend mkt-online]]
-[[backend mkt-offline]]
+Admin thử mọi chức năng với dữ liệu thật dưới tên **TEST**, đóng vai Giám đốc để duyệt công tác của TEST. Cách dùng: **Chương 6**.
 
-### Lịch sử cập nhật gần đây
+## Lịch sử cập nhật gần đây
+
 
 [[changelog rh 6]]
