@@ -1,5 +1,5 @@
 /* ════════════════════════════════════════════════════════════════════════════════════════════════
-   MMH_CrmSandbox.gs — v1.0 (13/10/2026) · HỘP CÁT TEST CỦA CRM · GIỐNG HỆT ở crm-dental / crm-surgical / crm-eyeless
+   MMH_CrmSandbox.gs — v1.1 (13/10/2026) · v1.1: quy tắc xác thực file TEST = cảnh báo (sửa lỗi ô D5), lỗi 1 ô không làm hỏng cả lượt dựng · HỘP CÁT TEST CỦA CRM · GIỐNG HỆT ở crm-dental / crm-surgical / crm-eyeless
    ─────────────────────────────────────────────────────────────────────────────────────────────
    Admin bấm TEST trên app ⇒ mọi lệnh gửi tm=1 + tmSb=1 + tmAs=<người đóng vai> + phiên email Admin (MMH_TestMode.gs v2.0 kiểm Admin).
    ① FILE TEST RIÊNG: bản sao file CRM của nhóm ("TEST · <tên file>") trong thư mục Drive "MMH CRM TEST/<Nhóm>" — dữ liệu thật
@@ -15,7 +15,7 @@
    ⑤ tmSetup (lần đầu) / tmReset · tmClean (làm lại từ đầu): chạy nền bằng trigger 1 lần, app hỏi tmInfo tới khi ready.
    Không dùng dịch vụ Google mới (Spreadsheet / Drive / ScriptApp đã có) ⇒ không phải cấp quyền lại.
    ════════════════════════════════════════════════════════════════════════════════════════════════ */
-var SBX_VER = '1.0';
+var SBX_VER = '1.1';
 var SB = null, _SBSS = null, SB_BUILD = false;
 var SB_P = { sheet:'TM_SB_SHEET', folder:'TM_SB_FOLDER', sub:'TM_SB_SUB', state:'TM_SB_STATE', at:'TM_SB_AT', log:'TM_SB_LOG', who:'TM_SB_WHO', old:'TM_SB_OLD' };
 var SB_ROOT = 'MMH CRM TEST';
@@ -116,7 +116,7 @@ function sbBuild_(){
     log.push(sbWipe_(book));
     try { log.push(sbTripTabs_(book, realTrip)); } catch(eT){ log.push('công tác: ' + eT.message); }
     log.push(sbSeed_(book, ctx));
-    SpreadsheetApp.flush();
+    try { SpreadsheetApp.flush(); } catch(eF){ log.push('⚠ ' + eF.message); }     /* v1.1 — 1 ô sai quy tắc không làm hỏng cả bộ dữ liệu TEST */
     var m = {}; m[SB_P.sheet] = SB.id; m[SB_P.folder] = SB.folder; m[SB_P.sub] = JSON.stringify(sub); m[SB_P.state] = 'ready'; m[SB_P.at] = String(Date.now());
     m[SB_P.log] = (Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'dd/MM/yyyy HH:mm') + ' · ' + Math.round((Date.now() - t0) / 1000) + 's · ' + log.join(' · ')).slice(0, 8000);
     P.setProperties(m); P.deleteProperty(SB_P.old); P.deleteProperty('VER_MAP_SB');
@@ -127,11 +127,21 @@ function sbBuild_(){
   } finally { SB_BUILD = false; }
   return out;
 }
+/* v1.1 — file TEST: quy tắc xác thực dữ liệu chuyển sang "Hiện cảnh báo" (giữ danh sách thả xuống) ⇒ dữ liệu ảo không bị từ chối
+   (lỗi 13/10: "Dữ liệu bạn đã nhập vào ô D5 vi phạm quy tắc xác thực…" — cột PIC của MMH Travel report không có tên sales ⇒ cả lượt dựng hỏng) */
+function sbRelax_(rg){
+  try {
+    var dv = rg.getDataValidations(), ch = false;
+    var out = dv.map(function(r){ return r.map(function(v){ if (v && !v.getAllowInvalid()){ ch = true; return v.copy().setAllowInvalid(true).build(); } return v; }); });
+    if (ch) rg.setDataValidations(out);
+  } catch(e){}
+}
 /* xoá dữ liệu thật: giữ tiêu đề + công thức, chỉ giữ SB_KEEP dòng */
 function sbClear_(sh, r0){
   if (!sh) return 0;
   var max = sh.getMaxRows();
   if (max > r0 + SB_KEEP) sh.deleteRows(r0 + SB_KEEP, max - (r0 + SB_KEEP) + 1);
+  if (sh.getLastColumn() >= 1) sbRelax_(sh.getRange(r0, 1, Math.max(1, sh.getMaxRows() - r0 + 1), sh.getLastColumn()));
   var lr = Math.min(sh.getLastRow(), r0 + SB_KEEP - 1), lc = sh.getLastColumn();
   if (lr < r0 || lc < 1) return 0;
   var n = lr - r0 + 1, F = sh.getRange(r0, 1, n, lc).getFormulas();
@@ -255,6 +265,7 @@ function sbPut_(sh, r0, map, rows){
   Object.keys(fields).forEach(function(k){
     var c = map[k], rg = sh.getRange(r0, c, rows.length, 1), F = rg.getFormulas();
     if (F.some(function(x){ return !!x[0]; })) return;
+    sbRelax_(rg);
     rg.setValues(rows.map(function(o){ var v = o[k]; return [v === undefined || v === null ? '' : v]; }));
   });
   return rows.length;
@@ -349,6 +360,7 @@ function sbSeed_(book, ctx){
   /* Công việc khác (ALL TASK): 1 key + 2 sub mỗi PIC */
   try {
     if (typeof stWrite_ === 'function'){
+      try { var at = sbBook_().getSheetByName('ALL TASK'); if (at) sbRelax_(at.getRange(ST.DATA, 1, Math.max(1, at.getMaxRows() - ST.DATA + 1), at.getLastColumn())); } catch(eR){}
       var row = ST.DATA, ty = 'Sales-' + tm.label, mEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
       pics.forEach(function(u){
         stWrite_(row++, { type:ty, keyTask:'Kế hoạch tháng ' + ymNow.slice(4) + '/' + ymNow.slice(0, 4) + ' · ' + u.pic, subTask:'', pic:u.pic, result:'', start:sbIso_(new Date(today.getFullYear(), today.getMonth(), 1)), planned:sbIso_(mEnd), revised:'', status:'In Progress', progress:30 });
@@ -364,9 +376,11 @@ function sbSeed_(book, ctx){
     var tr = sbBook_().getSheetByName(typeof TF !== 'undefined' ? TF.TRIP_TAB : 'MMH Travel report');
     if (tr && typeof TF !== 'undefined'){
       var T = TF.C, u0 = pics[0], s0 = sbWork_(sbAdd_(today, 8), false), f0 = sbAdd_(s0, 1), r = TF.DATA_ROW, v = [];
+      sbRelax_(tr.getRange(r, 1, 1, tr.getLastColumn()));
       var put = function(c, val){ tr.getRange(r, c).setValue(val); };
       put(T.NO, 1); put(T.PIC, u0.pic); put(T.START, s0); put(T.FINISH, f0); put(T.DEST, 'Tỉnh Mẫu (dữ liệu TEST)'); put(T.PURPOSE, 'Thăm khách hàng & hỗ trợ NPP');
       put(T.EXPECT, 'Mở 1 địa bàn mới, 2 buổi demo'); put(T.ESTCOST, 'Công tác phí: 1.000.000'); put(T.APPROVAL, 'Already sent propose email'); put(T.EMAIL_PIC, u0.email);
+      SpreadsheetApp.flush();
       cnt.trip = 1;
     }
   } catch(e){ cnt.tripErr = e.message; }

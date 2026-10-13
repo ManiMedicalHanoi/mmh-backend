@@ -1,5 +1,5 @@
 /*************************************************************************************************
- * MMH REPORT HUB — Event_Sync.gs   (v1.0 · 13/10/2026)
+ * MMH REPORT HUB — Event_Sync.gs   (v1.1 · 13/10/2026 · v1.1: Task Result gọn, Folder = link thật)
  * ─────────────────────────────────────────────────────────────────────────────────────────────
  * SỰ KIỆN MARKETING OFFLINE ⇒ KEY TASK "Marketing-Event" TRÊN "Weekly new" (tự động, gần như tức thì)
  *
@@ -123,6 +123,25 @@ function evsGet_(t, row, keys){
   return '';
 }
 
+/* ── link thật trong 1 cột (ô có chữ gắn link / công thức HYPERLINK / chữ là URL) ⇒ mảng URL theo dòng dữ liệu ── */
+function evsLinks_(t, key){
+  var out = [], k = evsNorm_(key), c = null;
+  if (k in t.col) c = t.col[k]; else for (var h in t.col) if (c === null && h.indexOf(k) === 0) c = t.col[h];
+  if (c === null || !t.rows.length) return out;
+  var rt = [], fm = [];
+  try { var rg = t.sh.getRange(t.first, c + 1, t.rows.length, 1); rt = rg.getRichTextValues(); fm = rg.getFormulas(); } catch(e){}
+  for (var i = 0; i < t.rows.length; i++){
+    var u = '';
+    try {
+      var x = rt[i] && rt[i][0];
+      if (x){ u = x.getLinkUrl() || ''; if (!u) x.getRuns().forEach(function(run){ if (!u && run.getLinkUrl()) u = run.getLinkUrl(); }); }
+    } catch(e){}
+    if (!u && fm[i] && fm[i][0]){ var m = /"(https?:[^"]+)"/.exec(fm[i][0]); if (m) u = m[1]; }
+    if (!u){ var v = evsS_(t.rows[i][c]), m2 = /https?:\/\/\S+/.exec(v); if (m2) u = m2[0]; }
+    out.push(u);
+  }
+  return out;
+}
 /* ── Sự kiện (REPORT_EVENT trước, PLAN_EVENT bổ sung) ── */
 function evsReadEvents_(){
   var ss = SpreadsheetApp.openById(EVS_OFF_ID), out = [], seen = {};
@@ -130,6 +149,7 @@ function evsReadEvents_(){
   var pln = evsReadTab_(ss, ['PLAN_EVENT'], 'Event Name');
   function take(t, src){
     if (!t) return;
+    var furl = evsLinks_(t, 'Detail event folder link');
     t.rows.forEach(function(r, i){
       var name = evsS_(evsGet_(t, r, ['Event Name'])).replace(/\s+/g, ' ');
       if (!name || /^#|^loading/i.test(name)) return;
@@ -145,7 +165,7 @@ function evsReadEvents_(){
         kol: evsS_(evsGet_(t, r, ['KOL/ ACC', 'KOL'])), partner: evsS_(evsGet_(t, r, ['Partner'])),
         place: evsS_(evsGet_(t, r, ['Place'])),
         plan: evsS_(evsGet_(t, r, ['Plan status'])), action: evsS_(evsGet_(t, r, ['Action Status'])),
-        folder: evsS_(evsGet_(t, r, ['Detail event folder link'])), review: evsS_(evsGet_(t, r, ['Event review'])),
+        folder: evsS_(evsGet_(t, r, ['Detail event folder link'])), folderUrl: furl[i] || '', review: evsS_(evsGet_(t, r, ['Event review'])),
         tPart: evsNum_(evsGet_(t, r, ['Target Participant'])), aPart: evsNum_(evsGet_(t, r, ['Actual Participant'])),
         amount: evsNum_(evsGet_(t, r, ['Actual sales amount'])),
         tJ: evsNum_(evsGet_(t, r, ['Target sales JIZAI'])), tC: evsNum_(evsGet_(t, r, ['Target sales Composite'])),
@@ -190,21 +210,18 @@ function evsKeyStatus_(e, today){
   if (e.start <= today) return { st:'In Progress', p:50 };
   return { st:'To Do', p:0 };
 }
+/* 13/10/2026 (người dùng yêu cầu): Task Result CHỈ gồm các dòng thông tin sự kiện — không ghi dòng "🔄 Đồng bộ từ file…",
+   không doanh số / review; Folder sự kiện = LINK thật của thư mục (lấy từ ô Detail event folder link) để mở được ngay trên Hub */
 function evsKeyResult_(e){
   var L = [];
-  L.push('🔄 Đồng bộ từ file MKT Offline ▸ ' + (e.src === 'R' ? 'REPORT_EVENT' : 'PLAN_EVENT (chưa có báo cáo)'));
   L.push([e.type, e.product, e.segment].filter(String).join(' · '));
   var w = []; if (e.kol) w.push('KOL/ACC: ' + e.kol); if (e.partner) w.push('Đối tác: ' + e.partner); if (e.place) w.push('Địa điểm: ' + e.place);
   if (w.length) L.push(w.join(' · '));
   L.push('Ngày: ' + evsFmt_(e.start) + (e.end !== e.start ? ' → ' + evsFmt_(e.end) : '') + (e.approx ? ' (chưa chốt ngày)' : ''));
   if (e.plan || e.action) L.push('Kế hoạch: ' + [e.plan, e.action].filter(String).join(' · '));
-  if (e.src === 'R'){
-    L.push('Tham dự thực tế: ' + (e.aPart || 0) + ' / mục tiêu ' + (e.tPart || 0));
-    if (e.amount || e.aJ || e.aC) L.push('Doanh số: ' + evsMoney_(e.amount) + ' · Jizai ' + (e.aJ || 0) + '/' + (e.tJ || 0) + ' · Composite ' + (e.aC || 0) + '/' + (e.tC || 0));
-    if (e.folder) L.push('Folder sự kiện: ' + e.folder);
-    if (e.proof) L.push('Danh sách ký tên / báo cáo Zoom: ' + e.proof);
-    if (e.review) L.push('Event review:\n' + e.review);
-  }
+  if (e.src === 'R') L.push('Tham dự thực tế: ' + (e.aPart || 0) + ' / mục tiêu ' + (e.tPart || 0));
+  var fu = e.folderUrl || (/^https?:/.test(e.folder) ? e.folder : '');
+  if (fu || e.folder) L.push('Folder sự kiện: ' + (fu || e.folder));
   return L.filter(String).join('\n');
 }
 function evsPostStatus_(p, today){
@@ -224,7 +241,7 @@ function evsBuild_(events, posts){
     var pic = /surg|eyeless|ophthal|nhan/i.test(e.segment + ' ' + e.product) ? EVS_PIC_SURG : EVS_PIC_DENTAL;
     var k = { syncKey:ek, title:e.name, nk:e.nk, type:EVS_TYPE, keyTask:e.name, subTask:'', pic:pic,
               result:evsKeyResult_(e), start:e.start, planned:e.end, status:st.st, progress:st.p,
-              meta:{ s:'event', ym:e.ym, src:e.src, sr:e.src + e.srow } };
+              meta:{ s:'event', ym:e.ym, src:e.src, sr:e.src + e.srow, f:(e.folderUrl || (/^https?:/.test(e.folder) ? e.folder : '')), fn:e.folder } };
     k.hash = evsHash_([k.title, k.pic, k.result, k.start, k.planned, k.status].join('¦')); k.meta.h = k.hash;
     keys[ek] = k;
     var used = {};

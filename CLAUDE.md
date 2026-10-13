@@ -69,3 +69,9 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   chờ duyệt). Trạng thái `tmInfo` (Script Property `TM_SB_*`). Backend chưa có hộp cát nhận `tmSb=1` ⇒ từ chối (không bao giờ ghi thật dưới tên người thật).
   Chạy tay trong trình soạn: `tmSbBuildNow()`. `nppByPic_` (bundle): NPP của từng PIC theo `K68_NPP` (đơn hàng Dental tự điền Partner).
 
+- **13/10/2026 (đợt 2)**: `kpi/KpiGroupSheets.gs` v2.0 — 3 tab KPI TRAINING / KPI MKT Offline / KPI MKT Online dựng THEO ĐÚNG BỐ CỤC "9. TARGET & KPI" của CRM (`kg8Build_` /
+  `kg8Write_`: cài đặt · Phần A nhóm · Phần B PIC × 12 tháng Target | Actual | % FY · lũy kế · Q1–Q4 · điểm · Phần C review quý được GIỮ khi ghi lại · Phần D dữ liệu nguồn);
+  cột tổng / % / quý là công thức (`kscFx_` theo locale), Target / Actual = 3. Detail KPI. `MMH_CrmSandbox.gs` v1.1 (`sbRelax_`: validation file TEST = cảnh báo).
+  `MMH_MonthlyKeys.gs` v2.0 (3 nhóm + MMH Monthly Meeting FYxx, dọn key cũ trống 1 lần `MK_CLEAN_V2`). `Event_Sync.gs` v1.1 (Task Result gọn, `evsLinks_` đọc link thật, `meta.f`).
+  Training `RH_CustList.gs`: sheet **Customer list** (Dealer + Distributor của CRM Dental ▸ 1. CUSTOMER CODE, mỗi giờ, trigger `tclSync` tự cài qua `tclTick_`),
+  cột M = Master!F + khách ⇒ danh sách thả xuống của Target Audience (cột K) mọi sheet Training Report FYxx. Chạy tay: `tclSyncNow()`.
