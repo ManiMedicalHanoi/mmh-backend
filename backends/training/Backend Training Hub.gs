@@ -602,6 +602,7 @@ function hubDispatch(action, p) {
     var tmErr = (typeof tmBegin_ === 'function') ? tmBegin_(p) : null;
     if (tmErr) return tmErr;
     try { if (typeof hubMigrate1013_ === 'function') hubMigrate1013_(); } catch (eMig) { try { console.error('[hub] migrate ' + eMig); } catch (e2) {} }   // ★ 13/10/2026 — nâng cấp 1 lần (RH_CustTrain.gs)
+    try { if (typeof tclTick_ === 'function') tclTick_(); } catch (eTcl) { try { console.error('[hub] tcl ' + eTcl); } catch (e2) {} }   // ★ 13/10/2026 — sheet Customer list (RH_CustList.gs)
     if (/^tm[A-Z]/.test(String(action)) && typeof tmRoute_ === 'function') { var tmr = tmRoute_(String(action), p); if (tmr) return tmr; }
     var route = HUB_ROUTES[action];
     if (!route) return {ok:false, error:'Không tìm thấy chức năng: ' + action};
