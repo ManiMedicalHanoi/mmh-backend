@@ -441,6 +441,7 @@ function doPost(e) {
 }
 
 function hubReply(obj, callback) {
+  if (typeof tmScrub_ === 'function') obj = tmScrub_(obj);       // ⭐ MMH_TestMode.gs: dữ liệu TEST chỉ Admin (chế độ TEST) thấy
   var json;
   try { json = JSON.stringify(obj); }
   catch (err) { json = JSON.stringify({ok:false, error:'Lỗi đóng gói dữ liệu: ' + err.message}); }
@@ -594,6 +595,10 @@ function hubDispatch(action, p) {
   HUB_CTX = {test:false, tester:null};
   var runId = hubRunMark(action, p, t0);
   try {
+    /* ⭐ 13/10/2026 — MMH_TestMode.gs: Chế độ TEST của Admin trên Report Hub / CRM (tham số tm=1 — KHÁC test=1 của Training Hub) */
+    var tmErr = (typeof tmBegin_ === 'function') ? tmBegin_(p) : null;
+    if (tmErr) return tmErr;
+    if (/^tm[A-Z]/.test(String(action)) && typeof tmRoute_ === 'function') { var tmr = tmRoute_(String(action), p); if (tmr) return tmr; }
     var route = HUB_ROUTES[action];
     if (!route) return {ok:false, error:'Không tìm thấy chức năng: ' + action};
 

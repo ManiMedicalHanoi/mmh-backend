@@ -159,6 +159,7 @@ function rhxNum(v){ if(typeof v === 'number') return v; var n = parseInt(String(
 function rhxMonthShift(ym, k){ var y = +ym.slice(0,4), m = +ym.slice(4,6)-1+k; var d = new Date(y, m, 1); return d.getFullYear()+('0'+(d.getMonth()+1)).slice(-2); }
 function rhxTodayISO(){ return Utilities.formatDate(new Date(), rhxTz(), 'yyyy-MM-dd'); }
 function rhxEmailOf(pic){
+  if(typeof tmIsTest_ === 'function' && tmIsTest_(pic) && typeof MMH_TEST !== 'undefined' && MMH_TEST) return MMH_TEST.email;   /* ⭐ chế độ TEST */
   for(var e in USER_MAP){ if(String(USER_MAP[e].pic).toLowerCase() === String(pic||'').toLowerCase()) return e; }
   return '';
 }

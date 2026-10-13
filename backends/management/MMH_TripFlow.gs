@@ -14,10 +14,12 @@
       tfDecide (duyệt / từ chối nhiều chuyến 1 lần — mỗi chuyến 1 email riêng tới đúng người đề xuất).
       Chỉ Director (phiên đăng nhập email, kiểm chữ ký bằng khoá RH_Secret của Training Master).
    ④ (v1.1) tfTrips: lịch công tác của các PIC (đọc thẳng file Business Trip) cho lịch CRM — Sales không còn lưu bản sao ở file MKT.
+   ⑤ (v1.2 · 13/10/2026) CHẾ ĐỘ TEST của Admin (MMH_TestMode.gs): Admin đóng vai Giám đốc duyệt được CHỈ đề xuất của PIC "TEST…";
+      đề xuất thật vẫn cần Giám đốc thật. Email trong lượt TEST tự về Admin (tiêu đề [TEST]).
    Không dùng dịch vụ Google mới (chỉ Spreadsheet / Drive / Mail đã có) ⇒ không phải cấp quyền lại.
    ════════════════════════════════════════════════════════════════════════════════════════ */
 var TF = {
-  VER: '1.1',
+  VER: '1.2',
   TRIP_ID: '15dAQYOG1aJRX-jByVmRFeSFOIPRtdVW7wDvwC_nxJUA',          /* file "Vietnam - Business trip Approval and Report" */
   TRIP_TAB: 'MMH Travel report', DATA_ROW: 5,
   PARENT_FOLDER: '1HMrQ4xZWSEUIvD7varHG-m4s4nOKpX1o',
@@ -267,6 +269,9 @@ function tfWho_(p){
   return me;
 }
 function tfIsDirector_(me){ return !!me && !me.err && (me.level === 'director' || me.local === TF.DIRECTOR.local); }
+/* v1.2 — Admin trong chế độ TEST đóng vai Giám đốc: chỉ hồ sơ TEST */
+function tfTestDir_(me){ return !!me && !me.err && !!me.admin && typeof tmOn_ === 'function' && tmOn_(); }
+function tfIsTestPic_(pic){ return typeof tmIsTest_ === 'function' ? tmIsTest_(pic) : /^TEST(\b|_)/.test(tfS_(pic)); }
 
 /* ───────── ③ DANH SÁCH CHỜ DUYỆT ───────── */
 function tfPendingStatus_(s){ s = tfS_(s); return !s || /^(not yet|already sent propose email|pending|chờ duyệt)$/i.test(s); }
@@ -274,7 +279,8 @@ function tfPending(user, p){
   var me = tfWho_(p);
   if(me.err) return { ok:false, code:'AUTH', error:me.err };
   if(!tfIsDirector_(me) && !me.admin) return { ok:true, director:false, items:[], count:0 };
-  var sh = tfTripSheet_(), last = sh.getLastRow(); if(last < TF.DATA_ROW) return { ok:true, director:tfIsDirector_(me), items:[], count:0 };
+  var dirOk = tfIsDirector_(me) || tfTestDir_(me), testOnly = !tfIsDirector_(me) && tfTestDir_(me);
+  var sh = tfTripSheet_(), last = sh.getLastRow(); if(last < TF.DATA_ROW) return { ok:true, director:dirOk, testOnly:testOnly, items:[], count:0 };
   var V = sh.getRange(TF.DATA_ROW, 1, last - TF.DATA_ROW + 1, 28).getValues(), T = TF.C, out = [];
   var minIso = Utilities.formatDate(new Date(Date.now() - TF.PENDING_DAYS * 86400000), tfTz_(), 'yyyy-MM-dd');
   V.forEach(function(r, i){
@@ -283,10 +289,10 @@ function tfPending(user, p){
     var fi = tfIso_(r[T.FINISH-1]) || st; if(fi < minIso) return;
     out.push({ row:TF.DATA_ROW + i, no:tfS_(r[T.NO-1]).replace(/\.0$/, ''), pic:pic, start:st, finish:fi, days:tfDays_(st, fi),
       dest:tfS_(r[T.DEST-1]), co:tfS_(r[T.CO-1]), purpose:tfS_(r[T.PURPOSE-1]), expect:tfS_(r[T.EXPECT-1]), estCost:tfS_(r[T.ESTCOST-1]),
-      total:Number(r[T.TOTAL-1]) || 0, schedule:tfS_(r[T.SCHEDULE-1]), equip:tfS_(r[T.EQUIP-1]), status:tfS_(r[T.APPROVAL-1]) || 'Not Yet' });
+      total:Number(r[T.TOTAL-1]) || 0, schedule:tfS_(r[T.SCHEDULE-1]), equip:tfS_(r[T.EQUIP-1]), status:tfS_(r[T.APPROVAL-1]) || 'Not Yet', test:tfIsTestPic_(pic) });
   });
   out.sort(function(a, b){ return a.start < b.start ? -1 : a.start > b.start ? 1 : a.row - b.row; });
-  return { ok:true, director:tfIsDirector_(me), items:out, count:out.length, file:'https://docs.google.com/spreadsheets/d/' + TF.TRIP_ID + '/edit' };
+  return { ok:true, director:dirOk, testOnly:testOnly, items:out, count:out.length, file:'https://docs.google.com/spreadsheets/d/' + TF.TRIP_ID + '/edit' };
 }
 
 /* ───────── ③ DUYỆT / TỪ CHỐI NHIỀU CHUYẾN ─────────
@@ -294,7 +300,8 @@ function tfPending(user, p){
 function tfDecide(user, p){
   var me = tfWho_(p);
   if(me.err) return { ok:false, code:'AUTH', error:me.err };
-  if(!tfIsDirector_(me)) return { ok:false, code:'FORBIDDEN', error:'Chỉ Giám đốc được duyệt đề xuất công tác.' };
+  var testDir = !tfIsDirector_(me) && tfTestDir_(me);
+  if(!tfIsDirector_(me) && !testDir) return { ok:false, code:'FORBIDDEN', error:'Chỉ Giám đốc được duyệt đề xuất công tác.' };
   var items = p.items; if(typeof items === 'string'){ try{ items = JSON.parse(items); }catch(e){ items = null; } }
   if(!Array.isArray(items) || !items.length) return { ok:false, error:'Chưa chọn chuyến nào.' };
   var sh = tfTripSheet_(), T = TF.C, res = [];
@@ -308,6 +315,7 @@ function tfDecide(user, p){
         var v = sh.getRange(row, 1, 1, 28).getValues()[0];
         if(tfS_(v[T.PIC-1]).toLowerCase() !== r.pic.toLowerCase() || tfIso_(v[T.START-1]) !== tfIso_(d.start))
           throw new Error('Dòng ' + row + ' trên file Business Trip đã thay đổi — tải lại danh sách.');
+        if(testDir && !tfIsTestPic_(v[T.PIC-1])) throw new Error('Chế độ TEST chỉ duyệt được đề xuất của TEST — đề xuất thật cần Giám đốc duyệt.');
         if(!tfPendingStatus_(v[T.APPROVAL-1])){ r.ok = true; r.already = tfS_(v[T.APPROVAL-1]); res.push(r); return; }
         var ok = d.decision !== 'reject', status = ok ? 'Approved' : 'Rejected', comment = tfS_(d.comment);
         if(!ok && !comment) throw new Error('Từ chối cần ghi lý do');
@@ -332,7 +340,7 @@ function tfDecide(user, p){
         var st = tfIso_(v[T.START-1]), fi = tfIso_(v[T.FINISH-1]) || st;
         var t = { pic:tfS_(v[T.PIC-1]), destination:tfS_(v[T.DEST-1]), days:tfDays_(st, fi), startDate:tfDmy_(st), finishDate:tfDmy_(fi),
                   purpose:tfS_(v[T.PURPOSE-1]), estimatedCost:tfS_(v[T.ESTCOST-1]) };
-        var picEmail = tfEmails_(v[T.EMAIL_PIC-1])[0] || '';
+        var picEmail = tfEmails_(v[T.EMAIL_PIC-1])[0] || (testDir || tfIsTestPic_(t.pic) ? (typeof MMH_TEST !== 'undefined' && MMH_TEST ? MMH_TEST.email : '') : '');
         if(picEmail){
           var cc = ok ? tfUniq_(tfEmails_(v[T.EMAIL_DIR-1]).concat(tfEmails_(v[T.EMAIL_CC-1]))).filter(function(e){ return tfLocal_(e) !== tfLocal_(picEmail); })
                       : tfEmails_(v[T.EMAIL_DIR-1]).filter(function(e){ return tfLocal_(e) !== tfLocal_(picEmail); });
@@ -342,7 +350,7 @@ function tfDecide(user, p){
                     htmlBody: ok ? tfApprovalHtml_(t) : tfRejectHtml_(t, comment), name:'Mani Medical Hanoi - Business Trip System' });
           r.mailed = picEmail;
         } else r.mailErr = 'Dòng ' + row + ' chưa có email người đề xuất (cột Y)';
-        tfLogMark_(row, t.pic, st, status, me.pic || 'Director', comment, folder);
+        tfLogMark_(row, t.pic, st, status, testDir && typeof tmDecider_ === 'function' ? tmDecider_() : (me.pic || 'Director'), comment, folder);
         r.ok = true; r.status = status; r.folder = folder;
       }catch(e){ r.error = String(e && e.message || e); }
       res.push(r);

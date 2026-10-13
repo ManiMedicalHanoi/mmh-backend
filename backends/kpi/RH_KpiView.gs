@@ -42,7 +42,15 @@ function doPost(e) {
 }
 
 function rkvRoute_(p) {
+  /* ⭐ 13/10/2026 — MMH_TestMode.gs: Chế độ TEST của Admin ⇒ email KPI chỉ về Admin, tiêu đề [TEST] */
+  var tmErr = (typeof tmBegin_ === 'function') ? tmBegin_(p) : null;
+  if (tmErr) return tmErr;
+  var out = rkvRoute0_(p);
+  return (typeof tmScrub_ === 'function') ? tmScrub_(out) : out;
+}
+function rkvRoute0_(p) {
   var a = String(p.action || 'ping');
+  if (/^tm[A-Z]/.test(a) && typeof tmRoute_ === 'function') { var t = tmRoute_(a, p); if (t) return t; }
   if (a === 'ping') return {ok: true, service: 'MMH KPI', version: RKV.VERSION};
   if (a === 'rhKpi') return rkvKpi_(p);
   if (a === 'rhKpiTotal') return rkvTotal_(p);

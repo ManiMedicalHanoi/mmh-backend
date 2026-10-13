@@ -392,10 +392,14 @@ function handle(e, method){
   var out = { ok:false };
   try {
     var action = p.action || 'boot';
+    /* ⭐ 13/10/2026 — MMH_TestMode.gs: Chế độ TEST của Admin (tm=1 / PIC "TEST") — kiểm phiên Admin, email chỉ về Admin, ẩn dữ liệu TEST */
+    var _tmErr = (typeof tmBegin_ === 'function') ? tmBegin_(p, e) : null;
+    if (_tmErr) return reply(_tmErr, callback);
+    if (/^tm[A-Z]/.test(String(action)) && typeof tmRoute_ === 'function'){ var _tmr = tmRoute_(String(action), p); if (_tmr) return reply(_tmr, callback); }
     var user = whoAmI(p);
 
     /* TRẢ LỜI RỖNG KHI DỮ LIỆU CHƯA ĐỔI (app gửi kèm cv = phiên bản nó đang giữ) */
-    var _cv = S(p.cv);
+    var _cv = (typeof tmOn_ === 'function' && tmOn_()) ? '' : S(p.cv);
     if (_cv){
       var _dep = depsOf(action, p);
       if (_dep && tabVersion(_dep) === _cv)
@@ -497,6 +501,7 @@ function handle(e, method){
 }
 
 function reply(obj, callback){
+  if (typeof tmScrub_ === 'function') obj = tmScrub_(obj);      /* ⭐ MMH_TestMode.gs: dữ liệu TEST chỉ Admin (chế độ TEST) thấy */
   var json = JSON.stringify(obj);
   if (callback){
     if (!/^[A-Za-z_$][\w$]*$/.test(callback)) callback = 'callback';
@@ -693,7 +698,9 @@ function readTab(key){
   var map = COL[key], vals = rawValues(key), out = [], pc = presenceCols_(key);
   for (var i = 0; i < vals.length; i++){
     if (!rowHasData_(vals[i], pc)) continue;
-    out.push(toObj(vals[i], map, DATA_ROW + i));
+    var o = toObj(vals[i], map, DATA_ROW + i);
+    if (typeof tmKeep_ === 'function' && !tmKeep_(o)) continue;       /* ⭐ dòng PIC "TEST" chỉ đọc trong chế độ TEST */
+    out.push(o);
   }
   fixDerived_(key, out);
   return out;
@@ -2930,7 +2937,7 @@ function cached_(name, fn){
 }
 /* cache theo ĐÚNG các tab mà kết quả phụ thuộc vào */
 function cachedFor_(name, tabs, fn){
-  var key = 'D3|' + tabVersion(tabs) + '|' + name;
+  var key = 'D3|' + tabVersion(tabs) + '|' + name + ((typeof tmOn_ === 'function' && tmOn_()) ? '|TEST' : '');
   var hit = cacheGet_(key);
   if (hit) { hit._cache = true; return hit; }
   var val = fn();
@@ -3065,6 +3072,7 @@ function customerIndexCompact(){
   for (var i = 0; i < vals.length; i++){
     var r = vals[i];
     if (S(r[KEY_COL - 1]) === '') continue;
+    if (typeof tmKeep_ === 'function' && !tmKeep_({ pic:S(r[m.pic - 1]) })) continue;
     out.push([
       DATA_ROW + i,
       S(r[m.code - 1]), S(r[m.name - 1]), S(r[m.type - 1]),
@@ -5164,7 +5172,7 @@ function naReadAll_(){
   var sh = naSheet_(), lr = sh.getLastRow();
   if(lr < NA_DR) return [];
   var v = sh.getRange(NA_DR, NA_C0, lr - NA_DR + 1, NA_F.length).getValues(), out = [];
-  v.forEach(function(r, i){ if(naS_(r[0])) out.push(naRow2Obj_(r, NA_DR + i)); });
+  v.forEach(function(r, i){ if(!naS_(r[0])) return; var o = naRow2Obj_(r, NA_DR + i); if(typeof tmKeep_ !== 'function' || tmKeep_(o)) out.push(o); });
   return out;
 }
 function naFind_(id){ var all = naReadAll_(); for(var i = 0; i < all.length; i++) if(all[i].id === id) return all[i]; return null; }
@@ -5189,12 +5197,15 @@ function naIsAdmin_(user){ return NA_ENV.admins.indexOf(naS_(user && user.pic)) 
 function naApprovers_(pic){ try{ return NA_ENV.approvers(pic) || []; }catch(e){ return []; } }
 function naCanSee_(user, o){
   var me = naS_(user && user.pic);
+  if(typeof tmOn_ === 'function' && tmOn_() && tmIsTest_(o.pic)) return true;
   if(!me) return false;
   if(naIsAdmin_(user) || o.pic === me) return true;
   return naApprovers_(o.pic).indexOf(me) >= 0;
 }
 function naCanDecide_(user, o){
   var me = naS_(user && user.pic);
+  /* ⭐ chế độ TEST: Admin đóng vai Quản lý / Giám đốc duyệt được CHỈ case của TEST */
+  if(typeof tmOn_ === 'function' && tmOn_() && tmIsTest_(o.pic)) return o.status === NA_ST.pending && /^(mgr|dir)$/.test(MMH_TEST.as);
   if(!me || o.status !== NA_ST.pending || o.pic === me) return false;
   return naApprovers_(o.pic).indexOf(me) >= 0 || NA_ENV.deciders.indexOf(me) >= 0;
 }
@@ -5487,7 +5498,7 @@ function naDecide(user, p){
     if(!o) return { ok:false, error:'Case not found' };
     if(o.status !== NA_ST.pending){ naDecorate_(user, o); return { ok:true, rec:o, dup:true, message:naL_('Case đã được xử lý: ', 'Already decided: ') + o.status + (o.decBy ? ' · ' + o.decBy : '') }; }
     if(!naCanDecide_(user, o)) return { ok:false, error:naL_('Bạn không có quyền duyệt case này.', 'You cannot decide this case.') };
-    o.decBy = naS_(user.pic); o.decAt = naNow_(); o.comment = cm;
+    o.decBy = (typeof tmOn_ === 'function' && tmOn_()) ? tmDecider_() : naS_(user.pic); o.decAt = naNow_(); o.comment = cm;
     if(dec === 'approve'){ o.status = NA_ST.approved; naLogLine_(o, user.pic, naL_('XÁC NHẬN', 'APPROVED') + (cm ? ' · ' + cm : '')); }
     else if(dec === 'return'){ o.status = NA_ST.draft; naLogLine_(o, user.pic, naL_('TRẢ LẠI BỔ SUNG · ', 'RETURNED FOR CHANGES · ') + cm); }
     else {
@@ -6139,6 +6150,7 @@ function tripMasterRead_(book){
 }
 /* tên PIC trên CRM ⇒ tên trong file Business Trip (ví dụ Phuong ⇒ "Vu Phuong") */
 function tripName_(pic, M){
+  if (typeof tmIsTest_ === 'function' && tmIsTest_(pic)) return String(pic).trim();      /* ⭐ chế độ TEST: giữ nguyên tên TEST */
   var k = wrN_(pic), names = Object.keys(M.people).concat(M.coTravelers);
   var hit = names.filter(function(x){ return wrN_(x) === k; })[0] ||
             names.filter(function(x){ return (' ' + wrN_(x)).slice(-(k.length + 1)) === ' ' + k; })[0] ||

@@ -70,6 +70,7 @@ function picExistsInSheet(pic){
 /* Ai được vào Management */
 function mgmtAllowed(user){
   if(mgmtFull(user)) return true;
+  if(typeof tmOn_ === 'function' && tmOn_()) return true;      /* ⭐ chế độ TEST của Admin */
   return picExistsInSheet(user && user.pic);
 }
 
@@ -181,6 +182,10 @@ function handle(e, method){
   var out = { ok:false };
   try{
     var action = p.action || 'boot';
+    /* ⭐ 13/10/2026 — MMH_TestMode.gs: Chế độ TEST của Admin (tm=1 / PIC "TEST") — kiểm phiên Admin, email chỉ về Admin, ẩn dữ liệu TEST */
+    var _tmErr = (typeof tmBegin_ === 'function') ? tmBegin_(p, e) : null;
+    if(_tmErr) return reply(_tmErr, callback);
+    if(/^tm[A-Z]/.test(String(action)) && typeof tmRoute_ === 'function'){ var _tmr = tmRoute_(String(action), p); if(_tmr) return reply(_tmr, callback); }
     var user = whoAmI(p);
     /* ⭐ GATE Management: full-access HOẶC là PIC có task trong sheet.
        Các lệnh không lộ dữ liệu (ping/version/roster/myTasks/tripSync) không cần qua cổng. */
@@ -268,6 +273,7 @@ function dispatch(action, user, p){
 }
 
 function reply(obj, callback){
+  if(typeof tmScrub_ === 'function') obj = tmScrub_(obj);       /* ⭐ MMH_TestMode.gs: dữ liệu TEST chỉ Admin (chế độ TEST) thấy */
   var json = JSON.stringify(obj);
   if(callback){
     if(!/^[A-Za-z_$][\w$]*$/.test(callback)) callback = 'callback';

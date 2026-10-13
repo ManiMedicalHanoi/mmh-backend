@@ -31,3 +31,9 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   tên + PIC + ngày bắt đầu). Marketing `MMH_SalesMove.gs`: `VS_MOVED` ⇒ `vsSync` chỉ dọn dòng lịch đi địa bàn đã chép (cột U `V:` / `VK:`), đơn hàng `O:` giữ nguyên;
   `salesTasksDrop` xoá key task Sales đã chuyển (khớp tên + PIC + ngày, bỏ qua dòng đồng bộ, cần phiên email).
 - **Hướng dẫn sử dụng hệ thống (IFU, 12/10/2026)**: thư mục `ifu/` dựng sách PDF (CRM · Report Hub · KPI · Training Hub) từ `ifu/chapters/*.md` + ảnh `ifu/shots/` (dữ liệu giả); phiên bản, link backend, lịch sử cập nhật tự đọc lúc dựng. Tính năng / giao diện đổi ⇒ sửa chương + chụp lại ảnh, `node build.mjs all` (xem `ifu/README.md`). PDF có link tới Sheet thật ⇒ chỉ chia sẻ nội bộ.
+- **Chế độ TEST của Admin — `MMH_TestMode.gs` (13/10/2026)**: file GIỐNG HỆT NHAU ở crm-dental / surgical / eyeless / thai, management, backoffice, marketing, kpi, training
+  (sửa 1 nơi ⇒ chép sang nơi khác). App gửi `tm=1` + phiên email Admin (`tk`), người dùng = `TEST` ⇒ ghi THẬT, tên / PIC bắt đầu "TEST" (ảnh `TEST_<ngày>_…`).
+  `tmBegin_(p, e)` đầu mỗi lượt (không phải Admin ⇒ từ chối), `tmScrub_` trong `reply` (ẩn phần tử pic / account / assigner "TEST…" với mọi người khác,
+  lượt TEST thì gắn `_tm.mails`), `tmKeep_` lọc ở `readTab` / `naReadAll_` (TEST không vào báo cáo / KPI của người thật). Email: `mmhMail_` gọi `tmMailHook_` ⇒
+  chỉ tới Admin, tiêu đề `[TEST]`, bỏ CC/BCC. Vai `tmAs=dir|mgr`: duyệt CHỈ hồ sơ TEST (`tfDecide`, `naCanDecide_`). `tmClean`: xoá nội dung dòng PIC TEST (giữ công thức,
+  không xoá dòng), dòng TEST file Business Trip + folder, file Drive "TEST_…" trong folder của backend. Tham số `tm` (KHÔNG dùng `test` — Training Hub đã dùng `test=1`).
