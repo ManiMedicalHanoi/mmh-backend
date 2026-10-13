@@ -55,3 +55,14 @@ Kịch bản chụp được viết trong phiên dựng ban đầu: vài đườ
 template MMH, ảnh lấy từ `shots/`, ghi chú thuyết trình ở mọi slide; **cuối mỗi slide có link "Chi tiết: IFU x.y · trang n"**.
 Link IFU và số trang khai báo ở đầu file (`IFU_FOLDER`, `IFU_FILE`, `PAGE`): khi có link từng file PDF trên Drive hoặc số trang đổi sau khi dựng lại IFU,
 sửa ở đó rồi chạy lại. Cần `style_c.py` (đi kèm) và template `MMH_PPT_TEMPLATE.pptx` của skill mmh-brand (đường dẫn ở đầu file).
+
+**Bản 3 (13/10/2026)** — `ppt/build_ppt_v3.py`: thêm Phần 6 Chế độ TEST; mỗi app theo khung *Dữ liệu (nguồn · cách lưu · lưu ở đâu) → Chức năng chính*;
+KPI theo "Hướng dẫn hệ thống KPI FY68" (17 nhóm, nguồn đã / chưa kết nối có link, quy tắc, theo phòng ban). Slide có ảnh dùng cặp **máy tính + điện thoại** (`pair()`).
+Số trang IFU đọc từ `ppt/ifu_pages.json` (ghi lại sau mỗi lần dựng sách).
+
+## Chương KPI và khung CRM / Report Hub được sinh tự động
+
+- `tools/kpi_chapter.py` ⇒ `chapters/30-kpi.md` (dữ liệu nguồn, trạng thái kết nối, trọng số từng người; phần kỹ thuật lấy từ `tools/kpi_tech_src.md`).
+- `tools/restructure.py` ⇒ `chapters/10-crm.md`, `chapters/20-report-hub.md` từ `tools/*.src.md` (sắp lại theo khung Dữ liệu → Chức năng).
+  Sửa nội dung ở file `.src.md` / `.py`, không sửa thẳng file sinh ra.
+- Chương 6 `chapters/50-test-mode.md` (Chế độ TEST) — có cả file riêng `MMH_IFU_05_Che_do_TEST.pdf` (đích `test5`).

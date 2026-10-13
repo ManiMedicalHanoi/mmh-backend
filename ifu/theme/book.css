@@ -153,3 +153,50 @@ figure > figcaption{ text-align:center; }
 .figrow .frame img{ max-height:120mm; }
 .opener .hero{ max-height:118mm; }
 .opener .hero img{ max-height:118mm; object-fit:cover; object-position:top left; }
+
+/* cặp ảnh máy tính + điện thoại */
+.figrow.dm{ align-items:flex-end; gap:3mm; }
+.figrow.dm > .pd{ flex:1 1 0; }
+.figrow.dm > .pm{ flex:0 0 23%; }
+.figrow.dm > .pm .frame{ border:1.8mm solid #1E2933; border-radius:4mm; overflow:hidden; }
+/* ── Chương KPI (bố cục theo Hướng dẫn hệ thống KPI FY68) ── */
+.st{ display:inline-block; font-size:7.2pt; font-weight:700; padding:.5mm 2mm; border-radius:3mm; white-space:nowrap; line-height:1.4; }
+.st.a{ background:#E3F3E8; color:#1E6B34; } .st.w{ background:#FFF3CC; color:#8A6200; } .st.s{ background:#ECEFF3; color:#4A5866; }
+.st.m{ background:#FBE5E2; color:#A23B30; } .st.n{ background:#fff; color:#7A8794; border:0.6pt dashed #AAB5C0; }
+.sd{ display:inline-block; width:2.4mm; height:2.4mm; border-radius:50%; margin-right:1.6mm; vertical-align:0; flex:none; }
+.sd.a{ background:#2E8B4E; } .sd.w{ background:#E0A800; } .sd.s{ background:#9AA6B2; } .sd.m{ background:#C9473B; } .sd.n{ background:#fff; border:0.6pt dashed #8A96A3; }
+.legend{ font-size:8pt; color:var(--muted); } .legend .st{ margin-right:1mm; } .legend .sd{ margin-left:2mm; }
+.gsub{ color:var(--muted); font-size:8.6pt; margin:-1mm 0 2mm; }
+table.kt{ font-size:8.2pt; } table.kt td.code{ white-space:nowrap; font-weight:700; color:var(--blue); font-size:7.8pt; }
+table.kt td small{ color:var(--muted); font-size:7.4pt; } table.kt a{ color:var(--blue); font-weight:600; }
+.kpibox{ display:grid; grid-template-columns:1fr 1fr; gap:3mm; margin:1mm 0 5mm; break-inside:avoid; }
+.kpibox > div{ background:var(--pale); border-radius:2mm; padding:2.5mm 3.5mm; font-size:8.4pt; }
+.kpibox > div:last-child{ background:#EEF6F1; }
+.kpibox b{ display:block; font-size:7.4pt; letter-spacing:.08em; color:var(--navy); margin-bottom:1mm; }
+.kpibox ul{ margin:0; padding-left:4mm; } .kpibox li{ margin:.6mm 0; }
+.kpistat{ display:grid; grid-template-columns:repeat(4,1fr); gap:3mm; margin:2mm 0 3mm; }
+.kpistat div{ border:0.7pt solid var(--line); border-radius:2.5mm; padding:2.5mm 3mm; font-size:8pt; color:var(--muted); }
+.kpistat b{ display:block; font-size:18pt; color:var(--navy); line-height:1.1; }
+.g17{ display:grid; grid-template-columns:repeat(3,1fr); gap:2.2mm; margin:2mm 0 4mm; }
+.g17 .g{ border:0.7pt solid var(--line); border-left:2mm solid var(--blue); border-radius:2mm; padding:2mm 2.6mm; font-size:7.8pt; break-inside:avoid; }
+.g17 .g.ma{ border-left-color:#C77700; } .g17 .g.ba{ border-left-color:#2E8B4E; } .g17 .g.co{ border-left-color:#6B4FA0; }
+.g17 .ar{ display:block; font-size:6.6pt; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+.g17 b{ font-size:9pt; color:var(--navy); } .g17 .cd{ margin-left:1.5mm; font-size:7pt; font-weight:700; color:var(--blue); }
+.g17 p{ margin:.6mm 0; } .g17 small{ color:var(--muted); }
+.kpicnt{ display:grid; grid-template-columns:repeat(4,1fr); gap:3mm; margin:2mm 0 3mm; }
+.kpicnt div{ border-radius:2.5mm; padding:3mm; font-size:8.4pt; font-weight:700; }
+.kpicnt b{ display:block; font-size:22pt; line-height:1.05; } .kpicnt small{ display:block; font-weight:400; font-size:7.6pt; margin-top:1mm; }
+.kpicnt .a{ background:#E3F3E8; color:#1E6B34; } .kpicnt .s{ background:#ECEFF3; color:#4A5866; } .kpicnt .w{ background:#FFF3CC; color:#8A6200; } .kpicnt .m{ background:#FBE5E2; color:#A23B30; }
+.rules{ display:grid; grid-template-columns:repeat(4,1fr); gap:2.5mm; margin:2mm 0 4mm; }
+.rules div{ border:0.7pt solid var(--line); border-radius:2.5mm; padding:2.5mm 3mm; font-size:8pt; break-inside:avoid; }
+.rules b{ display:block; color:var(--navy); font-size:9.2pt; margin-bottom:1mm; } .rules small{ display:block; color:var(--muted); margin-top:1mm; }
+.kpp{ display:grid; grid-template-columns:repeat(3,1fr); gap:2.5mm; margin:2mm 0 4mm; }
+.kpp .p{ border:0.7pt solid var(--line); border-radius:2.5mm; padding:2.4mm 3mm; break-inside:avoid; font-size:7.6pt; }
+.kpp .ph b{ display:block; font-size:10pt; color:var(--navy); } .kpp .ph small{ color:var(--muted); font-size:7pt; }
+.kpp ul{ list-style:none; margin:1.6mm 0 0; padding:0; } .kpp li{ display:flex; align-items:center; gap:0; padding:.55mm 0; border-top:0.4pt solid #EEF1F4; }
+.kpp li span{ flex:1; } .kpp li b{ color:var(--navy); margin-left:1.5mm; }
+.iss{ display:grid; grid-template-columns:1fr 1fr; gap:2.5mm; margin:2mm 0 4mm; }
+.iss div{ border:0.7pt solid var(--line); border-left:2mm solid #C9473B; border-radius:2mm; padding:2.4mm 3mm; font-size:8pt; break-inside:avoid; }
+.iss b{ color:var(--navy); font-size:9pt; } .iss p{ margin:1mm 0; } .iss small{ color:var(--blue); font-weight:700; }
+.next{ display:grid; grid-template-columns:repeat(3,1fr); gap:3mm; } .next div{ background:var(--pale); border-radius:2.5mm; padding:3mm; font-size:8.2pt; }
+.next b{ color:var(--navy); } .next ol{ margin:1.5mm 0 0; padding-left:4.5mm; }

@@ -1,7 +1,7 @@
 ---
-number: 6
+number: 7
 ---
-[[opener 6 | Phụ lục | Danh sách backend kèm đường link, bảng thuật ngữ, lịch sử cập nhật gần đây của từng app và cách cập nhật tài liệu này khi hệ thống thay đổi. | | Danh sách backend và đường link; Thuật ngữ; Lịch sử cập nhật CRM; Lịch sử cập nhật Report Hub; Cập nhật tài liệu này]]
+[[opener 7 | Phụ lục | Danh sách backend kèm đường link, bảng thuật ngữ, lịch sử cập nhật gần đây của từng app và cách cập nhật tài liệu này khi hệ thống thay đổi. | | Danh sách backend và đường link; Thuật ngữ; Lịch sử cập nhật CRM; Lịch sử cập nhật Report Hub; Cập nhật tài liệu này]]
 
 ## Danh sách backend và đường link
 
@@ -36,7 +36,9 @@ Mã backend chỉ được sửa qua kho **mmh-backend** (tạo yêu cầu thay 
 | **Trọng số** | Tỉ lệ đóng góp của một mã KPI vào tổng KPI của người đó |
 | **Phiên đăng nhập** | Lần đăng nhập bằng email + mã 6 số, dùng 30 ngày trên một máy |
 | **Hàng đợi ghi** | Danh sách thao tác đã bấm Lưu nhưng đang gửi lên Sheet ở phía sau |
-| **Chế độ thử** | Chế độ của Admin: thao tác như người dùng khác nhưng không ghi vào dữ liệu thật |
+| **Chế độ TEST** | Chế độ của Admin: thao tác dưới tên TEST, ghi thật vào file thật, email chỉ về Admin, người khác không thấy (Chương 6) |
+| **Chế độ thử** | Chế độ cũ của Admin trên CRM: xem như một bạn sales, không ghi vào dữ liệu thật |
+| **Luồng dữ liệu** | Bảng trong chế độ TEST: mỗi lần lưu đi vào backend nào, file ▸ tab ▸ dòng nào, email lẽ ra gửi tới ai |
 
 ## Lịch sử cập nhật CRM
 

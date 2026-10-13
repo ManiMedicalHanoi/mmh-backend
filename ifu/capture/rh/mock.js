@@ -188,6 +188,18 @@ async function install(page, o){
     else if(a==='tfDecide'){ const its=JSON.parse(body.items||'[]'); LOG.push(['tf',its]); TFP=(TFP||[]).filter(x=>!its.some(y=>y.row===x.row)); d={ok:true,results:its.map(y=>({row:y.row,pic:y.pic,ok:true,status:y.decision==='reject'?'Rejected':'Approved',mailed:y.pic.toLowerCase()+'@mani.inc'}))}; }
     else if(a==='tripPropose'){ if(lag) await new Promise(r=>setTimeout(r,lag)); const t=JSON.parse(body.trip||'{}'); TRIPS.push(t); d={ok:true,message:'Đã ghi đề xuất & gửi email xin duyệt'}; }
     if(WR.test(a||'') && d && d.ok!==false){ if(body.rid) RIDS[body.rid]=d; WLOG.push(['ok',a,body.rid,body.no||body.keyNo||'',body.keyTask||body.name||'',u.pathname.split('/')[3]||'']); }
+    /* ⭐ v17.7 — Chế độ TEST (testflow.js + MMH_TestMode.gs): tm=1 ⇒ kết quả kèm _tm (email lẽ ra gửi tới ai), tmInfo / tmClean */
+    const tm=u.searchParams.get('tm')==='1'||(body&&String(body.tm)==='1');
+    if(tm){ TMLOG.push([a,u.searchParams.get('tmAs')||(body&&body.tmAs)||'']);
+      if(a==='tmInfo') d={ok:true,test:true,file:{name:{management:'Management Task Tracker',backoffice:'Back Office Task Tracker'}[srcName]||(/AKfycbwsX4/.test(dep)?'Training Master':'MKT Weekly & Monthly Report'),url:'https://docs.google.com/spreadsheets/d/mock'+srcName+'/edit'}};
+      if(a==='tmClean') d={ok:true,rows:2,sheets:[{name:'WEEKYLY new',rows:2}],trip:1,folders:1,files:0,message:'Đã xoá 2 dòng TEST · 1 dòng Business Trip · 1 folder công tác'};
+      if(a==='tfPending'){ const t={row:612,no:'608',pic:'TEST',start:'2026-10-24',finish:'2026-10-25',days:2,dest:'Da Nang',co:'No',purpose:'TEST — thử luồng đề xuất công tác',expect:'Kiểm tra email duyệt',estCost:'Công tác phí: 380.000',total:380000,schedule:'24/10: Hà Nội → Đà Nẵng',equip:'Laptop',status:'Already sent propose email',test:true};
+        d={...d,director:true,testOnly:true,items:(d.items||[]).concat((TFP||[]).some(x=>x.row===612)?[]:[t])}; }
+      if(d && typeof d==='object' && !Array.isArray(d)){ const ML={tripPropose:[{to:'director@example.com',cc:'hod@example.com',subject:'Approval Business trip - 24102026 - TEST'}],
+          tfDecide:[{to:'admin@example.com',cc:'director@example.com',subject:'[Approved] Business trip - TEST - Da Nang'}],
+          weeklyReport:[{to:'hod@example.com, leader@example.com',cc:'director@example.com',subject:'Weekly report — TEST'}],
+          rhKpiMailSend:[{to:body&&body.to||'',cc:body&&body.cc||'',subject:body&&body.subject||'KPI'}]};
+        d={...d,_tm:{on:true,admin:'admin@example.com',as:u.searchParams.get('tmAs')||'',mails:ML[a]||[]}}; } }
     if(fl==='drop'){ WLOG.push(['drop',a]); return route.fulfill({status:500,contentType:'text/html',body:'<html>Error</html>'}); }   /* đã ghi nhưng phản hồi hỏng */
     if(req.method()==='POST') return route.fulfill({status:200,contentType:'application/json',headers:{'access-control-allow-origin':'*'},body:JSON.stringify(d)});
     return route.fulfill({status:200,contentType:'application/javascript',body:(cb||'cb')+'('+JSON.stringify(d)+');'});
@@ -199,4 +211,5 @@ async function install(page, o){
     try{ await handle(route); }catch(e){} finally{ rel(); }
   });
 }
-module.exports={install,D,SESS,ASSIGN,LOG,WLOG,TRIPS,RIDS,AUTHL,TKS,AUTH_USERS,ADMU};
+const TMLOG=[];
+module.exports={TMLOG,install,D,SESS,ASSIGN,LOG,WLOG,TRIPS,RIDS,AUTHL,TKS,AUTH_USERS,ADMU};

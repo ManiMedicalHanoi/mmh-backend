@@ -458,7 +458,7 @@ async function install(page, opt){
         const mem = scope === 'self' ? [viewer] : team === 'thai' ? ['Dao','Miew'] : ['Viet','Vinh','Phuong'];
         const r = rkvRows(mem); d = { ok:true, me:viewer, scope, periods:r.periods, rows:r.rows, staff:Object.fromEntries(mem.map(m => [m, STAFF[m]])),
           org:Object.keys(STAFF).map(k => ({ key:k, full:STAFF[k].full, role:STAFF[k].role, team:STAFF[k].team, dept:STAFF[k].dept, level:STAFF[k].level })).concat([{ key:'', full:'Nguyễn Thị Hà (demo)', role:'Director', level:'Director' }]),
-          sync:[{ month:'202609', at:'2026-10-02 16:00' }], total:(lvl === 'director' || lvl === 'hod' || !!sess.admin), at:'2026-10-07T01:58:00Z', v:'1.3' }; }
+          sync:[{ month:'202609', at:'2026-10-07 08:55', src:'Doanh số NPP (Turnover)', status:'OK', file:'MMH Turnover Report', note:'202609' }, { src:'CRM Dental', status:'OK', file:'FY68_Dental CRM', at:'2026-10-07 08:55', note:'' }, { src:'Training Master', status:'OK', file:'Training Master', at:'2026-10-07 08:55', note:'' }, { src:'Marketing Offline', status:'OK', file:'MKT Offline', at:'2026-10-07 08:55', note:'' }, { src:'KBI', status:'OK', file:'KBI', at:'2026-10-07 08:55', note:'' }], total:(lvl === 'director' || lvl === 'hod' || !!sess.admin), at:'2026-10-07T01:58:00Z', v:'1.3' }; }
       else if (a === 'rhKpiTotal') d = totalKpi();
       else if (a === 'rhKpiMailPreview' || a === 'rhKpiMail'){ d = { ok:true, data:{ member:me, month:p.month || '202609' }, message:'Đã gửi' }; }
     } else if (host === 'turnover'){ d = turnover(); }
@@ -516,6 +516,26 @@ async function install(page, opt){
       else d = { ok:true, message:'Đã lưu (giả lập)', row:999 };
     }
     if (opt.onReq) { try { const o2 = opt.onReq(host, a, p, d); if (o2) d = o2; } catch(e){} }
+    /* chế độ TEST (testflow.js + MMH_TestMode.gs) */
+    if (String(p.tm) === '1'){
+      const FN = { kpi:'MMH KPI FY68', training:'Training Master', reporthub:'MKT Weekly & Monthly Report' }[host] || (team === 'thai' ? 'FY68_Thailand_Surgical_CRM' : 'MMH_Dental_CRM');
+      if (a === 'tmInfo') d = { ok:true, test:true, file:{ name:FN, url:'https://docs.google.com/spreadsheets/d/FAKE/edit' } };
+      if (a === 'tmClean') d = { ok:true, rows:6, sheets:[{ name:'6. WEEKLY REPORT', rows:3 }, { name:'1. CUSTOMER', rows:1 }, { name:'16. NEW ACCOUNT & SKU', rows:1 }, { name:'Business Trip Log', rows:1 }], trip:1, folders:1, files:2, message:'Đã xoá 6 dòng TEST · 1 dòng Business Trip · 1 folder công tác · 2 file Drive' };
+      if (a === 'saveWeekly') d = Object.assign({}, d, { row:1287 });
+      if (a === 'uploadPhoto') d = { ok:true, url:'https://drive.google.com/file/d/FAKE/view', name:'TEST_20261007_TEST Nha khoa Minh Tam_01.jpg', message:'Đã tải ảnh lên Drive' };
+      if (a === 'saveCustomer') d = { ok:true, row:842, message:'Đã lưu khách hàng' };
+      if (a === 'saveOrders' || a === 'saveOrder') d = { ok:true, row:2311, message:'Đã lưu đơn hàng' };
+      if (a === 'tripPropose2') d = { ok:true, row:612, no:'608', message:'Đã ghi đề xuất công tác vào file Business Trip (dòng 612)' };
+      if (a === 'naSubmit') d = { ok:true, rec:{ id:'NA-DE-261007091500-417', _row:58 }, message:'Đã gửi email xin xác nhận' };
+      const ML = { weeklyReport:[{ to:'leader@example.com, sales2@example.com', cc:'hod@example.com, director@example.com, hr@example.com', subject:'Báo cáo tuần — TEST — 06/10 → 12/10/2026' }],
+        monthlyReport:[{ to:'leader@example.com', cc:'hod@example.com, director@example.com', subject:'Báo cáo tháng 10/2026 — TEST' }],
+        tripPropose2:[{ to:'director@example.com', cc:'hod@example.com', subject:'Approval Business trip - 26102026 - TEST' }],
+        tfDecide:[{ to:'admin@example.com', cc:'director@example.com', subject:'[Approved] Business trip - TEST - Da Nang' }],
+        naSubmit:[{ to:'leader@example.com, hod@example.com', cc:'director@example.com, hr@example.com', subject:'[MMH CRM] Xin xác nhận Đại lý / khách hàng mới · TEST Nha khoa Minh Tam · TEST' }],
+        naDecide:[{ to:'admin@example.com', cc:'director@example.com, hr@example.com', subject:'[MMH CRM] ĐÃ XÁC NHẬN Đại lý / khách hàng mới · TEST Nha khoa Minh Tam · TEST' }],
+        rhKpiMailSend:[{ to:'sales2@example.com', cc:'leader@example.com, hod@example.com', subject:'KPI T09/2026 · Vinh' }] };
+      if (d && typeof d === 'object') d = Object.assign({}, d, { _tm:{ on:true, admin:'admin@example.com', as:p.tmAs || '', mails:ML[a] || [] } });
+    }
     const body = JSON.stringify(d);
     if (cb) return route.fulfill({ status:200, contentType:'application/javascript', headers:{ 'access-control-allow-origin':'*' }, body: cb + '(' + body + ');' });
     return route.fulfill({ status:200, contentType:'application/json', headers:{ 'access-control-allow-origin':'*' }, body });
