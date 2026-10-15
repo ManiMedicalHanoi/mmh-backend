@@ -3187,56 +3187,60 @@ function naDecide(user, p){
 
 /* ── email ── */
 function naTypeLabel_(t){ return t === 'new_sku' ? naL_('SKU mới', 'New SKU') : naL_('Đại lý / khách hàng mới', 'New account'); }
-function naMailHtml_(o, kind, user, wk){
+/* ⭐ 15/10/2026 — email Mở mới dạng THƯ THƯỜNG (người dùng: không làm HTML cầu kỳ, formal đơn giản như email thông báo cập nhật):
+   Dear chị Tuyên · lời mở đầu · thông tin case từng dòng · ảnh chứng từ NHÚNG trong thân email (cid:) · link CRM · chữ ký.
+   imgs = [{cid, label}] ảnh nhúng; file khác (PDF…) vẫn đính kèm + link. */
+var NA_HONOR = { 'Tuyen':'chị Tuyên' };
+function naDear_(names){
+  return String(names || '').split(/\s*,\s*/).filter(String).map(function(n){
+    if(NA_ENV.lang() === 'en') return n;
+    return NA_HONOR[n] || ('anh/chị ' + n);
+  }).join(', ');
+}
+function naMailHtml_(o, kind, user, wk, imgs){
   var L = naL_, e = naEsc_, link = NA_CRM_URL + '#na=' + encodeURIComponent(o.id);
-  var head = kind === 'submit' ? L('ĐỀ XUẤT XÁC NHẬN MỞ MỚI', 'NEW ACCOUNT / SKU — APPROVAL REQUEST')
-           : kind === 'approve' ? L('ĐÃ XÁC NHẬN MỞ MỚI', 'NEW ACCOUNT / SKU — APPROVED')
-           : kind === 'return' ? L('CẦN BỔ SUNG CASE MỞ MỚI', 'NEW ACCOUNT / SKU — CHANGES REQUESTED')
-           : L('KHÔNG XÁC NHẬN MỞ MỚI', 'NEW ACCOUNT / SKU — REJECTED');
-  var col = kind === 'approve' ? '#1E7B34' : kind === 'reject' ? '#B3261E' : kind === 'return' ? '#B45309' : '#3A5CAA';
-  var td = 'padding:7px 10px;border-bottom:1px solid #E3E8EF;font-size:13.5px;vertical-align:top;';
-  var row = function(k, v){ return '<tr><td style="' + td + 'color:#5F6B78;width:34%;white-space:nowrap">' + k + '</td><td style="' + td + 'color:#1A1A1A;font-weight:600">' + v + '</td></tr>'; };
-  var h = [];
-  h.push('<div style="font-family:Aptos,Calibri,Arial,sans-serif;background:#F4F7FB;padding:18px 10px"><div style="max-width:720px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;border:1px solid #DCE3EC">');
-  h.push('<div style="background:' + col + ';color:#fff;padding:16px 22px"><div style="font-size:12px;letter-spacing:.08em;opacity:.9">MMH CRM · ' + e(NA_ENV.teamLabel()) + '</div>' +
-         '<div style="font-size:20px;font-weight:800;margin-top:3px">' + head + '</div>' +
-         '<div style="font-size:14px;margin-top:4px">' + e(naTypeLabel_(o.type)) + ' · <b>' + e(o.account) + '</b> · ' + e(o.pic) + '</div></div>');
-  h.push('<div style="padding:16px 22px">');
-  if(kind === 'submit') h.push('<p style="font-size:14px;margin:0 0 12px">' + L('Kính gửi anh/chị ' + e(o.subTo) + ',<br>Em xin gửi case mở mới dưới đây, kèm chứng từ theo quy định KPI. Anh/chị vui lòng xác nhận trên CRM.',
-                                                                              'Dear ' + e(o.subTo) + ',<br>Please find below a new account / SKU case with the evidence required by the KPI rule. Please approve it in the CRM.') + '</p>');
-  if(kind !== 'submit') h.push('<div style="border-left:4px solid ' + col + ';background:' + (kind === 'approve' ? '#EAF6EC' : kind === 'return' ? '#FFF6E5' : '#FCEDEC') + ';padding:10px 14px;border-radius:8px;margin-bottom:12px;font-size:14px">' +
-    '<b>' + (kind === 'approve' ? L('Đã xác nhận bởi ', 'Approved by ') : kind === 'return' ? L('Trả lại bổ sung bởi ', 'Returned for changes by ') : L('Từ chối bởi ', 'Rejected by ')) + e(o.decBy) + '</b> · ' + e(o.decAt) +
-    (o.comment ? '<div style="margin-top:4px">💬 ' + e(o.comment) + '</div>' : '') +
-    (kind === 'return' ? '<div style="margin-top:4px;color:#7A4A00">' + L('Chứng từ được giữ nguyên. PIC mở case trên CRM, bổ sung theo nhận xét rồi bấm Gửi email xin xác nhận lại.', 'The evidence is kept. The PIC opens the case in the CRM, completes it as requested and sends it for approval again.') + '</div>' : '') +
-    (kind === 'reject' ? '<div style="margin-top:4px;color:#7A2E2A">' + L('Chứng từ của case đã được xoá khỏi folder Drive. PIC có thể mở lại case, bổ sung và gửi lại.', 'The evidence files were removed from Drive. The PIC can reopen the case, complete it and send again.') + '</div>' : '') + '</div>');
-  h.push('<table style="width:100%;border-collapse:collapse">');
-  h.push(row(L('Loại case', 'Case type'), e(naTypeLabel_(o.type)) + (o.kpi ? ' · KPI ' + e(o.kpi) : '')));
-  h.push(row(L('Account', 'Account'), e(o.account) + (o.code ? ' <span style="color:#5F6B78;font-weight:400">(' + e(o.code) + ')</span>' : '') + (o.accType || o.province ? '<br><span style="color:#5F6B78;font-weight:400">' + e([o.accType, o.province].filter(String).join(' · ')) + '</span>' : '')));
-  h.push(row(L('Nhà phân phối', 'Distributor'), e(o.npp)));
-  h.push(row(naNeedOrder_() ? L('Đơn đầu tiên', 'First order') : L('Ngày NPP xác nhận', 'Distributor confirmation'), e(o.orderDate) + (o.orderNo ? ' · ' + e(o.orderNo) : '') + ' · ' + L('tháng KPI ', 'KPI month ') + e(o.month)));
-  if(o.sku || o.ptype) h.push(row(L('Sản phẩm / SKU', 'Product / SKU'), e(o.ptype ? o.ptype + ' · ' : '') + e(o.sku).replace(/\n/g, '<br>')));
-  if((o.lines || []).length) h.push(row(L('Chi tiết đơn', 'Order lines'), (o.lines || []).map(function(x){ return e(x.ptype || '') + ' · ' + e(String(x.detail || '').replace(/\n/g, ', ')) + ' · SL ' + e(x.qty || '') + (x.price ? ' × ' + e(Number(x.price).toLocaleString('en-US')) : ''); }).join('<br>')));
-  if(o.qty || o.amount) h.push(row(L('Số lượng / Giá trị', 'Qty / Amount'), (o.qty ? e(o.qty) : '—') + ' · ' + (o.amount ? Number(o.amount).toLocaleString('en-US') + (NA_ENV.lang() === 'en' ? '' : ' VND') : '—')));
-  h.push(row(L('Báo cáo tuần', 'Weekly report'), e(o.weekly || '') + (wk && wk.list && wk.list.length ? '<div style="font-weight:400;color:#5F6B78;margin-top:4px;font-size:12.5px">' + wk.list.slice(0, 4).map(function(x){ return e(x.d) + ' · ' + e(x.a) + (x.r ? ' — ' + e(x.r) : ''); }).join('<br>') + '</div>' : '')));
-  if(o.note) h.push(row(L('Ghi chú', 'Note'), e(o.note).replace(/\n/g, '<br>')));
-  h.push('</table>');
-  var fs = o.files || [];
+  var who = kind === 'submit' ? naDear_(o.subTo) : o.pic;
+  var by = e(o.decBy || user.pic);
+  var p = function(s){ return '<p style="margin:0 0 10px">' + s + '</p>'; };
+  var line = function(k, v){ return v ? '<div>' + k + ': ' + v + '</div>' : ''; };
+  var h = ['<div style="font-family:Aptos,Calibri,Arial,sans-serif;font-size:14px;line-height:1.5;color:#1A1A1A;max-width:760px">'];
+  h.push(p('Dear ' + e(who) + ','));
+  if(kind === 'submit') h.push(p(L('Em xin gửi case mở mới dưới đây, kèm chứng từ theo quy định KPI. Nhờ ' + e(naDear_(o.subTo).split(', ')[0] || 'anh/chị') + ' xem và xác nhận trên CRM giúp em.',
+                                   'Please find below a new account / SKU case with the evidence required by the KPI rule. Kindly review and approve it in the CRM.')));
+  else if(kind === 'approve') h.push(p(L(by + ' đã <b>xác nhận</b> case mở mới dưới đây.', 'The new account / SKU case below has been <b>approved</b> by ' + by + '.')));
+  else if(kind === 'return') h.push(p(L(by + ' đã <b>trả lại</b> case mở mới dưới đây để bổ sung. Chứng từ được giữ nguyên — em mở case trên CRM, bổ sung theo nhận xét rồi gửi xác nhận lại.',
+                                        'The case below has been <b>returned for changes</b> by ' + by + '. The evidence is kept — please open the case in the CRM, complete it as requested and send it again.')));
+  else h.push(p(L(by + ' đã <b>không xác nhận</b> case mở mới dưới đây. Chứng từ của case đã được xoá khỏi folder Drive; em có thể mở lại case, bổ sung và gửi lại.',
+                  'The case below has been <b>rejected</b> by ' + by + '. The evidence files were removed from Drive; you can reopen the case, complete it and send it again.')));
+  if(kind !== 'submit' && o.comment) h.push(p(L('Nhận xét: ', 'Comment: ') + e(o.comment)));
+  var d = [];
+  d.push(line(L('Loại case', 'Case type'), e(naTypeLabel_(o.type)) + (o.kpi ? ' · KPI ' + e(o.kpi) : '')));
+  d.push(line('Account', e(o.account) + (o.code ? ' (' + e(o.code) + ')' : '') + (o.accType || o.province ? ' · ' + e([o.accType, o.province].filter(String).join(' · ')) : '')));
+  d.push(line(L('Nhà phân phối', 'Distributor'), e(o.npp)));
+  d.push(line(naNeedOrder_() ? L('Đơn đầu tiên', 'First order') : L('Ngày NPP xác nhận', 'Distributor confirmation'), e(o.orderDate) + (o.orderNo ? ' · ' + e(o.orderNo) : '') + ' · ' + L('tháng KPI ', 'KPI month ') + e(o.month)));
+  if(o.sku || o.ptype) d.push(line(L('Sản phẩm / SKU', 'Product / SKU'), e(o.ptype ? o.ptype + ' · ' : '') + e(o.sku).replace(/\n/g, ', ')));
+  if((o.lines || []).length) d.push(line(L('Chi tiết đơn', 'Order lines'), (o.lines || []).map(function(x){ return e(x.ptype || '') + ' · ' + e(String(x.detail || '').replace(/\n/g, ', ')) + ' · SL ' + e(x.qty || '') + (x.price ? ' × ' + e(Number(x.price).toLocaleString('en-US')) : ''); }).join('; ')));
+  if(o.qty || o.amount) d.push(line(L('Số lượng / Giá trị', 'Qty / Amount'), (o.qty ? e(o.qty) : '—') + ' · ' + (o.amount ? Number(o.amount).toLocaleString('en-US') + (NA_ENV.lang() === 'en' ? '' : ' VND') : '—')));
+  d.push(line(L('Báo cáo tuần', 'Weekly report'), e(o.weekly || '')));
+  if(wk && wk.list && wk.list.length) d.push('<div style="padding-left:16px">' + wk.list.slice(0, 4).map(function(x){ return '- ' + e(x.d) + ' · ' + e(x.a) + (x.r ? ': ' + e(x.r) : ''); }).join('<br>') + '</div>');
+  if(o.note) d.push(line(L('Ghi chú', 'Note'), e(o.note).replace(/\n/g, '<br>')));
+  h.push('<div style="margin:0 0 12px">' + d.join('') + '</div>');
+  var fs = o.files || [], im = imgs || [], inl = {};
+  im.forEach(function(x){ inl[x.id] = x; });
   if(fs.length){
-    h.push('<div style="margin-top:14px;font-size:13px;font-weight:800;color:#003047">' + L('CHỨNG TỪ (' + fs.length + ' file, đính kèm email)', 'EVIDENCE (' + fs.length + ' file(s), attached)') + '</div><div style="margin-top:6px">');
-    fs.forEach(function(f){
-      var u = 'https://drive.google.com/file/d/' + f.id + '/view';
-      h.push('<a href="' + u + '" style="display:inline-block;margin:0 8px 8px 0;text-decoration:none;color:#1A1A1A;width:150px;vertical-align:top">' +
-        '<img src="https://drive.google.com/thumbnail?id=' + f.id + '&sz=w300" width="150" style="width:150px;height:110px;object-fit:cover;border-radius:8px;border:1px solid #DCE3EC;display:block" alt="">' +
-        '<span style="display:block;font-size:11px;color:#5F6B78;margin-top:3px;word-break:break-all">' + e(naKindLabel_(f.kind)) + '</span></a>');
+    h.push(p('<b>' + L('Chứng từ', 'Evidence') + '</b>'));
+    fs.forEach(function(f, i){
+      var u = 'https://drive.google.com/file/d/' + f.id + '/view', x = inl[f.id];
+      h.push('<div style="margin:0 0 12px">' + (i + 1) + '. ' + e(naKindLabel_(f.kind)) + ' · <a href="' + u + '">' + e(f.name || L('mở file', 'open file')) + '</a>' +
+        (x ? '<br><img src="cid:' + x.cid + '" style="max-width:600px;height:auto;border:1px solid #DDD;margin-top:6px" alt="' + e(naKindLabel_(f.kind)) + '">' : '') + '</div>');
     });
-    h.push('</div>');
   } else if(kind === 'reject' && o.rejectedFiles && o.rejectedFiles.length){
-    h.push('<div style="margin-top:10px;font-size:12px;color:#7A2E2A">' + L('Đã xoá: ', 'Removed: ') + e(o.rejectedFiles.join(', ')) + '</div>');
+    h.push(p(L('Đã xoá: ', 'Removed: ') + e(o.rejectedFiles.join(', '))));
   }
-  h.push('<div style="margin:18px 0 6px;text-align:center"><a href="' + link + '" style="display:inline-block;background:' + col + ';color:#fff;text-decoration:none;font-weight:800;font-size:15px;padding:12px 26px;border-radius:10px">' +
-    (kind === 'submit' ? L('✉ Mở CRM để xác nhận / từ chối', '✉ Open the CRM to approve / reject') : L('Mở case trên CRM', 'Open the case in the CRM')) + '</a></div>');
-  h.push('<div style="font-size:11.5px;color:#8A95A3;text-align:center">' + e(o.id) + ' · ' + L('gửi tự động từ MMH CRM', 'sent automatically by MMH CRM') + '</div>');
-  h.push('</div></div></div>');
+  h.push(p((kind === 'submit' ? L('Link xác nhận trên CRM: ', 'Approve / reject in the CRM: ') : L('Mở case trên CRM: ', 'Open the case in the CRM: ')) + '<a href="' + link + '">' + link + '</a>'));
+  h.push(p('Best regards,<br>' + e(kind === 'submit' ? o.pic : (o.decBy || user.pic)) + '<br>' + e(NA_ENV.teamLabel()) + ' · MANI Medical Hanoi'));
+  h.push('<div style="margin-top:18px;font-size:12px;color:#777">' + L('Email gửi tự động từ MMH CRM · mã case ', 'Sent automatically by MMH CRM · case ') + e(o.id) + '</div>');
+  h.push('</div>');
   return h.join('');
 }
 function naKindLabel_(k){ return k === 'dist' ? naL_('Xác nhận NPP', 'Distributor confirmation') : k === 'order' ? naL_('Chứng từ đơn hàng', 'Order document') : k === 'tender' ? naL_('Thông báo trúng thầu', 'Tender award') : naL_('Khác', 'Other'); }
@@ -3245,12 +3249,19 @@ function naSendMail_(o, kind, user, to, cc, wk){
   try{
     var subj = (kind === 'submit' ? naL_('[MMH CRM] Xin xác nhận ', '[MMH CRM] Approval request · ') : kind === 'approve' ? naL_('[MMH CRM] ĐÃ XÁC NHẬN ', '[MMH CRM] APPROVED · ') : kind === 'return' ? naL_('[MMH CRM] CẦN BỔ SUNG ', '[MMH CRM] CHANGES REQUESTED · ') : naL_('[MMH CRM] KHÔNG XÁC NHẬN ', '[MMH CRM] REJECTED · ')) +
       naTypeLabel_(o.type) + ' · ' + o.account + ' · ' + o.pic + (o.month ? ' · ' + o.month : '');
-    var att = [], size = 0, skipped = 0;
-    if(kind !== 'reject' && kind !== 'return') (o.files || []).forEach(function(f){
-      try{ var b = DriveApp.getFileById(f.id).getBlob(); var s = b.getBytes().length; if(size + s > NA_MAX_ATTACH){ skipped++; return; } size += s; att.push(b); }catch(e){ skipped++; }
+    /* ảnh ⇒ nhúng trong thân email (cid:), file khác ⇒ đính kèm */
+    var att = [], size = 0, skipped = 0, imgs = [], inl = {};
+    if(kind !== 'reject') (o.files || []).forEach(function(f, i){
+      try{
+        var b = DriveApp.getFileById(f.id).getBlob(), s = b.getBytes().length, img = /^image\//i.test(b.getContentType() || '');
+        if(!img && kind === 'return') return;
+        if(size + s > NA_MAX_ATTACH){ skipped++; return; } size += s;
+        if(img){ var cid = 'na' + i; inl[cid] = b; imgs.push({ id:f.id, cid:cid }); } else att.push(b);
+      }catch(e){ skipped++; }
     });
-    var html = naMailHtml_(o, kind, user, wk);
+    var html = naMailHtml_(o, kind, user, wk, imgs);
     var opt = { to:to.join(','), subject:subj, htmlBody:html, name:'MMH CRM · ' + (kind === 'submit' ? o.pic : user.pic) };
+    if(imgs.length) opt.inlineImages = inl;
     if(cc && cc.length) opt.cc = cc.join(',');
     var rt = NA_ENV.email(kind === 'submit' ? o.pic : user.pic); if(rt) opt.replyTo = rt;
     if(att.length) opt.attachments = att;

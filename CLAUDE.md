@@ -80,3 +80,6 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   **Chứng chỉ = học xong 100% tuyến bài** (người dùng yêu cầu): video ≥ 70% (app đếm giây đã xem, gửi `done`), tài liệu đọc hết trang ⇒ `apiTrackProgress` gọi `hubStudyDone_` (ngoài khoá)
   ⇒ HUB_Enrollment Completed/Pass + `hubIssueCertificate(…, 'study')` + email; trả `cert` / `sessionDone`. Bài kiểm tra KHÔNG cấp chứng chỉ (`HUB_CERT_BY_QUIZ = false`).
   Tạo câu hỏi bằng AI đã BỎ (người dùng yêu cầu). App Training Hub v4.0.
+- **Email Mở mới dạng thư thường (15/10/2026, `naMailHtml_` / `naSendMail_` GIỐNG HỆT ở crm-dental / surgical / eyeless / thai)**: người dùng yêu cầu bỏ HTML cầu kỳ — Dear chị Tuyên
+  (`NA_HONOR` = xưng hô theo PIC, mặc định "anh/chị <tên>"; tiếng Anh chỉ tên) · lời mở đầu · thông tin từng dòng · ảnh chứng từ NHÚNG trong thân email (`inlineImages`, `cid:`), PDF đính kèm · link CRM · Best regards.
+
