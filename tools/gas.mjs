@@ -498,9 +498,13 @@ async function cmdDiff(key, version) {
 async function cmdPing(arg) {
   const cfg = loadCfg();
   say('### Gọi thử URL /exec');
+  /* "training?action=fileMeta&sid=…" ⇒ gọi đúng lệnh đó (kiểm lỗi riêng 1 action); không có "?" ⇒ ping như cũ */
+  const qi = String(arg || '').indexOf('?');
+  const q = qi >= 0 ? String(arg).slice(qi) : '';
+  if (qi >= 0) arg = String(arg).slice(0, qi);
   for (const k of pickKeys(cfg, arg)) {
     const b = cfg[k];
-    let u = b.url + (b.smokeQuery ?? '?action=ping');
+    let u = b.url + (q || b.smokeQuery || '?action=ping');
     const hops = [];
     try {
       for (let i = 0; i < 5; i++) {
@@ -509,7 +513,7 @@ async function cmdPing(arg) {
         hops.push(`${r.status} ${new URL(u).host}${new URL(u).pathname.replace(/\/s\/[^/]+/, '/s/…').slice(0, 40)}`);
         if (loc && r.status >= 300 && r.status < 400) { u = new URL(loc, u).href; continue; }
         const t = (await r.text()).replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-        say(`- ${b.name}: ${hops.join(' → ')} · ${r.headers.get('content-type') || ''} · «${t.slice(0, 160)}»`);
+        say(`- ${b.name}${q ? ' ' + q.slice(0, 60) : ''}: ${hops.join(' → ')} · ${r.headers.get('content-type') || ''} · «${t.slice(0, 300)}»`);
         break;
       }
     } catch (e) { say(`- ${b.name}: ${hops.join(' → ')} ✗ ${e.message}`); }
