@@ -170,7 +170,7 @@
 
 var HUB = {
 
-  VERSION: '3.26',   // ★ 15/10/2026 — RH_Warm.gs: đệm luôn nóng (trigger 5 phút), CACHE_TTL 900
+  VERSION: '3.27',   // ★ 15/10/2026 — RH_Warm.gs v1.1: làm nóng đệm KHÔNG giữ khoá ghi (v3.26 làm thao tác ghi báo bận)
 
   /** ★ v3.4 — Khoá kết nối từ Report Hub (phải trùng TRAINING_RH_KEY trong index.html của Report Hub).
    *  Đổi khoá: đặt Script Property RH_BRIDGE_KEY (ưu tiên hơn giá trị ở đây) và sửa cả 2 phía. */
