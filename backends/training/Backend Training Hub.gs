@@ -6,6 +6,9 @@
  * ----------------------------------------------------------------------------
  *  Backend cho WebApp "Training Hub" (frontend index.html deploy trên GitHub).
  *
+ *  ĐIỂM MỚI v3.24 (15/10/2026)
+ *    - Nhận fid=r:<mã file viết ngược> thay cho fileId trên URL GET (Google chặn URL web app có fileId = mã file Drive).
+ *
  *  ĐIỂM MỚI v3.23 (15/10/2026)
  *    - bootstrap ▸ videos[sid].v1 = video đầu tiên của khoá (app phát ngay trên trang chủ / trang khoá học).
  *
@@ -167,7 +170,7 @@
 
 var HUB = {
 
-  VERSION: '3.23',
+  VERSION: '3.24',
 
   /** ★ v3.4 — Khoá kết nối từ Report Hub (phải trùng TRAINING_RH_KEY trong index.html của Report Hub).
    *  Đổi khoá: đặt Script Property RH_BRIDGE_KEY (ưu tiên hơn giá trị ở đây) và sửa cả 2 phía. */
@@ -624,6 +627,9 @@ function hubIsTestSid(sid) { return String(sid || '').indexOf(HUB.TEST.PREFIX) =
 
 function hubDispatch(action, p) {
   var t0 = Date.now();
+  // ★ v3.24 — app gửi mã file Drive dạng "fid=r:<mã viết ngược>" trên URL GET: link có tham số fileId = mã file Drive
+  //   bị Google chặn ngay ở cổng ("Rất tiếc, không thể mở tệp tại thời điểm này") ⇒ fileMeta / fileChunk / slide* hỏng.
+  if (p && p.fid && !p.fileId) { var fid = String(p.fid); p.fileId = fid.indexOf('r:') === 0 ? fid.slice(2).split('').reverse().join('') : fid; }
   HUB_CTX = {test:false, tester:null};
   var runId = hubRunMark(action, p, t0);
   try {
