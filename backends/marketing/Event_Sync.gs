@@ -1,5 +1,5 @@
 /*************************************************************************************************
- * MMH REPORT HUB — Event_Sync.gs   (v2.0 · 15/10/2026)
+ * MMH REPORT HUB — Event_Sync.gs   (v2.1 · 15/10/2026 · v2.1: dọn dòng sub lỗi do v1 chèn lặp, ghi lỗi thì xoá dòng vừa chèn)
  * ─────────────────────────────────────────────────────────────────────────────────────────────
  * v2.0 (người dùng yêu cầu 15/10/2026) — BỎ việc tự tạo Key task từ file MKT Offline:
  *  ① Dọn 1 lần (Script Property EVS_CLEAN_V2): xoá các key "Marketing-Event" do hệ thống tự tạo (cột U "EK:…") cùng
@@ -359,6 +359,45 @@ function evsCleanV2_(sh, force){
   return rep;
 }
 
+/* ══════════════ ② DỌN 1 LẦN: dòng "chỉ có tên sub" do bản v1.x chèn lặp (EVS_JUNK_V1, 15/10/2026) ══════════════
+ * Dòng rác = cột G có tên trùng tên sub bài đăng (Type of content_Format_Pillar, có thể kèm " (n)"), còn E/F/H/I/J/K/N/U đều trống,
+ * nằm dưới Key task loại Marketing-Event. Sao lưu vào "EVS_Removed" rồi xoá. */
+function evsJunkClean_(sh, posts, force){
+  var pr = PropertiesService.getScriptProperties();
+  if (!force && pr.getProperty('EVS_JUNK_V1')) return null;
+  var names = {};
+  Object.keys(posts || {}).forEach(function(nk){ (posts[nk] || []).forEach(function(p){
+    names[evsNorm_([p.kind, p.format, p.pillar].filter(String).join('_'))] = 1; }); });
+  var dr = (typeof WEEKLY_DATA_ROW !== 'undefined') ? WEEKLY_DATA_ROW : 7, last = sh.getLastRow();
+  if (last < dr){ pr.setProperty('EVS_JUNK_V1', JSON.stringify({ at:Date.now(), n:0 })); return { n:0 }; }
+  var w = evsColMeta_() - 1, v = sh.getRange(dr, 2, last - dr + 1, w).getValues(), iK = evsColKey_() - 2;
+  var dels = [], parentType = '', rows = [];
+  for (var i = 0; i < v.length; i++){
+    var r = v[i];
+    if (evsS_(r[4])){ parentType = evsS_(r[3]); continue; }
+    if (parentType !== EVS_TYPE) continue;
+    var g = evsS_(r[5]); if (!g) continue;
+    var empty = [3, 4, 6, 7, 8, 9, 12, iK].every(function(c){ return evsS_(r[c]) === ''; });
+    if (!empty) continue;
+    if (!names[evsNorm_(g.replace(/\s*\(\d+\)$/, ''))]) continue;
+    dels.push(dr + i); rows.push([new Date(), dr + i].concat(r.map(function(x){ return x instanceof Date ? evsIso_(x) : x; })));
+  }
+  if (dels.length){
+    try {
+      var ss = sh.getParent(), bk = ss.getSheetByName('EVS_Removed');
+      if (!bk){ bk = ss.insertSheet('EVS_Removed'); bk.appendRow(['Xoá lúc', 'Dòng cũ', 'B…V của dòng (No · … · cột U · cột V)']); try { bk.hideSheet(); } catch(e){} }
+      bk.getRange(bk.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
+    } catch(e){}
+    evsDelRows_(sh, dels);
+    SpreadsheetApp.flush();
+    try { if (typeof touchVersion === 'function') touchVersion(); } catch(e){}
+    try { if (typeof _SH_CACHE !== 'undefined') _SH_CACHE = {}; } catch(e){}
+    try { if (typeof logActivity === 'function') logActivity('System', 'delete', 'Dọn ' + dels.length + ' dòng sub bài đăng lỗi (chỉ có tên, không PIC / ngày) dưới key sự kiện', '', ''); } catch(e){}
+  }
+  pr.setProperty('EVS_JUNK_V1', JSON.stringify({ at:Date.now(), n:dels.length }));
+  return { n:dels.length };
+}
+
 /* ══════════════ ĐỒNG BỘ CHÍNH (v2.0: chỉ sub bài đăng dưới key người dùng đặt đúng tên sự kiện) ══════════════ */
 function evsSync(opt){
   opt = opt || {};
@@ -372,6 +411,7 @@ function evsSync(opt){
 
     var posts, postsOk = true;
     try { posts = evsReadPosts_(); } catch(e){ posts = {}; postsOk = false; rep.errors.push('File Digital: ' + (e.message || e)); }
+    if (postsOk){ try { var jk = evsJunkClean_(sh, posts, false); if (jk && jk.n) rep.junk = jk.n; } catch(e){ rep.errors.push('Dọn dòng lỗi: ' + (e.message || e)); } }
     var idx = evsScan_(sh), keyNk = {};
     Object.keys(idx.byNk).forEach(function(nk){ if (posts[nk]) keyNk[nk] = idx.byNk[nk]; });
     var W = evsBuildSubs_(posts, keyNk);
@@ -407,8 +447,12 @@ function evsSync(opt){
           var chunk = list.slice(b, b + EVS_CHUNK);
           sh.insertRowsAfter(after, chunk.length);
           var er = evsWrite_(sh, after + 1, chunk);
+          if (er){                                   /* 15/10/2026: ghi lỗi ⇒ xoá ngay dòng vừa chèn (không để dòng trắng / dòng chỉ có tên) */
+            try { sh.deleteRows(after + 1, chunk.length); } catch(e){}
+            rep.errors.push('Chèn sub "' + chunk[0].subTask + '": ' + er);
+            break;
+          }
           evsFill_(sh, after, after + 1, chunk.length);
-          if (er) rep.errors.push('Chèn sub "' + chunk[0].subTask + '": ' + er);
           after += chunk.length; rep.subsNew += chunk.length;
         }
         touched[nk] = 1;
@@ -429,7 +473,7 @@ function evsSync(opt){
     rep.keys = Object.keys(keyNk).length; rep.posts = Object.keys(W).length;
     rep.seconds = Math.round((Date.now() - T0) / 1000);
     rep.message = 'Bài đăng sự kiện — ' + rep.keys + ' key sự kiện · ' + rep.posts + ' bài đăng · sub mới ' + rep.subsNew +
-      ' · sửa ' + rep.subsUpd + ' · xoá ' + rep.subsDel + ' · ' + rep.seconds + 's' + (rep.clean ? ' · ' + rep.clean : '') +
+      ' · sửa ' + rep.subsUpd + ' · xoá ' + rep.subsDel + ' · ' + rep.seconds + 's' + (rep.clean ? ' · ' + rep.clean : '') + (rep.junk ? ' · dọn ' + rep.junk + ' dòng lỗi' : '') +
       (rep.errors.length ? ' · ' + rep.errors.slice(0, 4).join(' | ') : '');
     try { PropertiesService.getScriptProperties().setProperty('EVS_LAST', JSON.stringify({ at:Date.now(), msg:rep.message })); } catch(e){}
     return rep;
