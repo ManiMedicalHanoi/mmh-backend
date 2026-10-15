@@ -90,4 +90,12 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   (`NA_HONOR` = xưng hô theo PIC, mặc định "anh/chị <tên>"; tiếng Anh chỉ tên) · lời mở đầu · thông tin từng dòng · ảnh chứng từ NHÚNG trong thân email (`inlineImages`, `cid:`), PDF đính kèm · link CRM · Best regards.
 - **Đơn hàng: sales Gửi xác nhận (15/10/2026, crm-dental / surgical / eyeless)**: `orderRequest` (keys = đơn Chờ duyệt của chính mình, đủ điều kiện) ⇒ email thư thường tới `ORDER_APPROVERS` (Tuyen), Cc + replyTo sales,
   ảnh chứng từ nhúng (`ordMailFiles_` / `ordMailBody_`), link `NA_CRM_URL#oa`; ghi "Đã gửi xác nhận tới … · dd/MM/yyyy HH:mm" vào Ghi chú duyệt. Email kết quả `orderDecide` cùng kiểu thư thường. `decision=return` (Trả lại bổ sung): đơn vẫn Chờ duyệt, Ghi chú duyệt = "Cần bổ sung: … · người · giờ", email sales, không cần đủ điều kiện.
-
+- **Khoá học v3.25 (15/10/2026, training `RH_HubCourse.gs`)**: sheet **HUB_SessionMeta** (ProductLine do TRAINER chọn — app không tự đoán chuyên khoa; Cover; AutoFolderId),
+  `saveSession` nhận `line` / `cover`, `sessionMeta`. Thư mục tài liệu: app gửi `createFolder=0` ⇒ tạo khi **gửi thư mời** (`sendInvite` kind pre ⇒ `hubRhFolder`, link trong email) hoặc
+  **tải file đầu tiên**; buổi chuyển Cancel / xoá (cả từ Report Hub) ⇒ `hubTrashSessionFolder_` đưa thư mục do Hub tạo (AutoFolderId / tên `yyyyMMdd_…`) vào Thùng rác + xoá link.
+  Tìm thư mục theo tên bỏ qua thư mục trong Thùng rác (`hubLiveFolder_`). **Video từ app ⇒ GitHub**: app tải MP4 lên Drive (`uploadInit` path `["Video bài giảng"]`) rồi `videoPublish`
+  ⇒ đẩy lên `Training-Hub/media/s/<sid>/<VideoID>.mp4` (+ ảnh bìa) bằng Script Property `HUB_GH_TOKEN` (Admin dán trong app ▸ `ghSetup`, token fine-grained Contents R/W kho Training-Hub),
+  tối đa 25 MB / video; file gốc trong thư mục "Video bài giảng" không tính là bài học. Giao diện chỉnh trên app: `uiSave` (Script Property `HUB_UI`), ảnh `imgPublish` (GitHub `media/ui/`, chưa có token ⇒ Drive lh3).
+  bootstrap trả `smeta` / `ui` / `gh`. **Email gửi học viên = thư thường** (`hubLetter_`: Dear · đoạn văn · thông tin từng dòng · link · Trân trọng — giống email thông báo cập nhật):
+  thư mời / sau đào tạo / nhắc hoàn thành khoá học / nhắc lịch hôm nay / chứng chỉ / nhắc hằng tuần (`hubPendingFor` = khoá học chưa học xong, không còn theo bài kiểm tra).
+  Xoá buổi: trainer của buổi hoặc Admin.
