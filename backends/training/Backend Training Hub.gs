@@ -6,6 +6,9 @@
  * ----------------------------------------------------------------------------
  *  Backend cho WebApp "Training Hub" (frontend index.html deploy trên GitHub).
  *
+ *  ĐIỂM MỚI v3.22 (15/10/2026)
+ *    - doGet / doPost: lỗi ngoài hubDispatch vẫn trả JSON (code FATAL) + ghi HUB_Log, kèm sid / fileId để tra lỗi mở tài liệu.
+ *
  *  ĐIỂM MỚI v3.21 (15/10/2026)
  *    - Chứng chỉ cấp khi HỌC XONG 100% tuyến bài (video ≥ 70% — app đếm, tài liệu đọc hết trang), không theo bài kiểm tra.
  *    - Bỏ tạo câu hỏi bằng AI (aiQuiz / aiStatus / aiKey).
@@ -161,7 +164,7 @@
 
 var HUB = {
 
-  VERSION: '3.21',
+  VERSION: '3.22',
 
   /** ★ v3.4 — Khoá kết nối từ Report Hub (phải trùng TRAINING_RH_KEY trong index.html của Report Hub).
    *  Đổi khoá: đặt Script Property RH_BRIDGE_KEY (ưu tiên hơn giá trị ở đây) và sửa cả 2 phía. */
@@ -429,8 +432,20 @@ function hubLogoTag(widthPx, cfg) {
 
 function doGet(e) {
   var p = (e && e.parameter) ? e.parameter : {};
-  var out = hubDispatch(p.action || 'ping', p);
-  return hubReply(out, p.callback);
+  try {
+    var out = hubDispatch(p.action || 'ping', p);
+    return hubReply(out, p.callback);
+  } catch (err) { return hubFatal_(p, err); }       // ★ v3.22 — lỗi ngoài hubDispatch: vẫn trả JSON + ghi HUB_Log
+}
+
+/** ★ v3.22 — lỗi xảy ra ngoài hubDispatch (đóng gói phản hồi…): ghi HUB_Log (FATAL) + trả JSON thay vì trang lỗi của Google */
+function hubFatal_(p, err) {
+  var msg = (err && err.message) || String(err);
+  try { hubLog('FATAL', 'do ' + (p.action || ''), msg, ((err && err.stack) || '') + ' | sid=' + (p.sid || '') + ' fileId=' + (p.fileId || '')); } catch (x) {}
+  var json = JSON.stringify({ok: false, error: 'Lỗi máy chủ: ' + msg, code: 'FATAL'});
+  var cb = p.callback ? String(p.callback).replace(/[^\w$.]/g, '') : '';
+  return cb ? ContentService.createTextOutput(cb + '(' + json + ');').setMimeType(ContentService.MimeType.JAVASCRIPT)
+            : ContentService.createTextOutput(json).setMimeType(ContentService.MimeType.JSON);
 }
 
 function doPost(e) {
@@ -444,8 +459,10 @@ function doPost(e) {
       return hubReply({ok:false, error:'Payload không hợp lệ: ' + err.message}, p.callback);
     }
   }
-  var out = hubDispatch(p.action || 'ping', p);
-  return hubReply(out, p.callback);
+  try {
+    var out = hubDispatch(p.action || 'ping', p);
+    return hubReply(out, p.callback);
+  } catch (err) { return hubFatal_(p, err); }
 }
 
 function hubReply(obj, callback) {
@@ -639,7 +656,7 @@ function hubDispatch(action, p) {
     return res;
   } catch (err) {
     try { console.error('[hub] ' + action + ' ERROR ' + ((err && err.message) || err)); } catch (e) {}
-    hubLog('ERROR', action, (err && err.message) || String(err), (err && err.stack) || '');
+    hubLog('ERROR', action, (err && err.message) || String(err), ((err && err.stack) || '') + (p.sid ? ' | sid=' + p.sid : '') + (p.fileId ? ' fileId=' + p.fileId : ''));
     return {ok:false, error:(err && err.message) || String(err), _ms: Date.now() - t0};
   } finally {
     hubRunDone(runId);
