@@ -80,6 +80,8 @@ function hubVideoCounts_() {
       var x = o[v.sid] || (o[v.sid] = {n: 0, poster: '', sec: 0});
       x.n++; x.sec += v.duration || 0;
       if (!x.poster && v.poster) x.poster = v.poster;
+      // ★ v3.23 — video đầu tiên: app phát ngay trên trang chủ / trang khoá học (không cần tải danh sách bài)
+      if (!x.v1) x.v1 = {id: v.id, title: v.title, src: v.src, poster: v.poster, duration: v.duration};
     });
   } catch (e) {}
   return o;

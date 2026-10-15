@@ -6,6 +6,9 @@
  * ----------------------------------------------------------------------------
  *  Backend cho WebApp "Training Hub" (frontend index.html deploy trên GitHub).
  *
+ *  ĐIỂM MỚI v3.23 (15/10/2026)
+ *    - bootstrap ▸ videos[sid].v1 = video đầu tiên của khoá (app phát ngay trên trang chủ / trang khoá học).
+ *
  *  ĐIỂM MỚI v3.22 (15/10/2026)
  *    - doGet / doPost: lỗi ngoài hubDispatch vẫn trả JSON (code FATAL) + ghi HUB_Log, kèm sid / fileId để tra lỗi mở tài liệu.
  *
@@ -164,7 +167,7 @@
 
 var HUB = {
 
-  VERSION: '3.22',
+  VERSION: '3.23',
 
   /** ★ v3.4 — Khoá kết nối từ Report Hub (phải trùng TRAINING_RH_KEY trong index.html của Report Hub).
    *  Đổi khoá: đặt Script Property RH_BRIDGE_KEY (ưu tiên hơn giá trị ở đây) và sửa cả 2 phía. */
