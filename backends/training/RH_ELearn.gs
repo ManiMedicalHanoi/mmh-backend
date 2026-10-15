@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- *  MMH TRAINING HUB — HỌC ONLINE BẰNG VIDEO + TẠO CÂU HỎI BẰNG AI  (v3.20, 15/10/2026)
+ *  MMH TRAINING HUB — HỌC ONLINE BẰNG VIDEO + CHỨNG CHỈ KHI HỌC XONG  (v3.21, 15/10/2026)
  * ----------------------------------------------------------------------------
  *  1) VIDEO BÀI GIẢNG (sheet HUB_Videos trong Training Master)
  *     - File video (MP4) nằm trên GitHub Pages của app Training-Hub (thư mục media/), KHÔNG nằm trên Drive
@@ -8,16 +8,11 @@
  *     - Mỗi dòng = 1 video gắn với 1 buổi đào tạo (SessionID). hubMaterials() ghép video vào ĐẦU danh sách
  *       tài liệu của buổi (id "V…", kind 'video', view 'drive', src = link MP4) ⇒ lộ trình tự học, điều kiện
  *       mở bài kiểm tra (hubGate), tiến độ (HUB_Progress), chứng chỉ — dùng lại nguyên cơ chế cũ.
- *     - Học viên phải xem thật ≥ 90% thời lượng (app đếm từng giây đã xem, không cho tua vượt) mới tính "xong".
+ *     - Học viên phải xem thật ≥ 70% thời lượng mỗi video (app đếm từng giây, không cho tua vượt) mới tính "xong".
  *     - action videoSave (trainer của buổi): thay toàn bộ danh sách video của buổi.
  *
- *  2) TẠO CÂU HỎI BẰNG AI (Google Gemini — gói miễn phí)
- *     - Khoá API ở Script Property GEMINI_API_KEY (Admin dán trong app: action aiKey). Model: GEMINI_MODEL
- *       (mặc định gemini-flash-latest, lỗi 404 thì thử gemini-2.5-flash).
- *     - action aiQuiz (trainer của buổi): nguồn = lời thoại video (app gửi kèm `text`) + tài liệu PDF / Google
- *       Docs / Slides / PPTX đã chuyển PDF của buổi (`fileIds`). Trả {questions:[…]} đúng định dạng saveQuiz —
- *       KHÔNG tự lưu: trainer xem / sửa rồi mới Lưu.
- *     - Dùng UrlFetchApp (quyền script.external_request ĐÃ có) ⇒ không cần cấp quyền mới.
+ *  2) CHỨNG CHỈ: học xong 100% tuyến bài (mọi video + mọi tài liệu) ⇒ hubStudyDone_ (gọi từ apiTrackProgress)
+ *     ghi HUB_Enrollment = Completed / Pass và cấp chứng chỉ PDF + email. Bài kiểm tra không còn cấp chứng chỉ.
  * ============================================================================
  */
 
@@ -135,158 +130,38 @@ function apiVideoSave(p, user) {
 }
 
 // ============================================================================
-//  TẠO CÂU HỎI BẰNG AI (Gemini)
+//  ★ v3.21 — HOÀN THÀNH KHOÁ HỌC = HỌC XONG 100% TUYẾN BÀI ⇒ CẤP CHỨNG CHỈ
+//  (người dùng yêu cầu 15/10/2026: bỏ cấp chứng chỉ theo bài kiểm tra)
+//  - Video: app chỉ báo "xong" khi đã xem thật ≥ 70% thời lượng (đếm từng giây, không tua vượt).
+//  - Tài liệu: đọc tới trang cuối (Percent ≥ 95% trong HUB_Progress) / bấm "Đã xem xong" với file mở bằng Drive.
+//  - Trainer của buổi (không đóng vai học viên) không nhận chứng chỉ của buổi mình dạy.
 // ============================================================================
 
-function hubAiKey_() { return hubNorm(PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY')); }
+var HUB_CERT_BY_QUIZ = false;
 
-/** action aiKey (Admin): đặt / xoá khoá; không bao giờ trả khoá về. */
-function apiAiKey(p, user) {
-  var props = PropertiesService.getScriptProperties();
-  if (hubBool(p.clear)) { props.deleteProperty('GEMINI_API_KEY'); return {ok: true, has: false, message: 'Đã xoá khoá AI.'}; }
-  var k = hubNorm(p.key);
-  if (k) {
-    if (!/^[A-Za-z0-9_\-]{20,80}$/.test(k)) return {ok: false, error: 'Khoá không đúng định dạng (khoá Gemini thường bắt đầu bằng "AIza…").'};
-    props.setProperty('GEMINI_API_KEY', k);
-    if (hubNorm(p.model)) props.setProperty('GEMINI_MODEL', hubNorm(p.model));
-    hubLog('INFO', 'aiKey', 'Cập nhật khoá Gemini', user.email);
-    return {ok: true, has: true, message: 'Đã lưu khoá AI — nút "Tạo bằng AI" dùng được ngay.'};
-  }
-  return {ok: true, has: !!hubAiKey_()};
-}
-
-/** action aiStatus (trainer): đã có khoá AI chưa. */
-function apiAiStatus(p, user) { return {ok: true, has: !!hubAiKey_(), admin: user.role === 'admin'}; }
-
-var HUB_AI_LEVEL = {easy: 'dễ (chủ yếu nhớ / nhận biết)', medium: 'trung bình (nhớ + hiểu)', hard: 'khó (hiểu + vận dụng tình huống)'};
-
-function hubAiPrompt_(o) {
-  return [
-    'Bạn là chuyên gia đào tạo của MANI Medical Hanoi (MMH), soạn bài kiểm tra sau đào tạo cho nhân viên MMH (sales, marketing, back office) về nha khoa, nhãn khoa và ngoại khoa.',
-    'Chủ đề buổi đào tạo: "' + o.topic + '".',
-    '',
-    'NHIỆM VỤ: đọc tài liệu đào tạo đính kèm (lời thoại video, slide, PDF) và soạn ĐÚNG ' + o.count + ' câu hỏi trắc nghiệm, mức độ ' + (HUB_AI_LEVEL[o.level] || HUB_AI_LEVEL.medium) + '.',
-    '',
-    'QUY TẮC:',
-    '1. CHỈ hỏi những gì có trong tài liệu. Không thêm kiến thức ngoài, không suy diễn số liệu.',
-    '2. Phủ đều các phần của tài liệu. Tỷ lệ gợi ý: ~40% nhớ, ~40% hiểu, ~20% vận dụng (tình huống thực tế với bác sĩ / sản phẩm).',
-    '3. Câu hỏi ngắn, rõ, một ý. Không phủ định kép, không "Tất cả các đáp án trên" / "Không đáp án nào".',
-    '4. Phương án nhiễu hợp lý (cùng loại, độ dài tương đương đáp án đúng). Vị trí đáp án đúng phân bố đều A/B/C/D.',
-    '5. Viết bằng ' + (o.lang === 'en' ? 'tiếng Anh' : 'tiếng Việt') + '. Thuật ngữ chuyên môn kèm tiếng Anh trong ngoặc ở lần đầu, vd. "giác mạc (cornea)".',
-    '6. Loại câu: "single" = 1 đáp án đúng, 4 phương án a–d (≥ 70% số câu); "multi" = nhiều đáp án đúng, correct ghi liền vd "AC";',
-    '   "truefalse" = Đúng/Sai, để trống a–d, correct "A" = Đúng, "B" = Sai.',
-    '7. explanation: 1 câu, nêu lý do đáp án đúng và vị trí trong tài liệu (slide / trang / phút).',
-    o.note ? '8. Yêu cầu thêm của trainer: ' + o.note : '',
-    '',
-    'Trả về JSON {"questions":[{"type","question","a","b","c","d","correct","explanation"}]}.'
-  ].filter(function(x){ return x !== ''; }).join('\n');
-}
-
-/** Lấy PDF của 1 tài liệu trong buổi (đã chuyển đổi) để gửi cho AI. */
-function hubAiFileBlob_(s, fileId) {
-  var info = hubMaterialInfo(s, fileId);
-  if (!info || info.isVideo) return {skip: 'không tìm thấy tài liệu'};
-  if (info.view === 'pdf') return {blob: DriveApp.getFileById(info.id).getBlob(), name: info.name};
-  if (info.view === 'gdoc' && !/spreadsheet/.test(info.mime)) {
-    return {blob: DriveApp.getFileById(info.id).getAs(MimeType.PDF), name: info.name};
-  }
-  if (info.view === 'office') {
-    var st = hubPvState(info);
-    if (st.stage === 'ready') return {blob: st.target.getBlob(), name: info.name};
-    return {skip: 'chưa chuyển sang PDF — mở tài liệu này trong Hub 1 lần rồi thử lại'};
-  }
-  return {skip: 'định dạng chưa hỗ trợ'};
-}
-
-function hubAiCall_(key, model, body) {
-  return UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent', {
-    method: 'post', contentType: 'application/json', muteHttpExceptions: true,
-    headers: {'x-goog-api-key': key}, payload: JSON.stringify(body)
-  });
-}
-
-/** Chuẩn hoá 1 câu AI trả về theo định dạng saveQuiz. */
-function hubAiNormQ_(q) {
-  var type = hubNorm(q.type).toLowerCase();
-  if (['single', 'multi', 'truefalse'].indexOf(type) < 0) type = 'single';
-  var corr = hubNorm(q.correct).toUpperCase();
-  if (/^(ĐÚNG|DUNG|TRUE)$/.test(corr)) corr = 'A';
-  if (/^(SAI|FALSE)$/.test(corr)) corr = 'B';
-  corr = corr.replace(/[^ABCD]/g, '').split('').filter(function(c, i, a){ return a.indexOf(c) === i; }).sort().join('');
-  var o = {qid: '', type: type, question: hubNorm(q.question), a: hubNorm(q.a), b: hubNorm(q.b), c: hubNorm(q.c), d: hubNorm(q.d),
-           correct: corr, points: 1, explanation: hubNorm(q.explanation)};
-  if (type === 'truefalse') { o.a = ''; o.b = ''; o.c = ''; o.d = ''; if (o.correct !== 'A' && o.correct !== 'B') o.correct = ''; }
-  else if (type === 'single' && corr.length > 1) o.type = 'multi';
-  else if (type === 'multi' && corr.length === 1) o.type = 'single';
-  return o;
-}
-
-/** action aiQuiz — p: sid, count (3–40), level easy|medium|hard, lang vi|en, note, text (lời thoại video…), fileIds[] */
-function apiAiQuiz(p, user) {
-  var sid = hubNorm(p.sid), s = hubFindSession(sid);
-  if (!s) return {ok: false, error: 'Không tìm thấy buổi đào tạo.'};
-  if (!hubCanEdit(s, user)) return {ok: false, error: 'Bạn chỉ được tạo câu hỏi cho buổi đào tạo do mình phụ trách.'};
-  var key = hubAiKey_();
-  if (!key) return {ok: false, code: 'NO_AI_KEY', error: 'Chưa cài khoá AI (Gemini). Admin dán khoá 1 lần là dùng được.'};
-  var count = Math.max(3, Math.min(40, Math.round(hubNum(p.count, 10))));
-  var text = String(p.text || '').substring(0, 120000);
-  var ids = hubList(p.fileIds).slice(0, 6);
-  var parts = [{text: hubAiPrompt_({topic: s.topic, count: count, level: hubNorm(p.level), lang: hubNorm(p.lang), note: hubNorm(p.note).substring(0, 500)})}];
-  if (text) parts.push({text: '=== LỜI THOẠI / NỘI DUNG VIDEO BÀI GIẢNG ===\n' + text});
-  var used = [], skipped = [], bytes = 0, LIMIT = 14 * 1048576;
-  ids.forEach(function(id){
-    try {
-      var r = hubAiFileBlob_(s, hubNorm(id));
-      if (r.skip) { skipped.push({id: id, reason: r.skip}); return; }
-      var b = r.blob.getBytes();
-      if (bytes + b.length > LIMIT) { skipped.push({id: id, name: r.name, reason: 'tổng dung lượng vượt 14 MB'}); return; }
-      bytes += b.length;
-      parts.push({text: '=== TÀI LIỆU: ' + r.name + ' ==='});
-      parts.push({inline_data: {mime_type: 'application/pdf', data: Utilities.base64Encode(b)}});
-      used.push(r.name);
-    } catch (e) { skipped.push({id: id, reason: e.message}); }
-  });
-  if (parts.length < 2) return {ok: false, error: 'Chưa có nội dung để AI đọc: chọn ít nhất 1 video hoặc 1 tài liệu PDF / slide.', skipped: skipped};
-
-  var qItem = {type: 'OBJECT', properties: {
-    type: {type: 'STRING', 'enum': ['single', 'multi', 'truefalse']}, question: {type: 'STRING'},
-    a: {type: 'STRING'}, b: {type: 'STRING'}, c: {type: 'STRING'}, d: {type: 'STRING'},
-    correct: {type: 'STRING'}, explanation: {type: 'STRING'}}, required: ['type', 'question', 'correct']};
-  var body = {contents: [{role: 'user', parts: parts}],
-    generationConfig: {temperature: 0.4, responseMimeType: 'application/json',
-      responseSchema: {type: 'OBJECT', properties: {questions: {type: 'ARRAY', items: qItem}}, required: ['questions']}}};
-
-  var props = PropertiesService.getScriptProperties();
-  var models = hubUniq([hubNorm(props.getProperty('GEMINI_MODEL')), 'gemini-flash-latest', 'gemini-2.5-flash', 'gemini-2.0-flash']);
-  var res = null, code = 0, model = '', t0 = Date.now();
-  for (var i = 0; i < models.length; i++) {
-    model = models[i];
-    res = hubAiCall_(key, model, body);
-    code = res.getResponseCode();
-    if (code !== 404) break;                           // model không còn ⇒ thử model kế tiếp
-  }
-  var raw = String(res.getContentText() || '');
-  if (code !== 200) {
-    var msg = '';
-    try { msg = JSON.parse(raw).error.message || ''; } catch (e) { msg = raw.substring(0, 200); }
-    hubLog('WARN', 'aiQuiz', 'Gemini ' + code + ' (' + model + '): ' + msg.substring(0, 300), user.email + ' · ' + sid);
-    if (code === 429) return {ok: false, code: 'AI_QUOTA', error: 'AI đang hết lượt miễn phí trong phút / ngày này — đợi 1–2 phút rồi thử lại (hoặc giảm số tài liệu).'};
-    if (code === 400 && /api key|API_KEY/i.test(msg)) return {ok: false, code: 'NO_AI_KEY', error: 'Khoá AI không hợp lệ — Admin cần dán lại khoá Gemini.'};
-    if (code === 403) return {ok: false, code: 'NO_AI_KEY', error: 'Khoá AI bị từ chối (403) — kiểm tra khoá Gemini hoặc tạo khoá mới ở aistudio.google.com.'};
-    return {ok: false, error: 'AI chưa trả lời được (mã ' + code + '): ' + msg.substring(0, 200)};
-  }
-  var out = [];
+/** Đã học xong mọi bài của buổi chưa; xong ⇒ ghi Completed + cấp chứng chỉ (1 lần). */
+function hubStudyDone_(sid, user) {
+  var s = hubFindSession(sid);
+  if (!s) return null;
+  if (hubCanEdit(s, user) && !user.asLearner) return null;
+  var m = hubMaterials(s, {cacheOnly: true}) || hubMaterials(s, {noWait: true});
+  if (!m || m.pending || !m.files || !m.files.length) return null;
+  var pre = hubPrefix(user.email), done = {};
+  hubReadProgressRaw().forEach(function(x){ if (x.email === pre && x.sid === sid && x.completed) done[x.fileId] = 1; });
+  var total = m.files.length, n = m.files.filter(function(f){ return done[f.id]; }).length;
+  if (n < total) return {done: false, n: n, total: total};
+  var e = hubFindEnroll(sid, user.email);
+  if (e && e.certUrl) return {done: true, n: n, total: total, certUrl: e.certUrl, already: true};
+  hubUpsertEnroll(sid, s.topic, user.email, {status: 'Completed', pass: true, percent: 100, completedAt: new Date()});
+  var cert = null;
   try {
-    var j = JSON.parse(raw), cand = (j.candidates || [])[0] || {};
-    var txt = ((cand.content || {}).parts || []).map(function(x){ return x.text || ''; }).join('');
-    var data = JSON.parse(txt.replace(/^```(?:json)?\s*|\s*```$/g, ''));
-    out = (data.questions || data || []).map(hubAiNormQ_).filter(function(q){ return q.question && (q.type === 'truefalse' || (q.a && q.b)); });
-  } catch (e) {
-    hubLog('WARN', 'aiQuiz', 'Không đọc được JSON: ' + raw.substring(0, 300), user.email + ' · ' + sid);
-    return {ok: false, error: 'AI trả về sai định dạng — bấm Tạo lại.'};
+    cert = hubIssueCertificate(s, user, 100, n, total, 'study');
+    hubUpsertEnroll(sid, s.topic, user.email, {certUrl: cert.url, certSentAt: new Date()});
+    hubNotify([user.email], 'cert', sid, 'Chứng chỉ: ' + s.topic, 'Bạn đã học xong ' + n + '/' + total + ' bài. Chứng chỉ đã được cấp.', '');
+  } catch (err) {
+    hubLog('ERROR', 'certificate', 'Lỗi tạo chứng chỉ (hoàn thành tuyến bài) cho ' + user.email + ': ' + err.message, sid);
   }
-  if (!out.length) return {ok: false, error: 'AI chưa soạn được câu hỏi nào từ tài liệu này — thử chọn thêm tài liệu.'};
-  hubLog('INFO', 'aiQuiz', sid + ': ' + out.length + ' câu (' + model + ', ' + Math.round((Date.now() - t0) / 1000) + 's)', user.email);
-  return {ok: true, questions: out, model: model, used: used, skipped: skipped,
-          message: 'AI đã soạn ' + out.length + ' câu hỏi — kiểm tra lại từng câu trước khi lưu.'};
+  try { hubRefreshCompletion(sid); } catch (err2) {}
+  hubLog('INFO', 'studyDone', sid + ' ' + user.email + ' — học xong ' + n + '/' + total, cert ? cert.url : '');
+  return {done: true, n: n, total: total, cert: cert ? {url: cert.url, certNo: cert.certNo, emailed: cert.emailed} : null};
 }

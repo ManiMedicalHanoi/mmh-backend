@@ -6,6 +6,10 @@
  * ----------------------------------------------------------------------------
  *  Backend cho WebApp "Training Hub" (frontend index.html deploy trên GitHub).
  *
+ *  ĐIỂM MỚI v3.21 (15/10/2026)
+ *    - Chứng chỉ cấp khi HỌC XONG 100% tuyến bài (video ≥ 70% — app đếm, tài liệu đọc hết trang), không theo bài kiểm tra.
+ *    - Bỏ tạo câu hỏi bằng AI (aiQuiz / aiStatus / aiKey).
+ *
  *  ĐIỂM MỚI v3.20 (15/10/2026)
  *    - Học online bằng video: sheet HUB_Videos, action videoSave; video ghép vào lộ trình tự học (RH_ELearn.gs).
  *    - Tạo câu hỏi bằng AI (Gemini miễn phí): aiQuiz / aiStatus / aiKey (khoá ở Script Property GEMINI_API_KEY).
@@ -157,7 +161,7 @@
 
 var HUB = {
 
-  VERSION: '3.20',
+  VERSION: '3.21',
 
   /** ★ v3.4 — Khoá kết nối từ Report Hub (phải trùng TRAINING_RH_KEY trong index.html của Report Hub).
    *  Đổi khoá: đặt Script Property RH_BRIDGE_KEY (ưu tiên hơn giá trị ở đây) và sửa cả 2 phía. */
@@ -515,8 +519,6 @@ var HUB_ROUTES = {
   'sessionResults'  : {fn:'apiSessionResults',  auth:2},   // ★ v2
   'resendCert'      : {fn:'apiResendCert',      auth:2},
   'videoSave'       : {fn:'apiVideoSave',       auth:2},   // ★ v3.20 — video bài giảng (RH_ELearn.gs)
-  'aiQuiz'          : {fn:'apiAiQuiz',          auth:2},   // ★ v3.20 — tạo câu hỏi bằng AI (Gemini)
-  'aiStatus'        : {fn:'apiAiStatus',        auth:2},
   // admin
   'listUsers'       : {fn:'apiListUsers',       auth:3},
   'saveUser'        : {fn:'apiSaveUser',        auth:3},
@@ -525,7 +527,6 @@ var HUB_ROUTES = {
   'saveConfig'      : {fn:'apiSaveConfig',      auth:3},
   'getLogs'         : {fn:'apiGetLogs',         auth:3},
   'clearCache'      : {fn:'apiClearCache',      auth:3},   // ★ v2
-  'aiKey'           : {fn:'apiAiKey',           auth:3},   // ★ v3.20 — Admin dán khoá Gemini
   'runSetup'        : {fn:'apiRunSetup',        auth:3},
   'diag'            : {fn:'apiDiag',            auth:3},   // ★ v2.2 — đo tốc độ từng phần
   'selfTest'        : {fn:'apiSelfTest',        auth:1},   // ★ v2.5 — chạy thử chức năng trên máy chủ
@@ -3255,7 +3256,7 @@ function apiTrackProgress(p, user) {
   var isOpen = hubBool(p.open);
   var pre = hubPrefix(user.email);
 
-  return hubWithLock(function(){
+  var res = hubWithLock(function(){
     var sh = hubProgressSheet();
     var list = hubReadProgressRaw();
     var cur = null;
@@ -3272,9 +3273,17 @@ function apiTrackProgress(p, user) {
     if (cur) sh.getRange(cur.row, 1, 1, HUB_PROG_HEADER.length).setValues([row]);
     else sh.appendRow(row);
     hubCacheClear('progress');
-    var sessionDone = completed ? hubCheckSelfStudyDone(sid, user) : false;
-    return {ok:true, percent:pct, completed:completed, maxPage:maxPage, total:tot, sessionDone:sessionDone};
+    return {ok:true, percent:pct, completed:completed, maxPage:maxPage, total:tot, sessionDone:false};
   });
+  // ★ v3.21 — học xong 100% tuyến bài (mọi video ≥ 70%, mọi tài liệu đọc hết trang) ⇒ hoàn thành + cấp chứng chỉ (RH_ELearn.gs)
+  if (res.completed) {
+    try {
+      var st = hubStudyDone_(sid, user);
+      if (st && st.done) { res.sessionDone = true; res.cert = st.cert || null; res.certUrl = st.certUrl || (st.cert && st.cert.url) || ''; }
+      if (st) res.study = {done: st.n || 0, total: st.total || 0};
+    } catch (e) { hubLog('ERROR', 'studyDone', 'Lỗi kiểm hoàn thành ' + sid + ': ' + e.message, user.email); }
+  }
+  return res;
 }
 
 
@@ -4016,7 +4025,7 @@ function apiQuizSubmit(p, user) {
 
   // --- chứng chỉ (ngoài khoá — tạo PDF + gửi email mất vài giây) ---
   var cert = null;
-  if (pass) {
+  if (pass && HUB_CERT_BY_QUIZ) {                  // ★ v3.21: tắt — chứng chỉ cấp khi học xong tuyến bài
     try {
       cert = hubIssueCertificate(s, user, percent, score, maxScore);
       hubWithLock(function(){
@@ -4164,7 +4173,7 @@ function apiSessionResults(p, user) {
 // ============================================================================
 
 /** Tạo chứng chỉ PDF, lưu Drive, gửi email cho PIC + CC quản lý + CC admin */
-function hubIssueCertificate(session, user, percent, score, maxScore) {
+function hubIssueCertificate(session, user, percent, score, maxScore, kind) {
   var cfg = hubGetConfig();
   var now = new Date();
   var certNo = 'MMH-' + hubFmt(now, 'yyyyMMdd') + '-' + hubPrefix(user.email).toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6) + '-' + Math.floor(Math.random() * 900 + 100);
@@ -4175,7 +4184,7 @@ function hubIssueCertificate(session, user, percent, score, maxScore) {
     topic: session.topic, category: session.category, trainer: session.trainer,
     trainingDate: session.dateText || hubFmt(now, 'dd/MM/yyyy'),
     issueDate: hubFmt(now, 'dd/MM/yyyy'),
-    percent: percent, score: score, maxScore: maxScore, certNo: certNo, cfg: cfg
+    percent: percent, score: score, maxScore: maxScore, certNo: certNo, cfg: cfg, kind: kind || ''
   });
 
   var pdf = Utilities.newBlob(html, 'text/html', fileName + '.html').getAs('application/pdf').setName(fileName + '.pdf');
@@ -4189,7 +4198,7 @@ function hubIssueCertificate(session, user, percent, score, maxScore) {
 
   if (hubBool(cfg.ENABLE_CERT_EMAIL)) {
     try {
-      hubSendCertificateEmail(session, user, percent, score, maxScore, file, certNo, cfg);
+      hubSendCertificateEmail(session, user, percent, score, maxScore, file, certNo, cfg, kind);
       result.emailed = true;
     } catch (err) {
       hubLog('ERROR', 'certEmail', 'Không gửi được email chứng chỉ cho ' + user.email, err.message);
@@ -4199,7 +4208,7 @@ function hubIssueCertificate(session, user, percent, score, maxScore) {
   return result;
 }
 
-function hubSendCertificateEmail(session, user, percent, score, maxScore, file, certNo, cfg) {
+function hubSendCertificateEmail(session, user, percent, score, maxScore, file, certNo, cfg, kind) {
   var to = hubMailOf(user.email);
   var cc = [];
   var manager = hubManagerOf(user.email);
@@ -4208,13 +4217,15 @@ function hubSendCertificateEmail(session, user, percent, score, maxScore, file, 
 
   var inner =
     '<p style="margin:0 0 14px">Kính gửi <b>' + hubEsc(user.name) + '</b>,</p>' +
-    '<p style="margin:0 0 16px;color:#41566f">Bạn đã hoàn thành và <b style="color:#2E7D32">ĐẠT</b> bài kiểm tra sau đào tạo. Chứng chỉ được đính kèm trong email này.</p>' +
+    (kind === 'study'
+      ? '<p style="margin:0 0 16px;color:#41566f">Bạn đã <b style="color:#2E7D32">HOÀN THÀNH</b> toàn bộ tuyến bài (video bài giảng & tài liệu) của khoá đào tạo. Chứng chỉ được đính kèm trong email này.</p>'
+      : '<p style="margin:0 0 16px;color:#41566f">Bạn đã hoàn thành và <b style="color:#2E7D32">ĐẠT</b> bài kiểm tra sau đào tạo. Chứng chỉ được đính kèm trong email này.</p>') +
     '<table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:18px">' +
       hubRow('Chủ đề đào tạo', hubEsc(session.topic)) +
       hubRow('Nhóm chủ đề', hubEsc(session.category)) +
       hubRow('Trainer', hubEsc(session.trainer)) +
       hubRow('Ngày đào tạo', hubEsc(session.dateText)) +
-      hubRow('Kết quả', '<b style="color:#2E7D32">' + Math.round(percent) + ' điểm</b> / 100') +
+      hubRow('Kết quả', kind === 'study' ? '<b style="color:#2E7D32">Hoàn thành ' + score + '/' + maxScore + ' bài học</b>' : '<b style="color:#2E7D32">' + Math.round(percent) + ' điểm</b> / 100') +
       hubRow('Số chứng chỉ', hubEsc(certNo)) +
     '</table>' +
     '<div style="margin:18px 0 6px">' + hubMailButton(file.getUrl(), 'Xem chứng chỉ trên Drive') + '</div>';
@@ -4286,7 +4297,7 @@ function hubCertificateHtml(d) {
                 hubCertCell('NHÓM CHỦ ĐỀ', d.category, navy, blue) +
                 hubCertCell('TRAINER', d.trainer, navy, blue) +
                 hubCertCell('NGÀY ĐÀO TẠO', d.trainingDate, navy, blue) +
-                hubCertCell('KẾT QUẢ', Math.round(d.percent) + ' / 100 điểm', navy, blue) +
+                hubCertCell('KẾT QUẢ', d.kind === 'study' ? 'Hoàn thành ' + d.score + '/' + d.maxScore + ' bài học' : Math.round(d.percent) + ' / 100 điểm', navy, blue) +
               '</tr>' +
             '</table>' +
             '<div style="height:36px"></div>' +
