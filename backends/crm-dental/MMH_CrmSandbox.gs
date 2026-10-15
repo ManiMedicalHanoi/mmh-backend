@@ -1,5 +1,5 @@
 /* ════════════════════════════════════════════════════════════════════════════════════════════════
-   MMH_CrmSandbox.gs — v1.1 (13/10/2026) · v1.1: quy tắc xác thực file TEST = cảnh báo (sửa lỗi ô D5), lỗi 1 ô không làm hỏng cả lượt dựng · HỘP CÁT TEST CỦA CRM · GIỐNG HỆT ở crm-dental / crm-surgical / crm-eyeless
+   MMH_CrmSandbox.gs — v1.2 (15/10/2026) · v1.2: dựng theo bước (mỗi lượt ≤ 4,5 phút, tự chạy tiếp, hiện tiến độ; 1 ảnh mẫu / PIC) · v1.1: quy tắc xác thực file TEST = cảnh báo (sửa lỗi ô D5), lỗi 1 ô không làm hỏng cả lượt dựng · HỘP CÁT TEST CỦA CRM · GIỐNG HỆT ở crm-dental / crm-surgical / crm-eyeless
    ─────────────────────────────────────────────────────────────────────────────────────────────
    Admin bấm TEST trên app ⇒ mọi lệnh gửi tm=1 + tmSb=1 + tmAs=<người đóng vai> + phiên email Admin (MMH_TestMode.gs v2.0 kiểm Admin).
    ① FILE TEST RIÊNG: bản sao file CRM của nhóm ("TEST · <tên file>") trong thư mục Drive "MMH CRM TEST/<Nhóm>" — dữ liệu thật
@@ -15,9 +15,9 @@
    ⑤ tmSetup (lần đầu) / tmReset · tmClean (làm lại từ đầu): chạy nền bằng trigger 1 lần, app hỏi tmInfo tới khi ready.
    Không dùng dịch vụ Google mới (Spreadsheet / Drive / ScriptApp đã có) ⇒ không phải cấp quyền lại.
    ════════════════════════════════════════════════════════════════════════════════════════════════ */
-var SBX_VER = '1.1';
+var SBX_VER = '1.2';
 var SB = null, _SBSS = null, SB_BUILD = false;
-var SB_P = { sheet:'TM_SB_SHEET', folder:'TM_SB_FOLDER', sub:'TM_SB_SUB', state:'TM_SB_STATE', at:'TM_SB_AT', log:'TM_SB_LOG', who:'TM_SB_WHO', old:'TM_SB_OLD' };
+var SB_P = { sheet:'TM_SB_SHEET', folder:'TM_SB_FOLDER', sub:'TM_SB_SUB', state:'TM_SB_STATE', at:'TM_SB_AT', log:'TM_SB_LOG', who:'TM_SB_WHO', old:'TM_SB_OLD', job:'TM_SB_JOB', ever:'TM_SB_EVER' };
 var SB_ROOT = 'MMH CRM TEST';
 var SB_KEEP = 400;                                   /* số dòng dữ liệu giữ lại mỗi tab của file TEST */
 var SB_IMG = 'iVBORw0KGgoAAAANSUhEUgAAAUAAAADwBAMAAACDA6BYAAAAElBMVEX7/f7Q4fTP4fXP4ezL4/ZCWX5bnhCuAAAHP0lEQVR42u2dz2/byBXHv2/kYMW0K87QaZMGWHk0OXQPbWrnH2h86L1bNH9lUHT/g6bopZfW2py71Fgt0G4Qe4baoqGd9UwPlp3YkiLKIk0ZeO9GQhp++H7PkOCQwWaLAAMyIAMyIAMyIAMy4F0G3KpzsOgBACQ3DNAAQLAOMLm2oj92Ir08n2+Uia2A9rZvQn1DkqnHk/sjD5WOA0R/jDR6Sr0CzPoarAcQDgBJb4Kwvd6DnHrjAAVAw7bvg9PQQBRGAs8dQvatDOfQkVpPM/GCD6RHr0hRFik3uT4/513bgHFiLgZ6hr19CWD7yAAgNUVc8wIdtaYPn3SVAwB6BqguAGA7ffVzPElPuiUA6rYLiIejVCJJTvciXQ5FX9J3cpy+GaQTQrdlH3xtxsJAKS8+ulXKFOlvvpBCt58Hs6NMWX02Y4n49XMc977ZGct2TRz//X4Qz07vzwxDX5ZIipSKln2QHvuTQ5PMGYWS0g/L8aPWK0kGqAVmdG+3ad1St3YlkWfbC42gpL/lIHHTXs9JeICk0Mu6PwcghwMUAHjZoAbPi1Y0QA4VveijkxK8+vQ1lQNMTMdQLi2EMF4i2EvgxkwcfdYTFnvAYNlPVfQ+HWuMpDXK+dhYFF9U/VMZHKgb3xwPVLeKHqgLSuRfH0uUuVPhP87DAUjq9sEPbYn0epL64yeq8uTjmN5ufd4ZxehF/6I/VI0BmhzI4qBISa3gEh4SyD/cZeX/rlaLiYAcEHEQ5Ap8ICmH8LhJZa7sgyWgkm63WwJQpkjESiWIkod/ftSNZbmqAlftZgQAEPDjyaoZLdsFxKBZDSbIHmGyU5ifYXv1jKvSE8TH3+1Mis+Askya0GCaAjuvzUru99GllD/Er2z/qVjZZlXle8J48lTeeGljoIgy8Vqucn9V00z0ICl0pFUcfN4wP/xlL3hXfQFnpVLXw5p8IOn2ARl9IyYWr498sW6DmyH+aZWLrqTBXb+3/kKEivvr9IPR46p/RBAARxJCQ6EOiX66pHRu6fNBRfj46BOA2RQwn67vfZvZAEUug65vYdLh1fO88E/H6IucMg0A4VACyK9f5FPuYAFA5n0hEbSukQ8Kv8Bg55e2H4TVFy2iBxCWm3jStwpCBztVfAoS7ov/2l2FOiW6s3/F3ljnFx4lghM62Jn0szAPuuk/qafC1sFerevO0yYRyJ0IACgCCm5uEzFTi41ygJu2HWV5cv9+UiRJUjsfkhII4ifFxSHKuTl2bpr5eOKgIxQGaEBUfNv5XKhp0nbnbVK1RO0BGGMAKBkpQqERoQfDrfQalakCeN6Y5zkAiCEmDfEB9JXsLEuuMz547M5VnnoIPClToySak6T7P3r0JkIlp4Nix58+fHdSIVEHqwCvVG9ysA+FZuWHyatfF6kFQCkFa0ZyeZAcqin1cJ9kw3zYyvZIwQQBIC9mHwHNmDhB6FwErW6eD4AqLwI4Dsp4fT1xjgb/uatwq6I+LAlYvTyKc4nWxM4+mJoBzAktyu668+KGRQ8/DShBUsgwBP54+3DvPRBSKYkWA1oV/Xlm/+r2Ae9JwCOqePUB5BVA7ZDZyweBLUgmiwOisDAPlurdu592fzRoi4+64bPH764q7aoPjmj7QWfQXpDQg+0epX4hoKeaX9m4QdIe94qdhYBFWgxky5nmmbnqg1dKnfT9f3RkLAZ4efvWjfd+Gz2Qy7jYB2NaFBJoRYnTaUaAh19Si4ctGvis8EtKXfwb0CLhcGktJtxoLb45EZVaik0CbLXbmhOfYvlPbrXf2vB+EBWWPqL3N52SvPjQ2319sxECVdFg1p66or17JmZABmRABpwnnfp6jppelX9x7bZfAHg/ZBMzIAMyIAMyIAMyIAMyIAOu2/hvMuDZ5gB2mrvLeiZNZy8BdH53eRz+sIk+eFazcTmKGZABGfCuAXYaqSw1fqni7CWbmAEZ8G4D0qYDxrtmYrlBiZp+P+fkTR+7N6HByFG8uU7YJKBnEzMgAzIgAzIgAzIgAzIgAzIgAzIgAzIgAzIgAzIgAzIgAzIgAzIgAzIgAzIgAzIgAzIgA9YE6MVRezRzXkGcfftNt6muncndN7FEaBGHrFwGSLZV90uXmzgcYuU36+rY9W7BNRcM/ZsadHLvxU3+dX0johkNug0Pktjup99GbqkPGhFtW3hx5HUFH9Tft2Vm72c/9zwvSDwAhGp6XLpl3irjHGnbrwBoASCMfLW7PpoyFno22BSAg4ra05j/zbSZjQMGfwcMyaq7uC39KmrVrUgMEI/FbBKZATRh5IXOq36gLk50DsDMbMFqkANCY1Qt50evEL2Jk7AEUOhgnQHyivsxBk9CA+Hg+o2OIIE4qZ60RjJmoRChQpBIqwNCRSNPdxdR+bzzFFbZ8M9PwpOeXQIYYIGQAxU36yMg2FoaIAUKOD5e6oM8J2FABmRABmRABmRABmRABmRABmRABmRABmRABqxL/g+TkTN+mkQX2QAAAABJRU5ErkJggg==';
@@ -65,67 +65,120 @@ function sbPeople_(){
   for (var e2 in USER_MAP){ var u2 = USER_MAP[e2]; if (/^(hod|director)$/.test(u2.level) || u2.team === 'Product Team') add(e2, u2); }
   return out;
 }
+/* v1.2 — dựng THEO BƯỚC: mỗi lượt chạy ≤ 4,5 phút (Google dừng lượt chạy ở 6 phút — trước đây file CRM lớn ⇒ lượt dựng bị dừng ngang,
+   trạng thái kẹt "building", app quay mãi). Hết giờ ⇒ lưu bước đang làm, hẹn lượt sau chạy tiếp. Mỗi bước ghi nhịp tim (TM_SB_AT);
+   6,5 phút không có nhịp tim ⇒ lượt chạy đã chết ⇒ tmInfo tự chạy tiếp từ bước đó (một bước kẹt 3 lần ⇒ báo lỗi). */
+var SB_STEP_MS = 270000, SB_STALL_MS = 390000;
+var SB_STEPS = ['copy', 'wipe', 'trip', 'customer', 'cbc', 'weekly', 'order', 'present', 'formulas', 'task', 'tripRow', 'finish'];
+var SB_STEP_VI = { copy:'Chép file CRM', wipe:'Dọn dữ liệu thật', trip:'Chép tab công tác', customer:'Khách hàng', cbc:'Người liên hệ', weekly:'Đi địa bàn + ảnh',
+                   order:'Đơn hàng', present:'Thuyết trình', formulas:'Công thức', task:'Công việc khác', tripRow:'Đề xuất công tác', finish:'Hoàn tất' };
+function sbJob_(P){ try { return JSON.parse((P || props_()).getProperty(SB_P.job) || 'null'); } catch(e){ return null; } }
+function sbNext_(){
+  try {
+    ScriptApp.getProjectTriggers().forEach(function(t){ if (t.getHandlerFunction() === 'tmSbBuild') ScriptApp.deleteTrigger(t); });
+    ScriptApp.newTrigger('tmSbBuild').timeBased().after(1000).create();
+    return true;
+  } catch(e){ return false; }
+}
+function sbFail_(P, msg, log){
+  var e = {}; e[SB_P.state] = 'error'; e[SB_P.at] = String(Date.now()); e[SB_P.ever] = SBX_VER; e[SB_P.log] = ('LỖI ' + msg + (log && log.length ? ' · ' + log.join(' · ') : '')).slice(0, 8000);
+  P.setProperties(e); P.deleteProperty(SB_P.job);
+}
 function tmSbInfo_(){
   var P = props_(), id = P.getProperty(SB_P.sheet), st = P.getProperty(SB_P.state) || '', at = +(P.getProperty(SB_P.at) || 0);
-  var building = st === 'building' && Date.now() - at < 15 * 60000;
+  if (st === 'building' && Date.now() - at > SB_STALL_MS){                 /* lượt chạy đã chết ⇒ chạy tiếp (bản cũ: dựng lại từ đầu) */
+    var job = sbJob_(P);
+    if (!job) return tmSbSetupStart_(true);
+    var k = SB_STEPS[job.i] + ':' + (job.w || 0);
+    job.stall = job.stallKey === k ? (job.stall || 0) + 1 : 1; job.stallKey = k;
+    if (job.stall >= 3) sbFail_(P, 'Bước "' + (SB_STEP_VI[SB_STEPS[job.i]] || SB_STEPS[job.i]) + '" chạy quá lâu.', job.log);
+    else { var m = {}; m[SB_P.at] = String(Date.now()); m[SB_P.job] = JSON.stringify(job); P.setProperties(m); sbNext_(); }
+    st = P.getProperty(SB_P.state) || ''; at = +(P.getProperty(SB_P.at) || 0);
+  }
+  if (st === 'error' && P.getProperty(SB_P.ever) !== SBX_VER) st = '';     /* lỗi của bản backend cũ ⇒ app tự dựng lại bằng bản mới */
+  var building = st === 'building';
   var out = { ok:true, sb:true, ver:SBX_VER, team:TEAM(), ready:!!id && !building, building:building, state:st, at:at, log:P.getProperty(SB_P.log) || '', people:sbPeople_() };
+  if (building){
+    var j = sbJob_(P) || { i:0 };
+    out.step = SB_STEPS[j.i] || ''; out.stepNo = Math.min(SB_STEPS.length, (j.i || 0) + 1); out.steps = SB_STEPS.length; out.stepName = SB_STEP_VI[out.step] || '';
+  }
   if (id) out.url = 'https://docs.google.com/spreadsheets/d/' + id + '/edit';
   var fo = P.getProperty(SB_P.folder); if (fo) out.folderUrl = 'https://drive.google.com/drive/folders/' + fo;
   return out;
 }
-/* tmSetup / tmReset / tmClean ⇒ dựng lại bằng trigger chạy 1 lần (app hỏi tmInfo tới khi ready) */
+/* tmSetup / tmReset / tmClean ⇒ dựng lại bằng trigger (app hỏi tmInfo tới khi ready) */
 function tmSbSetupStart_(reset){
   var P = props_(), st = P.getProperty(SB_P.state), at = +(P.getProperty(SB_P.at) || 0);
-  if (st === 'building' && Date.now() - at < 15 * 60000) return tmSbInfo_();
+  if (st === 'building' && Date.now() - at < SB_STALL_MS && sbJob_(P)) return tmSbInfo_();
   if (!reset && P.getProperty(SB_P.sheet)) return tmSbInfo_();
-  var cur = P.getProperty(SB_P.sheet);
+  var cur = P.getProperty(SB_P.sheet) || P.getProperty(SB_P.old) || '', prev = sbJob_(P);
   var m = {}; m[SB_P.state] = 'building'; m[SB_P.at] = String(Date.now()); m[SB_P.who] = (MMH_TEST && MMH_TEST.email) || '';
+  m[SB_P.job] = JSON.stringify({ i:0, w:0, log:[], img:{}, t0:Date.now() });
   if (cur) m[SB_P.old] = cur;
   P.setProperties(m);
+  if (prev && prev.id && prev.id !== cur){ try { DriveApp.getFileById(prev.id).setTrashed(true); } catch(e){} }   /* bản dựng dở */
   P.deleteProperty(SB_P.sheet);                       /* trong lúc dựng: mọi lệnh TEST chờ (SB_NONE), không ghi vào file cũ */
-  try {
-    ScriptApp.getProjectTriggers().forEach(function(t){ if (t.getHandlerFunction() === 'tmSbBuild') ScriptApp.deleteTrigger(t); });
-    ScriptApp.newTrigger('tmSbBuild').timeBased().after(1000).create();
-  } catch(e){ sbBuild_(); }
+  if (!sbNext_()) sbBuild_();
   return tmSbInfo_();
 }
 function tmSbBuild(){
   try { ScriptApp.getProjectTriggers().forEach(function(t){ if (t.getHandlerFunction() === 'tmSbBuild') ScriptApp.deleteTrigger(t); }); } catch(e){}
   return sbBuild_();
 }
-function tmSbBuildNow(){ var r = sbBuild_(); Logger.log(JSON.stringify(r)); return r; }   /* chạy tay trong trình soạn */
+function tmSbBuildNow(){ var r = sbBuild_(); Logger.log(JSON.stringify(r)); return r; }   /* chạy tay trong trình soạn (chạy tiếp bước đang dở) */
 
-/* ───────── dựng file TEST ───────── */
+/* ───────── dựng file TEST (1 lượt = các bước còn lại trong ≤ 4,5 phút) ───────── */
 function sbFolder_(parent, name){ var it = parent.getFoldersByName(name); return it.hasNext() ? it.next() : parent.createFolder(name); }
 function sbBuild_(){
-  var P = props_(), t0 = Date.now(), log = [], team = TEAM(), cfg = TEAM_CFG[team] || TEAM_CFG.dental;
-  var realTrip = TRIP_FILE_ID, out = { ok:true };
+  var P = props_(), t0 = Date.now(), team = TEAM(), cfg = TEAM_CFG[team] || TEAM_CFG.dental;
+  if (P.getProperty(SB_P.state) !== 'building') return { ok:true, idle:true };
+  var job = sbJob_(P) || { i:0, w:0, log:[], img:{}, t0:t0 }, realTrip = TRIP_FILE_ID;   /* đọc trước sbRedirect_ (đổi sang file TEST) */
+  var beat = function(){ var m = {}; m[SB_P.at] = String(Date.now()); m[SB_P.job] = JSON.stringify(job); P.setProperties(m); };
+  var late = function(){ return Date.now() - t0 > SB_STEP_MS; };
   try {
-    var real = ssReal_(), ctx = sbRealCtx_(real);                                 /* thống kê địa bàn / NPP từ file thật (không chép dữ liệu) */
-    var root = sbFolder_(DriveApp.getRootFolder(), SB_ROOT), tf = sbFolder_(root, cfg.label);
-    var sub = { photo:sbFolder_(tf, 'Ảnh đi địa bàn').getId(), na:sbFolder_(tf, 'Mở mới & chứng từ').getId(),
-                trip:sbFolder_(tf, 'Công tác').getId(), pdf:sbFolder_(tf, 'Báo cáo PDF').getId() };
-    try { ensureFolderShared_(DriveApp.getFolderById(sub.photo)); ensureFolderShared_(DriveApp.getFolderById(sub.na)); } catch(e){}
-    var who = P.getProperty(SB_P.who);
-    if (who){ try { if (Session.getEffectiveUser().getEmail().toLowerCase() !== who.toLowerCase()) root.addEditor(who); } catch(e){} }
-    var old = P.getProperty(SB_P.old);
-    if (old){ try { DriveApp.getFileById(old).setTrashed(true); } catch(e){} }
-    var copy = DriveApp.getFileById(real.getId()).makeCopy('TEST · ' + real.getName(), tf);
-    SB = { id:copy.getId(), folder:tf.getId(), sub:sub }; SB_BUILD = true; sbRedirect_();
-    var book = sbBook_();
-    log.push(sbWipe_(book));
-    try { log.push(sbTripTabs_(book, realTrip)); } catch(eT){ log.push('công tác: ' + eT.message); }
-    log.push(sbSeed_(book, ctx));
-    try { SpreadsheetApp.flush(); } catch(eF){ log.push('⚠ ' + eF.message); }     /* v1.1 — 1 ô sai quy tắc không làm hỏng cả bộ dữ liệu TEST */
-    var m = {}; m[SB_P.sheet] = SB.id; m[SB_P.folder] = SB.folder; m[SB_P.sub] = JSON.stringify(sub); m[SB_P.state] = 'ready'; m[SB_P.at] = String(Date.now());
-    m[SB_P.log] = (Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'dd/MM/yyyy HH:mm') + ' · ' + Math.round((Date.now() - t0) / 1000) + 's · ' + log.join(' · ')).slice(0, 8000);
-    P.setProperties(m); P.deleteProperty(SB_P.old); P.deleteProperty('VER_MAP_SB');
-    out.log = m[SB_P.log]; out.url = copy.getUrl();
+    var real = ssReal_(), ctx = null, book = null;
+    if (job.id){ SB = { id:job.id, folder:job.folder, sub:job.sub }; SB_BUILD = true; sbRedirect_(); book = sbBook_(); }
+    beat();
+    while (job.i < SB_STEPS.length){
+      if (late()){ beat(); sbNext_(); return { ok:true, more:true, step:SB_STEPS[job.i] }; }
+      var step = SB_STEPS[job.i];
+      if (step === 'copy'){
+        var root = sbFolder_(DriveApp.getRootFolder(), SB_ROOT), tf = sbFolder_(root, cfg.label);
+        var sub = { photo:sbFolder_(tf, 'Ảnh đi địa bàn').getId(), na:sbFolder_(tf, 'Mở mới & chứng từ').getId(),
+                    trip:sbFolder_(tf, 'Công tác').getId(), pdf:sbFolder_(tf, 'Báo cáo PDF').getId() };
+        try { ensureFolderShared_(DriveApp.getFolderById(sub.photo)); ensureFolderShared_(DriveApp.getFolderById(sub.na)); } catch(e){}
+        var who = P.getProperty(SB_P.who);
+        if (who){ try { if (Session.getEffectiveUser().getEmail().toLowerCase() !== who.toLowerCase()) root.addEditor(who); } catch(e){} }
+        var old = P.getProperty(SB_P.old);
+        if (old){ try { DriveApp.getFileById(old).setTrashed(true); } catch(e){} P.deleteProperty(SB_P.old); }
+        var copy = DriveApp.getFileById(real.getId()).makeCopy('TEST · ' + real.getName(), tf);
+        job.id = copy.getId(); job.folder = tf.getId(); job.sub = sub;
+        SB = { id:job.id, folder:job.folder, sub:sub }; SB_BUILD = true; sbRedirect_(); book = sbBook_();
+      } else if (step === 'wipe'){
+        var r = sbWipe_(book, job, late, beat);
+        if (r === null){ beat(); sbNext_(); return { ok:true, more:true, step:step }; }
+        job.log.push(r);
+      } else if (step === 'trip'){
+        try { job.log.push(sbTripTabs_(book, realTrip)); } catch(eT){ job.log.push('công tác: ' + eT.message); }
+      } else if (step === 'finish'){
+        try { SpreadsheetApp.flush(); } catch(eF){ job.log.push('⚠ ' + eF.message); }
+        try { bumpVersion(); } catch(e){}
+        var mm = {}; mm[SB_P.sheet] = job.id; mm[SB_P.folder] = job.folder; mm[SB_P.sub] = JSON.stringify(job.sub); mm[SB_P.state] = 'ready'; mm[SB_P.at] = String(Date.now());
+        mm[SB_P.ever] = SBX_VER;
+        mm[SB_P.log] = (Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'dd/MM/yyyy HH:mm') + ' · ' + Math.round((Date.now() - (job.t0 || t0)) / 1000) + 's · ' + job.log.join(' · ')).slice(0, 8000);
+        P.setProperties(mm); P.deleteProperty(SB_P.old); P.deleteProperty('VER_MAP_SB'); P.deleteProperty(SB_P.job);
+        return { ok:true, log:mm[SB_P.log], url:'https://docs.google.com/spreadsheets/d/' + job.id + '/edit' };
+      } else {
+        ctx = ctx || sbRealCtx_(real);                                          /* thống kê địa bàn / NPP từ file thật (không chép dữ liệu) */
+        job.log.push(sbSeed_(book, ctx, step, job));
+      }
+      job.i++; job.w = 0; beat();
+    }
+    return { ok:true };
   } catch(err){
-    var e = {}; e[SB_P.state] = 'error'; e[SB_P.at] = String(Date.now()); e[SB_P.log] = 'LỖI ' + String(err && err.message || err) + ' · ' + log.join(' · ');
-    P.setProperties(e); out = { ok:false, error:String(err && err.message || err) };
+    sbFail_(P, String(err && err.message || err), job.log);
+    return { ok:false, error:String(err && err.message || err) };
   } finally { SB_BUILD = false; }
-  return out;
 }
 /* v1.1 — file TEST: quy tắc xác thực dữ liệu chuyển sang "Hiện cảnh báo" (giữ danh sách thả xuống) ⇒ dữ liệu ảo không bị từ chối
    (lỗi 13/10: "Dữ liệu bạn đã nhập vào ô D5 vi phạm quy tắc xác thực…" — cột PIC của MMH Travel report không có tên sales ⇒ cả lượt dựng hỏng) */
@@ -156,19 +209,22 @@ function sbClear_(sh, r0){
   }
   return n;
 }
-function sbWipe_(book){
-  var R = {}, n = 0;
+function sbWipe_(book, job, late, beat){
+  var R = {}; job = job || {}; job.wd = job.wd || [];
   ['customer', 'cbc', 'order', 'monthly', 'weekly', 'present', 'adp'].forEach(function(k){ R[TABS[k]] = DATA_ROW; });
   R[NA_ENV.sheet] = NA_DR; R['ALL TASK'] = (typeof ST !== 'undefined' ? ST.DATA : 7);
   ['_LOG', '_ORDER_LOG', '_CUSTOMER_LOG', '_NA_THUMBS', '15. TENDER PRICE LOG', '13. WEEKLY MEETING', '14. TENDER TRACK',
    (typeof TF !== 'undefined' ? TF.LOG_TAB : 'Business Trip Log'), '_KPI_EMAIL_LOG'].forEach(function(nm){ R[nm] = 2; });
-  book.getSheets().forEach(function(sh){
-    var nm = sh.getName();
-    if (/^9\.\s*(kpi cũ|old kpi)/i.test(nm)){ try { book.deleteSheet(sh); } catch(e){} return; }
-    var r0 = R[nm]; if (!r0) return;
-    try { sbClear_(sh, r0); n++; } catch(e){}
-  });
-  return 'dọn ' + n + ' tab';
+  var shs = book.getSheets();
+  for (var i = 0; i < shs.length; i++){
+    var sh = shs[i], nm = sh.getName();
+    if (job.wd.indexOf(nm) >= 0) continue;
+    if (late && late()) return null;                                   /* hết giờ lượt này ⇒ lượt sau làm tiếp tab còn lại */
+    if (/^9\.\s*(kpi cũ|old kpi)/i.test(nm)){ try { book.deleteSheet(sh); } catch(e){} }
+    else if (R[nm]){ try { sbClear_(sh, R[nm]); } catch(e){} }
+    job.wd.push(nm); job.w = job.wd.length; if (beat) beat();
+  }
+  return 'dọn ' + job.wd.length + ' tab';
 }
 /* tab "MMH Travel report" + "Master" của file Business Trip ⇒ chép vào file TEST (trống dữ liệu) */
 function sbTripTabs_(book, realTrip){
@@ -270,7 +326,9 @@ function sbPut_(sh, r0, map, rows){
   });
   return rows.length;
 }
-function sbSeed_(book, ctx){
+/* part = 1 bước (customer · cbc · weekly · order · present · formulas · task · tripRow): dữ liệu ảo tính lại giống hệt mỗi lượt, chỉ ghi phần của bước đó */
+function sbSeed_(book, ctx, part, jb){
+  jb = jb || { img:{} }; jb.img = jb.img || {};
   var team = TEAM(), tm = (TEAM_CFG[team] || TEAM_CFG.dental), pics = [], cnt = { acc:0, cbc:0, wk:0, ord:0, pres:0, task:0, trip:0, img:0 };
   for (var e in USER_MAP) if (USER_MAP[e].team === tm.team) pics.push(Object.assign({ email:e }, USER_MAP[e]));
   if (!pics.length) return 'không có PIC';
@@ -282,9 +340,19 @@ function sbSeed_(book, ctx){
   var done = sbPick_(L.status, /^complet/, 'Completed'), todo = sbPick_(L.status, /not started|to do/, 'Not Started');
   var visit = sbPick_(L.typeAction, /^visit/, 'Visiting');
   var prods = L.product.length ? L.product : ['Jizai', 'Composite', 'Bur'];
-  var imgFolder = DriveApp.getFolderById(SB.sub.photo), naFolder = DriveApp.getFolderById(SB.sub.na);
   var blob = function(name){ return Utilities.newBlob(Utilities.base64Decode(SB_IMG), 'image/png', name); };
-  var doc = naFolder.createFile(blob('Phieu ban hang NPP (mau).png')), docUrl = 'https://drive.google.com/file/d/' + doc.getId() + '/view';
+  var vw = function(id){ return 'https://drive.google.com/file/d/' + id + '/view'; };
+  /* v1.2 — 1 ảnh mẫu / PIC (trước: 1 file / lượt đi địa bàn ⇒ rất chậm), chứng từ mẫu tạo 1 lần; chỉ tạo ở bước cần */
+  var photo = function(pic){
+    if (part !== 'weekly') return '';
+    if (!jb.img[pic]){ jb.img[pic] = DriveApp.getFolderById(SB.sub.photo).createFile(blob(pic + '_TEST_01.png')).getId(); cnt.img++; }
+    return vw(jb.img[pic]);
+  };
+  var docUrl = function(){
+    if (part !== 'order') return '';
+    if (!jb.doc) jb.doc = DriveApp.getFolderById(SB.sub.na).createFile(blob('Phieu ban hang NPP (mau).png')).getId();
+    return vw(jb.doc);
+  };
   var CUS = [], CBC = [], WK = [], ORD = [], PRE = [], nppAcc = {}, people = 0, ord = 0;
   pics.forEach(function(u, pi){
     var x = ctx.pics[u.pic] || { prov:{}, type:{} }, pv = (sbTop_(x.prov)[0] || (pi % 3 === 0 ? 'Hanoi|North' : pi % 3 === 1 ? 'Ho Chi Minh|South' : 'Da Nang|Central')).split('|');
@@ -306,11 +374,10 @@ function sbSeed_(book, ctx){
     var d = sbWork_(sbAdd_(today, -1), true), k = 0;
     for (var v = 0; v < 10; v++){
       var acc = accs[v % accs.length], iso = sbIso_(d), task = sbPick_(L.typeTask, new RegExp(naNorm_(acc.type).slice(0, 4)), sbPick_(L.typeTask, /^sale/, 'Sale-Clinic'));
-      var nmImg = u.pic + '_' + iso.replace(/-/g, '') + '_' + safeSeg_(acc.name) + '_01.png', f = imgFolder.createFile(blob(nmImg)); cnt.img++;
       WK.push({ fy:fyOfMonth(iso.slice(0, 7).replace('-', '')), month:+iso.slice(0, 7).replace('-', ''), start:sbDay_(iso), finish:sbDay_(iso), pic:u.pic, account:acc.check,
                 type:acc.type, province:acc.province, area:acc.area, product:prods[v % prods.length], typeTask:task, typeAction:visit, process:L.process[Math.min(1, L.process.length - 1)] || '',
                 plan:'Giới thiệu ' + prods[v % prods.length] + ' và chương trình tháng', result:'Người gặp: ' + acc.contact + '\nĐã giới thiệu sản phẩm, khách quan tâm, hẹn lần sau demo.',
-                status:done, feedback:L.feedback[0] || '', nextAction:'Gửi báo giá / hẹn demo', photo:'https://drive.google.com/file/d/' + f.getId() + '/view',
+                status:done, feedback:L.feedback[0] || '', nextAction:'Gửi báo giá / hẹn demo', photo:photo(u.pic),
                 gpsInfo:'📍 ' + acc.province + ' (dữ liệu TEST)\n🕒 ' + iso + ' 10:' + ('0' + (10 + v)).slice(-2) });
       d = sbWork_(sbAdd_(d, -1), true); k++;
     }
@@ -328,7 +395,7 @@ function sbSeed_(book, ctx){
     var mk = function(acc, day, ym, qty, price, otype, appr, j){
       ord++; return { channel:'Offline', fy:fyOfMonth(ym), month:+ym, day:day, orderNo:'TEST-' + ('00' + ord).slice(-3), name:acc.name, contact:acc.contact,
         detail:prods[j % prods.length] + ' (mẫu)', ptype:prods[j % prods.length], qty:qty, price:price, amount:qty * price, partner:npp(j), partnerType:npp(j) ? 'Distributor' : '',
-        source:'Dữ liệu TEST', otype:otype, docs:otype ? 'Phiếu bán hàng NPP (mẫu) | ' + docUrl : '', appr:appr, apprBy:appr === ORDER_ST.ok ? 'Tuyen' : '', apprAt:appr === ORDER_ST.ok ? sbAdd_(today, -10) : '' };
+        source:'Dữ liệu TEST', otype:otype, docs:otype ? 'Phiếu bán hàng NPP (mẫu) | ' + docUrl() : '', appr:appr, apprBy:appr === ORDER_ST.ok ? 'Tuyen' : '', apprAt:appr === ORDER_ST.ok ? sbAdd_(today, -10) : '' };
     };
     ORD.push(mk(accs[0], sbWork_(lastM, true), ymLast, 10, 450000, '', '', 0));
     ORD.push(mk(accs[1], sbWork_(sbAdd_(lastM, 6), true), ymLast, 6, 600000, '', '', 1));
@@ -348,17 +415,17 @@ function sbSeed_(book, ctx){
     CUS.push({ name:src[0], type:src[1], address:src[4], province:src[2], area:src[3], pic:'', fy:'FY65', openDate:'', note:'Nhà phân phối' });
   });
   var C = COL;
-  try { cnt.acc = sbPut_(sh('customer'), DATA_ROW, C.customer, CUS); } catch(e){ cnt.accErr = e.message; }
-  try { cnt.cbc = sbPut_(sh('cbc'), DATA_ROW, C.cbc, CBC); } catch(e){ cnt.cbcErr = e.message; }
-  try { WK.forEach(function(o, i){ o.no = i + 1; }); cnt.wk = sbPut_(sh('weekly'), DATA_ROW, C.weekly, WK); } catch(e){ cnt.wkErr = e.message; }
-  try { if (typeof ordX_ === 'function') ordX_(); cnt.ord = sbPut_(sh('order'), DATA_ROW, C.order, ORD); } catch(e){ cnt.ordErr = e.message; }
-  try { PRE.forEach(function(o, i){ o.no = i + 1; }); cnt.pres = sbPut_(sh('present'), DATA_ROW, C.present, PRE); } catch(e){ cnt.presErr = e.message; }
+  if (part === 'customer') try { cnt.acc = sbPut_(sh('customer'), DATA_ROW, C.customer, CUS); } catch(e){ cnt.accErr = e.message; }
+  if (part === 'cbc') try { cnt.cbc = sbPut_(sh('cbc'), DATA_ROW, C.cbc, CBC); } catch(e){ cnt.cbcErr = e.message; }
+  if (part === 'weekly') try { WK.forEach(function(o, i){ o.no = i + 1; }); cnt.wk = sbPut_(sh('weekly'), DATA_ROW, C.weekly, WK); } catch(e){ cnt.wkErr = e.message; }
+  if (part === 'order') try { if (typeof ordX_ === 'function') ordX_(); cnt.ord = sbPut_(sh('order'), DATA_ROW, C.order, ORD); } catch(e){ cnt.ordErr = e.message; }
+  if (part === 'present') try { PRE.forEach(function(o, i){ o.no = i + 1; }); cnt.pres = sbPut_(sh('present'), DATA_ROW, C.present, PRE); } catch(e){ cnt.presErr = e.message; }
   /* cột công thức (mã khách, mã CBC, thông tin khách trên đơn…) phủ đủ các dòng vừa sinh */
-  [['customer', CUS.length], ['cbc', CBC.length], ['order', ORD.length]].forEach(function(x){
+  if (part === 'formulas') [['customer', CUS.length], ['cbc', CBC.length], ['order', ORD.length]].forEach(function(x){
     try { if (x[1]) ensureFormulas_(sh(x[0]), DATA_ROW, FORMULA_FIELDS[x[0]] || {}, C[x[0]], x[1]); } catch(e){}
   });
   /* Công việc khác (ALL TASK): 1 key + 2 sub mỗi PIC */
-  try {
+  if (part === 'task') try {
     if (typeof stWrite_ === 'function'){
       try { var at = sbBook_().getSheetByName('ALL TASK'); if (at) sbRelax_(at.getRange(ST.DATA, 1, Math.max(1, at.getMaxRows() - ST.DATA + 1), at.getLastColumn())); } catch(eR){}
       var row = ST.DATA, ty = 'Sales-' + tm.label, mEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
@@ -372,7 +439,7 @@ function sbSeed_(book, ctx){
     }
   } catch(e){ cnt.taskErr = e.message; }
   /* 1 đề xuất công tác chờ Giám đốc duyệt */
-  try {
+  if (part === 'tripRow') try {
     var tr = sbBook_().getSheetByName(typeof TF !== 'undefined' ? TF.TRIP_TAB : 'MMH Travel report');
     if (tr && typeof TF !== 'undefined'){
       var T = TF.C, u0 = pics[0], s0 = sbWork_(sbAdd_(today, 8), false), f0 = sbAdd_(s0, 1), r = TF.DATA_ROW, v = [];
@@ -384,7 +451,8 @@ function sbSeed_(book, ctx){
       cnt.trip = 1;
     }
   } catch(e){ cnt.tripErr = e.message; }
-  try { bumpVersion(); } catch(e){}
-  return 'dữ liệu ảo: ' + cnt.acc + ' khách · ' + cnt.cbc + ' CBC · ' + cnt.wk + ' đi địa bàn (' + cnt.img + ' ảnh) · ' + cnt.ord + ' đơn · ' + cnt.pres + ' thuyết trình · ' + cnt.task + ' việc · ' + cnt.trip + ' công tác' +
+  var sum = { customer:cnt.acc + ' khách', cbc:cnt.cbc + ' CBC', weekly:cnt.wk + ' đi địa bàn (' + cnt.img + ' ảnh)', order:cnt.ord + ' đơn', present:cnt.pres + ' thuyết trình',
+              formulas:'công thức', task:cnt.task + ' việc', tripRow:cnt.trip + ' công tác' }[part] || part;
+  return sum +
     Object.keys(cnt).filter(function(k){ return /Err$/.test(k); }).map(function(k){ return ' · ' + k + ': ' + cnt[k]; }).join('');
 }
