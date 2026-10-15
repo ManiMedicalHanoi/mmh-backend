@@ -1,5 +1,5 @@
 /*************************************************************************************************
- * MMH REPORT HUB — MKT_SheetAuto.gs   (v1.0 · 13/10/2026)
+ * MMH REPORT HUB — MKT_SheetAuto.gs   (v1.1 · 15/10/2026 · v1.1: file Ads nhiều cấp ⇒ chỉ cộng dòng chiến dịch · thư mục Ads Manager: MKT_AdsImport.gs)
  * ─────────────────────────────────────────────────────────────────────────────────────────────
  * TỰ ĐỘNG HOÁ 2 FILE MARKETING — chạy trong project marketing (có quyền Drive / Sheets của mọi file).
  * Gọi từ: evsOnChange (trigger onChange 2 file MKT) · evsSyncTick (10 phút/lần) · action=mktAuto.
@@ -421,10 +421,11 @@ var MKTA_ADS_H = {
   spend:   { eq:['amountspent', 'sotiendachitieu'], pre:['amountspent', 'sotiendachitieu', 'sotiendachi'] },
   cpr:     { eq:['costperresult', 'chiphitrenmoiketqua', 'chiphimoiketqua'],
              pre:['costpermessagingconversationstarted', 'chiphitrenmoiluotbatdaucuoctrochuyenquatinnhan', 'chiphimoiluotbatdaucuoctrochuyenquatinnhan', 'costperresult', 'chiphitrenmoiketqua', 'chiphimoiketqua'] },
-  start:   { eq:['reportingstarts', 'batdaubaocao', 'ngaybatdaubaocao'], pre:['reportingstart'] },
-  end:     { eq:['reportingends', 'ketthucbaocao', 'ngayketthucbaocao'], pre:['reportingend'] },
+  start:   { eq:['reportingstarts', 'batdaubaocao', 'ngaybatdaubaocao', 'luotbatdaubaocao'], pre:['reportingstart'] },
+  end:     { eq:['reportingends', 'ketthucbaocao', 'ngayketthucbaocao', 'luotketthucbaocao'], pre:['reportingend'] },
   start2:  { eq:['starts', 'batdau', 'ngaybatdau'] },
   end2:    { eq:['ends', 'ketthuc', 'ngayketthuc'] },
+  level:   { eq:['deliverylevel', 'capdophanphoi', 'level'] },                       // 15/10/2026: file có cả dòng chiến dịch + nhóm QC ⇒ chỉ cộng dòng chiến dịch
   ident:   { eq:['campaignname', 'adsetname', 'adname', 'tenchiendich', 'tennhomquangcao', 'tenquangcao', 'campaign', 'adset', 'chiendich', 'nhomquangcao', 'quangcao'] }
 };
 /* cộng các dòng dữ liệu (bỏ dòng tổng) ⇒ { n, reach, impr, results, spend, cpr, start, end, found{} } */
@@ -438,7 +439,7 @@ function mktaAdsSum_(rows){
         if (!h) return;
         if (a.eq.indexOf(h) >= 0 || (a.pre || []).some(function(p){ return h.indexOf(p) === 0; })) idx.push(i);
       });
-      if (idx.length){ map[k] = k === 'ident' ? idx : idx[0]; if (k !== 'ident' && k !== 'start2' && k !== 'end2') hits++; }
+      if (idx.length){ map[k] = k === 'ident' ? idx : idx[0]; if (k !== 'ident' && k !== 'start2' && k !== 'end2' && k !== 'level') hits++; }
     });
     if (hits >= 2 && (map.reach != null || map.impr != null || map.spend != null)){ hr = r; M = map; }
   }
@@ -450,8 +451,14 @@ function mktaAdsSum_(rows){
   ['reach', 'impr', 'spend', 'cpr', 'start', 'end'].forEach(function(k){ out.found[k] = M[k] != null; });
   out.found.results = res != null;
   var metric = [M.reach, M.impr, res, M.spend].filter(function(x){ return x != null; });
+  /* 15/10/2026: file xuất có cả dòng "campaign" lẫn "adset" / "ad" (cột Cấp độ phân phối) ⇒ chỉ cộng dòng chiến dịch (tránh tính 2 lần) */
+  var lvOnly = '';
+  if (M.level != null){
+    for (var q = hr + 1; q < rows.length && !lvOnly; q++) if (mktaNorm_((rows[q] || [])[M.level]) === 'campaign') lvOnly = 'campaign';
+  }
   for (var i = hr + 1; i < rows.length; i++){
     var row = rows[i] || [];
+    if (lvOnly && mktaNorm_(row[M.level]) !== lvOnly) continue;
     if (!metric.some(function(c){ return mktaNum_(row[c]) != null; })) continue;            // dòng trống / chú thích
     if (M.ident){
       if (!M.ident.some(function(c){ return mktaS_(row[c]) !== ''; })) continue;            // dòng tổng (không có tên chiến dịch / nhóm / quảng cáo)
@@ -640,6 +647,7 @@ function mktaDigital_(ss, rep, mig){
   });
   try { var so = ss.getSheetByName('ORDER REPORT'); if (so) mktaOrder_(so, rep, mig); } catch(e){ rep.errors.push('ORDER REPORT: ' + (e.message || e)); }
   try { var sa = ss.getSheetByName('ADS REPORT'); if (sa) mktaAds_(sa, rep, mig); } catch(e){ rep.errors.push('ADS REPORT: ' + (e.message || e)); }
+  try { if (typeof adsiRun_ === 'function') adsiRun_(ss, rep, {}); } catch(e){ rep.errors.push('Ads Manager (thư mục): ' + (e.message || e)); }   /* ⭐ 15/10/2026: MKT_AdsImport.gs */
 }
 function mktaNeedMig_(){ try { return PropertiesService.getScriptProperties().getProperty('MKT_AUTO_V') !== MKTA_VER; } catch(e){ return false; } }
 /* opt.only = ID file vừa đổi (onChange) ⇒ chỉ xử lý file đó (trừ khi còn bước chuyển đổi 1 lần) */

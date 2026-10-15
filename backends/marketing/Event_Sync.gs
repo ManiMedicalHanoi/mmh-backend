@@ -1,23 +1,19 @@
 /*************************************************************************************************
- * MMH REPORT HUB — Event_Sync.gs   (v1.1 · 13/10/2026 · v1.1: Task Result gọn, Folder = link thật)
+ * MMH REPORT HUB — Event_Sync.gs   (v2.0 · 15/10/2026)
  * ─────────────────────────────────────────────────────────────────────────────────────────────
- * SỰ KIỆN MARKETING OFFLINE ⇒ KEY TASK "Marketing-Event" TRÊN "Weekly new" (tự động, gần như tức thì)
- *
- *  ① Mỗi sự kiện ở file "2. Vietnam - Marketing Offline FY68" (tab REPORT_EVENT, và PLAN_EVENT nếu
- *     sự kiện chưa có ở REPORT_EVENT) = ĐÚNG MỘT key task, tên = cột Event Name.
- *     Thêm / sửa / xoá sự kiện ở file đó ⇒ key task tự thêm / sửa / xoá theo.
- *     Key task có sẵn (gõ tay trước đây) trùng tên sự kiện ⇒ được "nhận" làm key đồng bộ, không tạo trùng.
- *  ② Mỗi bài đăng ở file "3. Vietnam - Digital Marketing & Design FY68" ▸ tab EVENT REPORT có cột
- *     Event = tên sự kiện ⇒ một sub task CHỈ ĐỌC dưới key đó:
- *        tên    = Type of content _ Format _ Pillar      (vd. "Recap_Photo_After event")
- *        Start  = On-air dự kiến · Deadline = On-air dự kiến
- *        Result = Status + Note (+ link bài)            · trạng thái theo cột Status
- *  ③ PIC vẫn thêm sub task của mình dưới key sự kiện như bình thường (sub tay — sửa được).
- *     Key sự kiện: sửa được kết quả / trạng thái / deadline; KHÔNG đổi tên, KHÔNG xoá trên Hub
- *     (tên là khoá nối với file MKT — đổi / xoá ở file MKT Offline).
- *
- * Dấu vết đồng bộ (cột U / V như Order_Sync):  key "EK:<mã>"  ·  sub bài đăng "E:<mã>"
- * Chạy: trigger onChange của 2 file MKT (tự cài) + 10 phút/lần + action=eventSync (app gọi sau khi ghi).
+ * v2.0 (người dùng yêu cầu 15/10/2026) — BỎ việc tự tạo Key task từ file MKT Offline:
+ *  ① Dọn 1 lần (Script Property EVS_CLEAN_V2): xoá các key "Marketing-Event" do hệ thống tự tạo (cột U "EK:…") cùng
+ *     sub bài đăng ("E:…") của chúng. KHÔNG xoá: key do người dùng tạo (có trong ActivityLog "tạo Key Task mới"), key có
+ *     sub-task gõ tay, key đã bị sửa Kết quả / PIC / ngày ⇒ chỉ gỡ dấu "EK:" (thành key thường, sửa / xoá được).
+ *     Dòng bị xoá được chép vào sheet ẩn "EVS_Removed" (khôi phục được).
+ *  ② Đặt tên key sự kiện: app gọi action=evList ⇒ danh sách sự kiện (REPORT_EVENT + PLAN_EVENT) để GỢI Ý đúng tên
+ *     (tránh tên lệch). Không tạo key tự động nữa.
+ *  ③ Bài đăng MKT online (file Digital ▸ EVENT REPORT, cột Event = tên sự kiện) ⇒ sub-task CHỈ ĐỌC ("E:…") chèn thẳng
+ *     dưới Key task có TÊN TRÙNG tên sự kiện (không phân biệt hoa thường / dấu / khoảng trắng) — key do người dùng tạo:
+ *        tên    = Type of content _ Format _ Pillar      (vd. "Tuyển sinh_Design post_Before event")
+ *        Start = Deadline = On-air dự kiến · Result = Status + Note + Nội dung + link · trạng thái theo cột Status
+ *     Đổi tên key khác tên sự kiện ⇒ sub bài đăng tự gỡ; đặt lại đúng tên ⇒ tự gắn lại.
+ * Chạy: trigger onChange 2 file MKT (tự cài) + 10 phút/lần + action=eventSync (app gọi sau khi thêm / sửa key).
  *************************************************************************************************/
 
 var EVS_OFF_ID   = '16vIDYRhm6Cj9DN4C26rvbBPW1hF3vAnZ7lgl6Bd02w8';   // 2. Vietnam - Marketing Offline FY68
@@ -200,30 +196,7 @@ function evsReadPosts_(){
   return by;
 }
 
-/* ── Dựng dòng cần có ── */
-function evsKeyStatus_(e, today){
-  if (/cancel|hủy|huỷ|hoãn/i.test(e.action + ' ' + e.plan)) return { st:'Cancelled', p:0 };
-  if (e.end < today){
-    var reported = e.aPart > 0 || !!e.review || !!e.folder;
-    return reported ? { st:'Completed', p:100 } : { st:'In Progress', p:75 };
-  }
-  if (e.start <= today) return { st:'In Progress', p:50 };
-  return { st:'To Do', p:0 };
-}
-/* 13/10/2026 (người dùng yêu cầu): Task Result CHỈ gồm các dòng thông tin sự kiện — không ghi dòng "🔄 Đồng bộ từ file…",
-   không doanh số / review; Folder sự kiện = LINK thật của thư mục (lấy từ ô Detail event folder link) để mở được ngay trên Hub */
-function evsKeyResult_(e){
-  var L = [];
-  L.push([e.type, e.product, e.segment].filter(String).join(' · '));
-  var w = []; if (e.kol) w.push('KOL/ACC: ' + e.kol); if (e.partner) w.push('Đối tác: ' + e.partner); if (e.place) w.push('Địa điểm: ' + e.place);
-  if (w.length) L.push(w.join(' · '));
-  L.push('Ngày: ' + evsFmt_(e.start) + (e.end !== e.start ? ' → ' + evsFmt_(e.end) : '') + (e.approx ? ' (chưa chốt ngày)' : ''));
-  if (e.plan || e.action) L.push('Kế hoạch: ' + [e.plan, e.action].filter(String).join(' · '));
-  if (e.src === 'R') L.push('Tham dự thực tế: ' + (e.aPart || 0) + ' / mục tiêu ' + (e.tPart || 0));
-  var fu = e.folderUrl || (/^https?:/.test(e.folder) ? e.folder : '');
-  if (fu || e.folder) L.push('Folder sự kiện: ' + (fu || e.folder));
-  return L.filter(String).join('\n');
-}
+/* ── Dựng sub bài đăng cần có (chỉ cho sự kiện đã có Key task cùng tên) ── */
 function evsPostStatus_(p, today){
   var s = p.status;
   if (/cancel/i.test(s)) return { st:'Cancelled', p:0 };
@@ -232,20 +205,12 @@ function evsPostStatus_(p, today){
   if (s) return { st:'In Progress', p:50 };
   return (p.plan && p.plan <= today) ? { st:'In Progress', p:25 } : { st:'To Do', p:0 };
 }
-function evsBuild_(events, posts){
-  var today = evsIso_(new Date()), win = evsWindow_();
-  var keys = {}, subs = {};
-  events.forEach(function(e){
-    if (win.indexOf(e.ym) < 0) return;
-    var ek = 'EK:' + evsHash_(e.nk), st = evsKeyStatus_(e, today);
-    var pic = /surg|eyeless|ophthal|nhan/i.test(e.segment + ' ' + e.product) ? EVS_PIC_SURG : EVS_PIC_DENTAL;
-    var k = { syncKey:ek, title:e.name, nk:e.nk, type:EVS_TYPE, keyTask:e.name, subTask:'', pic:pic,
-              result:evsKeyResult_(e), start:e.start, planned:e.end, status:st.st, progress:st.p,
-              meta:{ s:'event', ym:e.ym, src:e.src, sr:e.src + e.srow, f:(e.folderUrl || (/^https?:/.test(e.folder) ? e.folder : '')), fn:e.folder } };
-    k.hash = evsHash_([k.title, k.pic, k.result, k.start, k.planned, k.status].join('¦')); k.meta.h = k.hash;
-    keys[ek] = k;
+function evsBuildSubs_(posts, keyNk){
+  var today = evsIso_(new Date()), subs = {};
+  Object.keys(posts).forEach(function(nk){
+    if (!keyNk[nk]) return;
     var used = {};
-    (posts[e.nk] || []).forEach(function(p){
+    posts[nk].forEach(function(p){
       var nm = [p.kind, p.format, p.pillar].filter(String).join('_') || 'Bài đăng';
       var base = nm, n = 1; while (used[nm]) nm = base + ' (' + (++n) + ')'; used[nm] = 1;
       var ps = evsPostStatus_(p, today), R = [];
@@ -254,21 +219,21 @@ function evsBuild_(events, posts){
       if (p.main) R.push('Nội dung: ' + p.main);
       if (p.real) R.push('On-air thực tế: ' + evsFmt_(p.real));
       if (p.link) R.push(p.link);
-      var o = { syncKey:'E:' + evsHash_(e.nk + '|' + nm), parent:ek, type:'', keyTask:'', subTask:nm,
+      var o = { syncKey:'E:' + evsHash_(nk + '|' + nm), parent:nk, type:'', keyTask:'', subTask:nm,
                 pic:EVS_POST_PIC, result:R.join('\n'), start:p.plan || '', planned:p.plan || '',
                 status:ps.st, progress:ps.p,
                 meta:{ s:'eventpost', t:p.format, pg:p.page, ts:p.status, r:p.row } };
-      o.hash = evsHash_([o.subTask, o.pic, o.result, o.start, o.planned, o.status, ek].join('¦')); o.meta.h = o.hash;
+      o.hash = evsHash_([o.subTask, o.pic, o.result, o.start, o.planned, o.status, 'v2', nk].join('¦')); o.meta.h = o.hash;
       subs[o.syncKey] = o;
     });
   });
-  return { keys:keys, subs:subs, win:win };
+  return subs;
 }
 
-/* ── Quét "Weekly new" ── */
+/* ── Quét "Weekly new": key (theo tên đã chuẩn hoá), sub bài đăng E:, key EK: cũ ── */
 function evsScan_(sh){
   var dr = (typeof WEEKLY_DATA_ROW !== 'undefined') ? WEEKLY_DATA_ROW : 7, last = sh.getLastRow();
-  var idx = { keys:{}, byName:{}, subs:{}, blockEnd:{}, manual:{}, keyRows:[] };
+  var idx = { keys:{}, byNk:{}, subs:{}, blockEnd:{}, manual:{}, keyRows:[], ek:[] };
   if (last < dr) return idx;
   var n = last - dr + 1, w = evsColMeta_() - 1, v = sh.getRange(dr, 2, n, w).getValues();
   var iK = evsColKey_() - 2, iM = evsColMeta_() - 2, cur = null;
@@ -277,15 +242,19 @@ function evsScan_(sh){
     var has = !!(evsS_(v[i][3]) || f || g || u);
     var meta = {}; try { meta = JSON.parse(evsS_(v[i][iM]) || '{}') || {}; } catch(e){}
     if (f){
-      cur = { row:row, u:u, title:f, meta:meta };
+      cur = { row:row, u:u, title:f, nk:evsNorm_(f), type:evsS_(v[i][3]), meta:meta, vals:v[i] };
       idx.keyRows.push(cur); idx.blockEnd[row] = row; idx.manual[row] = 0;
-      if (u.indexOf('EK:') === 0) idx.keys[u] = cur;
-      else if (!u){ var nk = evsNorm_(f); if (!idx.byName[nk]) idx.byName[nk] = cur; }
+      if (u.indexOf('EK:') === 0){ idx.keys[u] = cur; idx.ek.push(cur); }
+      if (cur.nk){
+        var o = idx.byNk[cur.nk];
+        /* trùng tên nhiều key: ưu tiên key loại Marketing-Event, rồi key trên cùng */
+        if (!o || (o.type !== EVS_TYPE && cur.type === EVS_TYPE)) idx.byNk[cur.nk] = cur;
+      }
       continue;
     }
     if (cur && has){
       idx.blockEnd[cur.row] = row;
-      if (u.indexOf('E:') === 0) idx.subs[u] = { row:row, parentU:cur.u, parentRow:cur.row, hash:meta.h || '' };
+      if (u.indexOf('E:') === 0) idx.subs[u] = { row:row, parentNk:cur.nk, parentRow:cur.row, hash:meta.h || '' };
       else if (g) idx.manual[cur.row]++;
     }
   }
@@ -296,10 +265,10 @@ function evsSetSafe_(rng, vals){
   catch(e1){ try { rng.clearDataValidations(); } catch(e2){} try { rng.setValues(vals); return ''; } catch(e3){ return String(e3 && e3.message || e3); } }
 }
 function evsPct_(p){ try { if (typeof pctToCell === 'function') return pctToCell(p); } catch(e){} return (evsNum_(p) || 0) / 100; }
-function evsWrite_(sh, row, list, keepPic){
+function evsWrite_(sh, row, list){
   var el = [], no = [], uv = [];
-  list.forEach(function(o, i){
-    el.push([o.type || '', o.keyTask || '', o.subTask || '', (keepPic && keepPic[i]) || o.pic || '', o.result || '',
+  list.forEach(function(o){
+    el.push([o.type || '', o.keyTask || '', o.subTask || '', o.pic || '', o.result || '',
              evsToDate_(o.start) || '', evsToDate_(o.planned) || '', '']);
     no.push([o.status || '', evsPct_(o.progress || 0)]);
     uv.push([o.syncKey || '', o.meta ? JSON.stringify(o.meta) : '']);
@@ -312,114 +281,128 @@ function evsFill_(sh, fromRow, startRow, count){
   if (typeof vsFillDownFormulas === 'function'){ try { return vsFillDownFormulas(sh, fromRow, startRow, count); } catch(e){} }
   if (typeof osFillFormulas_ === 'function'){ try { return osFillFormulas_(sh, fromRow, startRow, count); } catch(e){} }
 }
+function evsDelRows_(sh, dels){
+  dels = dels.slice().sort(function(a, b){ return b - a; });
+  for (var di = 0; di < dels.length; ){
+    var end = dels[di], cnt = 1;
+    while (di + cnt < dels.length && dels[di + cnt] === end - cnt) cnt++;
+    sh.deleteRows(end - cnt + 1, cnt); di += cnt;
+  }
+}
 
-/* ══════════════ ĐỒNG BỘ CHÍNH ══════════════ */
+/* ══════════════ ① DỌN 1 LẦN: key sự kiện do hệ thống tự tạo (v1.x) ══════════════ */
+/* tên key người dùng tự tạo (ActivityLog: "tạo Key Task mới", người tạo khác System) */
+function evsUserKeyNames_(){
+  var out = {};
+  try {
+    var s = (typeof activitySheet === 'function') ? activitySheet() : null; if (!s) return out;
+    var last = s.getLastRow(); if (last < 2) return out;
+    s.getRange(2, 1, last - 1, 6).getValues().forEach(function(r){
+      if (evsS_(r[2]) !== 'add' || /^system$/i.test(evsS_(r[1]))) return;
+      if (!/key task/i.test(evsS_(r[3]))) return;
+      var nk = evsNorm_(r[4]); if (nk) out[nk] = 1;
+    });
+  } catch(e){}
+  return out;
+}
+/* key còn đúng như hệ thống ghi (tên, PIC, kết quả, ngày) — người dùng chưa sửa gì */
+function evsUntouched_(k){
+  var v = k.vals || [], m = k.meta || {};
+  if (!m.h) return false;
+  var st = evsS_(v[12]);
+  var h = evsHash_([evsS_(v[4]), evsS_(v[6]), evsS_(v[7]), evsDateISO_(v[8]), evsDateISO_(v[9]), st].join('¦'));
+  if (h === m.h) return true;
+  /* trạng thái do sub bài đăng tự cộng dồn (syncKeyRollup) ⇒ so lại không tính trạng thái */
+  var stats = ['To Do', 'In Progress', 'Completed', 'Cancelled', 'Pending', ''];
+  for (var i = 0; i < stats.length; i++)
+    if (evsHash_([evsS_(v[4]), evsS_(v[6]), evsS_(v[7]), evsDateISO_(v[8]), evsDateISO_(v[9]), stats[i]].join('¦')) === m.h) return true;
+  return false;
+}
+function evsCleanV2_(sh, force){
+  var pr = PropertiesService.getScriptProperties();
+  if (!force && pr.getProperty('EVS_CLEAN_V2')) return null;
+  var idx = evsScan_(sh), rep = { removedKeys:0, removedSubs:0, keptKeys:0, kept:[], removed:[] };
+  if (!idx.ek.length){ pr.setProperty('EVS_CLEAN_V2', JSON.stringify({ at:Date.now(), removedKeys:0, keptKeys:0 })); return rep; }
+  var users = evsUserKeyNames_(), dels = [], untag = [];
+  idx.ek.forEach(function(k){
+    var userMade = !!users[k.nk], manualSubs = idx.manual[k.row] > 0, edited = !evsUntouched_(k);
+    if (userMade || manualSubs || edited){
+      untag.push(k.row); rep.keptKeys++;
+      rep.kept.push(k.title + ' (' + (userMade ? 'người dùng tạo' : manualSubs ? 'có sub-task tay' : 'đã sửa') + ')');
+      return;
+    }
+    dels.push(k.row); rep.removedKeys++; rep.removed.push(k.title);
+    Object.keys(idx.subs).forEach(function(sk){ var s = idx.subs[sk]; if (s.parentRow === k.row){ dels.push(s.row); rep.removedSubs++; } });
+  });
+  /* sao lưu dòng bị xoá */
+  if (dels.length){
+    try {
+      var ss = sh.getParent(), bk = ss.getSheetByName('EVS_Removed');
+      if (!bk){ bk = ss.insertSheet('EVS_Removed'); bk.appendRow(['Xoá lúc', 'Dòng cũ', 'B…V của dòng (No · … · cột U · cột V)']); try { bk.hideSheet(); } catch(e){} }
+      var w = evsColMeta_() - 1, now = new Date(), rows = [];
+      dels.slice().sort(function(a, b){ return a - b; }).forEach(function(r){
+        rows.push([now, r].concat(sh.getRange(r, 2, 1, w).getValues()[0].map(function(x){ return x instanceof Date ? evsIso_(x) : x; })));
+      });
+      bk.getRange(bk.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
+    } catch(e){ rep.backupError = String(e && e.message || e); }
+  }
+  untag.forEach(function(r){ evsSetSafe_(sh.getRange(r, evsColKey_(), 1, 2), [['', '']]); });
+  evsDelRows_(sh, dels);
+  SpreadsheetApp.flush();
+  try { if (typeof touchVersion === 'function') touchVersion(); } catch(e){}
+  try { if (typeof _SH_CACHE !== 'undefined') _SH_CACHE = {}; } catch(e){}
+  var msg = 'Dọn key sự kiện tự tạo (v2.0): xoá ' + rep.removedKeys + ' key + ' + rep.removedSubs + ' sub bài đăng · giữ ' + rep.keptKeys + ' key (gỡ dấu tự động)';
+  try { if (typeof logActivity === 'function') logActivity('System', 'delete', msg, '', ''); } catch(e){}
+  pr.setProperty('EVS_CLEAN_V2', JSON.stringify({ at:Date.now(), removedKeys:rep.removedKeys, removedSubs:rep.removedSubs, keptKeys:rep.keptKeys,
+                                                  kept:rep.kept.slice(0, 40), removed:rep.removed.slice(0, 80) }).slice(0, 8500));
+  rep.message = msg;
+  return rep;
+}
+
+/* ══════════════ ĐỒNG BỘ CHÍNH (v2.0: chỉ sub bài đăng dưới key người dùng đặt đúng tên sự kiện) ══════════════ */
 function evsSync(opt){
   opt = opt || {};
-  var T0 = Date.now(), rep = { ok:true, keysNew:0, keysAdopted:0, keysUpd:0, keysDel:0, keysFreed:0,
-                               subsNew:0, subsUpd:0, subsDel:0, errors:[] };
+  var T0 = Date.now(), rep = { ok:true, subsNew:0, subsUpd:0, subsDel:0, errors:[] };
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) return { ok:false, error:'Đang có tiến trình ghi khác, thử lại sau.' };
   try {
-    var events, posts;
-    try { events = evsReadEvents_(); } catch(e){ return { ok:false, error:'Không đọc được file MKT Offline: ' + (e.message || e) }; }
-    var postsOk = true;
-    try { posts = evsReadPosts_(); } catch(e){ posts = {}; postsOk = false; rep.errors.push('File Digital: ' + (e.message || e)); }
-    var W = evsBuild_(events, posts);
     var sh = shWeekly(); if (!sh) return { ok:false, error:'Không thấy sheet Weekly new' };
     if (sh.getMaxColumns() < evsColMeta_()) sh.insertColumnsAfter(sh.getMaxColumns(), evsColMeta_() - sh.getMaxColumns());
-    var dr = (typeof WEEKLY_DATA_ROW !== 'undefined') ? WEEKLY_DATA_ROW : 7;
+    try { var cl = evsCleanV2_(sh, false); if (cl) rep.clean = cl.message || 'ok'; } catch(e){ rep.errors.push('Dọn key cũ: ' + (e.message || e)); }
 
-    /* ① KEY: cập nhật / nhận key gõ tay trùng tên / đổi tên theo dòng nguồn / tạo mới */
-    var idx = evsScan_(sh), bySr = {};
-    Object.keys(idx.keys).forEach(function(u){ var k = idx.keys[u]; if (k.meta && k.meta.sr && !W.keys[u]) bySr[k.meta.sr] = k; });
-    Object.keys(W.keys).sort(function(a, b){ return W.keys[a].start < W.keys[b].start ? -1 : 1; }).forEach(function(ek){
-      var w = W.keys[ek], cur = idx.keys[ek];
-      if (!cur && bySr[w.meta.sr]){ cur = bySr[w.meta.sr]; delete bySr[w.meta.sr]; cur.renamed = true; }
-      if (cur){
-        if (!cur.renamed && cur.meta && cur.meta.h === w.hash && cur.title === w.title) return;
-        var keepPic = [evsS_(sh.getRange(cur.row, 8).getValue()) || w.pic];
-        var hasSubs = idx.blockEnd[cur.row] > cur.row;
-        var o = JSON.parse(JSON.stringify(w));
-        if (hasSubs){ o.status = evsS_(sh.getRange(cur.row, 14).getValue()) || o.status; o.progress = Math.round(evsNum_(sh.getRange(cur.row, 15).getValue()) * 100); }
-        var er = evsWrite_(sh, cur.row, [o], keepPic);
-        if (er) rep.errors.push('Key "' + w.title + '": ' + er); else rep.keysUpd++;
-        return;
-      }
-      var man = idx.byName[w.nk];
-      if (man){
-        var er2 = evsWrite_(sh, man.row, [w], [evsS_(sh.getRange(man.row, 8).getValue()) || w.pic]);
-        if (er2) rep.errors.push('Nhận key "' + w.title + '": ' + er2); else rep.keysAdopted++;
-        return;
-      }
-      var row = (typeof firstEmptyContentRow === 'function') ? firstEmptyContentRow(sh) : sh.getLastRow() + 1;
-      if (row > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), row - sh.getMaxRows() + 5);
-      var er3 = evsWrite_(sh, row, [w]);
-      if (er3){ rep.errors.push('Tạo key "' + w.title + '": ' + er3); return; }
-      if (row > dr) evsFill_(sh, row - 1, row, 1);
-      rep.keysNew++;
-      SpreadsheetApp.flush();
-    });
-    SpreadsheetApp.flush();
+    var posts, postsOk = true;
+    try { posts = evsReadPosts_(); } catch(e){ posts = {}; postsOk = false; rep.errors.push('File Digital: ' + (e.message || e)); }
+    var idx = evsScan_(sh), keyNk = {};
+    Object.keys(idx.byNk).forEach(function(nk){ if (posts[nk]) keyNk[nk] = idx.byNk[nk]; });
+    var W = evsBuildSubs_(posts, keyNk);
 
-    /* ② SUB bài đăng: xoá dòng không còn / đổi cha */
-    idx = evsScan_(sh);
+    /* ① xoá sub bài đăng không còn / key đổi tên / nằm sai key */
     var dels = [];
-    Object.keys(idx.subs).forEach(function(sk){
-      var cur = idx.subs[sk], w = W.subs[sk];
-      var parentInWin = !!W.keys[cur.parentU] || !idx.keys[cur.parentU] ||
-                        (idx.keys[cur.parentU].meta && W.win.indexOf(idx.keys[cur.parentU].meta.ym) >= 0);
-      if (!postsOk) return;
-      if (!w ? parentInWin : (w.parent !== cur.parentU)) dels.push(cur.row);
+    if (postsOk) Object.keys(idx.subs).forEach(function(sk){
+      var cur = idx.subs[sk], w = W[sk], k = keyNk[cur.parentNk];
+      if (!w || w.parent !== cur.parentNk || !k || k.row !== cur.parentRow) dels.push(cur.row);
     });
+    if (dels.length){ evsDelRows_(sh, dels); rep.subsDel = dels.length; SpreadsheetApp.flush(); idx = evsScan_(sh); }
 
-    /* ③ KEY không còn trong file MKT (trong cửa sổ tháng): xoá nếu không có sub tay, còn sub tay thì "thả" thành key thường */
-    var freeRows = [];
-    Object.keys(idx.keys).forEach(function(u){
-      if (W.keys[u]) return;
-      var k = idx.keys[u];
-      if (!k.meta || W.win.indexOf(k.meta.ym) < 0) return;
-      if (idx.manual[k.row] > 0){ freeRows.push(k.row); return; }
-      for (var r = k.row; r <= idx.blockEnd[k.row]; r++) if (dels.indexOf(r) < 0) dels.push(r);
-      rep.keysDel++;
-    });
-    freeRows.forEach(function(r){
-      var res = evsS_(sh.getRange(r, 9).getValue());
-      evsSetSafe_(sh.getRange(r, evsColKey_(), 1, 2), [['', '']]);
-      evsSetSafe_(sh.getRange(r, 9), [[res + '\n⚠ Sự kiện không còn trong file MKT Offline (đã đổi tên hoặc xoá) — key này thành key thường.']]);
-      rep.keysFreed++;
-    });
-    dels.sort(function(a, b){ return b - a; });
-    for (var di = 0; di < dels.length; ){
-      var end = dels[di], cnt = 1;
-      while (di + cnt < dels.length && dels[di + cnt] === end - cnt) cnt++;
-      sh.deleteRows(end - cnt + 1, cnt); di += cnt;
-    }
-    rep.subsDel = dels.length - rep.keysDel;
-    if (dels.length) SpreadsheetApp.flush();
-
-    /* ④ cập nhật sub đã có */
-    idx = evsScan_(sh);
-    Object.keys(W.subs).forEach(function(sk){
-      var w = W.subs[sk], cur = idx.subs[sk];
-      if (!cur || cur.parentU !== w.parent || cur.hash === w.hash) return;
+    /* ② cập nhật sub đã có */
+    Object.keys(W).forEach(function(sk){
+      var w = W[sk], cur = idx.subs[sk];
+      if (!cur || cur.hash === w.hash) return;
       var er = evsWrite_(sh, cur.row, [w]);
       if (er) rep.errors.push('Sub "' + w.subTask + '": ' + er); else rep.subsUpd++;
     });
 
-    /* ⑤ chèn sub mới ngay dưới block của key sự kiện */
+    /* ③ chèn sub mới ngay dưới block của key cùng tên */
     var byParent = {};
-    Object.keys(W.subs).forEach(function(sk){
-      if (idx.subs[sk]) return;
-      var w = W.subs[sk]; (byParent[w.parent] = byParent[w.parent] || []).push(w);
-    });
+    Object.keys(W).forEach(function(sk){ if (idx.subs[sk]) return; var w = W[sk]; (byParent[w.parent] = byParent[w.parent] || []).push(w); });
+    var touched = {};
     Object.keys(byParent)
-      .filter(function(u){ return !!idx.keys[u]; })
-      .sort(function(a, b){ return idx.blockEnd[idx.keys[b].row] - idx.blockEnd[idx.keys[a].row]; })
-      .forEach(function(u){
+      .filter(function(nk){ return !!idx.byNk[nk]; })
+      .sort(function(a, b){ return idx.blockEnd[idx.byNk[b].row] - idx.blockEnd[idx.byNk[a].row]; })
+      .forEach(function(nk){
         if (Date.now() - T0 > EVS_BUDGET){ rep.partial = true; return; }
-        var list = byParent[u].sort(function(a, b){ return (a.start || '9') < (b.start || '9') ? -1 : 1; });
-        var after = idx.blockEnd[idx.keys[u].row];
+        var list = byParent[nk].sort(function(a, b){ return (a.start || '9') < (b.start || '9') ? -1 : 1; });
+        var after = idx.blockEnd[idx.byNk[nk].row];
         for (var b = 0; b < list.length; b += EVS_CHUNK){
           var chunk = list.slice(b, b + EVS_CHUNK);
           sh.insertRowsAfter(after, chunk.length);
@@ -428,26 +411,25 @@ function evsSync(opt){
           if (er) rep.errors.push('Chèn sub "' + chunk[0].subTask + '": ' + er);
           after += chunk.length; rep.subsNew += chunk.length;
         }
+        touched[nk] = 1;
       });
     SpreadsheetApp.flush();
 
-    /* ⑥ % + trạng thái key theo sub */
-    var changed = rep.keysNew + rep.keysAdopted + rep.keysUpd + rep.keysDel + rep.keysFreed + rep.subsNew + rep.subsUpd + rep.subsDel;
-    if (changed){
+    /* ④ % + trạng thái key theo sub */
+    if (rep.subsNew + rep.subsUpd + rep.subsDel){
       var fresh = evsScan_(sh);
-      Object.keys(W.keys).forEach(function(u){
-        var k = fresh.keys[u]; if (!k || fresh.blockEnd[k.row] <= k.row) return;
+      Object.keys(keyNk).forEach(function(nk){
+        var k = fresh.byNk[nk]; if (!k || fresh.blockEnd[k.row] <= k.row) return;
         var kno = evsS_(sh.getRange(k.row, 2).getValue());
         if (kno && typeof syncKeyRollup === 'function'){ try { syncKeyRollup(sh, kno); } catch(e){} }
       });
       try { if (typeof touchVersion === 'function') touchVersion(); } catch(e){}
       try { if (typeof _SH_CACHE !== 'undefined') _SH_CACHE = {}; } catch(e){}
     }
-    rep.events = Object.keys(W.keys).length; rep.posts = Object.keys(W.subs).length;
+    rep.keys = Object.keys(keyNk).length; rep.posts = Object.keys(W).length;
     rep.seconds = Math.round((Date.now() - T0) / 1000);
-    rep.message = 'Sự kiện MKT — ' + rep.events + ' sự kiện · ' + rep.posts + ' bài đăng · key mới ' + rep.keysNew +
-      ' · nhận ' + rep.keysAdopted + ' · sửa ' + rep.keysUpd + ' · xoá ' + rep.keysDel +
-      ' · sub mới ' + rep.subsNew + ' · sửa ' + rep.subsUpd + ' · xoá ' + rep.subsDel + ' · ' + rep.seconds + 's' +
+    rep.message = 'Bài đăng sự kiện — ' + rep.keys + ' key sự kiện · ' + rep.posts + ' bài đăng · sub mới ' + rep.subsNew +
+      ' · sửa ' + rep.subsUpd + ' · xoá ' + rep.subsDel + ' · ' + rep.seconds + 's' + (rep.clean ? ' · ' + rep.clean : '') +
       (rep.errors.length ? ' · ' + rep.errors.slice(0, 4).join(' | ') : '');
     try { PropertiesService.getScriptProperties().setProperty('EVS_LAST', JSON.stringify({ at:Date.now(), msg:rep.message })); } catch(e){}
     return rep;
@@ -456,11 +438,34 @@ function evsSync(opt){
   } finally { try { lock.releaseLock(); } catch(e){} }
 }
 
+/* ══════════════ action=evList — danh sách sự kiện để GỢI Ý tên Key task (chỉ đọc, đệm 10 phút) ══════════════
+ * ⇒ { ok, events:[{ n:tên, s:yyyy-mm-dd, e:yyyy-mm-dd, ym, t:Type of event, sg:Segment, pd:Target product, pl:Place,
+ *                    k:KOL, src:'R'|'P', f:link folder, np:số bài đăng ở EVENT REPORT }], at }
+ * Cửa sổ: tháng hiện tại − EVS_LIST_BACK … + EVS_LIST_FWD. fresh=1 ⇒ đọc lại ngay. */
+var EVS_LIST_BACK = 4, EVS_LIST_FWD = 9;
+function evsApiList(user, p){
+  p = p || {};
+  var c = CacheService.getScriptCache(), ck = 'evs_list_v2';
+  if (!p.fresh){ var hit = c.get(ck); if (hit){ try { var o = JSON.parse(hit); o.cached = true; return o; } catch(e){} } }
+  var events;
+  try { events = evsReadEvents_(); } catch(e){ return { ok:false, error:'Không đọc được file MKT Offline: ' + (e.message || e) }; }
+  var posts = {}; try { posts = evsReadPosts_(); } catch(e){}
+  var now = new Date(), lo = new Date(now.getFullYear(), now.getMonth() - EVS_LIST_BACK, 1), hi = new Date(now.getFullYear(), now.getMonth() + EVS_LIST_FWD + 1, 0);
+  var loS = evsIso_(lo), hiS = evsIso_(hi);
+  var out = events.filter(function(e){ return e.end >= loS && e.start <= hiS; }).map(function(e){
+    return { n:e.name, s:e.start, e:e.end, ym:e.ym, t:e.type, sg:e.segment, pd:e.product, pl:e.place, k:e.kol, src:e.src,
+             f:e.folderUrl || (/^https?:/.test(e.folder) ? e.folder : ''), np:(posts[e.nk] || []).length, ax:e.approx ? 1 : undefined };
+  }).sort(function(a, b){ return a.s < b.s ? -1 : a.s > b.s ? 1 : 0; });
+  var res = { ok:true, events:out, at:Date.now() };
+  try { var js = JSON.stringify(res); if (js.length < 95000) c.put(ck, js, 600); } catch(e){}
+  return res;
+}
+
 /* ══════════════ KHOÁ: key sự kiện không xoá / không đổi tên trên Hub ══════════════ */
 function evsIsEventKeyRow(sh, row){
   try { return /^EK:/.test(evsS_(sh.getRange(row, evsColKey_()).getValue())); } catch(e){ return false; }
 }
-var EVS_LOCK_MSG = 'Key task sự kiện đồng bộ từ file MKT Offline — đổi tên / xoá sự kiện ở file "2. Vietnam - Marketing Offline FY68".';
+var EVS_LOCK_MSG = 'Key task sự kiện đồng bộ từ file MKT Offline — đổi tên / xoá sự kiện ở file "2. Vietnam - Marketing Offline FY68".';   /* v2.0: không còn key EK: (đã dọn) */
 
 /* ══════════════ TRIGGER / API ══════════════ */
 function evsSyncTick(){
@@ -495,12 +500,13 @@ function evsApiSync(user, p){
   p = p || {};
   if (String(p.mode || '') === 'status'){
     var last = {}; try { last = JSON.parse(PropertiesService.getScriptProperties().getProperty('EVS_LAST') || '{}'); } catch(e){}
-    return { ok:true, last:last };
+    var cl = {}; try { cl = JSON.parse(PropertiesService.getScriptProperties().getProperty('EVS_CLEAN_V2') || '{}'); } catch(e){}
+    return { ok:true, ver:'2.0', last:last, clean:cl };
   }
   if (!p.force && typeof throttleOk === 'function' && !throttleOk('evs_api', 20))
     return { ok:true, skipped:true, message:'Vừa đồng bộ — đợi vài giây.' };
   var r = evsSync({});
-  try { if (r && r.ok && typeof logActivity === 'function' && (r.keysNew || r.keysDel || r.subsNew || r.subsDel)) logActivity('System', 'update', r.message, '', ''); } catch(e){}
+  try { if (r && r.ok && typeof logActivity === 'function' && (r.subsNew || r.subsDel)) logActivity('System', 'update', r.message, '', ''); } catch(e){}
   return r;
 }
 function evsSyncNow(){ var r = evsSync({}); Logger.log(JSON.stringify(r, null, 2)); return r; }

@@ -47,9 +47,15 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
 - **Tab KPI theo nhóm do KSC ghi lại mỗi lượt đồng bộ (`kpi/KpiGroupSheets.gs`)**: "KPI TRAINING FY68" (Training Master: mã KPI + ma trận HOẠT ĐỘNG ĐÀO TẠO THEO PIC + danh sách buổi),
   "KPI MKT Offline" (file MKT offline, C8 / C9 / C12 / C15 + danh sách sự kiện), "KPI MKT Online" (file Digital, C17-01→06 + chi tiết tháng / bài đăng / thiết kế).
   Target từ 3. Detail KPI, màu % như CRM (<90 xám · 90–<100 xanh · 100–120 vàng · >120 xanh lá). Không gõ tay vào các tab này. `training/Kết nối KPI.gs` đã ngừng (trigger tự gỡ).
-- **Sự kiện MKT ⇒ Key task Report Hub (`marketing/Event_Sync.gs`, 13/10/2026)**: REPORT_EVENT (+ PLAN_EVENT) ⇒ Key task `Marketing-Event` ở Weekly new (cột U `EK:`), bài đăng
-  EVENT REPORT (file Digital) ⇒ sub-task chỉ đọc (`E:`). Key `EK:` không đổi tên / không xoá từ app (sửa kết quả / trạng thái / hạn, thêm sub tay được). `MMH_MonthlyKeys.gs`
+- **Sự kiện MKT ⇒ Key task Report Hub (`marketing/Event_Sync.gs` v2.0, 15/10/2026 — người dùng yêu cầu)**: KHÔNG tự tạo key từ file MKT Offline nữa. Dọn 1 lần
+  (`EVS_CLEAN_V2`): xoá key `EK:` hệ thống tự tạo + sub `E:` của chúng (sao lưu sheet ẩn `EVS_Removed`); key người dùng tạo (ActivityLog) / có sub tay / đã sửa ⇒ chỉ gỡ dấu `EK:`.
+  `evList` (đọc, đệm 10 phút) = danh sách sự kiện REPORT_EVENT + PLAN_EVENT ⇒ app GỢI Ý đúng tên khi đặt tên Key task. Bài đăng EVENT REPORT (file Digital, cột Event)
+  ⇒ sub CHỈ ĐỌC `E:` chèn dưới key có TÊN TRÙNG tên sự kiện (so không dấu / hoa thường). `MMH_MonthlyKeys.gs`
   (GIỐNG HỆT ở marketing / backoffice / management): mỗi tháng 1 key "Internal Meeting MMYYYY · <Nhóm>" + "· MMH (toàn công ty)".
+- **MIR từ file Ads Manager (`marketing/MKT_AdsImport.gs`, 15/10/2026)**: 1 file xuất (nhiều chiến dịch, cột Cấp độ phân phối) ⇒ mỗi chiến dịch 1 dòng ADS REPORT (số liệu dòng cấp
+  campaign, không cộng adset; Type theo tên "d.m.yyyy - Event|Product - …"; khoá = cột "Chiến dịch Ads Manager" + Month; file kỳ mới hơn ghi đè) + MIR = công thức; tab
+  **KPI MIR report** tự thêm dòng tháng mới (SUMIFS). Nguồn: thư mục Drive "ADS REPORT - file Ads Manager" (cạnh file Digital, đọc 10 phút/lần) hoặc `adsReport op=upload` từ app.
+  Cột "File Report" từng dòng (MKT_SheetAuto) vẫn chạy, nay chỉ cộng dòng cấp campaign.
 - **Tự động 2 file MKT (`marketing/MKT_SheetAuto.gs`)**: EVENT / PRODUCT REPORT (Month theo On-air dự kiến, Ngày điền link, On-air thực tế = công thức, Status), ORDER REPORT
   (Check deadline = công thức On time / Late), ADS REPORT (cột File Report ⇒ đọc file Ads Manager), REPORT_EVENT (Month theo Date, cột Hình thức + Bằng chứng tham dự,
   Actual Participant chỉ đếm khách "Xác nhận tham dự" = Ký tay / Zoom, đủ trường, bỏ trùng SĐT — CHỈ sự kiện từ `MKTA.RULE_FROM` 14/10/2026, sự kiện cũ giữ công thức cũ),
