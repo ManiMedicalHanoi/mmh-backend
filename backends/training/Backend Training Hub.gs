@@ -6,6 +6,10 @@
  * ----------------------------------------------------------------------------
  *  Backend cho WebApp "Training Hub" (frontend index.html deploy trên GitHub).
  *
+ *  ĐIỂM MỚI v3.20 (15/10/2026)
+ *    - Học online bằng video: sheet HUB_Videos, action videoSave; video ghép vào lộ trình tự học (RH_ELearn.gs).
+ *    - Tạo câu hỏi bằng AI (Gemini miễn phí): aiQuiz / aiStatus / aiKey (khoá ở Script Property GEMINI_API_KEY).
+ *
  *  ĐIỂM MỚI v3.14
  *    - Việc được giao từ Report Hub (sheet RH_Assign): rhAssignList / Add / Seen / Done / Reply, rhDirectory.
  *      Hoàn thành ⇒ email báo người giao; trao đổi gắn vào việc. (File RH_Assign.gs)
@@ -153,7 +157,7 @@
 
 var HUB = {
 
-  VERSION: '3.14',
+  VERSION: '3.20',
 
   /** ★ v3.4 — Khoá kết nối từ Report Hub (phải trùng TRAINING_RH_KEY trong index.html của Report Hub).
    *  Đổi khoá: đặt Script Property RH_BRIDGE_KEY (ưu tiên hơn giá trị ở đây) và sửa cả 2 phía. */
@@ -510,6 +514,9 @@ var HUB_ROUTES = {
   'quizResults'     : {fn:'apiQuizResults',     auth:2},
   'sessionResults'  : {fn:'apiSessionResults',  auth:2},   // ★ v2
   'resendCert'      : {fn:'apiResendCert',      auth:2},
+  'videoSave'       : {fn:'apiVideoSave',       auth:2},   // ★ v3.20 — video bài giảng (RH_ELearn.gs)
+  'aiQuiz'          : {fn:'apiAiQuiz',          auth:2},   // ★ v3.20 — tạo câu hỏi bằng AI (Gemini)
+  'aiStatus'        : {fn:'apiAiStatus',        auth:2},
   // admin
   'listUsers'       : {fn:'apiListUsers',       auth:3},
   'saveUser'        : {fn:'apiSaveUser',        auth:3},
@@ -518,6 +525,7 @@ var HUB_ROUTES = {
   'saveConfig'      : {fn:'apiSaveConfig',      auth:3},
   'getLogs'         : {fn:'apiGetLogs',         auth:3},
   'clearCache'      : {fn:'apiClearCache',      auth:3},   // ★ v2
+  'aiKey'           : {fn:'apiAiKey',           auth:3},   // ★ v3.20 — Admin dán khoá Gemini
   'runSetup'        : {fn:'apiRunSetup',        auth:3},
   'diag'            : {fn:'apiDiag',            auth:3},   // ★ v2.2 — đo tốc độ từng phần
   'selfTest'        : {fn:'apiSelfTest',        auth:1},   // ★ v2.5 — chạy thử chức năng trên máy chủ
@@ -2314,7 +2322,11 @@ function hubFolderCrumb(folder) {
  *  opt.cacheOnly → chỉ trả khi đã có trong đệm (không đụng Drive), null nếu chưa có.
  *  opt.noWait    → nếu lượt khác đang đọc thì trả {pending:true} ngay.
  *  Chỉ 1 lượt đọc Drive cho mỗi buổi tại một thời điểm; các lượt khác chờ kết quả. */
+/** ★ v3.20 — tài liệu Drive + video bài giảng (RH_ELearn.gs) */
 function hubMaterials(s, opt) {
+  return hubWithVideos_(s, hubMaterialsDrive_(s, opt));
+}
+function hubMaterialsDrive_(s, opt) {
   opt = opt || {};
   var key = 'mats:' + s.sid;
   if (HUB_MEM.hasOwnProperty(key)) return HUB_MEM[key];
@@ -4732,6 +4744,7 @@ function apiBootstrap(p, user) {
     todo: hubMyTodo(user, ls.data),
     recentMaterials: recent,
     progressBySid: progressBySid,
+    videos: hubVideoCounts_(),                       // ★ v3.20 — số video bài giảng theo buổi
     unread: noti.filter(function(n){ return !n.read; }).length,
     groups: hubGroupList(),
     users: hubReadUsers().filter(function(u){ return u.active; }).map(function(u){
