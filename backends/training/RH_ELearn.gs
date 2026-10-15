@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- *  MMH TRAINING HUB — HỌC ONLINE BẰNG VIDEO + CHỨNG CHỈ KHI HỌC XONG  (v3.21, 15/10/2026)
+ *  MMH TRAINING HUB — HỌC ONLINE BẰNG VIDEO + CHỨNG CHỈ KHI HỌC XONG  (v3.21, 15/10/2026; v3.25 bỏ file gốc video khỏi tuyến bài)
  * ----------------------------------------------------------------------------
  *  1) VIDEO BÀI GIẢNG (sheet HUB_Videos trong Training Master)
  *     - File video (MP4) nằm trên GitHub Pages của app Training-Hub (thư mục media/), KHÔNG nằm trên Drive
@@ -61,10 +61,14 @@ function hubVideoFile_(v) {
 function hubWithVideos_(s, m) {
   if (!m || m.pending || !s) return m;
   var vids = hubVideosOf_(s.sid);
-  if (!vids.length) return m;
+  // ★ v3.25 — file gốc của video tải từ app nằm ở thư mục Drive "Video bài giảng" ⇒ không tính là tài liệu riêng (đã phát qua GitHub)
+  var isRaw = function(f){ return (f.pathArr && f.pathArr[0] === HUB_VID_FOLDER) || f.path === HUB_VID_FOLDER; };
+  var hasRaw = (m.files || []).some(isRaw);
+  if (!vids.length && !hasRaw) return m;
   var out = {};
   for (var k in m) if (m.hasOwnProperty(k)) out[k] = m[k];
-  out.files = vids.map(hubVideoFile_).concat((m.files || []).filter(function(f){ return !f.isVideo; }));
+  out.files = vids.map(hubVideoFile_).concat((m.files || []).filter(function(f){ return !f.isVideo && !isRaw(f); }));
+  if (!vids.length) return out;
   out.folders = [{id: 'videos', name: HUB_VID_FOLDER, path: HUB_VID_FOLDER, pathArr: [HUB_VID_FOLDER], url: '', virtual: true}]
     .concat(m.folders || []);
   out.videoCount = vids.length;

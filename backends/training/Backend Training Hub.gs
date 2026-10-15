@@ -170,7 +170,7 @@
 
 var HUB = {
 
-  VERSION: '3.24',
+  VERSION: '3.25',
 
   /** ★ v3.4 — Khoá kết nối từ Report Hub (phải trùng TRAINING_RH_KEY trong index.html của Report Hub).
    *  Đổi khoá: đặt Script Property RH_BRIDGE_KEY (ưu tiên hơn giá trị ở đây) và sửa cả 2 phía. */
@@ -542,12 +542,17 @@ var HUB_ROUTES = {
   'sessionResults'  : {fn:'apiSessionResults',  auth:2},   // ★ v2
   'resendCert'      : {fn:'apiResendCert',      auth:2},
   'videoSave'       : {fn:'apiVideoSave',       auth:2},   // ★ v3.20 — video bài giảng (RH_ELearn.gs)
+  'videoPublish'    : {fn:'apiVideoPublish',    auth:2},   // ★ v3.25 — video tải từ app ⇒ GitHub Pages (RH_HubCourse.gs)
+  'imgPublish'      : {fn:'apiImgPublish',      auth:2},   // ★ v3.25 — ảnh bìa khoá học / ảnh giao diện
+  'sessionMeta'     : {fn:'apiSessionMeta',     auth:2},   // ★ v3.25 — nhóm sản phẩm / ảnh bìa của khoá học
   // admin
   'listUsers'       : {fn:'apiListUsers',       auth:3},
   'saveUser'        : {fn:'apiSaveUser',        auth:3},
   'deleteUser'      : {fn:'apiDeleteUser',      auth:3},
   'resetPin'        : {fn:'apiResetPin',        auth:3},
   'saveConfig'      : {fn:'apiSaveConfig',      auth:3},
+  'ghSetup'         : {fn:'apiGhSetup',         auth:3},   // ★ v3.25 — kết nối GitHub (token) để đăng video từ app
+  'uiSave'          : {fn:'apiUiSave',          auth:3},   // ★ v3.25 — giao diện chỉnh trên app
   'getLogs'         : {fn:'apiGetLogs',         auth:3},
   'clearCache'      : {fn:'apiClearCache',      auth:3},   // ★ v2
   'runSetup'        : {fn:'apiRunSetup',        auth:3},
@@ -2074,16 +2079,22 @@ function apiSaveSession(p, user) {
     var wantFolder = p.createFolder === undefined || p.createFolder === '' ? true : hubBool(p.createFolder);
     if (wantFolder && !hasFolder && vals[7] !== 'Cancel') {
       try {
-        folderInfo = hubEnsureFolder(sh, row, {date:vals[0], type:vals[1], category:vals[2], audience:vals[6], topic:topic});
+        folderInfo = hubEnsureFolder(sh, row, {sid:sid, date:vals[0], type:vals[1], category:vals[2], audience:vals[6], topic:topic});
       } catch (e) { hubLog('ERROR', 'createFolder', sid, e.message); }
     }
     if (hasFolder && !isNew && existing) {
       try { moved = hubRelocateFolder(existing, {sid:sid, date:vals[0], type:vals[1], category:vals[2], audience:vals[6]}, sh, row); }
       catch (e) { hubLog('WARN', 'relocateFolder', sid, e.message); }
     }
+    // ★ v3.25 — huỷ buổi ⇒ thư mục do Hub tạo vào Thùng rác; nhóm sản phẩm / ảnh bìa do trainer chọn
+    var trashed = '';
+    if (!isNew && vals[7] === 'Cancel' && existing.status !== 'Cancel') {
+      try { trashed = hubTrashSessionFolder_(existing, user); } catch (e) { hubLog('ERROR', 'cancelFolder', sid, e.message); }
+    }
+    if (p.line !== undefined || p.cover !== undefined) { try { hubMetaSet_(sid, {line: p.line, cover: p.cover}, user); } catch (e) { hubLog('ERROR', 'sessionMeta', sid, e.message); } }
     hubCacheClear('sessions');
     hubSyncEnrollment(sid, topic, vals[6]);
-    return {ok:true, sid:sid, isNew:isNew, folder:folderInfo, moved:moved, audience:vals[6], status:vals[7], date:date};
+    return {ok:true, sid:sid, isNew:isNew, folder:folderInfo, moved:moved, audience:vals[6], status:vals[7], date:date, trashed:trashed};
   });
   if (!result.ok) return result;
 
@@ -2100,7 +2111,8 @@ function apiSaveSession(p, user) {
   var msg = result.isNew ? 'Đã tạo buổi đào tạo mới' : 'Đã cập nhật buổi đào tạo';
   if (result.folder) msg += ' và thư mục tài liệu "' + result.folder.name + '"';
   if (result.moved) msg += ' (' + result.moved + ')';
-  return {ok:true, message: msg + '.', sid:result.sid, folder:result.folder, moved:result.moved};
+  if (result.trashed) msg += ' — buổi đã huỷ nên thư mục tài liệu "' + result.trashed + '" được chuyển vào Thùng rác Drive';
+  return {ok:true, message: msg + '.', sid:result.sid, folder:result.folder, moved:result.moved, trashed:result.trashed};
 }
 
 function hubNextEmptyRow(sh) {
@@ -2116,15 +2128,17 @@ function hubNextEmptyRow(sh) {
 }
 
 function apiDeleteSession(p, user) {
-  if (user.role !== 'admin') return {ok:false, error:'Chỉ Admin được xoá buổi đào tạo.'};
   return hubWithLock(function(){
     var s = hubFindSession(hubNorm(p.sid));
     if (!s) return {ok:false, error:'Không tìm thấy buổi đào tạo.'};
+    if (!hubCanEdit(s, user)) return {ok:false, error:'Chỉ trainer của buổi (hoặc Admin) được xoá buổi đào tạo.'};   // ★ v3.25
     // không xoá dòng (tránh vỡ ArrayFormula) — đổi Status = Cancel
     hubReportSheet().getRange(s.row, HUB.COL.STATUS).setValue('Cancel');
+    var trashed = '';
+    try { trashed = hubTrashSessionFolder_(s, user); } catch (e) { hubLog('ERROR', 'cancelFolder', s.sid, e.message); }   // ★ v3.25
     hubCacheClear('sessions');
     hubLog('WARN', 'deleteSession', s.sid + ' cancelled by ' + user.email, s.topic);
-    return {ok:true, message:'Đã chuyển buổi đào tạo sang trạng thái Cancel.'};
+    return {ok:true, message:'Đã chuyển buổi đào tạo sang trạng thái Cancel' + (trashed ? ' và đưa thư mục tài liệu vào Thùng rác Drive' : '') + '.'};
   });
 }
 
@@ -2183,12 +2197,12 @@ function hubApplySharing(item) {
 function hubEnsureFolder(sh, row, info) {
   var parent = hubParentFolder_(info.type, info.category);       // ★ 13/10/2026 — Coaching / Customer Training có thư mục mẹ riêng
   var name = hubFolderName(info.date, info.type, info.category, info.audience);
-  var it = parent.getFoldersByName(name);
-  var folder = it.hasNext() ? it.next() : parent.createFolder(name);
+  var folder = hubLiveFolder_(parent, name) || parent.createFolder(name);   // ★ v3.25 — bỏ qua thư mục đã ở Thùng rác
   hubApplySharing(folder);
   var url = folder.getUrl();
   var rt = SpreadsheetApp.newRichTextValue().setText(name).setLinkUrl(url).build();
   sh.getRange(row, HUB.COL.FOLDER).setRichTextValue(rt);
+  if (info.sid) { try { hubMetaSet_(info.sid, {autoFolder: folder.getId()}); } catch (e) {} }
   hubCacheClear('sessions');
   return {id:folder.getId(), name:name, url:url};
 }
@@ -2198,7 +2212,7 @@ function apiCreateFolder(p, user) {
   if (!s) return {ok:false, error:'Không tìm thấy buổi đào tạo.'};
   if (!hubCanEdit(s, user)) return {ok:false, error:'Bạn chỉ được thao tác trên buổi đào tạo do mình phụ trách.'};
   var info = hubWithLock(function(){
-    return hubEnsureFolder(hubReportSheet(), s.row, {date:s.date, type:s.type, category:s.category, audience:s.audience, topic:s.topic});
+    return hubEnsureFolder(hubReportSheet(), s.row, {sid:s.sid, date:s.date, type:s.type, category:s.category, audience:s.audience, topic:s.topic});
   });
   hubCacheClear('mats:' + s.sid);
   hubLog('INFO', 'createFolder', s.sid + ' -> ' + info.name, info.url);
@@ -2220,8 +2234,8 @@ function hubSessionSource(s) {
   try { places.push(hubParentFolder_(s.type, s.category)); } catch (e) {}
   try { places.push(DriveApp.getFolderById(HUB.DRIVE.PARENT)); } catch (e) {}
   for (var i = 0; i < places.length; i++) {
-    var it = places[i].getFoldersByName(name);
-    if (it.hasNext()) return {folder: it.next()};
+    var lf = hubLiveFolder_(places[i], name);          // ★ v3.25 — bỏ qua thư mục đã ở Thùng rác (buổi huỷ)
+    if (lf) return {folder: lf};
   }
   return null;
 }
@@ -2583,7 +2597,7 @@ function hubUploadRoot(s) {
       'Hãy đổi thành link thư mục, hoặc xoá link để hệ thống tự tạo thư mục chuẩn.');
   }
   var info = hubWithLock(function(){
-    return hubEnsureFolder(hubReportSheet(), s.row, {date:s.date, type:s.type, category:s.category, audience:s.audience, topic:s.topic});
+    return hubEnsureFolder(hubReportSheet(), s.row, {sid:s.sid, date:s.date, type:s.type, category:s.category, audience:s.audience, topic:s.topic});
   });
   return DriveApp.getFolderById(info.id);
 }
@@ -4241,27 +4255,23 @@ function hubSendCertificateEmail(session, user, percent, score, maxScore, file, 
   if (manager && hubPrefix(manager) !== hubPrefix(to)) cc.push(manager);
   if (hubPrefix(HUB.ADMIN_EMAIL) !== hubPrefix(to)) cc.push(HUB.ADMIN_EMAIL);
 
-  var inner =
-    '<p style="margin:0 0 14px">Kính gửi <b>' + hubEsc(user.name) + '</b>,</p>' +
-    (kind === 'study'
-      ? '<p style="margin:0 0 16px;color:#41566f">Bạn đã <b style="color:#2E7D32">HOÀN THÀNH</b> toàn bộ tuyến bài (video bài giảng & tài liệu) của khoá đào tạo. Chứng chỉ được đính kèm trong email này.</p>'
-      : '<p style="margin:0 0 16px;color:#41566f">Bạn đã hoàn thành và <b style="color:#2E7D32">ĐẠT</b> bài kiểm tra sau đào tạo. Chứng chỉ được đính kèm trong email này.</p>') +
-    '<table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:18px">' +
-      hubRow('Chủ đề đào tạo', hubEsc(session.topic)) +
-      hubRow('Nhóm chủ đề', hubEsc(session.category)) +
-      hubRow('Trainer', hubEsc(session.trainer)) +
-      hubRow('Ngày đào tạo', hubEsc(session.dateText)) +
-      hubRow('Kết quả', kind === 'study' ? '<b style="color:#2E7D32">Hoàn thành ' + score + '/' + maxScore + ' bài học</b>' : '<b style="color:#2E7D32">' + Math.round(percent) + ' điểm</b> / 100') +
-      hubRow('Số chứng chỉ', hubEsc(certNo)) +
-    '</table>' +
-    '<div style="margin:18px 0 6px">' + hubMailButton(file.getUrl(), 'Xem chứng chỉ trên Drive') + '</div>';
+  // ★ v3.25 — thư thường (không khung màu / nút)
+  var html = hubLetter_({dear: hubEsc(user.name),
+    paras: [kind === 'study'
+      ? 'Chúc mừng anh/chị đã <b>hoàn thành</b> toàn bộ tuyến bài (video bài giảng và tài liệu) của khoá đào tạo dưới đây. Chứng chỉ hoàn thành được đính kèm trong email này.'
+      : 'Chúc mừng anh/chị đã hoàn thành và <b>đạt</b> bài kiểm tra sau đào tạo. Chứng chỉ được đính kèm trong email này.'],
+    info: [['Khoá đào tạo', hubEsc(session.topic)], ['Nhóm chủ đề', hubEsc(session.category)], ['Trainer', hubEsc(session.trainer)],
+           ['Ngày đào tạo', hubEsc(session.dateText)],
+           ['Kết quả', kind === 'study' ? 'Hoàn thành ' + score + '/' + maxScore + ' bài học' : Math.round(percent) + '/100 điểm'],
+           ['Số chứng chỉ', hubEsc(certNo)]],
+    after: ['Xem chứng chỉ trên Drive: ' + hubLink_(file.getUrl(), file.getName()), 'Cảm ơn anh/chị đã tham gia khoá học.'],
+    sign: null, auto: true});
 
   hubMail({
     to: to,
     cc: hubUniq(cc).join(','),
     subject: '[MMH Training] Chứng chỉ hoàn thành — ' + session.topic,
-    htmlBody: hubMailShell('Chứng nhận hoàn thành đào tạo', hubEsc(session.topic), inner,
-      'Email tự động từ ' + hubEsc(cfg.APP_TITLE) + '. Chứng chỉ được lưu trong thư mục chứng chỉ đào tạo của MMH.'),
+    htmlBody: html,
     attachments: [file.getAs('application/pdf')],
     name: 'MMH Training Hub'
   });
@@ -4413,9 +4423,9 @@ function apiMyCertificates(p, user) {
 
 var HUB_INVITE_KINDS = {
   pre     : {kicker:'Thư mời đào tạo',              subject:'[MMH Training] Thư mời đào tạo — ',          noti:'invite'},
-  after   : {kicker:'Tài liệu & bài kiểm tra sau đào tạo', subject:'[MMH Training] Tài liệu & bài kiểm tra — ', noti:'quiz'},
+  after   : {kicker:'Học online sau đào tạo',       subject:'[MMH Training] Video & tài liệu khoá học — ',  noti:'quiz'},
   quiz    : {kicker:'Bài kiểm tra đã mở',           subject:'[MMH Training] Mời làm bài kiểm tra — ',      noti:'quiz'},
-  reminder: {kicker:'Nhắc làm bài kiểm tra',        subject:'[MMH Training] Nhắc làm bài kiểm tra — ',     noti:'reminder'}
+  reminder: {kicker:'Nhắc hoàn thành khoá học',     subject:'[MMH Training] Nhắc hoàn thành khoá học — ',  noti:'reminder'}
 };
 
 /** Dựng nội dung email (HTML + văn bản thuần cho nút "Soạn bằng Gmail") */
@@ -4432,63 +4442,39 @@ function hubInviteContent(s, sender, opt) {
   var timeText = s.timeFrom ? (s.timeFrom + (s.timeTo ? ' – ' + s.timeTo : '')) : '';
   var withQuiz = kind !== 'pre' && q && q.total > 0;
 
+  // ★ v3.25 — email dạng THƯ THƯỜNG (người dùng yêu cầu: formal, giống email thông báo cập nhật — không khung màu / nút)
   var intro = {
-    pre: 'Trân trọng kính mời Anh/Chị tham dự buổi đào tạo với thông tin dưới đây.',
-    after: 'Cảm ơn Anh/Chị đã tham dự buổi đào tạo. Tài liệu và bài kiểm tra sau đào tạo đã sẵn sàng trên MMH Training Hub.',
-    quiz: 'Bài kiểm tra sau đào tạo đã được mở. Anh/Chị vui lòng hoàn thành' + (dlText ? ' trước ngày <b>' + dlText + '</b>' : ' sớm') + '.',
-    reminder: 'Hệ thống ghi nhận Anh/Chị chưa hoàn thành bài kiểm tra của buổi đào tạo dưới đây' + (dlText ? ' — hạn làm bài <b>' + dlText + '</b>' : '') + '.'
+    pre: 'Trân trọng kính mời anh/chị tham dự buổi đào tạo với thông tin như sau:',
+    after: 'Cảm ơn anh/chị đã tham dự buổi đào tạo. Video bài giảng và tài liệu của khoá học đã sẵn sàng trên MMH Training Hub. Anh/chị vui lòng học hết các bài (xem tối thiểu 70% thời lượng mỗi video, đọc hết các trang tài liệu) để hoàn thành khoá học — chứng chỉ sẽ được tự động gửi vào email của anh/chị.',
+    quiz: 'Bài kiểm tra ôn tập của khoá học đã được mở. Anh/chị vui lòng hoàn thành' + (dlText ? ' trước ngày <b>' + dlText + '</b>' : ' sớm') + '.',
+    reminder: 'Hệ thống ghi nhận anh/chị chưa hoàn thành khoá học dưới đây' + (dlText ? ' (hạn hoàn thành <b>' + dlText + '</b>)' : '') + '. Anh/chị vui lòng học hết các bài (xem tối thiểu 70% thời lượng mỗi video, đọc hết các trang tài liệu) để hoàn thành khoá học và nhận chứng chỉ.'
   }[kind];
 
-  var rows = hubRow('Chủ đề', hubEsc(s.topic));
+  var info = [['Chủ đề', hubEsc(s.topic)]];
   if (kind === 'pre') {
-    rows += hubRow('Mục tiêu', hubEsc(s.purpose)) +
-            hubRow('Thời gian', hubEsc(s.dateText + (timeText ? '  ·  ' + timeText : ''))) +
-            hubRow('Hình thức', hubEsc(s.type)) +
-            hubRow('Trainer', hubEsc(s.trainer)) +
-            hubRow('Thành phần', hubEsc(s.audience)) +
-            (s.meetingLink ? hubRow('Link họp', '<a href="' + hubEsc(s.meetingLink) + '" style="color:#1155CC">' + hubEsc(s.meetingLink) + '</a>') : '');
+    info.push(['Mục tiêu', hubEsc(s.purpose).replace(/\n/g, '<br>')], ['Thời gian', hubEsc(s.dateText + (timeText ? ', ' + timeText : ''))],
+              ['Hình thức', hubEsc(s.type)], ['Trainer', hubEsc(s.trainer)], ['Thành phần', hubEsc(s.audience)],
+              ['Link họp', s.meetingLink ? hubLink_(s.meetingLink) : '']);
   } else {
-    rows += hubRow('Ngày đào tạo', hubEsc(s.dateText)) + hubRow('Trainer', hubEsc(s.trainer));
+    info.push(['Ngày đào tạo', hubEsc(s.dateText)], ['Trainer', hubEsc(s.trainer)]);
   }
   if (withQuiz) {
-    rows += hubRow('Bài kiểm tra', q.total + ' câu · ' + q.durationMin + ' phút · đạt từ ' + q.passScore + '/100 điểm · ' + q.maxAttempts + ' lượt làm') +
-            (dlText ? hubRow('Hạn hoàn thành', '<b style="color:#C62828">' + dlText + '</b>') : '');
+    info.push(['Bài kiểm tra', q.total + ' câu · ' + q.durationMin + ' phút · đạt từ ' + q.passScore + '/100 điểm']);
+    if (dlText) info.push(['Hạn hoàn thành', '<b>' + dlText + '</b>']);
   }
 
-  var steps = withQuiz ?
-    '<div style="background:#F0F7FF;border-radius:10px;padding:14px 18px;margin:4px 0 18px;font-size:13.5px;color:#1A1A1A">' +
-      '<div style="font-weight:700;color:#003047;margin-bottom:6px">Làm bài trong 3 bước</div>' +
-      '<div>1. Bấm nút <b>Làm bài kiểm tra</b> bên dưới (mở MMH Training Hub).</div>' +
-      '<div>2. Đăng nhập bằng email công ty + mã PIN. Lần đầu: bấm <b>Kích hoạt / Quên PIN</b> để nhận mã qua email.</div>' +
-      '<div>3. Làm bài trong ' + q.durationMin + ' phút — hệ thống chấm điểm ngay và gửi chứng chỉ khi đạt.</div>' +
-    '</div>' : '';
-
-  var note = hubNorm(opt.note)
-    ? '<div style="background:#FFF8E1;border-left:4px solid #FFE100;padding:12px 16px;border-radius:0 8px 8px 0;font-size:13.5px;margin:0 0 18px">' + hubEsc(opt.note).replace(/\n/g, '<br>') + '</div>'
-    : '';
-
-  // ★ v3.4 — link thư mục tài liệu đào tạo (tạo khi gửi email từ Report Hub)
   var folderUrl = hubNorm(opt.folderUrl);
-  var folderBlk = (folderUrl || opt.folderPending)
-    ? '<div style="background:#F2F9F6;border-left:4px solid #3E8E6B;padding:12px 16px;border-radius:0 8px 8px 0;font-size:13.5px;margin:0 0 18px">' +
-        '📁 Vui lòng truy cập và tham khảo tài liệu đào tạo tại đây: ' +
-        (folderUrl ? '<a href="' + hubEsc(folderUrl) + '" style="color:#1155CC;font-weight:700">Thư mục tài liệu đào tạo</a>'
-                   : '<i style="color:#5E738C">(link thư mục được tạo tự động khi bấm Gửi)</i>') +
-      '</div>'
-    : '';
+  var after = [];
+  if (hubNorm(opt.note)) after.push(hubEsc(opt.note).replace(/\n/g, '<br>'));
+  if (folderUrl) after.push('Tài liệu đào tạo: ' + hubLink_(folderUrl, 'Thư mục tài liệu đào tạo'));
+  else if (opt.folderPending) after.push('Tài liệu đào tạo: <i>(link thư mục được tạo tự động khi gửi email)</i>');
+  if (withQuiz && linkQuiz) after.push('Làm bài kiểm tra tại: ' + hubLink_(linkQuiz));
+  if (linkSession) after.push((kind === 'pre' ? 'Xem chi tiết trên MMH Training Hub: ' : 'Học online trên MMH Training Hub: ') + hubLink_(linkSession));
+  if (kind !== 'pre') after.push('Đăng nhập bằng email công ty — mã đăng nhập 6 số được gửi vào email của anh/chị.');
+  after.push('Nếu có thắc mắc, anh/chị vui lòng liên hệ trực tiếp với tôi.');
 
-  var buttons = '';
-  if (withQuiz) buttons = hubMailButton(linkQuiz, 'Làm bài kiểm tra') + hubMailButton(linkSession, 'Xem tài liệu', true);
-  else buttons = hubMailButton(linkSession, 'Xem chi tiết trên Training Hub') + (s.meetingLink ? hubMailButton(s.meetingLink, 'Vào phòng họp', true) : '');
-
-  var sign = '<p style="margin:18px 0 0;color:#41566f;font-size:13.5px">Trân trọng,<br><b style="color:#003047">' + hubEsc(sender.name) + '</b>' +
-             (sender.position ? '<br>' + hubEsc(sender.position) : '') + '<br><span style="color:#5E738C">' + hubEsc(hubMailOf(sender.email)) + '</span></p>';
-
-  var html = hubMailShell(K.kicker, hubEsc(s.topic),
-    '<p style="margin:0 0 14px">' + intro + '</p>' +
-    '<table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:16px">' + rows + '</table>' +
-    steps + note + folderBlk + (buttons ? '<div style="margin:6px 0 4px">' + buttons + '</div>' : '') + sign,
-    'Email gửi qua MMH Training Hub thay mặt ' + hubEsc(sender.name) + '. Trả lời email này sẽ gửi tới ' + hubEsc(hubMailOf(sender.email)) + '.');
+  var html = hubLetter_({dear: 'All', paras: [intro], info: info, after: after,
+    sign: {name: sender.name, position: sender.position, email: hubMailOf(sender.email)}});
 
   // --- văn bản thuần ---
   var t = [];
@@ -4506,13 +4492,13 @@ function hubInviteContent(s, sender, opt) {
     if (dlText) t.push('Hạn hoàn thành: ' + dlText);
     t.push('');
     t.push('Làm bài tại: ' + (linkQuiz || '(MMH Training Hub)'));
-    t.push('Đăng nhập bằng email công ty + mã PIN (lần đầu bấm "Kích hoạt / Quên PIN").');
+    t.push('Đăng nhập bằng email công ty — mã đăng nhập 6 số được gửi vào email.');
   } else if (linkSession) {
     t.push('');
     t.push('Chi tiết: ' + linkSession);
   }
   if (hubNorm(opt.note)) { t.push(''); t.push(hubNorm(opt.note)); }
-  if (folderUrl) { t.push(''); t.push('Vui lòng truy cập và tham khảo tài liệu đào tạo tại đây: ' + folderUrl); }
+  if (folderUrl) { t.push(''); t.push('Tài liệu đào tạo: ' + folderUrl); }
   t.push('');
   t.push('Trân trọng,');
   t.push(sender.name + (sender.position ? ' — ' + sender.position : ''));
@@ -4527,7 +4513,7 @@ function hubInviteRecipients(s, p) {
   if (!list.length) list = hubResolveAudience(s.audience);
   if (hubBool(p.onlyPending)) {
     var passed = {};
-    hubReadEnrollment().forEach(function(e){ if (e.sid === s.sid && e.pass) passed[hubPrefix(e.email)] = true; });
+    hubReadEnrollment().forEach(function(e){ if (e.sid === s.sid && (e.pass || e.status === 'Completed' || e.certUrl)) passed[hubPrefix(e.email)] = true; });   // ★ v3.25 — đã hoàn thành khoá
     list = list.filter(function(e){ return !passed[hubPrefix(e)]; });
   }
   return hubUniq(list.map(hubMailOf));
@@ -4536,6 +4522,7 @@ function hubInviteRecipients(s, p) {
 function apiPreviewInvite(p, user) {
   var s = hubFindSession(hubNorm(p.sid));
   if (!s) return {ok:false, error:'Không tìm thấy buổi đào tạo.'};
+  if ((p.kind || 'pre') === 'pre') { if (s.folderUrl) p.folderUrl = s.folderUrl; else p.folderPending = true; }   // ★ v3.25
   var c = hubInviteContent(s, user, p);
   var rec = hubInviteRecipients(s, p);
   return {ok:true, subject:c.subject, html:c.html, text:c.text, recipients:rec,
@@ -4570,6 +4557,11 @@ function apiSendInvite(p, user) {
     });
   }
 
+  // ★ v3.25 — thư mời trước đào tạo ⇒ tạo thư mục tài liệu (nếu chưa có) và đưa link vào email
+  if ((p.kind || 'pre') === 'pre') {
+    if (!s.folderUrl && s.status !== 'Cancel') { try { s = hubRhFolder(s).s; } catch (e) { hubLog('ERROR', 'inviteFolder', s.sid, e.message); } }
+    if (s.folderUrl) p.folderUrl = s.folderUrl;
+  }
   var c = hubInviteContent(s, user, p);
   var quota = 0;
   try { quota = MailApp.getRemainingDailyQuota(); } catch (e) {}
@@ -4782,6 +4774,9 @@ function apiBootstrap(p, user) {
     recentMaterials: recent,
     progressBySid: progressBySid,
     videos: hubVideoCounts_(),                       // ★ v3.20 — số video bài giảng theo buổi
+    smeta: hubMetaAll_(),                            // ★ v3.25 — nhóm sản phẩm / ảnh bìa từng khoá (RH_HubCourse.gs)
+    ui: hubUi_(),                                    // ★ v3.25 — giao diện chỉnh trên app
+    gh: !!hubGhToken_(),                             // ★ v3.25 — đã kết nối GitHub (đăng video từ app)
     unread: noti.filter(function(n){ return !n.read; }).length,
     groups: hubGroupList(),
     users: hubReadUsers().filter(function(u){ return u.active; }).map(function(u){
@@ -4826,7 +4821,7 @@ function hubDailyReminder() {
     if (props.getProperty(mark)) return;
 
     var passed = {}, tries = {};
-    enroll.forEach(function(e){ if (e.sid === q.sid && e.pass) passed[hubPrefix(e.email)] = true; });
+    enroll.forEach(function(e){ if (e.sid === q.sid && (e.pass || e.status === 'Completed' || e.certUrl)) passed[hubPrefix(e.email)] = true; });
     responses.forEach(function(r){ if (r.sid === q.sid) tries[hubPrefix(r.email)] = (tries[hubPrefix(r.email)] || 0) + 1; });
     var targets = hubResolveAudience(s.audience).filter(function(e){
       var k = hubPrefix(e);
@@ -4843,7 +4838,7 @@ function hubDailyReminder() {
         to: targets.join(','), subject: c.subject, htmlBody: c.html, body: c.text,
         name: sender.name + ' · MMH Training Hub', replyTo: hubMailOf(sender.email)
       });
-      hubNotify(targets, 'reminder', s.sid, 'Nhắc làm bài: ' + s.topic,
+      hubNotify(targets, 'reminder', s.sid, 'Nhắc hoàn thành khoá học: ' + s.topic,
         days === 0 ? 'Hôm nay là hạn cuối.' : 'Còn ' + days + ' ngày — hạn ' + hubFmt(dl, 'dd/MM/yyyy'), sender.email);
       props.setProperty(mark, '1');
       log.push(s.topic + ': ' + targets.length + ' người');
@@ -4861,20 +4856,16 @@ function hubDailyReminder() {
 /** Nội dung email nhắc lịch trong ngày đào tạo (gửi riêng từng người) */
 function hubDayReminderContent(s, name, appUrl) {
   var time = s.timeFrom ? s.timeFrom + (s.timeTo ? ' – ' + s.timeTo : '') : '';
-  var inner =
-    '<p style="margin:0 0 12px">Chào ' + hubEsc(name) + ',</p>' +
-    '<p style="margin:0 0 14px">Hôm nay sẽ có lịch đào tạo về chủ đề: <b style="color:#003047">' + hubEsc(s.topic) + '</b>' +
-    ' với Trainer là <b style="color:#003047">' + hubEsc(s.trainer || '—') + '</b>.</p>' +
-    '<table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:14px">' +
-      hubRow('Ngày', hubEsc(s.dateText)) + (time ? hubRow('Thời gian', hubEsc(time)) : '') +
-      hubRow('Hình thức', hubEsc(s.type)) +
-      (s.meetingLink ? hubRow('Link họp', '<a href="' + hubEsc(s.meetingLink) + '" style="color:#1155CC">' + hubEsc(s.meetingLink) + '</a>') : '') +
-    '</table>' +
-    '<p style="margin:0 0 16px">Xin vui lòng thu xếp thời gian tham dự, hoặc báo lại cho trainer biết nếu không thể tham gia.</p>' +
-    (s.meetingLink ? hubMailButton(s.meetingLink, 'Vào phòng họp') : '') + hubMailButton(appUrl + '#/s/' + s.sid, 'Xem trên Training Hub', !!s.meetingLink);
+  var link = appUrl + '#/s/' + s.sid;
+  var html = hubLetter_({dear: hubEsc(name),
+    paras: ['Hôm nay anh/chị có lịch đào tạo với thông tin như sau:'],
+    info: [['Chủ đề', hubEsc(s.topic)], ['Trainer', hubEsc(s.trainer || '')], ['Ngày', hubEsc(s.dateText)], ['Thời gian', hubEsc(time)],
+           ['Hình thức', hubEsc(s.type)], ['Link họp', s.meetingLink ? hubLink_(s.meetingLink) : '']],
+    after: ['Anh/chị vui lòng thu xếp thời gian tham dự, hoặc báo lại cho trainer nếu không thể tham gia.', 'Chi tiết trên MMH Training Hub: ' + hubLink_(link)],
+    sign: null});
   return {
     subject: '[MMH Training] Hôm nay: ' + s.topic + (time ? ' (' + time + ')' : ''),
-    html: hubMailShell('Nhắc lịch đào tạo hôm nay', hubEsc(s.topic), inner, 'Email tự động từ MMH Training Hub. Trả lời email này để báo lại cho trainer.'),
+    html: html,
     text: 'Chào ' + name + ',\n\nHôm nay sẽ có lịch đào tạo về chủ đề: ' + s.topic + ' với Trainer là ' + (s.trainer || '') + '.' +
           (time ? '\nThời gian: ' + time : '') + (s.meetingLink ? '\nLink họp: ' + s.meetingLink : '') +
           '\n\nXin vui lòng thu xếp thời gian tham dự, hoặc báo lại cho trainer biết nếu không thể tham gia.\n\n' + appUrl + '#/s/' + s.sid
@@ -4924,33 +4915,26 @@ function hubSessionDayReminder(onlySid) {
   return msg;
 }
 
-/** Danh sách bài kiểm tra chưa hoàn thành (chưa có chứng chỉ) của 1 người */
-function hubPendingFor(u) {
-  var ls = apiListSessions({}, u).data;
-  return ls.filter(function(s){ return s.assigned && s.hasQuiz && s.quizActive && s.questionCount > 0 && !s.myPass && s.status !== 'Cancel'; })
-    .map(function(s){ return {sid:s.sid, topic:s.topic, trainer:s.trainer, deadline:s.deadline, left:(s.maxAttempts || 1) - (s.myAttempts || 0), requireMaterials:s.requireMaterials}; });
-}
+/** ★ v3.25 — khoá học chưa hoàn thành (chưa có chứng chỉ) của 1 người — RH_HubCourse.gs */
+function hubPendingFor(u) { return hubPendingCourses_(u); }
 
 function hubWeeklyDigestContent(u, list, appUrl) {
   var link = appUrl.replace(/#.*$/, '');
-  var rows = list.map(function(x, i){
-    return '<tr><td style="padding:9px 0;border-bottom:1px solid #EEF3FA;color:#5E738C;width:28px;vertical-align:top">' + (i + 1) + '.</td>' +
-      '<td style="padding:9px 0;border-bottom:1px solid #EEF3FA"><b style="color:#003047">' + hubEsc(x.topic) + '</b>' +
-      '<div style="font-size:12.5px;color:#5E738C">Trainer: ' + hubEsc(x.trainer || '—') + (x.deadline ? ' · Hạn ' + hubFmt(hubToDate(x.deadline), 'dd/MM/yyyy') : '') +
-      (x.left <= 0 ? ' · <b style="color:#C62828">đã hết lượt — liên hệ trainer</b>' : ' · còn ' + x.left + ' lượt làm bài') + '</div></td></tr>';
-  }).join('');
-  var inner =
-    '<p style="margin:0 0 12px">Chào ' + hubEsc(u.name) + ',</p>' +
-    '<p style="margin:0 0 12px">Hiện nay bạn cần hoàn thành các chứng chỉ liên quan đến các bài đào tạo sau:</p>' +
-    '<table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:16px">' + rows + '</table>' +
-    '<p style="margin:0 0 6px">Vui lòng truy cập hệ thống <a href="' + hubEsc(link) + '" style="color:#1155CC">' + hubEsc(link) + '</a>, vào phần <b>"Chứng chỉ của tôi"</b> → bấm vào các đào tạo cần hoàn thành để xem lại nội dung, làm bài kiểm tra và nhận chứng chỉ.</p>' +
-    '<div style="margin:16px 0 4px">' + hubMailButton(link + '#/certs', 'Mở "Chứng chỉ của tôi"') + '</div>';
+  var items = list.map(function(x, i){
+    return (i + 1) + '.&nbsp; <b>' + hubEsc(x.topic) + '</b> — Trainer: ' + hubEsc(x.trainer || '—') +
+      (x.total ? ' — đã học ' + Math.min(x.done, x.total) + '/' + x.total + ' bài' : '') + ' — ' + hubLink_(link + '#/s/' + x.sid, 'mở khoá học');
+  });
+  var html = hubLetter_({dear: hubEsc(u.name),
+    paras: ['Hệ thống ghi nhận anh/chị còn <b>' + list.length + ' khoá học</b> chưa hoàn thành:'],
+    after: ['<span style="display:block;margin-left:24px">' + items.join('<br>') + '</span>',
+            'Anh/chị vui lòng truy cập MMH Training Hub (' + hubLink_(link) + '), xem tối thiểu 70% thời lượng mỗi video và đọc hết các trang tài liệu để hoàn thành khoá học. Chứng chỉ sẽ được tự động gửi vào email của anh/chị.'],
+    sign: null, auto: true});
   return {
-    subject: '[MMH Training] Bạn còn ' + list.length + ' chứng chỉ cần hoàn thành',
-    html: hubMailShell('Nhắc hoàn thành bài kiểm tra — hằng tuần', 'Bạn còn ' + list.length + ' chứng chỉ cần hoàn thành', inner, 'Email tự động mỗi thứ Hai từ MMH Training Hub.'),
-    text: 'Chào ' + u.name + ',\n\nHiện nay bạn cần hoàn thành các chứng chỉ liên quan đến các bài đào tạo sau:\n' +
-          list.map(function(x, i){ return (i + 1) + '. ' + x.topic + ' (Trainer: ' + (x.trainer || '') + ')'; }).join('\n') +
-          '\n\nVui lòng truy cập hệ thống ' + link + ', vào phần "Chứng chỉ của tôi" → bấm vào các đào tạo cần hoàn thành.'
+    subject: '[MMH Training] Nhắc hoàn thành khoá học — còn ' + list.length + ' khoá',
+    html: html,
+    text: 'Dear ' + u.name + ',\n\nAnh/chị còn ' + list.length + ' khoá học chưa hoàn thành:\n' +
+          list.map(function(x, i){ return (i + 1) + '. ' + x.topic + ' (Trainer: ' + (x.trainer || '') + ')' + (x.total ? ' — đã học ' + Math.min(x.done, x.total) + '/' + x.total + ' bài' : ''); }).join('\n') +
+          '\n\nVui lòng truy cập ' + link + ' để hoàn thành và nhận chứng chỉ.\n\nTrân trọng,\nMMH Training Hub'
   };
 }
 
@@ -4969,7 +4953,7 @@ function hubWeeklyDigest(onlyUser) {
     var c = hubWeeklyDigestContent(u, list, appUrl);
     try {
       hubMail({to: hubMailOf(u.email), subject: c.subject, htmlBody: c.html, body: c.text, name: 'MMH Training Hub'});
-      hubNotify([u.email], 'reminder', list[0].sid, 'Bạn còn ' + list.length + ' chứng chỉ cần hoàn thành', 'Xem ở mục Chứng chỉ của tôi', '');
+      hubNotify([u.email], 'reminder', list[0].sid, 'Bạn còn ' + list.length + ' khoá học chưa hoàn thành', 'Học xong toàn bộ bài để nhận chứng chỉ', '');
       if (!onlyUser) props.setProperty(mark, '1');
       sent++;
     } catch (e) { hubLog('ERROR', 'weeklyDigest', u.email, e.message); }
@@ -5367,9 +5351,9 @@ function hubRhFolder(s) {
     var sh = hubReportSheet(), C = HUB.COL;
     var parent = hubParentFolder_(s.type, s.category);
     var name = hubFolderName(s.date, s.type, s.category, s.audience);
-    var it = parent.getFoldersByName(name);
-    var folder = it.hasNext() ? it.next() : parent.createFolder(name);
+    var folder = hubLiveFolder_(parent, name) || parent.createFolder(name);
     hubApplySharing(folder);
+    try { hubMetaSet_(s.sid, {autoFolder: folder.getId()}); } catch (e) {}
     var url = folder.getUrl(), cell = sh.getRange(s.row, C.FOLDER), err = '';
     var has = function(){
       try { SpreadsheetApp.flush(); } catch (e) {}
