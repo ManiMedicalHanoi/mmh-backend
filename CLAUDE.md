@@ -99,3 +99,6 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   bootstrap trả `smeta` / `ui` / `gh`. **Email gửi học viên = thư thường** (`hubLetter_`: Dear · đoạn văn · thông tin từng dòng · link · Trân trọng — giống email thông báo cập nhật):
   thư mời / sau đào tạo / nhắc hoàn thành khoá học / nhắc lịch hôm nay / chứng chỉ / nhắc hằng tuần (`hubPendingFor` = khoá học chưa học xong, không còn theo bài kiểm tra).
   Xoá buổi: trainer của buổi hoặc Admin.
+- **Đệm luôn nóng (15/10/2026, training `RH_Warm.gs`, HUB v3.26)**: trigger `hwWarm` 5 phút / lần (tự cài qua `hwTick_` trong `hubDispatch`, Script Property `HW_TRIG`) đọc lại
+  bảng dùng chung (sessions / users / enroll / progress / qcfg / videos / smeta) + danh sách tài liệu Drive của khoá đang dùng (120 ngày trước → 45 ngày tới, ≤ 12 khoá / lượt, chỉ khoá chưa có đệm).
+  `HUB.CACHE_TTL` = 900 (ghi vẫn tự xoá đệm). Kết quả lượt cuối: Script Property `HW_LAST`. Chạy tay: `hwWarm()`.

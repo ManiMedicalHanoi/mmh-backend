@@ -170,7 +170,7 @@
 
 var HUB = {
 
-  VERSION: '3.25',
+  VERSION: '3.26',   // ★ 15/10/2026 — RH_Warm.gs: đệm luôn nóng (trigger 5 phút), CACHE_TTL 900
 
   /** ★ v3.4 — Khoá kết nối từ Report Hub (phải trùng TRAINING_RH_KEY trong index.html của Report Hub).
    *  Đổi khoá: đặt Script Property RH_BRIDGE_KEY (ưu tiên hơn giá trị ở đây) và sửa cả 2 phía. */
@@ -263,7 +263,7 @@ var HUB = {
   MATERIAL_SHARING: 'domain',
 
   /** ★ v2 — Tốc độ & xem tài liệu */
-  CACHE_TTL          : 300,    // giây — dữ liệu đọc từ Sheet
+  CACHE_TTL          : 900,    // giây — dữ liệu đọc từ Sheet (★ v3.26: 900 — hwWarm làm mới 5 phút / lần, mọi thao tác ghi tự xoá đệm)
   MATERIAL_CACHE_TTL : 1800,   // giây — danh sách tài liệu mỗi buổi (xoá đệm ngay khi upload/xoá)
   MATERIAL_BUDGET_MS : 15000,  // ★ v2.4 — thời gian tối đa đọc 1 thư mục
   MATERIAL_MAX_FOLDERS: 80,    // ★ v2.4 — số thư mục con tối đa quét cho 1 buổi
@@ -643,6 +643,7 @@ function hubDispatch(action, p) {
     if (tmErr) return tmErr;
     try { if (typeof hubMigrate1013_ === 'function') hubMigrate1013_(); } catch (eMig) { try { console.error('[hub] migrate ' + eMig); } catch (e2) {} }   // ★ 13/10/2026 — nâng cấp 1 lần (RH_CustTrain.gs)
     try { if (typeof tclTick_ === 'function') tclTick_(); } catch (eTcl) { try { console.error('[hub] tcl ' + eTcl); } catch (e2) {} }   // ★ 13/10/2026 — sheet Customer list (RH_CustList.gs)
+    try { if (typeof hwTick_ === 'function') hwTick_(); } catch (eHw) { try { console.error('[hub] warm ' + eHw); } catch (e2) {} }   // ★ 15/10/2026 — làm nóng đệm 5 phút / lần (RH_Warm.gs)
     if (/^tm[A-Z]/.test(String(action)) && typeof tmRoute_ === 'function') { var tmr = tmRoute_(String(action), p); if (tmr) return tmr; }
     var route = HUB_ROUTES[action];
     if (!route) return {ok:false, error:'Không tìm thấy chức năng: ' + action};
