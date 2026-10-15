@@ -82,4 +82,6 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   Tạo câu hỏi bằng AI đã BỎ (người dùng yêu cầu). App Training Hub v4.0.
 - **Email Mở mới dạng thư thường (15/10/2026, `naMailHtml_` / `naSendMail_` GIỐNG HỆT ở crm-dental / surgical / eyeless / thai)**: người dùng yêu cầu bỏ HTML cầu kỳ — Dear chị Tuyên
   (`NA_HONOR` = xưng hô theo PIC, mặc định "anh/chị <tên>"; tiếng Anh chỉ tên) · lời mở đầu · thông tin từng dòng · ảnh chứng từ NHÚNG trong thân email (`inlineImages`, `cid:`), PDF đính kèm · link CRM · Best regards.
+- **Đơn hàng: sales Gửi xác nhận (15/10/2026, crm-dental / surgical / eyeless)**: `orderRequest` (keys = đơn Chờ duyệt của chính mình, đủ điều kiện) ⇒ email thư thường tới `ORDER_APPROVERS` (Tuyen), Cc + replyTo sales,
+  ảnh chứng từ nhúng (`ordMailFiles_` / `ordMailBody_`), link `NA_CRM_URL#oa`; ghi "Đã gửi xác nhận tới … · dd/MM/yyyy HH:mm" vào Ghi chú duyệt. Email kết quả `orderDecide` cùng kiểu thư thường.
 

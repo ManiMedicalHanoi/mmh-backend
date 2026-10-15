@@ -471,8 +471,8 @@ function handle(e, method){
       return reply(out, callback);
     }
     /* ⭐ v10.11 — đơn hàng: tải chứng từ · danh sách chờ duyệt · duyệt / từ chối */
-    if (/^order(Pending|Decide|Doc)$/.test(String(action))){
-      out = action === 'orderPending' ? orderPending(user, p) : action === 'orderDecide' ? orderDecide(user, p) : orderDoc(user, p);
+    if (/^order(Pending|Decide|Doc|Request)$/.test(String(action))){
+      out = action === 'orderPending' ? orderPending(user, p) : action === 'orderDecide' ? orderDecide(user, p) : action === 'orderRequest' ? orderRequest(user, p) : orderDoc(user, p);
       if (out && out.ok && action === 'orderDecide' && !out.dup) out.kpiPush = k68PushQuick_();
       if (_rid && WRITE_ACTIONS[action]) idemEnd_(_rid, out);
       return reply(out, callback);
@@ -566,7 +566,7 @@ function isManager(user){ return user && user.role === 'manager'; }
 /* ⭐ v10.0 — các action GHI dữ liệu (dùng cho chống ghi trùng theo rid) */
 var WRITE_ACTIONS = { weeklyReport:1, monthlyReport:1, tripPropose2:1, tfDecide:1, addKey:1, addSub:1, atImport:1, saveOrders:1, saveOrder:1, saveCustomer:1, saveCBC:1, saveCustomerCbc:1, saveWeekly:1, saveMonthly:1,
                       savePresentation:1, saveADP:1, deleteRow:1, deleteAccount:1, uploadPhoto:1,
-                      naSave:1, naSubmit:1, naDecide:1, naDelete:1, orderDoc:1, orderDecide:1,
+                      naSave:1, naSubmit:1, naDecide:1, naDelete:1, orderDoc:1, orderDecide:1, orderRequest:1,
                       updateKey:1, updateSub:1, updateProgress:1, updateStatus:1, deleteKey:1, deleteSub:1, deletePhoto:1 };   /* ⭐ v10.11 — ALL TASK + xoá ảnh cũng chống trùng theo rid */
 
 /* CÁC CỘT LÀ CÔNG THỨC, TUYỆT ĐỐI KHÔNG GHI ĐÈ */
@@ -6583,13 +6583,12 @@ function orderDecide(user, p){
     try {
       var u = userByPic(pic), to = u ? u.email : ''; if (!to && !(typeof tmOn_ === 'function' && tmOn_())) return;
       var meU = userByPic(me.pic), L = byPic[pic];
-      var rowsH = L.map(function(r){ return '<tr><td style="padding:5px 9px;border-top:1px solid #E6EAEF">' + esc(r.orderNo || '—') + '</td><td style="padding:5px 9px;border-top:1px solid #E6EAEF">' + esc(r.account) +
-        '</td><td style="padding:5px 9px;border-top:1px solid #E6EAEF">' + esc(r.otype || '') + '</td><td style="padding:5px 9px;border-top:1px solid #E6EAEF;text-align:right">' + Math.round(r.kpi || 0).toLocaleString('en-US') + ' ₫</td></tr>'; }).join('');
-      var html = '<div style="font-family:Aptos,Calibri,Arial,sans-serif;font-size:13px;color:#1F2D3D">Dear ' + esc(pic) + ',<br><br>' + esc(who) + ' đã <b>' + (dec === 'approve' ? 'DUYỆT' : 'TỪ CHỐI') + '</b> ' + L.length + ' đơn hàng của bạn' +
-        (cm ? ' — ' + esc(cm) : '') + '.<br>' + (dec === 'approve' ? 'Các đơn này được tính vào KPI C5 (Sales Amount Supported) theo tỷ giá 26.700 VND/USD.' : 'Vui lòng bổ sung / sửa đơn trên CRM rồi chờ duyệt lại.') +
-        '<table style="border-collapse:collapse;margin:12px 0;font-size:12.5px"><tr style="background:#F0F5FB"><th style="padding:5px 9px;text-align:left">Order No.</th><th style="padding:5px 9px;text-align:left">Account</th><th style="padding:5px 9px;text-align:left">Order Type</th><th style="padding:5px 9px;text-align:right">Giá trị tính KPI</th></tr>' + rowsH + '</table>' +
-        'Mở CRM: <a href="' + NA_CRM_URL + '">' + NA_CRM_URL + '</a><br><br><span style="color:#8A97A6;font-size:11.5px">Email tự động từ MMH CRM — vui lòng không trả lời.</span></div>';
-      var opt = { to:to || (MMH_TEST && MMH_TEST.email) || '', subject:'[MMH CRM] ' + (dec === 'approve' ? 'ĐÃ DUYỆT' : 'TỪ CHỐI') + ' ' + L.length + ' đơn hàng · ' + pic, htmlBody:html, name:'MMH CRM · ' + who };
+      var full = ordGroups_(readTab('order')).filter(function(x){ return L.some(function(r){ return r.key === x.key; }); });
+      var f = { map:{} };
+      var html = ordMailBody_({ dear:pic, orders:full, inl:f.map, link:NA_CRM_URL, linkText:'Mở CRM', sign:who, comment:cm,
+        intro:e_(ordDear_(who).replace(/^anh\/chị /, '').replace(/^./, function(c){ return c.toUpperCase(); })) + ' đã <b>' + (dec === 'approve' ? 'xác nhận' : 'không xác nhận') + '</b> ' + (L.length > 1 ? L.length + ' đơn hàng' : 'đơn hàng') + ' dưới đây.' +
+              (dec === 'approve' ? ' Các đơn này được tính vào KPI C5 (tỷ giá 26.700 VND/USD).' : ' Em vui lòng bổ sung / sửa đơn trên CRM rồi gửi xác nhận lại.') });
+      var opt = { to:to || (MMH_TEST && MMH_TEST.email) || '', subject:'[MMH CRM] ' + (dec === 'approve' ? 'ĐÃ XÁC NHẬN' : 'KHÔNG XÁC NHẬN') + ' ' + L.length + ' đơn hàng · ' + pic, htmlBody:html, name:'MMH CRM · ' + who };
       if (meU && meU.email && meU.email !== to) opt.cc = meU.email;
       mmhMail_(opt); mails.push(to);
     } catch(e){ mails.push('lỗi: ' + (e && e.message || e)); }
@@ -6598,6 +6597,83 @@ function orderDecide(user, p){
            error:okN || res.some(function(x){ return x.ok; }) ? '' : ((res[0] && res[0].error) || 'Không có đơn nào được xử lý'),
            message:(dec === 'approve' ? 'Đã duyệt ' : 'Đã từ chối ') + okN + '/' + res.length + ' đơn hàng' };
 }
+/* ⭐ 15/10/2026 — email đơn hàng dạng THƯ THƯỜNG (như email Mở mới): Dear chị Tuyên · thông tin từng dòng · chứng từ ảnh nhúng (cid:) · link CRM · chữ ký */
+function ordFileId_(u){ var m = /[-\w]{25,}/.exec(String(u || '')); return m ? m[0] : ''; }
+function ordMailBody_(o){
+  var e = function(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){ return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]; }); };
+  var h = ['<div style="font-family:Aptos,Calibri,Arial,sans-serif;font-size:14px;line-height:1.5;color:#1A1A1A;max-width:760px">'];
+  h.push('<p style="margin:0 0 10px">Dear ' + e(o.dear) + ',</p>');
+  h.push('<p style="margin:0 0 10px">' + o.intro + '</p>');
+  if (o.comment) h.push('<p style="margin:0 0 10px">Nhận xét: ' + e(o.comment) + '</p>');
+  (o.orders || []).forEach(function(x, i){
+    var t = ordType_(x.otype), d = [];
+    d.push('<div><b>' + (o.orders.length > 1 ? (i + 1) + '. ' : '') + 'Đơn ' + e(x.orderNo || '—') + ' · ' + e(x.account) + '</b></div>');
+    d.push('<div>Ngày / tháng: ' + e(x.day || x.month) + (x.partner ? ' · NPP: ' + e(String(x.partner).split('/')[0]) : '') + '</div>');
+    d.push('<div>Order Type: ' + e(x.otype || 'chưa chọn') + '</div>');
+    d.push('<div>Sản phẩm: ' + (x.lines || []).map(function(l){ return e(l.ptype || '') + (l.detail ? ' (' + e(String(l.detail).replace(/\n/g, ', ').slice(0, 80)) + ')' : '') + ' × ' + e(l.qty); }).join('; ') + '</div>');
+    d.push('<div>Giá trị tính KPI: ' + Math.round(x.kpi || 0).toLocaleString('en-US') + ' VND' + (t === '1' ? ' (trị giá trúng thầu, tháng KQTT ' + e(x.kqtt) + ')' : '') + '</div>');
+    (x.docs || []).forEach(function(dc, k){
+      var im = (o.inl || {})[ordFileId_(dc.url)];
+      d.push('<div>Chứng từ ' + (k + 1) + ': <a href="' + e(dc.url) + '">' + e(dc.name || 'mở file') + '</a>' +
+        (im ? '<br><img src="cid:' + im + '" style="max-width:600px;height:auto;border:1px solid #DDD;margin-top:6px" alt="">' : '') + '</div>');
+    });
+    if ((x.warn || []).length) d.push('<div style="color:#8A5A00">Lưu ý: ' + e(x.warn.join(' · ')) + '</div>');
+    h.push('<div style="margin:0 0 14px">' + d.join('') + '</div>');
+  });
+  h.push('<p style="margin:0 0 10px">' + e(o.linkText) + ': <a href="' + o.link + '">' + o.link + '</a></p>');
+  h.push('<p style="margin:0 0 10px">Best regards,<br>' + e(o.sign) + '<br>' + e((TEAM_CFG[TEAM()] || TEAM_CFG.dental).team) + ' · MANI Medical Hanoi</p>');
+  h.push('<div style="margin-top:18px;font-size:12px;color:#777">Email gửi tự động từ MMH CRM</div></div>');
+  return h.join('');
+}
+/* ảnh chứng từ của các đơn ⇒ inlineImages; file khác ⇒ đính kèm */
+function ordMailFiles_(orders){
+  var inl = {}, map = {}, att = [], size = 0, n = 0;
+  (orders || []).forEach(function(x){ (x.docs || []).forEach(function(dc){
+    var id = ordFileId_(dc.url); if (!id || map[id]) return;
+    try {
+      var b = DriveApp.getFileById(id).getBlob(), s = b.getBytes().length; if (size + s > NA_MAX_ATTACH) return; size += s;
+      if (/^image\//i.test(b.getContentType() || '')){ var c = 'od' + (n++); inl[c] = b; map[id] = c; } else att.push(b);
+    } catch(e){}
+  }); });
+  return { inl:inl, map:map, att:att };
+}
+function ordDear_(pic){ return (typeof naDear_ === 'function') ? naDear_(pic) : pic; }
+/* sales GỬI XÁC NHẬN: p.keys = JSON [key…] (đơn đang Chờ duyệt của chính mình) ⇒ email tới người duyệt của nhóm (ORDER_APPROVERS), Cc sales */
+function orderRequest(user, p){
+  var me = ordMe_(user, p); if (me.err) return { ok:false, code:'AUTH', error:me.err };
+  var keys = p.keys; if (typeof keys === 'string'){ try { keys = JSON.parse(keys); } catch(e){ keys = String(keys).split(','); } }
+  keys = (Array.isArray(keys) ? keys : []).map(S).filter(String);
+  if (!keys.length) return { ok:false, error:'Chưa chọn đơn hàng nào.' };
+  var test = typeof tmOn_ === 'function' && tmOn_();
+  _RAW = {};
+  var list = ordGroups_(readTab('order')).filter(function(x){ return keys.indexOf(x.key) >= 0 && x.need && x.appr === 'wait'; });
+  if (!test && !me.admin) list = list.filter(function(x){ return normName_(x.pic) === normName_(me.pic); });
+  if (!list.length) return { ok:false, error:'Không có đơn nào đang chờ duyệt để gửi.' };
+  var bad = list.filter(function(x){ return !x.ready; });
+  if (bad.length) return { ok:false, error:'Đơn chưa đủ điều kiện: ' + bad.map(function(x){ return (x.orderNo || x.account) + ' — ' + x.warn.join(' · '); }).join('; ') };
+  var pic = list[0].pic, aps = (ORDER_APPROVERS[TEAM()] || []).filter(function(a){ return normName_(a) !== normName_(pic); });
+  var to = aps.map(function(a){ var u = userByPic(a); return u && u.email; }).filter(String);
+  if (!to.length && !test) return { ok:false, error:'Chưa cấu hình người duyệt đơn hàng của nhóm.' };
+  var su = userByPic(pic), f = ordMailFiles_(list), link = NA_CRM_URL + '#oa';
+  var html = ordMailBody_({ dear:aps.map(ordDear_).join(', '), orders:list, inl:f.map, link:link, linkText:'Link xác nhận trên CRM', sign:pic,
+    intro:'Em xin gửi ' + (list.length > 1 ? list.length + ' đơn hàng' : 'đơn hàng') + ' dưới đây, kèm chứng từ theo quy định KPI. Nhờ ' + e_(ordDear_(aps[0] || '')) + ' xem và xác nhận trên CRM giúp em.' });
+  var opt = { to:to.join(','), subject:'[MMH CRM] Xin xác nhận ' + list.length + ' đơn hàng · ' + pic + ' · ' + list.map(function(x){ return x.account; }).slice(0, 2).join(', '),
+              htmlBody:html, name:'MMH CRM · ' + pic };
+  if (su && su.email) { opt.cc = su.email; opt.replyTo = su.email; }
+  if (Object.keys(f.inl).length) opt.inlineImages = f.inl;
+  if (f.att.length) opt.attachments = f.att;
+  try { mmhMail_(opt); } catch(e){ return { ok:false, error:'Chưa gửi được email: ' + (e && e.message || e) }; }
+  /* ghi dấu "đã gửi" vào Ghi chú duyệt (orderDecide ghi đè khi duyệt) */
+  var stamp = 'Đã gửi xác nhận tới ' + aps.join(', ') + ' · ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm');
+  try {
+    var lock = LockService.getScriptLock(); lock.waitLock(20000);
+    try { var s = sh('order'), map = COL.order; if (map.apprNote) list.forEach(function(x){ x.rows.forEach(function(r){ s.getRange(r, map.apprNote).setValue(stamp); }); }); SpreadsheetApp.flush(); bumpVersion(['order']); }
+    finally { lock.releaseLock(); }
+  } catch(e){}
+  try { logAct({ pic:pic }, 'request', 'order', pic, list.length + ' đơn → ' + aps.join(', '), ''); } catch(e){}
+  return { ok:true, sent:list.length, to:to, note:stamp, message:'Đã gửi email xin xác nhận ' + list.length + ' đơn hàng tới ' + aps.map(ordDear_).join(', ') };
+}
+function e_(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){ return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]; }); }
 /* chứng từ đơn hàng: lưu folder "Sales Order docs/<yyyy-MM>" trong folder chứng từ Mở mới của nhóm */
 function orderDoc(user, p){
   var b64 = String(p.b64 || '').replace(/^data:[^,]*,/, ''); if (!b64) return { ok:false, error:'Chưa có file' };
