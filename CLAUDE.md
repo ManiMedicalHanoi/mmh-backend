@@ -75,11 +75,8 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   `MMH_MonthlyKeys.gs` v2.0 (3 nhóm + MMH Monthly Meeting FYxx, dọn key cũ trống 1 lần `MK_CLEAN_V2`). `Event_Sync.gs` v1.1 (Task Result gọn, `evsLinks_` đọc link thật, `meta.f`).
   Training `RH_CustList.gs`: sheet **Customer list** (Dealer + Distributor của CRM Dental ▸ 1. CUSTOMER CODE, mỗi giờ, trigger `tclSync` tự cài qua `tclTick_`),
   cột M = Master!F + khách ⇒ danh sách thả xuống của Target Audience (cột K) mọi sheet Training Report FYxx. Chạy tay: `tclSyncNow()`.
-- **Học online bằng video + câu hỏi AI (15/10/2026, training `RH_ELearn.gs`, HUB v3.20)**: sheet **HUB_Videos** (video gắn buổi đào tạo; file MP4 ở GitHub Pages
-  `Training-Hub/media/`, danh mục `media/catalog.json`) — `hubMaterials` = `hubWithVideos_(hubMaterialsDrive_)` ⇒ video (id `V…`, `src`) đứng đầu lộ trình tự học, dùng chung
-  gate / HUB_Progress / chứng chỉ. `videoSave` (trainer của buổi). `aiQuiz` (Gemini miễn phí, khoá Script Property `GEMINI_API_KEY` do Admin dán qua `aiKey`; `GEMINI_MODEL`
-  tuỳ chọn) đọc lời thoại video (app gửi `text`) + PDF / Slides / PPTX đã chuyển PDF (`fileIds`) ⇒ trả câu hỏi, KHÔNG tự lưu. App Training Hub v3.4.
-- **Hộp cát TEST v1.2 (15/10/2026, `MMH_CrmSandbox.gs`)**: dựng THEO BƯỚC (`SB_STEPS`: copy · wipe · trip · customer · cbc · weekly · order · present · formulas · task · tripRow · finish),
-  mỗi lượt trigger ≤ 4,5 phút (Google dừng lượt chạy ở 6 phút ⇒ trước đây file CRM lớn làm lượt dựng chết ngang, kẹt `building`). Tiến độ ở Script Property `TM_SB_JOB`,
-  nhịp tim `TM_SB_AT`; 6,5 phút không nhịp tim ⇒ `tmInfo` tự chạy tiếp bước đang dở (1 bước kẹt 3 lần ⇒ lỗi). `tmInfo` trả `stepNo/steps/stepName`; lỗi của bản cũ (`TM_SB_EVER` ≠ `SBX_VER`) ⇒ app tự dựng lại.
-  1 ảnh mẫu / PIC (không tạo 1 file / lượt đi địa bàn).
+- **Học online bằng video + chứng chỉ khi học xong (15/10/2026, training `RH_ELearn.gs`, HUB v3.21)**: sheet **HUB_Videos** (video gắn buổi đào tạo; file MP4 ở GitHub Pages
+  `Training-Hub/media/`, danh mục `media/catalog.json`) — `hubMaterials` = `hubWithVideos_(hubMaterialsDrive_)` ⇒ video (id `V…`, `src`) đứng đầu tuyến bài. `videoSave` (trainer của buổi).
+  **Chứng chỉ = học xong 100% tuyến bài** (người dùng yêu cầu): video ≥ 70% (app đếm giây đã xem, gửi `done`), tài liệu đọc hết trang ⇒ `apiTrackProgress` gọi `hubStudyDone_` (ngoài khoá)
+  ⇒ HUB_Enrollment Completed/Pass + `hubIssueCertificate(…, 'study')` + email; trả `cert` / `sessionDone`. Bài kiểm tra KHÔNG cấp chứng chỉ (`HUB_CERT_BY_QUIZ = false`).
+  Tạo câu hỏi bằng AI đã BỎ (người dùng yêu cầu). App Training Hub v4.0.
