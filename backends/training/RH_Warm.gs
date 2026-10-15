@@ -1,5 +1,5 @@
 /* ════════════════════════════════════════════════════════════════════
-   Training Hub · RH_Warm.gs  (v1.0 — 15/10/2026)
+   Training Hub · RH_Warm.gs  (v1.1 — 15/10/2026: bỏ khoá ghi — v1.0 làm thao tác ghi báo "bận")
    GIỮ BỘ NHỚ ĐỆM LUÔN "NÓNG" — người dùng mở app / mở khoá học không phải chờ máy chủ đọc Sheet / Drive.
    · Trigger hwWarm mỗi 5 phút (tự cài 1 lần qua hwTick_ trong hubDispatch, Script Property HW_TRIG):
        ① đọc lại các bảng dùng chung (buổi đào tạo, người dùng, ghi danh, tiến độ, bài KT, video, nhóm sản phẩm)
@@ -10,7 +10,7 @@
    · Chạy tay trong trình soạn: hwWarm() — trả về tóm tắt.
    ════════════════════════════════════════════════════════════════════ */
 
-var HW = { VER: '1', EVERY_MIN: 5, BUDGET_MS: 150000, MAT_MAX: 12, PAST_DAYS: 120, NEXT_DAYS: 45 };
+var HW = { VER: '1', EVERY_MIN: 5, BUDGET_MS: 90000, MAT_MAX: 12, PAST_DAYS: 120, NEXT_DAYS: 45 };
 
 /** Các bảng dùng chung: [khoá đệm, hàm đọc] */
 function hwTables_() {
@@ -27,8 +27,11 @@ function hwTables_() {
 
 function hwWarm() {
   var t0 = Date.now(), out = { tables: 0, mats: 0, matsCached: 0, errors: [] };
-  var lock = LockService.getScriptLock();
-  if (!lock.tryLock(2000)) return 'Lượt làm nóng trước chưa xong — bỏ qua.';
+  /* ★ v1.1 — KHÔNG dùng LockService (khoá ghi): v1.0 giữ khoá tới 150 giây ⇒ thao tác ghi của người dùng (tạo buổi, lưu tiến độ…)
+     chờ 25 giây rồi báo "Hệ thống đang bận". Chống chạy chồng bằng cờ CacheService. */
+  var sc = CacheService.getScriptCache();
+  if (sc.get('hw:run')) return 'Lượt làm nóng trước chưa xong — bỏ qua.';
+  sc.put('hw:run', String(t0), 240);
   try {
     HUB_CTX = { test: false, tester: null };
     /* ① bảng dùng chung: xoá đệm cũ rồi đọc lại ⇒ đệm mới đủ hạn tới lượt sau */
@@ -51,7 +54,7 @@ function hwWarm() {
         if (m && !m.pending) out.mats++;
       } catch (e) { out.errors.push(s.sid + ': ' + e); }
     }
-  } finally { lock.releaseLock(); }
+  } finally { try { sc.remove('hw:run'); } catch (e) {} }
   out.ms = Date.now() - t0;
   try { PropertiesService.getScriptProperties().setProperty('HW_LAST', JSON.stringify({ at: new Date().toISOString(), r: out })); } catch (e) {}
   if (out.errors.length) try { console.error('[hwWarm] ' + out.errors.join(' | ')); } catch (e) {}
