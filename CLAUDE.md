@@ -75,3 +75,8 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   `MMH_MonthlyKeys.gs` v2.0 (3 nhóm + MMH Monthly Meeting FYxx, dọn key cũ trống 1 lần `MK_CLEAN_V2`). `Event_Sync.gs` v1.1 (Task Result gọn, `evsLinks_` đọc link thật, `meta.f`).
   Training `RH_CustList.gs`: sheet **Customer list** (Dealer + Distributor của CRM Dental ▸ 1. CUSTOMER CODE, mỗi giờ, trigger `tclSync` tự cài qua `tclTick_`),
   cột M = Master!F + khách ⇒ danh sách thả xuống của Target Audience (cột K) mọi sheet Training Report FYxx. Chạy tay: `tclSyncNow()`.
+- **Học online bằng video + câu hỏi AI (15/10/2026, training `RH_ELearn.gs`, HUB v3.20)**: sheet **HUB_Videos** (video gắn buổi đào tạo; file MP4 ở GitHub Pages
+  `Training-Hub/media/`, danh mục `media/catalog.json`) — `hubMaterials` = `hubWithVideos_(hubMaterialsDrive_)` ⇒ video (id `V…`, `src`) đứng đầu lộ trình tự học, dùng chung
+  gate / HUB_Progress / chứng chỉ. `videoSave` (trainer của buổi). `aiQuiz` (Gemini miễn phí, khoá Script Property `GEMINI_API_KEY` do Admin dán qua `aiKey`; `GEMINI_MODEL`
+  tuỳ chọn) đọc lời thoại video (app gửi `text`) + PDF / Slides / PPTX đã chuyển PDF (`fileIds`) ⇒ trả câu hỏi, KHÔNG tự lưu. App Training Hub v3.4.
+
