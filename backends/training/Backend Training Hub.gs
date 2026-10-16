@@ -170,7 +170,8 @@
 
 var HUB = {
 
-  VERSION: '3.27',   // ★ 15/10/2026 — RH_Warm.gs v1.1: làm nóng đệm KHÔNG giữ khoá ghi (v3.26 làm thao tác ghi báo bận)
+  VERSION: '3.28',   // ★ 16/10/2026 — asLearner cho cả trainer (nút Học thử như học viên)
+  /* v3.27 */   // ★ 15/10/2026 — RH_Warm.gs v1.1: làm nóng đệm KHÔNG giữ khoá ghi (v3.26 làm thao tác ghi báo bận)
 
   /** ★ v3.4 — Khoá kết nối từ Report Hub (phải trùng TRAINING_RH_KEY trong index.html của Report Hub).
    *  Đổi khoá: đặt Script Property RH_BRIDGE_KEY (ưu tiên hơn giá trị ở đây) và sửa cả 2 phía. */
@@ -658,7 +659,7 @@ function hubDispatch(action, p) {
         if (user.role !== 'admin') return {ok:false, error:'Chế độ Test chỉ dành cho Admin.', code:'FORBIDDEN'};
         HUB_CTX.test = true; HUB_CTX.tester = user;
       }
-      if (user.role === 'admin' && hubBool(p.asLearner)) user.asLearner = true;   // Admin đóng vai học viên
+      if (hubBool(p.asLearner) && (user.role === 'admin' || hubIsTrainer(user))) user.asLearner = true;   // Admin đóng vai học viên · ★ v3.28: trainer / Admin "Học thử như học viên" trên khoá thật (tính tiến độ + cấp chứng chỉ)
     }
     var fn = hubFnRef(route.fn);
     if (typeof fn !== 'function') return {ok:false, error:'Chức năng chưa được cài đặt: ' + route.fn};
