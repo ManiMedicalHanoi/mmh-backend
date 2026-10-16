@@ -171,3 +171,33 @@ function hubStudyDone_(sid, user) {
   hubLog('INFO', 'studyDone', sid + ' ' + user.email + ' — học xong ' + n + '/' + total, cert ? cert.url : '');
   return {done: true, n: n, total: total, cert: cert ? {url: cert.url, certNo: cert.certNo, emailed: cert.emailed} : null};
 }
+
+
+/* ★ v3.29 (16/10/2026) — NÚT "NHẬN CHỨNG CHỈ" (action claimCert, p.sid)
+   · Đã có chứng chỉ ⇒ gửi lại email chứng chỉ (file cũ).
+   · Chưa có ⇒ kiểm học xong 100% tuyến bài (hubStudyDone_) ⇒ tạo chứng chỉ + email; chưa xong ⇒ báo còn bao nhiêu bài.
+   · Trainer / Admin của khoá: cần bật "Học thử như học viên" (asLearner=1). */
+function apiClaimCert(p, user) {
+  var sid = hubNorm(p.sid), s = hubFindSession(sid);
+  if (!s) return {ok: false, error: 'Không tìm thấy khoá học.'};
+  if (hubCanEdit(s, user) && !user.asLearner) return {ok: false, code: 'TRAINER', error: 'Bạn là trainer / Admin của khoá này — bật "Học thử như học viên" và học xong để nhận chứng chỉ.'};
+  var e = hubFindEnroll(sid, user.email);
+  if (e && e.certUrl) {
+    try {
+      var fid = (String(e.certUrl).match(/[-\w]{25,}/) || [])[0];
+      var m0 = hubMaterials(s, {cacheOnly: true}), tot = m0 && m0.files ? m0.files.length : 0;
+      hubSendCertificateEmail(s, user, 100, tot, tot, DriveApp.getFileById(fid), e.certNo || '', hubGetConfig(), 'study');
+      return {ok: true, already: true, certUrl: e.certUrl, emailed: true, message: 'Bạn đã có chứng chỉ — đã gửi lại vào email ' + hubMailOf(user.email) + '.'};
+    } catch (err) {
+      hubLog('WARN', 'claimCert', 'Gửi lại email chứng chỉ lỗi: ' + err.message, sid);
+      return {ok: true, already: true, certUrl: e.certUrl, emailed: false, message: 'Bạn đã có chứng chỉ — mở link để xem (chưa gửi lại được email).'};
+    }
+  }
+  var st = hubStudyDone_(sid, user);
+  if (!st) return {ok: false, code: 'PENDING', error: 'Máy chủ đang đọc danh sách bài học của khoá — thử lại sau 1–2 phút.'};
+  if (!st.done) return {ok: false, code: 'NOT_DONE', n: st.n, total: st.total, error: 'Bạn mới học xong ' + st.n + '/' + st.total + ' bài — học xong toàn bộ (video ≥ 70%, tài liệu đọc hết trang) để nhận chứng chỉ.'};
+  var url = st.certUrl || (st.cert && st.cert.url) || '';
+  if (!url) return {ok: false, error: 'Chưa tạo được chứng chỉ — vui lòng thử lại hoặc báo Admin.'};
+  return {ok: true, certUrl: url, emailed: !!(st.cert && st.cert.emailed), certNo: st.cert ? st.cert.certNo : '',
+          message: st.cert && st.cert.emailed ? 'Đã cấp chứng chỉ và gửi vào email ' + hubMailOf(user.email) + '.' : 'Đã cấp chứng chỉ.'};
+}

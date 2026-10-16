@@ -170,7 +170,8 @@
 
 var HUB = {
 
-  VERSION: '3.28',   // ★ 16/10/2026 — asLearner cho cả trainer (nút Học thử như học viên)
+  VERSION: '3.29',   // ★ 16/10/2026 — claimCert: nút Nhận chứng chỉ (tạo / gửi lại chứng chỉ qua email)
+  /* v3.28 */   // ★ 16/10/2026 — asLearner cho cả trainer (nút Học thử như học viên)
   /* v3.27 */   // ★ 15/10/2026 — RH_Warm.gs v1.1: làm nóng đệm KHÔNG giữ khoá ghi (v3.26 làm thao tác ghi báo bận)
 
   /** ★ v3.4 — Khoá kết nối từ Report Hub (phải trùng TRAINING_RH_KEY trong index.html của Report Hub).
@@ -543,6 +544,7 @@ var HUB_ROUTES = {
   'sessionResults'  : {fn:'apiSessionResults',  auth:2},   // ★ v2
   'resendCert'      : {fn:'apiResendCert',      auth:2},
   'videoSave'       : {fn:'apiVideoSave',       auth:2},   // ★ v3.20 — video bài giảng (RH_ELearn.gs)
+  'claimCert'       : {fn:'apiClaimCert',       auth:1},   // ★ v3.29 — nút Nhận chứng chỉ (RH_ELearn.gs)
   'videoPublish'    : {fn:'apiVideoPublish',    auth:2},   // ★ v3.25 — video tải từ app ⇒ GitHub Pages (RH_HubCourse.gs)
   'imgPublish'      : {fn:'apiImgPublish',      auth:2},   // ★ v3.25 — ảnh bìa khoá học / ảnh giao diện
   'sessionMeta'     : {fn:'apiSessionMeta',     auth:2},   // ★ v3.25 — nhóm sản phẩm / ảnh bìa của khoá học
