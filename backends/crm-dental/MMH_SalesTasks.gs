@@ -9,8 +9,10 @@
    · Báo cáo tuần / tháng vẫn tách riêng: đi địa bàn (6. WEEKLY REPORT) và Công việc khác (sheet này).
    · v1.1 (13/10/2026): app gửi expect (tên việc) ⇒ No lệch thì tìm lại theo tên, không thấy ⇒ báo "đã đổi — tải lại" (không ghi / xoá nhầm dòng);
      thêm việc luôn có ngày bắt đầu (mặc định hôm nay) + hạn (mặc định = ngày bắt đầu); cập nhật không xoá trắng ngày; mọi lệnh ghi chống trùng theo rid.
+   · v1.2 (16/10/2026): Sales chỉ dùng 3 Key task cố định theo tháng (Báo cáo và kế hoạch · Trực fanpage và tư vấn · Tuyển sinh sự kiện Tmm.yyyy, hết FY68);
+     không tạo / đổi tên key khác, không thêm sub vào key khác (quản lý / Director / HOD / Admin vẫn tự do). Thêm key đã có ⇒ dùng lại.
    ════════════════════════════════════════════════════════════════════════════════════════ */
-var ST = { VER:'1.1', SHEET:'ALL TASK', HDR:5, DATA:7, W:21,
+var ST = { VER:'1.2', SHEET:'ALL TASK', HDR:5, DATA:7, W:21,
   HEAD:['No','FY','Month','Type','Key Task','Sub Task','PIC','Task result / Link','Start','Planned Deadline','Revised Deadline',
         'Leadtime','Status','% Progress','Actual finish','Behavior','Priority','Priority mail at','','Sync key','Sync meta'],
   ACTIONS:{ weekly:1, boot:1, addKey:1, addSub:1, updateKey:1, updateSub:1, updateProgress:1, updateStatus:1, deleteKey:1, deleteSub:1, atImport:1 } };
@@ -135,8 +137,31 @@ function stRollup_(keyNo){
     stWrite_(k.row, o); _ST = null; return true;
   }catch(e){ return null; }
 }
+
+/* ⭐ v1.2 (16/10/2026, người dùng yêu cầu) — Công việc khác của Sales chỉ còn 3 Key task CỐ ĐỊNH theo tháng, tới hết FY68:
+   "Báo cáo và kế hoạch Tmm.yyyy" · "Trực fanpage và tư vấn Tmm.yyyy" · "Tuyển sinh sự kiện Tmm.yyyy".
+   Sales (không phải quản lý) không tạo / đổi tên Key task khác. Thêm key đã có (cùng tên + PIC) ⇒ trả về key đó, không tạo trùng. */
+var ST_FIXED = ['Báo cáo và kế hoạch', 'Trực fanpage và tư vấn', 'Tuyển sinh sự kiện'], ST_FIXED_FROM = '202609', ST_FIXED_TO = '202708';
+function stFixedOf_(name){
+  var m = /^(.*?)\s+T(\d{1,2})[.\/](\d{4})$/.exec(stS_(name)); if(!m) return null;
+  var base = ST_FIXED.filter(function(b){ return stNorm_(b) === stNorm_(m[1]); })[0]; if(!base) return null;
+  var mm = ('0' + (+m[2])).slice(-2), ym = m[3] + mm;
+  if(+m[2] < 1 || +m[2] > 12 || ym < ST_FIXED_FROM || ym > ST_FIXED_TO) return null;
+  return { name: base + ' T' + mm + '.' + m[3], ym: ym, start: m[3] + '-' + mm + '-01',
+           end: Utilities.formatDate(new Date(+m[3], +mm, 0), stTz_(), 'yyyy-MM-dd') };
+}
+function stFree_(me){ return me.role === 'manager' || /director|hod|admin/i.test(String(me.level || '') + ' ' + String(me.title || '')) || !!me.admin; }
+function stFixedErr_(){ return 'Công việc khác chỉ dùng 3 Key task cố định theo tháng: ' + ST_FIXED.join(' · ') + ' (vd. "' + ST_FIXED[0] + ' T10.2026"). Chọn trong danh sách trên app.'; }
 function stAddKey_(me, p){
   var name = stS_(p.keyTask); if(!name) throw new Error('Thiếu tên Key task');
+  var fx = stFixedOf_(name);
+  if(!fx && !stFree_(me)) throw new Error(stFixedErr_());
+  if(fx){
+    name = fx.name; p.start = fx.start; p.planned = fx.end;
+    var who = stS_(p.pic) || me.pic;
+    var ex = stRead_().keys.filter(function(k){ return stNorm_(k.keyTask) === stNorm_(name) && stNorm_(k.pic) === stNorm_(who); })[0];
+    if(ex) return stResp_('Key task đã có — dùng lại ' + ex.no, ex.row);
+  }
   var L = stLock_(), row;
   try{
     var sh = stSheet_(); row = stLastRow_() + 1;
@@ -156,6 +181,7 @@ function stAddSub_(me, p){
   try{
     var key = stFind_(p.parentNo, p.parentName || p.expectKey, '');
     if(!key || !key.subs) throw new Error('Không tìm thấy Key task ' + p.parentNo + ' — tải lại rồi thử lại.');
+    if(!stFixedOf_(key.keyTask) && !stFree_(me)) throw new Error(stFixedErr_());   /* v1.2 — sub chỉ thêm vào 3 key cố định */
     var sh = stSheet_(), after = stKeyEnd_(key);
     sh.insertRowsAfter(after, 1); row = after + 1;
     sh.getRange(row, 2, 1, ST.W).clearContent();
@@ -175,7 +201,11 @@ function stUpdate_(me, p, isKey){
     t = stFind_(p.no, p.expect, p.expectPic); if(!t) throw new Error('Không tìm thấy task ' + p.no + ' — tải lại rồi thử lại.');
     stCanEdit_(me, t.pic);
     var o = {};
-    if(isKey && p.keyTask !== undefined) o.keyTask = stS_(p.keyTask);
+    if(isKey && p.keyTask !== undefined && stNorm_(p.keyTask) !== stNorm_(t.keyTask)){
+      var fx2 = stFixedOf_(p.keyTask);
+      if(!fx2 && !stFree_(me)) throw new Error(stFixedErr_());
+      o.keyTask = fx2 ? fx2.name : stS_(p.keyTask);
+    }
     if(!isKey && p.name !== undefined) o.subTask = stS_(p.name);
     ['type','pic','result','start','planned','revised'].forEach(function(f){ if(p[f] !== undefined && !(f === 'type' && !isKey)) o[f] = p[f]; });
     if(o.start !== undefined && !stIso_(o.start)) delete o.start;          /* v1.1 — cập nhật không bao giờ xoá trắng ngày */

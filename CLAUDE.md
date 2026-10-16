@@ -116,3 +116,6 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   (`HUB_CERT_BY_QUIZ = true`, `hubStudyDone_` trả `needQuiz`, `apiClaimCert` cần đạt bài); không có bài ⇒ như cũ. Training Report: Completed cần cột Q (Assessment Result) — trừ Coaching / External —
   Hub có bài nộp ⇒ tự điền "Bài KT Hub: x/y đạt · điểm TB z" (`hubTestCells_`), P = link bài trên Hub. Kết quả (Google Sheet) + lối tắt chứng chỉ vào thư mục con
   "Kết quả bài kiểm tra & Chứng chỉ" của thư mục buổi (không tính là bài học). `saveSession` / `rhSaveSession` nhận `assessment` / `assessmentResult`.
+- **Công việc khác của Sales = 3 Key task cố định (16/10/2026, `MMH_SalesTasks.gs` v1.2, crm-dental / surgical / eyeless)**: `ST_FIXED` = Báo cáo và kế hoạch · Trực fanpage và tư vấn · Tuyển sinh sự kiện,
+  tên `<loại> Tmm.yyyy` (09/2026 → 08/2027 = FY68). Sales (không phải quản lý / Director / HOD / Admin — `stFree_`) không tạo / đổi tên key khác, không thêm sub vào key khác; thêm key đã có
+  (cùng tên + PIC) ⇒ trả về key đó; start / hạn = đầu / cuối tháng. App CRM v32.5 chỉ cho chọn 3 key của đúng tháng.
