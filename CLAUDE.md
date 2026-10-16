@@ -109,3 +109,10 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   trainer / Admin của khoá cần `asLearner`. App v4.9: nút ở dòng Chứng chỉ trang khoá học.
 - **Bảng xếp hạng học viên (16/10/2026, HUB v3.30, `RH_Leaderboard.gs` ▸ action `leaderboard`, mọi người đăng nhập)**: điểm = 100 × chứng chỉ + 10 × bài học xong, tính cả khoá không được giao
   (mọi thành viên thấy mọi khoá, học / lấy chứng chỉ bất kỳ lúc nào); bỏ khoá Cancel, tài khoản ngừng / TEST; trả `items` (rank, certs, lessons, tháng này, `done` = sid) + `courses` (số người hoàn thành). Đệm `lb` 10 phút. App v5.0: trang Xếp hạng.
+- **16/10/2026 — CRM v10.14 (crm-dental / surgical / eyeless `Mã.gs`)**: `saveOrders` đơn MỚI cần lịch sử chăm sóc (`ordCareCheck_`: tab 6 cùng account, Completed, 30 ngày trước ngày đặt ⇒ không có trả
+  `code:'NOCARE'`), ghi xong email thư thường tới Giám đốc (`ordNewMail_`, `TF.DIRECTOR`). `wkApplyRule_`: Visiting chỉ Completed khi có Result · Feedback · Next action. KPI C3 (tab 9 + dashboard):
+  `visitOk_` = Visiting · Completed · có ảnh · ≤ hôm nay · không TBD; công thức COUNTIFS thêm `R="Complete*"`, tab đã dựng được vá 1 lần ở ping/boot (`k68VisitPatch_`, Script Property `K68_VIS_V`).
+- **16/10/2026 — Training Hub v3.31 (`RH_Assess.gs`)**: bài kiểm tra bật lại — `hubGate` chỉ xét VIDEO (≥ 70%, tài liệu không còn là điều kiện); khoá có bài đang mở ⇒ chứng chỉ khi đạt PassScore
+  (`HUB_CERT_BY_QUIZ = true`, `hubStudyDone_` trả `needQuiz`, `apiClaimCert` cần đạt bài); không có bài ⇒ như cũ. Training Report: Completed cần cột Q (Assessment Result) — trừ Coaching / External —
+  Hub có bài nộp ⇒ tự điền "Bài KT Hub: x/y đạt · điểm TB z" (`hubTestCells_`), P = link bài trên Hub. Kết quả (Google Sheet) + lối tắt chứng chỉ vào thư mục con
+  "Kết quả bài kiểm tra & Chứng chỉ" của thư mục buổi (không tính là bài học). `saveSession` / `rhSaveSession` nhận `assessment` / `assessmentResult`.

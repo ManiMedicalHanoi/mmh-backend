@@ -170,7 +170,7 @@
 
 var HUB = {
 
-  VERSION: '3.30',   // ★ 16/10/2026 — leaderboard: bảng xếp hạng học viên (RH_Leaderboard.gs)
+  VERSION: '3.31',   // ★ 16/10/2026 — v3.31 bài kiểm tra bật lại (RH_Assess.gs) · v3.30 leaderboard: bảng xếp hạng học viên (RH_Leaderboard.gs)
                      // 3.29 — claimCert: nút Nhận chứng chỉ (tạo / gửi lại chứng chỉ qua email)
   /* v3.28 */   // ★ 16/10/2026 — asLearner cho cả trainer (nút Học thử như học viên)
   /* v3.27 */   // ★ 15/10/2026 — RH_Warm.gs v1.1: làm nóng đệm KHÔNG giữ khoá ghi (v3.26 làm thao tác ghi báo bận)
@@ -1780,6 +1780,8 @@ function hubReadSessionsRaw() {
       meetingLink: hubNorm(g(r, C.MEETING_LINK)),
       recordLink : recUrl,
       summary    : hubNorm(g(r, C.SUMMARY)),
+      assessment : hubNorm(g(r, C.ASSESSMENT)),                 // ★ v3.31 — P link bài kiểm tra
+      assessmentResult: hubNorm(g(r, C.ASSESSMENT_RESULT)),     // ★ v3.31 — Q kết quả test
       quizStatus : hubNorm(g(r, C.QUIZ_STATUS)) || 'None',
       preSent    : hubBool(g(r, C.PRE_TRAINING)),
       afterSent  : hubBool(g(r, C.AFTER_TRAINING)),
@@ -2072,8 +2074,20 @@ function apiSaveSession(p, user) {
     if (hubIsCoaching(vals[1]) && vals[7] === 'Completed' && (isNew || existing.status !== 'Completed')) {
       if (isNew || !hubCoachReview_(existing).hasPdf) return {ok:false, code:'COACH_PDF', error:hubCoachNeedPdfMsg_()};
     }
+    // ★ v3.31 (16/10/2026) — Completed cần KẾT QUẢ BÀI KIỂM TRA (cột Q) — trừ Coaching / External; Hub có bài nộp ⇒ tự điền
+    var testCells = null;
+    if (p.assessment !== undefined || p.assessmentResult !== undefined) {
+      var pq0 = isNew ? ['', ''] : sh.getRange(row, C.ASSESSMENT, 1, 2).getValues()[0];
+      testCells = [p.assessment === undefined ? pq0[0] : hubNorm(p.assessment), p.assessmentResult === undefined ? pq0[1] : hubNorm(p.assessmentResult)];
+    }
+    if (vals[7] === 'Completed' && hubNeedTestResult_(vals[1]) && (isNew || existing.status !== 'Completed')) {
+      var qRes = testCells ? hubNorm(testCells[1]) : (isNew ? '' : hubNorm(existing.assessmentResult));
+      if (!qRes && !isNew) { var sm = hubTestSummary_(sid); if (sm) { qRes = sm; testCells = testCells || sh.getRange(row, C.ASSESSMENT, 1, 2).getValues()[0]; testCells[1] = sm; if (!hubNorm(testCells[0])) testCells[0] = hubTestLink_(sid); } }
+      if (!qRes) return {ok:false, code:'NEED_TEST', error:hubTestNeedMsg_()};
+    }
     sh.getRange(row, C.DATE, 1, width).setValues([vals]);
     sh.getRange(row, C.SID).setValue(sid);
+    if (testCells) sh.getRange(row, C.ASSESSMENT, 1, 2).setValues([testCells]);
     if (p.timeFrom !== undefined || p.timeTo !== undefined) {
       sh.getRange(row, C.TIME_FROM, 1, 2).setValues([[hubNorm(p.timeFrom), hubNorm(p.timeTo)]]);
     }
@@ -2100,9 +2114,12 @@ function apiSaveSession(p, user) {
     if (p.line !== undefined || p.cover !== undefined) { try { hubMetaSet_(sid, {line: p.line, cover: p.cover}, user); } catch (e) { hubLog('ERROR', 'sessionMeta', sid, e.message); } }
     hubCacheClear('sessions');
     hubSyncEnrollment(sid, topic, vals[6]);
-    return {ok:true, sid:sid, isNew:isNew, folder:folderInfo, moved:moved, audience:vals[6], status:vals[7], date:date, trashed:trashed};
+    return {ok:true, sid:sid, isNew:isNew, folder:folderInfo, moved:moved, audience:vals[6], status:vals[7], date:date, trashed:trashed,
+            toCompleted: vals[7] === 'Completed' && (isNew || existing.status !== 'Completed')};
   });
   if (!result.ok) return result;
+  // ★ v3.31 — buổi vừa Completed ⇒ bảng kết quả bài kiểm tra vào thư mục đào tạo
+  if (result.toCompleted) { try { hubTestExport_(result.sid, {create: true}); } catch (e) { hubLog('WARN', 'testExport', result.sid + ': ' + e.message, ''); } }
 
   // Thông báo trong ứng dụng cho học viên khi có buổi đào tạo MỚI sắp diễn ra
   if (result.isNew && result.status === 'Plan') {
@@ -3327,6 +3344,7 @@ function apiTrackProgress(p, user) {
       var st = hubStudyDone_(sid, user);
       if (st && st.done) { res.sessionDone = true; res.cert = st.cert || null; res.certUrl = st.certUrl || (st.cert && st.cert.url) || ''; }
       if (st) res.study = {done: st.n || 0, total: st.total || 0};
+      if (st && st.needQuiz) { res.needQuiz = true; res.quizReady = !!st.quizReady; }
     } catch (e) { hubLog('ERROR', 'studyDone', 'Lỗi kiểm hoàn thành ' + sid + ': ' + e.message, user.email); }
   }
   return res;
@@ -3825,7 +3843,8 @@ function hubGate(s, cfg, user, force) {
   if (!m || m.pending) return {required:true, passed:false, pending:true, total:0, done:0, missing:[], optional:optional};
   var opt = {};
   optional.forEach(function(id){ opt[id] = 1; });
-  var req = m.files.filter(function(f){ return !opt[f.id]; });
+  // ★ v3.31 — chỉ VIDEO là điều kiện mở bài (xem ≥ 70% thời lượng mỗi video); khoá không có video ⇒ làm bài ngay
+  var req = m.files.filter(function(f){ return !opt[f.id] && (f.isVideo || f.kind === 'video'); });
   var pre = hubPrefix(user.email), done = {};
   hubReadProgress().forEach(function(x){ if (x.email === pre && x.sid === s.sid && x.completed) done[x.fileId] = 1; });
   var missing = req.filter(function(f){ return !done[f.id]; }).map(function(f){ return {id:f.id, name:f.name, path:f.path}; });
@@ -4071,7 +4090,8 @@ function apiQuizSubmit(p, user) {
 
   // --- chứng chỉ (ngoài khoá — tạo PDF + gửi email mất vài giây) ---
   var cert = null;
-  if (pass && HUB_CERT_BY_QUIZ) {                  // ★ v3.21: tắt — chứng chỉ cấp khi học xong tuyến bài
+  var hadCert = (function(){ try { var e0 = hubFindEnroll(sid, user.email); return e0 && e0.certUrl ? e0.certUrl : ''; } catch (e) { return ''; } })();
+  if (pass && HUB_CERT_BY_QUIZ && !hadCert && !(hubCanEdit(s, user) && !user.asLearner)) {   // ★ v3.31: bật lại — đạt điểm trainer yêu cầu ⇒ chứng chỉ
     try {
       cert = hubIssueCertificate(s, user, percent, score, maxScore);
       hubWithLock(function(){
@@ -4086,6 +4106,7 @@ function apiQuizSubmit(p, user) {
   }
 
   hubLog('INFO', 'quizSubmit', sid + ' ' + user.email + ' = ' + percent + '% ' + (pass ? 'PASS' : 'FAIL'), '');
+  hubTestSync_(sid);                                  // ★ v3.31 — P/Q + bảng kết quả trong thư mục đào tạo
 
   var usedAll = saved.attemptNo >= cfg.maxAttempts;
   return {
@@ -4094,7 +4115,7 @@ function apiQuizSubmit(p, user) {
     durationSec:durationSec, attemptNo:saved.attemptNo, maxAttempts:cfg.maxAttempts,
     canRetry: !pass && !usedAll && cfg.active,
     detail: cfg.showResult ? detail : [],
-    certificate: cert,
+    certificate: cert, certUrl: (cert && cert.url) || hadCert || '',
     message: overtime ? 'Bài làm quá thời gian quy định nên không được tính đạt.'
                       : (pass ? 'Chúc mừng! Bạn đã hoàn thành bài kiểm tra.' : 'Bạn chưa đạt điểm yêu cầu (' + cfg.passScore + '%).')
   };
@@ -4241,6 +4262,7 @@ function hubIssueCertificate(session, user, percent, score, maxScore, kind) {
   var file = folder.createFile(pdf);
   try { file.setSharing(DriveApp.Access.DOMAIN_WITH_LINK, DriveApp.Permission.VIEW); } catch (e) {}
   var result = {id:file.getId(), name:file.getName(), url:file.getUrl(), certNo:certNo, emailed:false};
+  if (!HUB_CTX.test) hubCertToFolder_(session, file);          // ★ v3.31 — lối tắt chứng chỉ trong thư mục đào tạo của buổi
 
   if (hubBool(cfg.ENABLE_CERT_EMAIL)) {
     try {
@@ -5328,7 +5350,7 @@ function apiRhSaveSession(p) {
   else u = hubRhActor(p, true);                                   // tạo mới: Team Leader / Manager / Director
   return hubRhOnce(p, function(){
     var q = {};
-    ['sid','topic','purpose','date','timeFrom','timeTo','category','type','trainer','audience','meetingLink'].forEach(function(k){ if (p[k] !== undefined) q[k] = p[k]; });
+    ['sid','topic','purpose','date','timeFrom','timeTo','category','type','trainer','audience','meetingLink','assessment','assessmentResult'].forEach(function(k){ if (p[k] !== undefined) q[k] = p[k]; });
     if (!hubNorm(p.sid)) q.status = 'Plan';
     else if (hubNorm(p.status)) q.status = p.status;
     q.createFolder = '0';

@@ -62,15 +62,16 @@ function hubWithVideos_(s, m) {
   if (!m || m.pending || !s) return m;
   var vids = hubVideosOf_(s.sid);
   // ★ v3.25 — file gốc của video tải từ app nằm ở thư mục Drive "Video bài giảng" ⇒ không tính là tài liệu riêng (đã phát qua GitHub)
-  var isRaw = function(f){ return (f.pathArr && f.pathArr[0] === HUB_VID_FOLDER) || f.path === HUB_VID_FOLDER; };
-  var hasRaw = (m.files || []).some(isRaw);
+  var isRaw = function(f){ var p0 = (f.pathArr && f.pathArr[0]) || f.path; return p0 === HUB_VID_FOLDER || p0 === HUB_RES_FOLDER || f.path === HUB_VID_FOLDER || f.path === HUB_RES_FOLDER; };
+  var hasRaw = (m.files || []).some(isRaw) || (m.folders || []).some(function(x){ return x.name === HUB_RES_FOLDER; });
   if (!vids.length && !hasRaw) return m;
   var out = {};
   for (var k in m) if (m.hasOwnProperty(k)) out[k] = m[k];
   out.files = vids.map(hubVideoFile_).concat((m.files || []).filter(function(f){ return !f.isVideo && !isRaw(f); }));
+  out.folders = (m.folders || []).filter(function(x){ return x.name !== HUB_RES_FOLDER && (x.pathArr || [])[0] !== HUB_RES_FOLDER; });   // ★ v3.31
   if (!vids.length) return out;
   out.folders = [{id: 'videos', name: HUB_VID_FOLDER, path: HUB_VID_FOLDER, pathArr: [HUB_VID_FOLDER], url: '', virtual: true}]
-    .concat(m.folders || []);
+    .concat(out.folders);
   out.videoCount = vids.length;
   if (out.noAccess || !out.folderUrl) out.message = out.message || '';
   return out;
@@ -143,7 +144,7 @@ function apiVideoSave(p, user) {
 //  - Trainer của buổi (không đóng vai học viên) không nhận chứng chỉ của buổi mình dạy.
 // ============================================================================
 
-var HUB_CERT_BY_QUIZ = false;
+var HUB_CERT_BY_QUIZ = true;   // ★ v3.31 (16/10/2026) — bật lại: khoá có bài kiểm tra ⇒ chứng chỉ khi đạt điểm (RH_Assess.gs)
 
 /** Đã học xong mọi bài của buổi chưa; xong ⇒ ghi Completed + cấp chứng chỉ (1 lần). */
 function hubStudyDone_(sid, user) {
@@ -155,6 +156,11 @@ function hubStudyDone_(sid, user) {
   var pre = hubPrefix(user.email), done = {};
   hubReadProgressRaw().forEach(function(x){ if (x.email === pre && x.sid === sid && x.completed) done[x.fileId] = 1; });
   var total = m.files.length, n = m.files.filter(function(f){ return done[f.id]; }).length;
+  // ★ v3.31 — khoá có bài kiểm tra: không cấp chứng chỉ khi học xong, mà mở bài kiểm tra (đủ video ≥ 70%)
+  if (hubHasQuiz_(sid)) {
+    var vids = m.files.filter(function(f){ return f.isVideo || f.kind === 'video'; });
+    return {done: false, needQuiz: true, n: n, total: total, quizReady: vids.every(function(f){ return done[f.id]; })};
+  }
   if (n < total) return {done: false, n: n, total: total};
   var e = hubFindEnroll(sid, user.email);
   if (e && e.certUrl) return {done: true, n: n, total: total, certUrl: e.certUrl, already: true};
@@ -192,6 +198,17 @@ function apiClaimCert(p, user) {
       hubLog('WARN', 'claimCert', 'Gửi lại email chứng chỉ lỗi: ' + err.message, sid);
       return {ok: true, already: true, certUrl: e.certUrl, emailed: false, message: 'Bạn đã có chứng chỉ — mở link để xem (chưa gửi lại được email).'};
     }
+  }
+  // ★ v3.31 — khoá có bài kiểm tra: chứng chỉ khi ĐẠT bài kiểm tra
+  if (hubHasQuiz_(sid)) {
+    var qs = hubMyQuizStatusObj(sid, user);
+    if (!qs.passed) return {ok: false, code: 'NEED_QUIZ', error: 'Khoá học này có bài kiểm tra — làm bài và đạt từ ' + qs.passScore + '/100 điểm để nhận chứng chỉ' + (qs.gate && qs.gate.total && !qs.gate.passed ? ' (mở sau khi xem ≥ 70% mỗi video)' : '') + '.'};
+    try {
+      var best = qs.best || {}, cq = hubIssueCertificate(s, user, best.percent || 100, best.score || 100, best.maxScore || 100);
+      hubUpsertEnroll(sid, s.topic, user.email, {certUrl: cq.url, certSentAt: new Date()});
+      hubTestSync_(sid);
+      return {ok: true, certUrl: cq.url, emailed: !!cq.emailed, certNo: cq.certNo, message: cq.emailed ? 'Đã cấp chứng chỉ và gửi vào email ' + hubMailOf(user.email) + '.' : 'Đã cấp chứng chỉ.'};
+    } catch (err) { return {ok: false, error: 'Chưa tạo được chứng chỉ: ' + err.message}; }
   }
   var st = hubStudyDone_(sid, user);
   if (!st) return {ok: false, code: 'PENDING', error: 'Máy chủ đang đọc danh sách bài học của khoá — thử lại sau 1–2 phút.'};
