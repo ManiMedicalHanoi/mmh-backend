@@ -107,3 +107,5 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   App v4.8: nút "Học thử như học viên" ở dòng Chứng chỉ của trang khoá học (chỉ trainer / Admin của khoá), bật theo từng khoá (`localStorage.mmh_hub_aslearn`).
 - **Nút Nhận chứng chỉ (16/10/2026, HUB v3.29, `RH_ELearn.gs` ▸ `apiClaimCert`, action `claimCert` p.sid)**: đã có chứng chỉ ⇒ gửi lại email (file cũ); chưa có ⇒ `hubStudyDone_` (học xong 100%) ⇒ tạo + email; chưa xong ⇒ `NOT_DONE` n/total;
   trainer / Admin của khoá cần `asLearner`. App v4.9: nút ở dòng Chứng chỉ trang khoá học.
+- **Bảng xếp hạng học viên (16/10/2026, HUB v3.30, `RH_Leaderboard.gs` ▸ action `leaderboard`, mọi người đăng nhập)**: điểm = 100 × chứng chỉ + 10 × bài học xong, tính cả khoá không được giao
+  (mọi thành viên thấy mọi khoá, học / lấy chứng chỉ bất kỳ lúc nào); bỏ khoá Cancel, tài khoản ngừng / TEST; trả `items` (rank, certs, lessons, tháng này, `done` = sid) + `courses` (số người hoàn thành). Đệm `lb` 10 phút. App v5.0: trang Xếp hạng.
