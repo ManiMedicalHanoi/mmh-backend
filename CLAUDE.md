@@ -103,3 +103,5 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   bảng dùng chung (sessions / users / enroll / progress / qcfg / videos / smeta) + danh sách tài liệu Drive của khoá đang dùng (120 ngày trước → 45 ngày tới, ≤ 12 khoá / lượt, chỉ khoá chưa có đệm).
   `HUB.CACHE_TTL` = 900 (ghi vẫn tự xoá đệm). Kết quả lượt cuối: Script Property `HW_LAST`. Chạy tay: `hwWarm()`.
   **KHÔNG dùng LockService trong hwWarm** (v1.1 / HUB v3.27): v1.0 giữ khoá ghi tới 150 s ⇒ tạo buổi / lưu tiến độ báo "bận"; chống chạy chồng bằng cờ CacheService `hw:run`.
+- **Học thử như học viên (16/10/2026, HUB v3.28)**: `asLearner=1` nhận cho cả trainer (trước chỉ Admin) ⇒ `hubStudyDone_` / cổng bài KT tính như học viên trên KHOÁ THẬT ⇒ học xong được cấp chứng chỉ thật + email.
+  App v4.8: nút "Học thử như học viên" ở dòng Chứng chỉ của trang khoá học (chỉ trainer / Admin của khoá), bật theo từng khoá (`localStorage.mmh_hub_aslearn`).
