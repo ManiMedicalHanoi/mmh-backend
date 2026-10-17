@@ -124,3 +124,5 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
 - **Cầu nối Turnover (17/10/2026, training `RH_Turnover.gs`, HUB v3.32)**: web app `turnover` deploy quyền **DOMAIN** (không đổi được qua repo) ⇒ trình duyệt đăng nhập Gmail khác / nhiều tài khoản /
   Safari không đọc được. Action `rhTurnover` (rhKey + phiên `tk`, `op` = getTurnoverData · getNppDetail · getMeta · getExplanations, `fy` / `seg` / `fresh`) ⇒ UrlFetch web app Turnover bằng
   `ScriptApp.getOAuthToken()` của chủ Training Hub, đệm 3 phút. CRM v32.7 tự dùng khi đọc trực tiếp lỗi.
+- **17/10/2026 — sửa #ERROR! KPI viếng thăm (crm-dental / surgical / eyeless `Mã.gs`)**: `k68VisitPatch_` v1013 chèn `R,"Complete*"` vào CUỐI công thức ⇒ ô có COUNTIFS nằm trong IF / IFERROR… lỗi.
+  `K68_VIS_VER = '1017'` + `k68VisFix_` / `k68VisInside_` / `k68VisHas_`: gỡ phần chèn sai, chèn lại vào ĐÚNG bên trong COUNTIFS chứa "Visiting" (bỏ qua chuỗi trong ngoặc kép); chạy 1 lần ở ping / boot.

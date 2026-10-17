@@ -6102,8 +6102,36 @@ function visitOk_(w){
   var d = wkIso_(w.start); if (!d || d > wkToday_()) return false;
   return !!S(w.photo);
 }
+/* thêm  R,"Complete*"  vào ĐÚNG bên trong COUNTIFS(...) chứa "Visiting" (bỏ qua chuỗi trong ngoặc kép); gỡ bản chèn sai ở cuối công thức trước đó */
+function k68VisFix_(f){
+  var m = /('[^']*WEEKLY[^']*'!\$R\$\d+:\$R\$\d+)/i.exec(f); if (!m) return '';
+  var bad = new RegExp(',' + m[1].replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ',"Complete\\*"\\)\\s*$');
+  var g = f;
+  if (bad.test(g)) { var g2 = g.replace(bad, ')'); if (k68VisInside_(g2) < 0 || !k68VisHas_(g2)) g = g2; }
+  if (k68VisHas_(g)) return g;
+  var at = k68VisInside_(g); if (at < 0) return '';
+  return g.slice(0, at) + ',' + m[1] + ',"Complete*"' + g.slice(at);
+}
+/* vị trí dấu ")" đóng COUNTIFS( đầu tiên có "Visiting" */
+function k68VisInside_(f){
+  var re = /COUNTIFS\(/ig, x;
+  while ((x = re.exec(f))) {
+    var i = x.index + x[0].length, d = 1, q = false;
+    for (; i < f.length; i++) {
+      var ch = f.charAt(i);
+      if (ch === '"') { q = !q; continue; }
+      if (q) continue;
+      if (ch === '(') d++;
+      else if (ch === ')') { d--; if (!d) break; }
+    }
+    if (!d && f.slice(x.index, i).indexOf('"Visiting"') >= 0) return i;
+  }
+  return -1;
+}
+/* "Complete*" đã nằm bên trong COUNTIFS chưa */
+function k68VisHas_(f){ var at = k68VisInside_(f); if (at < 0) return false; var st = f.lastIndexOf('COUNTIFS(', at); return f.slice(st, at).indexOf('"Complete*"') >= 0; }
 /* tab 9 đã dựng: thêm điều kiện Status = Completed vào công thức đếm Visiting (1 lần, không dựng lại tab) */
-var K68_VIS_KEY = 'K68_VIS_V', K68_VIS_VER = '1013';
+var K68_VIS_KEY = 'K68_VIS_V', K68_VIS_VER = '1017';   /* 17/10/2026 — v1013 chèn điều kiện vào CUỐI công thức ⇒ ô có COUNTIFS nằm trong IF / IFERROR… báo #ERROR!; 1017 gỡ & chèn lại đúng chỗ */
 function k68VisitPatch_(){
   if (typeof sbOn_ === 'function' && sbOn_()) return '';
   var P = props_(); if (P.getProperty(K68_VIS_KEY) === K68_VIS_VER) return '';
@@ -6113,9 +6141,8 @@ function k68VisitPatch_(){
   var rg = s.getRange(1, 1, lr, lc), F = rg.getFormulas(), n = 0;
   for (var r = 0; r < F.length; r++) for (var k = 0; k < F[r].length; k++){
     var f = F[r][k];
-    if (!f || !/COUNTIFS\(/i.test(f) || f.indexOf('"Visiting"') < 0 || f.indexOf('"Complete*"') >= 0) continue;
-    var m = /('[^']*WEEKLY[^']*'!\$R\$\d+:\$R\$\d+)/i.exec(f); if (!m) continue;
-    var nf = f.replace(/\)\s*$/, ',' + m[1] + ',"Complete*")'); if (nf === f) continue;
+    if (!f || !/COUNTIFS\(/i.test(f) || f.indexOf('"Visiting"') < 0) continue;
+    var nf = k68VisFix_(f); if (!nf || nf === f) continue;
     s.getRange(r + 1, k + 1).setFormula(nf); n++;
   }
   P.setProperty(K68_VIS_KEY, K68_VIS_VER);
