@@ -482,6 +482,7 @@ function handle(e, method){
       if (_rid && WRITE_ACTIONS[action]) idemEnd_(_rid, out);
       return reply(out, callback);
     }
+    if (action === 'k68Diag') return reply(k68Diag_(p), callback);   /* 17/10/2026 — chẩn đoán ô #ERROR! KPI viếng thăm (chỉ đọc; fix=1 chạy lại bản vá) */
     if (action === 'kpiPush') return reply({ ok:true, kpiPush:k68PushQuick_() }, callback);
     if (action === 'kpiLate') return reply(kpiLate_(user, p), callback);               /* ⭐ v10.4 */
 
@@ -6130,6 +6131,21 @@ function k68VisInside_(f){
 }
 /* "Complete*" đã nằm bên trong COUNTIFS chưa */
 function k68VisHas_(f){ var at = k68VisInside_(f); if (at < 0) return false; var st = f.lastIndexOf('COUNTIFS(', at); return f.slice(st, at).indexOf('"Complete*"') >= 0; }
+/* chẩn đoán: liệt kê ô lỗi của tab 9 + công thức; fix=1 ⇒ chạy lại k68VisitPatch_ ngay */
+function k68Diag_(p){
+  var out = { ok:true, ver:props_().getProperty(K68_VIS_KEY) || '', want:K68_VIS_VER };
+  if (String(p.fix || '') === '1'){ props_().deleteProperty(K68_VIS_KEY); try { CacheService.getScriptCache().remove('K68_VIS_TRY'); } catch(e){} out.patched = k68VisitPatch_(); }
+  var s = kpiTab_(); if (!s) { out.err = 'no kpi tab'; return out; }
+  SpreadsheetApp.flush();
+  var lr = s.getLastRow(), lc = s.getLastColumn(), F = s.getRange(1, 1, lr, lc).getFormulas(), D = s.getRange(1, 1, lr, lc).getDisplayValues(), bad = [], vis = [];
+  for (var r = 0; r < F.length; r++) for (var k = 0; k < F[r].length; k++){
+    if (/^#/.test(D[r][k]) && bad.length < 4) bad.push({ a1:s.getRange(r + 1, k + 1).getA1Notation(), d:D[r][k], f:F[r][k] });
+    if (F[r][k] && F[r][k].indexOf('"Visiting"') >= 0 && vis.length < 2) vis.push({ a1:s.getRange(r + 1, k + 1).getA1Notation(), d:D[r][k], f:F[r][k] });
+  }
+  out.bad = bad; out.vis = vis; out.nBad = 0;
+  for (var r2 = 0; r2 < D.length; r2++) for (var k2 = 0; k2 < D[r2].length; k2++) if (/^#/.test(D[r2][k2])) out.nBad++;
+  return out;
+}
 /* tab 9 đã dựng: thêm điều kiện Status = Completed vào công thức đếm Visiting (1 lần, không dựng lại tab) */
 var K68_VIS_KEY = 'K68_VIS_V', K68_VIS_VER = '1017';   /* 17/10/2026 — v1013 chèn điều kiện vào CUỐI công thức ⇒ ô có COUNTIFS nằm trong IF / IFERROR… báo #ERROR!; 1017 gỡ & chèn lại đúng chỗ */
 function k68VisitPatch_(){
