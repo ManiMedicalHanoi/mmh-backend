@@ -860,8 +860,32 @@ function atRollup_(keyNo){
     return { keyNo: k.no, progress: avg, status: st };
   }catch(e){ return null; }
 }
+/* ⭐ 17/10/2026 — Other tasks of the sales team: ONLY 5 fixed key tasks per month (same rule as the VN CRM, English names):
+   "Reports & Plans · Fanpage & Consulting · Event Enrolment · Training & Research · Others" + " MM/yyyy" (FY68: 09/2026 → 08/2027).
+   Sales (role pic / lead) cannot create or rename other key tasks, nor add sub tasks under them; managers / Admin are free.
+   Adding a fixed key that already exists for the same PIC returns that key (no duplicate). */
+var AT_FIXED = ['Reports & Plans', 'Fanpage & Consulting', 'Event Enrolment', 'Training & Research', 'Others'], AT_FIXED_FROM = '202609', AT_FIXED_TO = '202708';
+function atNorm_(s){ return String(s || '').toLowerCase().replace(/&/g, ' and ').replace(/\s+/g, ' ').trim(); }
+function atFixedOf_(name){
+  var m = /^(.*?)\s+(?:T|M)?(\d{1,2})[.\/](\d{4})$/.exec(str_(name)); if(!m) return null;
+  var base = AT_FIXED.filter(function(b){ return atNorm_(b) === atNorm_(m[1]); })[0]; if(!base) return null;
+  var mm = ('0' + (+m[2])).slice(-2), ym = m[3] + mm;
+  if(+m[2] < 1 || +m[2] > 12 || ym < AT_FIXED_FROM || ym > AT_FIXED_TO) return null;
+  return { name: base + ' ' + mm + '/' + m[3], start: m[3] + '-' + mm + '-01',
+           end: Utilities.formatDate(new Date(+m[3], +mm, 0), Session.getScriptTimeZone(), 'yyyy-MM-dd') };
+}
+function atFree_(user){ var u = USERS[(user && user.pic) || ''] || {}; return u.role === 'manager'; }   /* Dao (lead) & Miew follow the fixed list */
+function atFixedErr_(){ return 'Other tasks only use the fixed monthly key tasks: ' + AT_FIXED.join(' · ') + ' (e.g. "' + AT_FIXED[0] + ' 10/2026"). Pick one in the app.'; }
 function atAddKey_(user, p){
   var name = str_(p.keyTask); if(!name) throw new Error('Key task name is required');
+  var fx = atFixedOf_(name);
+  if(!fx && !atFree_(user)) throw new Error(atFixedErr_());
+  if(fx){
+    name = fx.name; p.start = fx.start; p.planned = fx.end;
+    var who = str_(p.pic) || user.pic;
+    var ex = atRead_().keys.filter(function(k){ return atNorm_(k.keyTask) === atNorm_(name) && atNorm_(k.pic) === atNorm_(who); })[0];
+    if(ex) return atResp_('Key task already exists — using ' + ex.no, ex.row);
+  }
   var L = lock_(), row;
   try{
     var s = sh_(CFG.SH_ALL); row = atLastRow_() + 1;
@@ -882,6 +906,7 @@ function atAddSub_(user, p){
     var key = atFind_(p.parentNo);
     if(!key || !key.subs) throw new Error('Key task ' + p.parentNo + ' not found — reload and try again.');
     if(key.vSrc) throw new Error('This key task is synced from 6. CUSTOMER VISITING — add a visit there instead.');
+    if(!atFixedOf_(key.keyTask) && !atFree_(user)) throw new Error(atFixedErr_());
     var s = sh_(CFG.SH_ALL), after = atKeyEnd_(key);
     s.insertRowsAfter(after, 1); row = after + 1;
     s.getRange(row, 2, 1, AT_W).clearContent();
@@ -901,7 +926,11 @@ function atUpdate_(user, p, isKey){
     t = atFind_(p.no); if(!t) throw new Error('Task ' + p.no + ' not found — reload and try again.');
     atCanEdit_(user, t);
     var o = {};
-    if(isKey && p.keyTask !== undefined) o.keyTask = str_(p.keyTask);
+    if(isKey && p.keyTask !== undefined && atNorm_(p.keyTask) !== atNorm_(t.keyTask)){
+      var fx2 = atFixedOf_(p.keyTask);
+      if(!fx2 && !atFree_(user)) throw new Error(atFixedErr_());
+      o.keyTask = fx2 ? fx2.name : str_(p.keyTask);
+    }
     if(!isKey && p.name !== undefined) o.subTask = str_(p.name);
     ['type','pic','result','start','planned','revised'].forEach(function(f){ if(p[f] !== undefined && !(f === 'type' && !isKey)) o[f] = p[f]; });
     var f = atStatusFix_(p.status, p.progress);
