@@ -170,7 +170,7 @@
 
 var HUB = {
 
-  VERSION: '3.31',   // ★ 16/10/2026 — v3.31 bài kiểm tra bật lại (RH_Assess.gs) · v3.30 leaderboard: bảng xếp hạng học viên (RH_Leaderboard.gs)
+  VERSION: '3.32',   // ★ 17/10/2026 — v3.32 rhTurnover: cầu nối đọc file Turnover cho CRM · 16/10/2026 — v3.31 bài kiểm tra bật lại (RH_Assess.gs) · v3.30 leaderboard: bảng xếp hạng học viên (RH_Leaderboard.gs)
                      // 3.29 — claimCert: nút Nhận chứng chỉ (tạo / gửi lại chứng chỉ qua email)
   /* v3.28 */   // ★ 16/10/2026 — asLearner cho cả trainer (nút Học thử như học viên)
   /* v3.27 */   // ★ 15/10/2026 — RH_Warm.gs v1.1: làm nóng đệm KHÔNG giữ khoá ghi (v3.26 làm thao tác ghi báo bận)
@@ -597,7 +597,8 @@ var HUB_ROUTES = {
   'rhUpdSign'       : {fn:'apiRhUpdSign',       auth:0},  // ★ v3.18 — chữ ký email cập nhật của người gửi (xem trước)
   // ★ 13/10/2026 — RH_CustTrain.gs: bằng chứng Coaching (PDF Review) + đào tạo khách hàng (T&E) từ CRM
   'rhCoachReview'   : {fn:'apiRhCoachReview',   auth:0},
-  'rhCustTrain'     : {fn:'apiRhCustTrain',     auth:0}
+  'rhCustTrain'     : {fn:'apiRhCustTrain',     auth:0},
+  'rhTurnover'      : {fn:'apiRhTurnover',      auth:0}    // ★ v3.32 — đọc file Turnover giúp CRM (RH_Turnover.gs)
 };
 
 /** Lấy tham chiếu hàm theo tên — an toàn cho cả runtime V8 và Rhino */

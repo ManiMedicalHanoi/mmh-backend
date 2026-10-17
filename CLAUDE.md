@@ -121,3 +121,6 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   (cùng tên + PIC) ⇒ trả về key đó; start / hạn = đầu / cuối tháng. App CRM v32.5 chỉ cho chọn 3 key của đúng tháng.
   v1.3 (17/10/2026): thêm key thứ 4 **Đào tạo và nghiên cứu**. **crm-thai** (`Mã.gs` ▸ `AT_FIXED` / `atFixedOf_` / `atFree_`): cùng luật, tên tiếng Anh
   `Reports & Plans · Fanpage & Consulting · Event Enrolment · Training & Research · Others` + ` MM/yyyy`; chỉ role `manager` tự do (Dao lead + Miew theo danh sách).
+- **Cầu nối Turnover (17/10/2026, training `RH_Turnover.gs`, HUB v3.32)**: web app `turnover` deploy quyền **DOMAIN** (không đổi được qua repo) ⇒ trình duyệt đăng nhập Gmail khác / nhiều tài khoản /
+  Safari không đọc được. Action `rhTurnover` (rhKey + phiên `tk`, `op` = getTurnoverData · getNppDetail · getMeta · getExplanations, `fy` / `seg` / `fresh`) ⇒ UrlFetch web app Turnover bằng
+  `ScriptApp.getOAuthToken()` của chủ Training Hub, đệm 3 phút. CRM v32.7 tự dùng khi đọc trực tiếp lỗi.
