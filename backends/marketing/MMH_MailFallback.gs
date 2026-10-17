@@ -18,7 +18,7 @@ function mmhMailApi_(o) {
   var code = res.getResponseCode();
   if (code >= 200 && code < 300) { try { console.log('mmhMailApi_: gửi qua Gmail API · ' + (o.subject || '')); } catch (e) {} return; }
   try { console.warn('mmhMailApi_ ' + code + ': ' + res.getContentText().slice(0, 300)); } catch (e) {}
-  throw new Error('Hôm nay hệ thống đã gửi hết số email Google cho phép (hạn mức theo ngày). Vui lòng thử lại sau 7 giờ sáng mai hoặc báo Admin.');
+  throw new Error('Hệ thống đã gửi hết số email Google cho phép trong 24 giờ qua — email này chưa được gửi. Hạn mức tự phục hồi dần trong vòng 24 giờ; vui lòng thử lại sau hoặc báo Admin.');
 }
 function mmhB64_(bytesOrStr) {
   var b = typeof bytesOrStr === 'string' ? Utilities.newBlob(bytesOrStr).getBytes() : bytesOrStr;

@@ -27,7 +27,7 @@ function mmhMailObj_(a, b, c, d) {
    sẽ tự gửi lại qua Gmail API của cùng tài khoản (hạn mức riêng của Gmail). Không có ⇒ báo câu dễ hiểu. */
 function mmhQuotaErr_(e) { return /too many times|quota|Service invoked|Dịch vụ được gọi quá nhiều/i.test(String((e && e.message) || e || '')); }
 function mmhRcpt_(o) { var n = 0; ['to', 'cc', 'bcc'].forEach(function (k) { if (o && o[k]) n += String(o[k]).split(',').filter(function (x) { return x.trim(); }).length; }); return n; }
-function mmhFriendly_() { return new Error('Hôm nay hệ thống đã gửi hết số email Google cho phép (hạn mức theo ngày). Vui lòng thử lại sau 7 giờ sáng mai hoặc báo Admin.'); }
+function mmhFriendly_() { return new Error('Hệ thống đã gửi hết số email Google cho phép trong 24 giờ qua — email này chưa được gửi. Hạn mức tự phục hồi dần trong vòng 24 giờ; vui lòng thử lại sau hoặc báo Admin.'); }
 function mmhSendObj_(o) {
   var api = (typeof mmhMailApi_ === 'function');
   if (api) { try { if (MailApp.getRemainingDailyQuota() < Math.max(1, mmhRcpt_(o))) return mmhMailApi_(o); } catch (_q) {} }
