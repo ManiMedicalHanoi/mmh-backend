@@ -487,7 +487,7 @@ function handle(e, method){
     if (action === 'kpiLate') return reply(kpiLate_(user, p), callback);               /* ⭐ v10.4 */
 
     switch (action) {
-      case 'ping'            : out = { ok:true, pong:true, source:TEAM(), app:appName_(), pic:user.pic, ver:'10.14', sandbox:true, careGate:true, visitDone:true, rate:K68_RATE_DEF, dateFix:props_().getProperty('CRM_DATEFIX_LOG') || '', orderApproval:true, presentTpl:true, migrate:props_().getProperty('CRM_LAYOUT_V') || '', meeting:true, trip2:true, kpi68:true, tenderPrice:true, custLog:true, deleteAccount:true, na:true, kr:true, idem:true, kpiPush:true }; break;
+      case 'ping'            : out = { ok:true, pong:true, source:TEAM(), app:appName_(), pic:user.pic, ver:'10.15', rpStatus:true, sandbox:true, careGate:true, visitDone:true, rate:K68_RATE_DEF, dateFix:props_().getProperty('CRM_DATEFIX_LOG') || '', orderApproval:true, presentTpl:true, migrate:props_().getProperty('CRM_LAYOUT_V') || '', meeting:true, trip2:true, kpi68:true, tenderPrice:true, custLog:true, deleteAccount:true, na:true, kr:true, idem:true, kpiPush:true }; break;
       case 'boot'            : out = boot(user); break;
       case 'master'          : out = { ok:true, master: readMaster() }; break;
       case 'customerIndex'   : out = { ok:true, rows: customerIndex() }; break;
@@ -530,6 +530,7 @@ function handle(e, method){
       case 'saveRates'       : out = saveRates(user, p); break;               /* ⭐ v10.1 */
 
       case 'weeklyReport'    : out = sendWeeklyReport(user, p); break;
+      case 'rpStatus'        : out = rpStatus_(); break;
       case 'monthlyReport'   : out = sendMonthlyReport(user, p); break;
       default: out = { ok:false, error:'Unknown action: ' + action };
     }
@@ -2724,6 +2725,7 @@ function sendWeeklyReport(user, p){
     var blob  = HtmlService.createHtmlOutput(html).getBlob().getAs('application/pdf')
                   .setName('MMH_' + teamLabel_() + '_Weekly_' + t.pic.replace(/\s+/g, '') + '_' + thisFrom + '.pdf');
     if (!t.test) { var sv = savePdfToDrive_(blob); if (!sv.ok) pdfErrs.push(t.pic + ': ' + sv.error); }
+    if (!t.test) rpMark_(t.pic, thisFrom);
     var subject = 'RE: Weekly Report (' + teamLabel_() + ') ' + t.pic + ' — Week ' + fmtVN(thisFrom) + '–' + fmtVN(thisTo) + (t.test ? ' (test)' : '');
     var toField, ccField;
     if (t.test){ toField = t.email; ccField = ''; }
@@ -2747,6 +2749,27 @@ function sendWeeklyReport(user, p){
     : option === 'team' ? ('Đã gửi báo cáo tuần của ' + user.pic + ' tới team (CC: Tuyen, Nguyen Ha, Giang)' + suffix)
     : option === 'pic'  ? ('Đã gửi báo cáo tuần của ' + sent[0] + suffix)
     : ('Đã gửi báo cáo tuần (thử) tới ' + sent[0] + suffix) };
+}
+
+/* ⭐ v10.15 (17/10/2026) — ghi nhận tuần đã gửi báo cáo của từng PIC (Script Property RPW_<pic> = "yyyy-MM-dd|giờ gửi").
+ * App CRM v33.1 đọc rpStatus ⇒ khung "Cần xử lý" trên Dashboard hiện PIC chưa gửi báo cáo tuần trước. */
+function rpPfx_(){ try{ return tmSb_() ? 'RPWSB_' : 'RPW_'; }catch(e){ return 'RPW_'; } }   /* hộp cát TEST ghi riêng */
+function rpMark_(pic, from){
+  try{
+    try{ if (tmOn_()) return; }catch(_e){}
+    pic = S(pic); from = S(from).slice(0, 10); if (!pic || !/^\d{4}-\d{2}-\d{2}$/.test(from)) return;
+    var pr = props_(), k = rpPfx_() + pic, old = S(pr.getProperty(k)).split('|')[0];
+    if (old && old > from) return;
+    pr.setProperty(k, from + '|' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm'));
+  }catch(e){}
+}
+function rpStatus_(){
+  var all = props_().getProperties(), sent = {}, pf = rpPfx_();
+  Object.keys(all).forEach(function(k){
+    if (k.indexOf(pf) !== 0) return;
+    var v = S(all[k]).split('|'); sent[k.slice(pf.length)] = { from:v[0] || '', at:v[1] || '' };
+  });
+  return { ok:true, sent:sent };
 }
 
 /* ══════════════════════ BÁO CÁO THÁNG ══════════════════════
