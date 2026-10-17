@@ -128,3 +128,5 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   `K68_VIS_VER = '1017'` + `k68VisFix_` / `k68VisInside_` / `k68VisHas_`: gỡ phần chèn sai, chèn lại vào ĐÚNG bên trong COUNTIFS chứa "Visiting" (bỏ qua chuỗi trong ngoặc kép); chạy 1 lần ở ping / boot.
   ⚠️ Bài học (17/10/2026): file CRM định dạng VN ⇒ `getFormulas()` trả dấu `;`; ghi công thức bằng `setFormula` dùng `,`. Sửa công thức đã có phải chuẩn hoá dấu trước (`k68Comma_`), không chèn `,` vào chuỗi `;`.
   v1018 đã vá xong 3 file (0 ô lỗi). Chẩn đoán: workflow **Kiểm tra** ▸ ping `crm-dental?action=k68Diag` (thêm `&fix=1` để chạy lại bản vá).
+- **17/10/2026 — CRM v10.15 (crm-dental / surgical / eyeless `Mã.gs`)**: `sendWeeklyReport` gửi thật (team / all / pic) ⇒ `rpMark_` ghi Script Property `RPW_<pic>` = "tuần (thứ Hai) | giờ gửi" (chỉ giữ tuần mới nhất;
+  hộp cát TEST ghi `RPWSB_`, chế độ TEST cũ bỏ qua). Action đọc `rpStatus` ⇒ `{sent:{pic:{from,at}}}` — app CRM v33.1 dùng cho khung "Cần xử lý" (PIC chưa gửi báo cáo tuần trước).
