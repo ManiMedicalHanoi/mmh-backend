@@ -8,6 +8,11 @@
         "userSymbol": "Slides",
         "serviceId": "slides",
         "version": "v1"
+      },
+      {
+        "userSymbol": "Gmail",
+        "serviceId": "gmail",
+        "version": "v1"
       }
     ]
   },
