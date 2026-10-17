@@ -11,8 +11,9 @@
      thêm việc luôn có ngày bắt đầu (mặc định hôm nay) + hạn (mặc định = ngày bắt đầu); cập nhật không xoá trắng ngày; mọi lệnh ghi chống trùng theo rid.
    · v1.2 (16/10/2026): Sales chỉ dùng 3 Key task cố định theo tháng (Báo cáo và kế hoạch · Trực fanpage và tư vấn · Tuyển sinh sự kiện Tmm.yyyy, hết FY68);
      không tạo / đổi tên key khác, không thêm sub vào key khác (quản lý / Director / HOD / Admin vẫn tự do). Thêm key đã có ⇒ dùng lại.
+   · v1.3 (17/10/2026): thêm key thứ 4 "Đào tạo và nghiên cứu" (nghiên cứu sản phẩm, đối thủ, thông tin thị trường, đào tạo).
    ════════════════════════════════════════════════════════════════════════════════════════ */
-var ST = { VER:'1.2', SHEET:'ALL TASK', HDR:5, DATA:7, W:21,
+var ST = { VER:'1.3', SHEET:'ALL TASK', HDR:5, DATA:7, W:21,
   HEAD:['No','FY','Month','Type','Key Task','Sub Task','PIC','Task result / Link','Start','Planned Deadline','Revised Deadline',
         'Leadtime','Status','% Progress','Actual finish','Behavior','Priority','Priority mail at','','Sync key','Sync meta'],
   ACTIONS:{ weekly:1, boot:1, addKey:1, addSub:1, updateKey:1, updateSub:1, updateProgress:1, updateStatus:1, deleteKey:1, deleteSub:1, atImport:1 } };
@@ -139,9 +140,9 @@ function stRollup_(keyNo){
 }
 
 /* ⭐ v1.2 (16/10/2026, người dùng yêu cầu) — Công việc khác của Sales chỉ còn 3 Key task CỐ ĐỊNH theo tháng, tới hết FY68:
-   "Báo cáo và kế hoạch Tmm.yyyy" · "Trực fanpage và tư vấn Tmm.yyyy" · "Tuyển sinh sự kiện Tmm.yyyy".
+   "Báo cáo và kế hoạch Tmm.yyyy" · "Trực fanpage và tư vấn Tmm.yyyy" · "Tuyển sinh sự kiện Tmm.yyyy" · "Đào tạo và nghiên cứu Tmm.yyyy".
    Sales (không phải quản lý) không tạo / đổi tên Key task khác. Thêm key đã có (cùng tên + PIC) ⇒ trả về key đó, không tạo trùng. */
-var ST_FIXED = ['Báo cáo và kế hoạch', 'Trực fanpage và tư vấn', 'Tuyển sinh sự kiện'], ST_FIXED_FROM = '202609', ST_FIXED_TO = '202708';
+var ST_FIXED = ['Báo cáo và kế hoạch', 'Trực fanpage và tư vấn', 'Tuyển sinh sự kiện', 'Đào tạo và nghiên cứu'], ST_FIXED_FROM = '202609', ST_FIXED_TO = '202708';
 function stFixedOf_(name){
   var m = /^(.*?)\s+T(\d{1,2})[.\/](\d{4})$/.exec(stS_(name)); if(!m) return null;
   var base = ST_FIXED.filter(function(b){ return stNorm_(b) === stNorm_(m[1]); })[0]; if(!base) return null;
@@ -151,7 +152,7 @@ function stFixedOf_(name){
            end: Utilities.formatDate(new Date(+m[3], +mm, 0), stTz_(), 'yyyy-MM-dd') };
 }
 function stFree_(me){ return me.role === 'manager' || /director|hod|admin/i.test(String(me.level || '') + ' ' + String(me.title || '')) || !!me.admin; }
-function stFixedErr_(){ return 'Công việc khác chỉ dùng 3 Key task cố định theo tháng: ' + ST_FIXED.join(' · ') + ' (vd. "' + ST_FIXED[0] + ' T10.2026"). Chọn trong danh sách trên app.'; }
+function stFixedErr_(){ return 'Công việc khác chỉ dùng ' + ST_FIXED.length + ' Key task cố định theo tháng: ' + ST_FIXED.join(' · ') + ' (vd. "' + ST_FIXED[0] + ' T10.2026"). Chọn trong danh sách trên app.'; }
 function stAddKey_(me, p){
   var name = stS_(p.keyTask); if(!name) throw new Error('Thiếu tên Key task');
   var fx = stFixedOf_(name);

@@ -119,3 +119,5 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
 - **Công việc khác của Sales = 3 Key task cố định (16/10/2026, `MMH_SalesTasks.gs` v1.2, crm-dental / surgical / eyeless)**: `ST_FIXED` = Báo cáo và kế hoạch · Trực fanpage và tư vấn · Tuyển sinh sự kiện,
   tên `<loại> Tmm.yyyy` (09/2026 → 08/2027 = FY68). Sales (không phải quản lý / Director / HOD / Admin — `stFree_`) không tạo / đổi tên key khác, không thêm sub vào key khác; thêm key đã có
   (cùng tên + PIC) ⇒ trả về key đó; start / hạn = đầu / cuối tháng. App CRM v32.5 chỉ cho chọn 3 key của đúng tháng.
+  v1.3 (17/10/2026): thêm key thứ 4 **Đào tạo và nghiên cứu**. **crm-thai** (`Mã.gs` ▸ `AT_FIXED` / `atFixedOf_` / `atFree_`): cùng luật, tên tiếng Anh
+  `Reports & Plans · Fanpage & Consulting · Event Enrolment · Training & Research · Others` + ` MM/yyyy`; chỉ role `manager` tự do (Dao lead + Miew theo danh sách).
