@@ -22,23 +22,38 @@ function mmhMailObj_(a, b, c, d) {
   var o = {}; if (d && typeof d === 'object') for (var k in d) o[k] = d[k];
   o.to = a; o.subject = b; o.body = c; return o;
 }
+/* ⭐ 17/10/2026 — HẠN MỨC EMAIL: Apps Script giới hạn số NGƯỜI NHẬN / ngày cho mỗi tài khoản chạy script (dùng chung mọi dự án).
+   Hết hạn mức ⇒ "Service invoked too many times for one day: email". Backend nào có file MMH_MailFallback.gs (hàm mmhMailApi_)
+   sẽ tự gửi lại qua Gmail API của cùng tài khoản (hạn mức riêng của Gmail). Không có ⇒ báo câu dễ hiểu. */
+function mmhQuotaErr_(e) { return /too many times|quota|Service invoked|Dịch vụ được gọi quá nhiều/i.test(String((e && e.message) || e || '')); }
+function mmhRcpt_(o) { var n = 0; ['to', 'cc', 'bcc'].forEach(function (k) { if (o && o[k]) n += String(o[k]).split(',').filter(function (x) { return x.trim(); }).length; }); return n; }
+function mmhFriendly_() { return new Error('Hôm nay hệ thống đã gửi hết số email Google cho phép (hạn mức theo ngày). Vui lòng thử lại sau 7 giờ sáng mai hoặc báo Admin.'); }
+function mmhSendObj_(o) {
+  var api = (typeof mmhMailApi_ === 'function');
+  if (api) { try { if (MailApp.getRemainingDailyQuota() < Math.max(1, mmhRcpt_(o))) return mmhMailApi_(o); } catch (_q) {} }
+  try { return MailApp.sendEmail(o); }
+  catch (e) {
+    if (!mmhQuotaErr_(e)) throw e;
+    if (api) return mmhMailApi_(o);
+    throw mmhFriendly_();
+  }
+}
 /* MailApp.sendEmail(message) · (recipient, subject, body[, options]) · (to, replyTo, subject, body) */
 function mmhMail_(a, b, c, d) {
-  if (mmhTestOn_()) return MailApp.sendEmail(mmhMailOpts_(tmMailHook_(mmhMailObj_(a, b, c, d))));
-  if (a && typeof a === 'object') return MailApp.sendEmail(mmhMailOpts_(a));
-  if (arguments.length >= 4) {
-    if (typeof d === 'string') return MailApp.sendEmail(mmhAddr_(a), mmhAddr_(b), c, d);
-    return MailApp.sendEmail(mmhAddr_(a), b, c, mmhMailOpts_(d));
-  }
-  return MailApp.sendEmail(mmhAddr_(a), b, c);
+  if (mmhTestOn_()) return mmhSendObj_(mmhMailOpts_(tmMailHook_(mmhMailObj_(a, b, c, d))));
+  return mmhSendObj_(mmhMailOpts_(mmhMailObj_(a, b, c, d)));
 }
 /* GmailApp.sendEmail(recipient, subject, body[, options]) */
 function mmhGmail_(a, b, c, d) {
-  if (mmhTestOn_()) {
-    var o = tmMailHook_(mmhMailObj_(a, b, c, d)), to = o.to, s = o.subject, bd = o.body || '';
-    delete o.to; delete o.subject; delete o.body;
-    return GmailApp.sendEmail(mmhAddr_(to), s, bd, mmhMailOpts_(o));
+  var o = mmhMailObj_(a, b, c, d);
+  if (mmhTestOn_()) o = tmMailHook_(o);
+  o = mmhMailOpts_(o);
+  var to = o.to, s = o.subject, bd = o.body || '', opt = {};
+  for (var k in o) if (k !== 'to' && k !== 'subject' && k !== 'body') opt[k] = o[k];
+  try { return GmailApp.sendEmail(to, s, bd, opt); }
+  catch (e) {
+    if (!mmhQuotaErr_(e)) throw e;
+    if (typeof mmhMailApi_ === 'function') return mmhMailApi_(o);
+    throw mmhFriendly_();
   }
-  if (arguments.length >= 4) return GmailApp.sendEmail(mmhAddr_(a), b, c, mmhMailOpts_(d));
-  return GmailApp.sendEmail(mmhAddr_(a), b, c);
 }

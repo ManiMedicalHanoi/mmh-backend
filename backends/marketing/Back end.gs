@@ -220,7 +220,7 @@ function dispatch(action, user, p){
       case 'ping':          try{ if(typeof rhDateFix_==='function') rhDateFix_(); }catch(_e){}   /* ⭐ 13/10 chuẩn hoá ngày */
                                      try{ if(typeof evsEnsureTriggers_==='function') evsEnsureTriggers_(); }catch(_e){}
                             try{ if(typeof mktaPing_==='function') mktaPing_(); }catch(_e){}   /* ⭐ 13/10/2026: MKT_SheetAuto.gs — chuyển đổi bố cục 2 file MKT (1 lần) */
-                            out = { ok:true, pong:true, pic:user.pic, source:SOURCE }; break;
+                            out = { ok:true, pong:true, pic:user.pic, source:SOURCE }; try{ if(typeof mmhMailInfo_==='function') out.mail=mmhMailInfo_(String(p.mailProbe||'')==='1'); }catch(_e){} break;
       case 'mktAuto':       out = (typeof mktaApi_==='function') ? mktaApi_(user, p) : { ok:false, error:'Thiếu MKT_SheetAuto.gs' }; break;   /* ⭐ 13/10/2026: tự động hoá 2 file MKT */
       case 'eventSync':     out = (typeof evsApiSync==='function') ? evsApiSync(user, p) : { ok:false, error:'Thiếu Event_Sync.gs' }; break;   /* ⭐ 13/10/2026: sự kiện MKT ⇒ key task */
       case 'evList':        out = (typeof evsApiList==='function') ? evsApiList(user, p) : { ok:false, error:'Thiếu Event_Sync.gs v2.0' }; break;   /* ⭐ 15/10/2026: gợi ý tên key sự kiện */
