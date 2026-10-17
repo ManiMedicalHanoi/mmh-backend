@@ -1975,26 +1975,33 @@ function filterKeysForPic(keys, targetPic, from, to, scope){
   }
   var out = [];
   keys.forEach(function(k){
-    var mySubs = (k.subs||[]).filter(function(s){
+    /* ⭐ v12.x (17/10/2026): nhiều dòng KEY TASK có luôn Sub task + Task result ngay trên dòng key
+       (vd. 140 "Ngân sách tháng 10" · Review · "Đã review"). Trước đây chỉ lấy dòng con 140.1… ⇒ email / PDF
+       chỉ còn tiêu đề key + %, mất Task result. Nay dòng key có Sub task / Task result = 1 dòng việc của chính nó. */
+    var hasSelf = !!(String(k.subTask||'').trim() || String(k.result||'').trim());
+    var pureKey = !hasSelf && !(k.subs||[]).length;
+    var self = (hasSelf || (pureKey && !isNext)) ? rptKeySelf_(k) : null;
+    var cand = (self ? [self] : []).concat(k.subs||[]);
+    var mySubs = cand.filter(function(s){
       var sp = String(s.pic||'').trim().toLowerCase();
       var belongs = tp ? (sp===tp || (!sp && String(k.pic||'').trim().toLowerCase()===tp)) : true;
       return belongs && subMatch(s);
     });
-    var keyBelongs = tp ? String(k.pic||'').trim().toLowerCase()===tp : true;
-    /* ⭐ v8.0: key task KHÔNG có sub-task cũng phải qua bộ lọc ngày
-       (trước đây lọt tự do vào phần "This week") */
-    var keyOnly = keyBelongs && (k.subs||[]).length===0 && !isNext && subMatch(k);
-    if(mySubs.length || keyOnly){
+    if(mySubs.length){
       out.push({ no:k.no, keyTask:k.keyTask, type:k.type, pic:k.pic,
                  planned:k.planned, revised:k.revised, progress:k.progress,
-                 /* ⭐ v8.1: % của KEY TASK phải tính trên TOÀN BỘ sub-task (k.subs),
-                    không phải trên mySubs đã lọc theo tuần/PIC — nếu không, key có
-                    4 sub mà tuần này chỉ lọt 1 sub Completed sẽ hiện 100% sai. */
+                 /* ⭐ v8.1: % của KEY TASK tính trên TOÀN BỘ sub-task (k.subs), không phải mySubs đã lọc */
                  __kpct: ktPctGS(k), __ksubs:(k.subs||[]).length,
                  __src:k.__src||'', subs:mySubs });   /* ⭐ v7.2: giữ nhãn nguồn */
     }
   });
   return out;
+}
+/* dòng việc nằm ngay trên dòng key task (Sub task / Task result của chính dòng key) */
+function rptKeySelf_(k){
+  return { no:k.no, name:(String(k.subTask||'').trim() || k.keyTask), subTask:k.subTask, pic:k.pic, result:k.result,
+           start:k.start, planned:k.planned, revised:k.revised, status:k.status, progress:k.progress, actual:k.actual,
+           __self:true, __src:k.__src||'' };
 }
 /* ═══════════════════════════════════════════════════════════════════════════
  * ⭐ v7.2 — WEEKLY REPORT ĐA NGUỒN
