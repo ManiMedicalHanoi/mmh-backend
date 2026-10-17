@@ -2764,12 +2764,14 @@ function rpMark_(pic, from){
   }catch(e){}
 }
 function rpStatus_(){
-  var all = props_().getProperties(), sent = {}, pf = rpPfx_();
+  var pr = props_(), sk = rpPfx_() + '_SINCE';
+  if (!pr.getProperty(sk)) pr.setProperty(sk, Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd'));
+  var all = pr.getProperties(), sent = {}, pf = rpPfx_(), since = S(all[sk]);
   Object.keys(all).forEach(function(k){
-    if (k.indexOf(pf) !== 0) return;
+    if (k.indexOf(pf) !== 0 || k === sk) return;
     var v = S(all[k]).split('|'); sent[k.slice(pf.length)] = { from:v[0] || '', at:v[1] || '' };
   });
-  return { ok:true, sent:sent };
+  return { ok:true, sent:sent, since:since };   /* since = ngày bắt đầu ghi nhận ⇒ app chỉ xét tuần từ đó */
 }
 
 /* ══════════════════════ BÁO CÁO THÁNG ══════════════════════
