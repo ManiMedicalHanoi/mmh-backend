@@ -133,3 +133,7 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
 - **17/10/2026 — Báo cáo tuần Report Hub mất Task result (marketing / backoffice / management `Back end.gs`, `filterKeysForPic` GIỐNG HỆT 3 nơi)**: nhiều dòng KEY TASK có Sub task + Task result
   ngay trên dòng key (vd. 140 "Ngân sách tháng 10" · Review · "Đã review"); trước chỉ lấy dòng con `140.1…` ⇒ email / PDF chỉ còn tiêu đề key + %. Nay `rptKeySelf_(k)` = 1 dòng việc của chính dòng key
   (có Sub task / Task result; key trống hoàn toàn chỉ vào phần tuần này như cũ), lọc tuần + PIC như dòng con.
+- **17/10/2026 — Hạn mức email ngày ("Service invoked too many times for one day: email")**: Apps Script giới hạn số người nhận / ngày cho tài khoản chạy script, DÙNG CHUNG mọi dự án
+  (CRM, Training Hub, Report Hub). `MMH_MailDomain.gs` (GIỐNG HỆT mọi backend) nay qua `mmhSendObj_`: hạn mức còn lại < số người nhận hoặc MailApp báo hết ⇒ gọi `mmhMailApi_` (nếu có), không có ⇒ câu lỗi dễ hiểu.
+  `MMH_MailFallback.gs` (CHỈ marketing / management / training — đã có quyền UrlFetch + Gmail, không thêm quyền mới): gửi lại qua **Gmail API** (`users/me/messages/send`, MIME tự dựng: html, đính kèm, ảnh nhúng `cid:`)
+  bằng `ScriptApp.getOAuthToken()` — hạn mức Gmail riêng. KHÔNG thêm `UrlFetchApp` vào backend chưa dùng (tự nhận quyền ⇒ phải cấp lại quyền, web app hỏng). Chẩn đoán: ping marketing `&mailProbe=1` ⇒ `mail.mailLeft` / `apiProbe`.
