@@ -126,3 +126,5 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   `ScriptApp.getOAuthToken()` của chủ Training Hub, đệm 3 phút. CRM v32.7 tự dùng khi đọc trực tiếp lỗi.
 - **17/10/2026 — sửa #ERROR! KPI viếng thăm (crm-dental / surgical / eyeless `Mã.gs`)**: `k68VisitPatch_` v1013 chèn `R,"Complete*"` vào CUỐI công thức ⇒ ô có COUNTIFS nằm trong IF / IFERROR… lỗi.
   `K68_VIS_VER = '1017'` + `k68VisFix_` / `k68VisInside_` / `k68VisHas_`: gỡ phần chèn sai, chèn lại vào ĐÚNG bên trong COUNTIFS chứa "Visiting" (bỏ qua chuỗi trong ngoặc kép); chạy 1 lần ở ping / boot.
+  ⚠️ Bài học (17/10/2026): file CRM định dạng VN ⇒ `getFormulas()` trả dấu `;`; ghi công thức bằng `setFormula` dùng `,`. Sửa công thức đã có phải chuẩn hoá dấu trước (`k68Comma_`), không chèn `,` vào chuỗi `;`.
+  v1018 đã vá xong 3 file (0 ô lỗi). Chẩn đoán: workflow **Kiểm tra** ▸ ping `crm-dental?action=k68Diag` (thêm `&fix=1` để chạy lại bản vá).
