@@ -130,3 +130,6 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   v1018 đã vá xong 3 file (0 ô lỗi). Chẩn đoán: workflow **Kiểm tra** ▸ ping `crm-dental?action=k68Diag` (thêm `&fix=1` để chạy lại bản vá).
 - **17/10/2026 — CRM v10.15 (crm-dental / surgical / eyeless `Mã.gs`)**: `sendWeeklyReport` gửi thật (team / all / pic) ⇒ `rpMark_` ghi Script Property `RPW_<pic>` = "tuần (thứ Hai) | giờ gửi" (chỉ giữ tuần mới nhất;
   hộp cát TEST ghi `RPWSB_`, chế độ TEST cũ bỏ qua). Action đọc `rpStatus` ⇒ `{sent:{pic:{from,at}}, since}` (`since` = ngày bắt đầu ghi nhận, Script Property `RPW__SINCE`) — app CRM v33.1 dùng cho khung "Cần xử lý" (PIC chưa gửi báo cáo tuần trước).
+- **17/10/2026 — Báo cáo tuần Report Hub mất Task result (marketing / backoffice / management `Back end.gs`, `filterKeysForPic` GIỐNG HỆT 3 nơi)**: nhiều dòng KEY TASK có Sub task + Task result
+  ngay trên dòng key (vd. 140 "Ngân sách tháng 10" · Review · "Đã review"); trước chỉ lấy dòng con `140.1…` ⇒ email / PDF chỉ còn tiêu đề key + %. Nay `rptKeySelf_(k)` = 1 dòng việc của chính dòng key
+  (có Sub task / Task result; key trống hoàn toàn chỉ vào phần tuần này như cũ), lọc tuần + PIC như dòng con.
