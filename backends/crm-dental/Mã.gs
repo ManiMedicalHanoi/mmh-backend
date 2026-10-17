@@ -6104,7 +6104,18 @@ function visitOk_(w){
   return !!S(w.photo);
 }
 /* thêm  R,"Complete*"  vào ĐÚNG bên trong COUNTIFS(...) chứa "Visiting" (bỏ qua chuỗi trong ngoặc kép); gỡ bản chèn sai ở cuối công thức trước đó */
+/* công thức đọc từ file định dạng VN dùng ";" ⇒ đổi về "," (bỏ qua chuỗi trong ngoặc kép); có số thập phân dạng "0,5" thì giữ nguyên */
+function k68Comma_(f){
+  var out = '', q = false, semi = false, comma = false;
+  for (var i = 0; i < f.length; i++){ var ch = f.charAt(i); if (ch === '"') q = !q; else if (!q){ if (ch === ';') semi = true; else if (ch === ',') comma = true; } }
+  if (!semi) return f;
+  if (comma && !/;/.test(f.replace(/"[^"]*"/g, '').replace(/,'[^']*WEEKLY[^']*'!\$R\$\d+:\$R\$\d+,"Complete\*"/gi, ''))) return f;
+  q = false;
+  for (var j = 0; j < f.length; j++){ var c = f.charAt(j); if (c === '"') q = !q; out += (!q && c === ';') ? ',' : c; }
+  return out;
+}
 function k68VisFix_(f){
+  f = k68Comma_(f);
   var m = /('[^']*WEEKLY[^']*'!\$R\$\d+:\$R\$\d+)/i.exec(f); if (!m) return '';
   var bad = new RegExp(',' + m[1].replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ',"Complete\\*"\\)\\s*$');
   var g = f;
@@ -6133,7 +6144,7 @@ function k68VisInside_(f){
 function k68VisHas_(f){ var at = k68VisInside_(f); if (at < 0) return false; var st = f.lastIndexOf('COUNTIFS(', at); return f.slice(st, at).indexOf('"Complete*"') >= 0; }
 /* chẩn đoán: liệt kê ô lỗi của tab 9 + công thức; fix=1 ⇒ chạy lại k68VisitPatch_ ngay */
 function k68Diag_(p){
-  var out = { ok:true, ver:props_().getProperty(K68_VIS_KEY) || '', want:K68_VIS_VER };
+  var out = { ok:true, nBad:0, ver:props_().getProperty(K68_VIS_KEY) || '', want:K68_VIS_VER };
   if (String(p.fix || '') === '1'){ props_().deleteProperty(K68_VIS_KEY); try { CacheService.getScriptCache().remove('K68_VIS_TRY'); } catch(e){} out.patched = k68VisitPatch_(); }
   var s = kpiTab_(); if (!s) { out.err = 'no kpi tab'; return out; }
   SpreadsheetApp.flush();
@@ -6142,12 +6153,12 @@ function k68Diag_(p){
     if (/^#/.test(D[r][k]) && bad.length < 4) bad.push({ a1:s.getRange(r + 1, k + 1).getA1Notation(), d:D[r][k], f:F[r][k] });
     if (F[r][k] && F[r][k].indexOf('"Visiting"') >= 0 && vis.length < 2) vis.push({ a1:s.getRange(r + 1, k + 1).getA1Notation(), d:D[r][k], f:F[r][k] });
   }
-  out.bad = bad; out.vis = vis; out.nBad = 0;
+  out.bad = bad.map(function(x){ return x.a1 + ' ' + String(x.f).slice(-120); }); out.vis = vis.map(function(x){ return x.a1 + ' ' + x.d + ' ' + String(x.f).slice(-160); }); out.nBad = 0;
   for (var r2 = 0; r2 < D.length; r2++) for (var k2 = 0; k2 < D[r2].length; k2++) if (/^#/.test(D[r2][k2])) out.nBad++;
   return out;
 }
 /* tab 9 đã dựng: thêm điều kiện Status = Completed vào công thức đếm Visiting (1 lần, không dựng lại tab) */
-var K68_VIS_KEY = 'K68_VIS_V', K68_VIS_VER = '1017';   /* 17/10/2026 — v1013 chèn điều kiện vào CUỐI công thức ⇒ ô có COUNTIFS nằm trong IF / IFERROR… báo #ERROR!; 1017 gỡ & chèn lại đúng chỗ */
+var K68_VIS_KEY = 'K68_VIS_V', K68_VIS_VER = '1018';   /* 1018: file định dạng VN đọc công thức ra dấu ";" ⇒ chuẩn hoá về "," trước khi sửa (v1013/1017 chèn "," lẫn ";" ⇒ #ERROR!) */   /* 17/10/2026 — v1013 chèn điều kiện vào CUỐI công thức ⇒ ô có COUNTIFS nằm trong IF / IFERROR… báo #ERROR!; 1017 gỡ & chèn lại đúng chỗ */
 function k68VisitPatch_(){
   if (typeof sbOn_ === 'function' && sbOn_()) return '';
   var P = props_(); if (P.getProperty(K68_VIS_KEY) === K68_VIS_VER) return '';
@@ -6159,7 +6170,9 @@ function k68VisitPatch_(){
     var f = F[r][k];
     if (!f || !/COUNTIFS\(/i.test(f) || f.indexOf('"Visiting"') < 0) continue;
     var nf = k68VisFix_(f); if (!nf || nf === f) continue;
-    s.getRange(r + 1, k + 1).setFormula(nf); n++;
+    var cell = s.getRange(r + 1, k + 1); cell.setFormula(nf); n++;
+    /* dự phòng: ô vẫn lỗi cú pháp ⇒ ghi lại bằng dấu ";" (định dạng VN) */
+    try { SpreadsheetApp.flush(); if (/^#ERROR/i.test(cell.getDisplayValue())){ var q = false, sv = ''; for (var i = 0; i < nf.length; i++){ var ch = nf.charAt(i); if (ch === '"') q = !q; sv += (!q && ch === ',') ? ';' : ch; } cell.setFormula(sv); } } catch(eF){}
   }
   P.setProperty(K68_VIS_KEY, K68_VIS_VER);
   try { logAct({ pic:'system' }, 'migrate', 'kpi', 'Visiting = Completed', n + ' ô công thức', ''); } catch(e){}
