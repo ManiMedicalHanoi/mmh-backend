@@ -10,6 +10,11 @@ function mmhMailApi_(o) {
   var me = ''; try { me = Session.getEffectiveUser().getEmail(); } catch (e) {}
   var from = o.from || me;
   var raw = mmhMime_(o, from);
+  /* ưu tiên dịch vụ nâng cao Gmail (appsscript.json ▸ enabledAdvancedServices) — tự bật Gmail API cho dự án Cloud ẩn của script */
+  if (typeof Gmail !== 'undefined' && Gmail.Users && Gmail.Users.Messages) {
+    try { Gmail.Users.Messages.send({ raw: Utilities.base64EncodeWebSafe(raw) }, 'me'); try { console.log('mmhMailApi_: gửi qua Gmail (dịch vụ nâng cao) · ' + (o.subject || '')); } catch (e) {} return; }
+    catch (eg) { try { console.warn('mmhMailApi_ Gmail service: ' + eg.message); } catch (e) {} }
+  }
   var res = UrlFetchApp.fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
     method: 'post', contentType: 'application/json', muteHttpExceptions: true,
     headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
@@ -73,7 +78,8 @@ function mmhMime_(o, from) {
 /* chẩn đoán: hạn mức email còn lại của tài khoản chạy script */
 function mmhMailInfo_(probe) {
   var left = -1, me = '', api = ''; try { left = MailApp.getRemainingDailyQuota(); } catch (e) {} try { me = Session.getEffectiveUser().getEmail(); } catch (e) {}
-  if (probe) { try { var r = UrlFetchApp.fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', { muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() } });
+  if (probe && typeof Gmail !== 'undefined') { try { var pr = Gmail.Users.getProfile('me'); api = 'svc OK ' + (pr && pr.messagesTotal != null ? 'messages ' + pr.messagesTotal : ''); } catch (e) { api = 'svc ERR ' + String(e.message).slice(0, 140); } }
+  else if (probe) { try { var r = UrlFetchApp.fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', { muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() } });
     api = r.getResponseCode() + ' ' + r.getContentText().replace(/\s+/g, ' ').slice(0, 120).replace(/"emailAddress":\s*"[^"]*"/, '"emailAddress":"…"'); } catch (e) { api = 'ERR ' + e.message; } }
   return { mailLeft: left, mailApi: true, apiProbe: api, sender: me ? me.replace(/^(.).*(@.*)$/, '$1…$2') : '' };
 }
