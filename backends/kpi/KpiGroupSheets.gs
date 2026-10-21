@@ -1,5 +1,7 @@
 /* ════════════════════════════════════════════════════════════════════
-   MMH KPI FY68  ·  KpiGroupSheets.gs                         v2.0 (13/10/2026)
+   MMH KPI FY68  ·  KpiGroupSheets.gs                         v2.1 (21/10/2026)
+   v2.1 — thêm tab "KPI Back Office" (file Back Office KPI Tracking FY68, KpiBackOffice.gs). Mã có nhiều PIC hiện ở từng PIC;
+     dòng lặp gắn nhãn 'kpd:' ở cột A, Phần A cộng / trung bình theo nhãn 'kpi:' ⇒ mỗi mã chỉ tính 1 lần. Phần A nhận o.groups dựng sẵn.
    v2.0 — 3 tab làm lại THEO ĐÚNG BỐ CỤC tab "9. TARGET & KPI" của CRM (người dùng yêu cầu 13/10/2026):
      tiêu đề + ô cài đặt (FY · file KPI · tháng hiện tại · đồng bộ lần cuối) + chú thích ·
      PHẦN A tổng hợp theo nhóm KPI · PHẦN B KPI từng PIC: 12 tháng Target | 12 tháng Actual | % FY · % lũy kế · % Q1–Q4 · điểm (% × trọng số)
@@ -90,7 +92,7 @@ function kscRuleKind_(rule) {
 
 /* ════════════════ BỘ DỰNG TAB KIỂU "9. TARGET & KPI" CỦA CRM (v2.0) ════════════════ */
 var KG8 = { tag: 1, code: 2, pic: 3, name: 4, unit: 5, w: 6, agg: 7, tFY: 8, t0: 9, aFY: 21, a0: 22, pct: 34, ytd: 35, q0: 36, score: 40, src: 41, NC: 41 };
-var KG8_LAYOUT = 'kg8v1', KG8_CUR = '$D$6', KG8_SYNC = [7, 4];
+var KG8_LAYOUT = 'kg8v2', KG8_CUR = '$D$6', KG8_SYNC = [7, 4];
 var KG8_TXT = {
   SUM: 'Cộng dồn', LAST: 'Lũy kế', AVG: 'Trung bình',
   partA: 'PHẦN A — TỔNG HỢP THEO NHÓM KPI (tự động)',
@@ -245,7 +247,7 @@ function kg8Build_(o) {
     }
   }
 
-  var kpiRows = [], picTot = [];
+  var kpiRows = [], picTot = [], seen = {};
   (o.pics || []).forEach(function (p) {
     var rp = row(); put(rp, 1, 'pic', { fc: GREY, fs: 7 });
     put(rp, C.code, '▸ ' + p.pic + (p.role ? ' — ' + p.role : '')); stl(rp, 2, NC, { bg: PICB, b: 1 });
@@ -254,7 +256,8 @@ function kg8Build_(o) {
       var rr = row(); if (!first) first = rr; last = rr;
       kpiRows.push({ r: rr, x: x, pic: p.pic });
       var nf = nfOf(x.unit);
-      put(rr, 1, 'kpi:' + x.code, { fc: GREY, fs: 7 });
+      put(rr, 1, (seen[x.code] ? 'kpd:' : 'kpi:') + x.code, { fc: GREY, fs: 7 });   // v2.1: mã có nhiều PIC ⇒ dòng lặp 'kpd:' (Phần A chỉ tính 1 lần)
+      seen[x.code] = 1;
       put(rr, C.code, x.code, { b: 1, ha: 'center' }); put(rr, C.pic, p.pic, { ha: 'center', wrap: 1 }); put(rr, C.name, x.name, { wrap: 1 });
       put(rr, C.unit, x.unit, { ha: 'center' }); put(rr, C.w, x.w, { nf: '0%', ha: 'center' });
       put(rr, C.agg, T[x.agg] || x.agg, { ha: 'center', fc: '#595959' });
@@ -289,7 +292,7 @@ function kg8Build_(o) {
 
   var unitOf = {}, aggOf = {}; kpiRows.forEach(function (k) { unitOf[k.x.code] = k.x.unit; aggOf[k.x.code] = k.x.agg; });
   aRows.forEach(function (ob) {
-    var rr = ob.r, g = ob.g, codes = g.codes, BR = '$' + A(C.code) + '$' + bFirst + ':$' + A(C.code) + '$' + bLast;
+    var rr = ob.r, g = ob.g, codes = g.codes, BR = '$A$' + bFirst + ':$A$' + bLast;
     var unit = unitOf[codes[0]] || '', agg = aggOf[codes[0]] || 'SUM', nf = nfOf(unit);
     put(rr, 1, 'grp', { fc: GREY, fs: 7 });
     put(rr, C.code, g.code, { b: 1, ha: 'center' }); put(rr, C.name, g.name, { wrap: 1 });
@@ -297,8 +300,8 @@ function kg8Build_(o) {
     for (var i = 0; i < 12; i++) {
       [C.t0 + i, C.a0 + i].forEach(function (cc) {
         var col = A(cc) + '$' + bFirst + ':' + A(cc) + '$' + bLast;
-        var sum = codes.map(function (c) { return 'SUMIF(' + BR + ',"' + c + '",' + col + ')'; }).join('+');
-        var cnt = codes.map(function (c) { return 'COUNTIFS(' + BR + ',"' + c + '",' + col + ',"<>")'; }).join('+');
+        var sum = codes.map(function (c) { return 'SUMIF(' + BR + ',"kpi:' + c + '",' + col + ')'; }).join('+');
+        var cnt = codes.map(function (c) { return 'COUNTIFS(' + BR + ',"kpi:' + c + '",' + col + ',"<>")'; }).join('+');
         put(rr, cc, agg === 'SUM' ? '=IF(' + cnt + '=0,"",' + sum + ')' : '=IF(' + cnt + '=0,"",(' + sum + ')' + (agg === 'AVG' ? '/(' + cnt + ')' : '') + ')', { nf: nf });
       });
     }
