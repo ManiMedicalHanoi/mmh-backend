@@ -170,7 +170,7 @@
 
 var HUB = {
 
-  VERSION: '3.32',   // ★ 17/10/2026 — v3.32 rhTurnover: cầu nối đọc file Turnover cho CRM · 16/10/2026 — v3.31 bài kiểm tra bật lại (RH_Assess.gs) · v3.30 leaderboard: bảng xếp hạng học viên (RH_Leaderboard.gs)
+  VERSION: '3.33',   // ★ 21/10/2026 — v3.33 ảnh thương hiệu ⇒ GitHub (RH_Brand.gs) · 17/10/2026 — v3.32 rhTurnover: cầu nối đọc file Turnover cho CRM · 16/10/2026 — v3.31 bài kiểm tra bật lại (RH_Assess.gs) · v3.30 leaderboard: bảng xếp hạng học viên (RH_Leaderboard.gs)
                      // 3.29 — claimCert: nút Nhận chứng chỉ (tạo / gửi lại chứng chỉ qua email)
   /* v3.28 */   // ★ 16/10/2026 — asLearner cho cả trainer (nút Học thử như học viên)
   /* v3.27 */   // ★ 15/10/2026 — RH_Warm.gs v1.1: làm nóng đệm KHÔNG giữ khoá ghi (v3.26 làm thao tác ghi báo bận)
@@ -547,6 +547,7 @@ var HUB_ROUTES = {
   'videoSave'       : {fn:'apiVideoSave',       auth:2},   // ★ v3.20 — video bài giảng (RH_ELearn.gs)
   'claimCert'       : {fn:'apiClaimCert',       auth:1},   // ★ v3.29 — nút Nhận chứng chỉ (RH_ELearn.gs)
   'leaderboard'     : {fn:'apiLeaderboard',     auth:1},   // ★ v3.30 — bảng xếp hạng học viên (RH_Leaderboard.gs)
+  'brandStatus'     : {fn:'apiBrandStatus',     auth:0},   // ★ v3.33 — ảnh thương hiệu cho giao diện (RH_Brand.gs)
   'videoPublish'    : {fn:'apiVideoPublish',    auth:2},   // ★ v3.25 — video tải từ app ⇒ GitHub Pages (RH_HubCourse.gs)
   'imgPublish'      : {fn:'apiImgPublish',      auth:2},   // ★ v3.25 — ảnh bìa khoá học / ảnh giao diện
   'sessionMeta'     : {fn:'apiSessionMeta',     auth:2},   // ★ v3.25 — nhóm sản phẩm / ảnh bìa của khoá học
@@ -650,6 +651,7 @@ function hubDispatch(action, p) {
     try { if (typeof hubMigrate1013_ === 'function') hubMigrate1013_(); } catch (eMig) { try { console.error('[hub] migrate ' + eMig); } catch (e2) {} }   // ★ 13/10/2026 — nâng cấp 1 lần (RH_CustTrain.gs)
     try { if (typeof tclTick_ === 'function') tclTick_(); } catch (eTcl) { try { console.error('[hub] tcl ' + eTcl); } catch (e2) {} }   // ★ 13/10/2026 — sheet Customer list (RH_CustList.gs)
     try { if (typeof hwTick_ === 'function') hwTick_(); } catch (eHw) { try { console.error('[hub] warm ' + eHw); } catch (e2) {} }   // ★ 15/10/2026 — làm nóng đệm 5 phút / lần (RH_Warm.gs)
+    try { if (typeof hubBrandTick_ === 'function') hubBrandTick_(); } catch (eHb) { try { console.error('[hub] brand ' + eHb); } catch (e2) {} }   // ★ 21/10/2026 — ảnh thương hiệu ⇒ GitHub (RH_Brand.gs)
     if (/^tm[A-Z]/.test(String(action)) && typeof tmRoute_ === 'function') { var tmr = tmRoute_(String(action), p); if (tmr) return tmr; }
     var route = HUB_ROUTES[action];
     if (!route) return {ok:false, error:'Không tìm thấy chức năng: ' + action};
