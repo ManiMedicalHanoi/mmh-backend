@@ -143,3 +143,6 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   `kscMonthlyTargets_` bỏ qua mã trong `KSC_BO.CUMUL`), **P3-00** chỉ ghi tháng có Stock Amount + Cost of sale (sheet Inventory). Ô công thức trống ⇒ xoá ở file KPI, ô tự nhập trống ⇒ giữ.
   Tab **"KPI Back Office"** trong file Back Office (bố cục 9. TARGET & KPI, tên KPI tiếng Việt `KSC_BO.NAMES` giống `kpiShort` của Report Hub). Mã nhiều PIC hiện ở từng PIC (nhãn `kpd:`).
   Thử: harness Node giả lập SpreadsheetApp với file xlsx (không có trong repo). KSC.VERSION giữ 1.18 (không chạy lại lượt nâng cấp Target theo tháng).
+- **Ảnh thương hiệu cho giao diện Training Hub (21/10/2026, training `RH_Brand.gs`, HUB v3.33)**: `HB_LIST` (tên ngắn + mã file Drive: ảnh sản phẩm, catalogue, workshop, ảnh video giới thiệu công ty) + mọi ảnh trong thư mục Drive
+  **"Training Hub — Ảnh trang chủ"** (trong thư mục gốc Hub, tên `f-<tên file>`) ⇒ ảnh thu nhỏ Drive (`thumbnailLink` =s1600, Bearer `ScriptApp.getOAuthToken`) ⇒ GitHub `Training-Hub/media/brand/` + `brand.json`.
+  Chạy nền: `hubBrandTick_` (hubDispatch) hẹn trigger 1 lần `hubBrandSync` (≤ 4,5 phút / lượt, tự hẹn lượt sau); bản `HB.VER` xong ⇒ chỉ kiểm thư mục ≤ 15 phút / lần. Trạng thái: `action=brandStatus` (công khai). Không dùng ảnh có nhân sự (sơ đồ tổ chức).
