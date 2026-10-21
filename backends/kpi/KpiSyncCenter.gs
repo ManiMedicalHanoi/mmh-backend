@@ -1,5 +1,5 @@
 /* ════════════════════════════════════════════════════════════════════
-   MMH KPI FY68  ·  KpiSyncCenter.gs                                v1.18
+   MMH KPI FY68  ·  KpiSyncCenter.gs                                v1.19
    Trung tâm đồng bộ của file MMH KPI FY68 (sheet 3. Detail KPI)
    ────────────────────────────────────────────────────────────────────
    CÁCH CÀI (làm 1 lần, trong file MMH KPI FY68):
@@ -144,6 +144,12 @@
      · Rule: kỳ đã tới mà Target = 0 ⇒ % = 100% (đủ trọng số), có hay không có số thực hiện. Kỳ chưa tới để trống.
        Quý / năm: Target của kỳ = 0 mới tính 100%.
      · Menu 🎯 Kiểm tra rule Target = 0: sửa ngay và liệt kê từng người · mã KPI · tháng có Target = 0 kèm % đang hiện.
+
+   v1.19 (21/10/2026) · NGUỒN MỚI: BACK OFFICE (file Back Office KPI Tracking FY68) — xem KpiBackOffice.gs
+     · Mã P1 → P5 lấy thẳng từ sheet KPI FY68 của file Back Office (thay IMPORTRANGE): sửa tay ⇒ chạy ngay, đọc lại 15 phút / lần.
+     · P2-08 ghi LŨY KẾ đúng Rule (FY Actual = tháng cuối) · P3-00 chỉ ghi tháng có số tồn kho + giá vốn.
+     · Tab "KPI Back Office" trong file Back Office (bố cục 9. TARGET & KPI, tên KPI tiếng Việt).
+     · KSC.VERSION giữ 1.18: không chạy lại lượt nâng cấp (Target theo tháng); nguồn mới tự chạy ở lượt 1 phút đầu tiên.
 
    v1.18 (03/10/2026) · BỎ RULE CHỐT SỐ THÁNG — MỌI NGUỒN ĐỒNG BỘ REALTIME 2 CHIỀU
      · Bỏ khoá "16:00 ngày 2 tháng sau": tháng nào cũng nhận số mới từ mọi nguồn (CRM, Turnover, Training, KBI, MKT…),
@@ -435,6 +441,7 @@ function kscEditMatters_(src, sheet) {
   if (src === 'training') return KSC_TRAIN.REPORT_RE.test(n);
   if (src === 'kbi') return n === kscNorm_(KSC_KBI.SHEET);
   if (src === 'moff') return KSC_MOFF.WATCH.map(kscNorm_).indexOf(n) >= 0;
+  if (src === 'bo') return n !== kscNorm_(KSC_BO.TAB);              // mọi sheet dữ liệu Back office (trừ tab KPI do code ghi)
   if (/^crm:/.test(src)) return /^(1|3|6|7|9)\./.test(n) || /kpi/.test(n);
   return true;
 }
@@ -501,6 +508,7 @@ function kscPlan() {
   steps.push({ id: 'training', title: 'Đào tạo (Training Master)', file: 'MMH - Training Master', sheet: 'Training Report FYxx', codes: 'L1-00 · L2-01→L2-06 · C10-03→C10-06 · C3-10 · C3-11' });
   steps.push({ id: 'kbi', title: 'Điểm hành vi (KBI)', file: 'Key Behavioral Indicators Report', sheet: KSC_KBI.SHEET, codes: 'L3-01 → L3-22 (theo PIC)' });
   steps.push({ id: 'moff', title: 'MKT offline VN (sự kiện)', file: 'Vietnam - Marketing Offline Plan & Report FY68', sheet: KSC_MOFF.SHEET, codes: 'C8-00 · C9-00 · C12-01 · C12-02 · C15-01 · C15-02' });
+  steps.push({ id: 'bo', title: 'Back office (KPI Tracking)', file: 'Back Office KPI Tracking FY68', sheet: 'KPI FY68 · Inventory', codes: 'P1-00 · P2-01 → P2-08 · P3-00 · P4-00 · P5-01 → P5-07' });
   steps.push({ id: 'mkt', title: 'MKT online & Design', file: '3. Vietnam - Digital Marketing & Design FY68', sheet: 'ADS REPORT · EVENT REPORT · PRODUCT REPORT · ORDER REPORT', codes: 'C17-01 → C17-06' });
   kscLinks_(ss).forEach(function (l) {
     steps.push({ id: 'crm:' + l.team, title: kscLabel_('crm:' + l.team), file: l.link ? 'File CRM (_CRM_LINKS)' : '(chưa có link ở _CRM_LINKS)', sheet: l.tab, codes: 'Các mã trong tab KPI của CRM' });
@@ -557,7 +565,7 @@ function kscRunAll_(why) {
   var fx = kscRollupsFix_(ctx, false);
   try { var zt = kscZeroTargetFix_(ctx); lines.push('· ' + zt.msg); } catch (eZ) { lines.push('⚠ Target = 0: ' + eZ); }
   if (fx.length) lines.push('✓ Dòng tổng: điền công thức ' + fx.join(', '));
-  var srcs = ['turnover', 'training', 'kbi', 'mkt', 'moff'].concat(kscLinks_(ss).map(function (l) { return 'crm:' + l.team; })).concat(['event_th']);
+  var srcs = ['turnover', 'training', 'kbi', 'mkt', 'moff', 'bo'].concat(kscLinks_(ss).map(function (l) { return 'crm:' + l.team; })).concat(['event_th']);
   srcs.forEach(function (s) { var r = kscRunSource_(ctx, s, why); lines.push((r.status === 'ok' ? '✓ ' : r.status === 'skip' ? '· ' : '⚠ ') + r.title + ': ' + r.msg); });
   PropertiesService.getScriptProperties().setProperty('KSC_LAST_FULL', String(Date.now()));
   return { lines: lines };
@@ -572,6 +580,7 @@ function kscRunSource_(ctx, src, why) {
     else if (src === 'mkt') r = kscMkt_(ctx, why);
     else if (src === 'kbi') r = kscKbi_(ctx, why);
     else if (src === 'moff') r = kscMoff_(ctx, why);
+    else if (src === 'bo') r = kscBo_(ctx, why);                    // v1.19 — Back Office KPI Tracking (KpiBackOffice.gs)
     else r = { status: 'error', msg: 'Không rõ nguồn ' + src };
   } catch (err) { r = { status: 'error', msg: String(err && err.message || err) }; }
   r.title = r.title || kscLabel_(src);
@@ -586,12 +595,13 @@ function kscLabel_(src) {
   if (src === 'mkt') return 'MKT online & Design';
   if (src === 'kbi') return 'Điểm hành vi (KBI)';
   if (src === 'moff') return 'MKT offline VN (sự kiện)';
+  if (src === 'bo') return 'Back office (KPI Tracking)';
   var t = String(src).replace(/^crm:/, '');
   return KSC.TEAM_LABEL[t] || ('CRM ' + t);
 }
 /* file nguồn có thể đọc được: Training, Turnover, CRM đã có link */
 function kscSourceIds_(ss) {
-  var ids = { training: KSC.TRAINING_ID, turnover: KSC.TURNOVER_ID, mkt: KSC.MKT_ID, kbi: KSC_KBI.ID, moff: kscMoffId_() };
+  var ids = { training: KSC.TRAINING_ID, turnover: KSC.TURNOVER_ID, mkt: KSC.MKT_ID, kbi: KSC_KBI.ID, moff: kscMoffId_(), bo: kscBoId_() };
   kscLinks_(ss).forEach(function (l) { if (l.id) ids['crm:' + l.team] = l.id; });
   return ids;
 }
@@ -1435,6 +1445,7 @@ function kscMonthlyTargets_(ctx, opts) {
   var t1 = kscColL_(Math.min.apply(null, tc) + 1), t2 = kscColL_(Math.max.apply(null, tc) + 1), a1 = kscColL_(Math.min.apply(null, ac) + 1), a2 = kscColL_(Math.max.apply(null, ac) + 1);
   Object.keys(L.rows).sort(function (x, y) { return L.rows[x] - L.rows[y]; }).forEach(function (code) {
     var r = L.rows[code]; if (String(L.V[r][cAgg]).trim().toUpperCase() !== 'LAST') return;
+    if (KSC_BO.CUMUL[code]) return;                                 // v1.19 — Rule giữ LŨY KẾ (P2-08 số đăng ký sản phẩm)
     var isF = /^F/.test(code), unit = cUnit == null ? '' : kscNorm_(L.V[r][cUnit]);
     if (!isF && (/%|rate|ty le|score|point|diem/.test(unit) || unit === '')) return;      // mã tỷ lệ / điểm: giữ nguyên
     var row = r + 1, prev = 0, ok = true, vals = [];
@@ -1500,7 +1511,7 @@ function kscWriteStatus_(ss) {
   var S = JSON.parse(P.getProperty('KSC_SOURCES') || '{}'), C = JSON.parse(P.getProperty('KSC_CODES') || '{}');
   var rt = kscRealtimeOn_(), links = kscLinks_(ss), grid = [], NC = 9;
   function pad(a) { while (a.length < NC) a.push(''); return a; }
-  var srcs = ['turnover', 'training', 'kbi', 'mkt', 'moff'].concat(links.map(function (l) { return 'crm:' + l.team; })).concat(['event_th']);
+  var srcs = ['turnover', 'training', 'kbi', 'mkt', 'moff', 'bo'].concat(links.map(function (l) { return 'crm:' + l.team; })).concat(['event_th']);
   var ids = kscSourceIds_(ss);
   grid.push(pad(['KPI SYNC STATUS · NGUỒN DỮ LIỆU TỰ ĐỘNG CỦA 3. DETAIL KPI']));
   grid.push(pad(['Cập nhật: ' + Utilities.formatDate(new Date(), KSC.TZ, 'dd/MM/yyyy HH:mm') + ' · Realtime: ' + (rt ? 'BẬT (sửa tay ở file nguồn: chạy ngay · app ghi: tối đa 1 phút · đọc lại toàn bộ mỗi ' + KSC.FULL_EVERY + ' phút)' : 'TẮT (chạy kscSetup để bật)')]));
@@ -2194,6 +2205,7 @@ function kscExplain_(ctx, X, R, E) {
     if (key === 'event_hub' || key === 'event_trn' || key === 'manual' || key === 'turnover') X.url = o.urls.kpi || '';
     return kscExplainPlain_(code, X, A, reach);
   }
+  if (src === 'bo' && !X.calc) return kscBoExplain_(code, X, A, reach);
   if (KSC.EVENT_CODES.indexOf(code) >= 0) { X.label = 'Marketing Offline Thailand'; X.sheet = 'REPORT_EVENT'; }
   return kscExplainPlain_(code, X, A, reach);
 }
@@ -2225,6 +2237,7 @@ function kscPlainRule_(code, X, E) {
   if (/^C10-0[3-5]$/.test(code)) return 'Số buổi đào tạo khách hàng (Customer Training, tạo từ CRM) do PIC đứng lớp, đã Completed, có số tham dự thực tế > 0 và review đủ 5 dòng.';
   if (/^C3-1[01]$/.test(code)) return 'Số buổi Coaching do PIC thực hiện, đã Completed và có file PDF Review trong thư mục Review của buổi.';
   if (KSC_KBI.CODE_RE.test(code)) return 'Điểm tháng = 100 cộng điểm cộng, trừ điểm trừ (cột Total point by month).';
+  if (src === 'bo' || KSC_BO.CODE_RE.test(code)) return kscBoRule_(code);
   var cd = /^last$/i.test(X.agg) ? ', cộng dồn từ tháng 9' : ', số của từng tháng';
   if (/^F6-01/.test(code)) return 'Doanh số Composite bán cho NPP (Type 3 Composite amount, USD)' + cd + ', cập nhật real time theo Turnover (tháng đang chạy là số tạm tính).';
   if (/^F6-02/.test(code)) return 'Doanh số JIZAI bán cho NPP (Type 2 Jizai amount, USD)' + cd + ', cập nhật real time theo Turnover (tháng đang chạy là số tạm tính).';
