@@ -1,8 +1,9 @@
 /*************************************************************************************************
- * MMH CRM — Google Apps Script backend  (v10.14)  ·  MỘT FILE CODE CHO CẢ 3 NHÓM
+ * MMH CRM — Google Apps Script backend  (v10.16)  ·  MỘT FILE CODE CHO CẢ 3 NHÓM
+ * ⭐ v10.16 (22/10/2026) · EMAIL ĐƠN HÀNG MỚI GỬI HOD (người duyệt đơn của nhóm, ORDER_APPROVERS) thay vì Giám đốc — người dùng yêu cầu.
  * ⭐ v10.14 (16/10/2026) · ĐƠN HÀNG CẦN LỊCH SỬ CHĂM SÓC · EMAIL ĐƠN MỚI TỚI GIÁM ĐỐC · VISITING COMPLETED ĐỦ TRƯỜNG · KPI VISIT = COMPLETED + ẢNH
  *   ① saveOrders: đơn MỚI chỉ ghi khi account có hoạt động Completed (Visiting / Telephone / Message…) trên tab 6 trong 30 ngày trước ngày đặt
- *      (ordCareCheck_, code NOCARE). Ghi xong ⇒ email thư thường tới Giám đốc (ordNewMail_).
+ *      (ordCareCheck_, code NOCARE). Ghi xong ⇒ email thư thường tới HOD — người duyệt đơn của nhóm, ORDER_APPROVERS (ordNewMail_; v10.16, trước đây gửi Giám đốc).
  *   ② saveWeekly: Visiting chỉ Completed khi có Result · Feedback · Follow up (Next action) — wkApplyRule_.
  *   ③ KPI C3 (tab 9) + dashboard: lượt Visiting phải Completed + có ảnh (visitOk_); tab đã dựng được vá công thức 1 lần (k68VisitPatch_).
  * ⭐ v10.11 (13/10/2026) · TỶ GIÁ CỐ ĐỊNH 26.700 · VISIT PHẢI CÓ ẢNH · MẪU EVENT REVIEW · ĐƠN HÀNG CÓ LOẠI + DUYỆT · T&E TỪ TRAINING MASTER · SẮP XẾP TAB
@@ -1226,7 +1227,7 @@ function saveOrders(user, p){
     var _out = { ok:true, rows:rowsOut, count:list.length, orderNo:no,
              message:'Đã lưu ' + list.length + ' dòng sản phẩm cho đơn ' + no };
   } finally { lock.releaseLock(); }
-  /* ⭐ v10.14 — ĐƠN MỚI ⇒ email thông báo tới Giám đốc (ngoài khoá; lỗi email không làm hỏng việc lưu) */
+  /* ⭐ v10.14 — ĐƠN MỚI ⇒ email thông báo (ngoài khoá; lỗi email không làm hỏng việc lưu). v10.16: người nhận = HOD (ORDER_APPROVERS), không còn Giám đốc */
   if (newData.length){ try { _out.dirMail = ordNewMail_(user, newData); } catch(eM){ _out.dirMail = 'lỗi: ' + (eM && eM.message || eM); } }
   return _out;
 }
@@ -1256,14 +1257,19 @@ function ordCareCheck_(list){
     error:'Khách hàng "' + miss.join('", "') + '" chưa có lịch sử chăm sóc trong ' + ORD_CARE_DAYS + ' ngày trước ngày đặt. Vui lòng cập nhật thông tin khách hàng ' +
           '(tạo và hoàn thành 1 hoạt động: Visiting, Telephone, Message… trên Báo cáo tuần) rồi tạo đơn hàng.' };
 }
-/* email thư thường tới Giám đốc khi sales tạo đơn mới */
+/* email thư thường tới HOD (người duyệt đơn của nhóm — ORDER_APPROVERS) khi sales tạo đơn mới.
+   v10.16 (22/10/2026, người dùng yêu cầu): trước đây gửi Giám đốc (TF.DIRECTOR). */
 function ordNewMail_(user, rows){
   var e = e_, d0 = rows[0] || {}, pic = S(d0.pic) || S(user && user.pic), tot = 0;
+  var aps = (ORDER_APPROVERS[TEAM()] || []).filter(function(a){ return normName_(a) !== normName_(pic); });
+  var to = aps.map(function(a){ var u = userByPic(a); return u && u.email; }).filter(String);
+  if (!to.length && normName_(pic) !== normName_('Tuyen')) to = [HOD_SM_EMAIL];   /* chưa cấu hình người duyệt ⇒ HOD Sales & Marketing */
+  if (!to.length) return '';
   var lines = rows.map(function(r){ var a = num(r.amount) || num(r.price) * num(r.qty); tot += a;
     return '<div>· ' + e(S(r.ptype) || '—') + (S(r.detail) ? ' (' + e(S(r.detail).replace(/\n/g, ', ').slice(0, 90)) + ')' : '') + ' × ' + e(S(r.qty)) + ' = ' + Math.round(a).toLocaleString('en-US') + ' VND</div>'; });
   var care = ordCareOf_(S(d0.name), S(d0.day));
   var h = ['<div style="font-family:Aptos,Calibri,Arial,sans-serif;font-size:14px;line-height:1.5;color:#1A1A1A;max-width:760px">',
-    '<p style="margin:0 0 10px">Dear ' + e(TF.DIRECTOR.name) + ',</p>',
+    '<p style="margin:0 0 10px">Dear ' + e(aps.length ? aps.map(ordDear_).join(', ') : 'chị Tuyên') + ',</p>',
     '<p style="margin:0 0 10px">' + e(pic) + ' vừa tạo đơn hàng mới trên MMH CRM (' + e((TEAM_CFG[TEAM()] || TEAM_CFG.dental).team) + ').</p>',
     '<div style="margin:0 0 12px"><div><b>Đơn ' + e(S(d0.orderNo) || '—') + ' · ' + e(S(d0.name)) + '</b></div>',
     '<div>Ngày đặt: ' + e(wkIso_(d0.day) ? wkIso_(d0.day).split('-').reverse().join('/') : S(d0.day)) + (S(d0.partner) ? ' · NPP: ' + e(S(d0.partner).split('/')[0]) : '') + '</div>',
@@ -1276,11 +1282,11 @@ function ordNewMail_(user, rows){
     '<p style="margin:0 0 10px">Best regards,<br>MMH CRM</p>',
     '<div style="margin-top:18px;font-size:12px;color:#777">Email gửi tự động từ MMH CRM — vui lòng không trả lời email này.</div></div>'];
   var su = userByPic(pic);
-  var opt = { to:TF.DIRECTOR.email, subject:'[MMH CRM] Đơn hàng mới · ' + pic + ' · ' + S(d0.name) + ' · ' + Math.round(tot).toLocaleString('en-US') + ' VND',
+  var opt = { to:to.join(','), subject:'[MMH CRM] Đơn hàng mới · ' + pic + ' · ' + S(d0.name) + ' · ' + Math.round(tot).toLocaleString('en-US') + ' VND',
               htmlBody:h.join(''), name:'MMH CRM · ' + pic };
   if (su && su.email){ opt.replyTo = su.email; }
   mmhMail_(opt);
-  return TF.DIRECTOR.email;
+  return to.join(',');
 }
 function fillOrderCells_(cur, d, map, lockF){
   for (var f in map){
