@@ -1,5 +1,6 @@
 /* ════════════════════════════════════════════════════════════════════
-   MMH KPI FY68  ·  KpiBackOffice.gs                           v1.0 (21/10/2026)
+   MMH KPI FY68  ·  KpiBackOffice.gs                           v1.1 (23/10/2026)
+   v1.1 — theo review của nhóm Back office: P5-05 VAT chưa áp dụng quý 1 (KSC_BO.FROM), rule P1-00 / P2-07 / P5-01 viết lại.
    NGUỒN 8 · BACK OFFICE — file "Back Office KPI Tracking FY68" (backend của nhóm Back office)
    ────────────────────────────────────────────────────────────────────
    Trước đây các dòng P1 → P5 của 3. Detail KPI kéo số bằng IMPORTRANGE (sheet "KPI FY68" của file Back Office).
@@ -22,6 +23,7 @@ var KSC_BO = {
   CODE_RE : /^P\d+-\d+[a-z]?$/,
   TAB     : 'KPI Back Office',
   CUMUL   : { 'P2-08': 1 },                                    // Rule: lũy kế từ tháng đầu năm tài chính
+  FROM    : { 'P5-05': 202612 },                               // 23/10/2026 (nhóm Back office): VAT chưa áp dụng quý 1 ⇒ trước tháng này để trống ở file KPI
   INV     : { code: 'P3-00', sheet: 'Inventory', stock: /^stock amount/, cogs: /^cost of sale/ },
   GROUPS  : { P1: 'Tài liệu nội bộ', P2: 'Đơn hàng & giao nhận', P3: 'Tồn kho', P4: 'Dự án văn phòng', P5: 'Tài chính & hành chính' },
   NAMES   : {
@@ -47,23 +49,23 @@ var KSC_BO = {
     'P5-07': 'Kê khai thuế'
   },
   RULES   : {
-    'P1-00': 'Số tài liệu nội bộ (SOP / hướng dẫn) ban hành mới hoặc sửa đổi, đã duyệt trong tháng · tự nhập ở sheet KPI FY68.',
+    'P1-00': 'Số tài liệu nội bộ (SOP / hướng dẫn) ban hành mới hoặc sửa đổi, chỉ tính khi đã được duyệt và ban hành · sheet Internal Docs (lấy từ 0. MMH Regulation/SOP/Guideline Master), đếm theo cột Month (K) với PIC (L) = Dam Ha.',
     'P2-01': 'Mỗi PO: giao sớm 110 · đúng lịch 100 · trễ 80 · điểm tháng = trung bình các PO (sheet PO Confirm, Delivery, VAT).',
     'P2-02': 'Số đơn xác nhận lịch giao "Đúng hạn" ÷ số đơn có xác nhận lịch giao trong tháng (sheet PO Confirm, Delivery, VAT).',
     'P2-03': 'Số đơn NPP được phản hồi "On time" ÷ số đơn nhận được trong tháng (sheet PO Confirm, Delivery, VAT).',
     'P2-04': '100 điểm mỗi tháng, trừ theo từng lỗi ghi ở sheet Order Processing · điểm tháng = trung bình của PIC.',
     'P2-05': 'Mỗi lô hàng: thông quan trong 2 ngày từ thông báo hàng đến 110 · 3 ngày 100 · quá 3 ngày 80 · trung bình tháng (sheet Import Export).',
     'P2-06': 'Số PO nhập Bravo "Nhập đúng" ÷ số PO đã nhập trong tháng (sheet Bravo Data Entry).',
-    'P2-07': 'Mức đầy đủ và nộp đúng hạn hồ sơ thầu trong tháng · tự nhập điểm ở sheet KPI FY68.',
+    'P2-07': 'Tỷ lệ = số hồ sơ thầu chuẩn bị đúng hạn ÷ số hồ sơ đã nhận trong tháng, quy đổi sang thang điểm 100 · sheet KPI FY68.',
     'P2-08': 'Số giấy chứng nhận đăng ký sản phẩm Việt Nam được cấp (sheet Registration cert granted, theo tháng cấp) · LŨY KẾ từ tháng 9, FY = tháng cuối có số.',
     'P3-00': 'Số tháng tồn kho = giá trị tồn kho ÷ giá vốn (COGS) tháng · 2,0 tháng = 100 điểm, mỗi 10% chênh lệch cộng / trừ 5 điểm (sheet Inventory) · tháng chưa có số tồn kho để trống.',
     'P4-00': '100 điểm khi đúng tiến độ và nộp đủ báo cáo tháng dự án chuyển văn phòng · tự nhập ở sheet KPI FY68.',
-    'P5-01': 'Mỗi báo cáo: trước hạn & đúng 110 · đúng hạn & đúng 100 · trừ 3 điểm mỗi lỗi / ngày trễ · điểm tháng = trung bình của PIC (sheet Back-office Reporting).',
+    'P5-01': 'Tính theo thời gian nộp (không tính lỗi sai): mỗi báo cáo nộp sớm 110 · đúng hạn 100 · muộn trừ 3 điểm mỗi ngày làm việc trễ · điểm tháng = trung bình của PIC (sheet Back-office Reporting).',
     'P5-01a': 'Điểm báo cáo của Hoa = trung bình điểm báo cáo của Mai, Dam Viet, Ngoc (dòng tổng trong file KPI).',
     'P5-02': 'Giao dịch ngày D nhập trước 17:00 ngày D+1 (trước 12:00 = 110) · điểm tháng = trung bình các ngày làm việc (sheet Bank Transaction).',
     'P5-03': 'Rà soát chi phí xong trong 5 ngày làm việc đầu tháng · trước hạn 110 · đúng hạn 100 · trừ 3 mỗi lỗi / ngày trễ (sheet Expense Review).',
     'P5-04': 'Nộp phân bổ chi phí trước 12:00 ngày làm việc thứ 4 của tháng sau (sheet Cost Allocation).',
-    'P5-05': 'Số hoá đơn VAT xuất "On time" ÷ số hoá đơn đã xuất trong tháng (sheet PO Confirm, Delivery, VAT).',
+    'P5-05': 'Số hoá đơn VAT xuất "On time" ÷ số hoá đơn đã xuất trong tháng (sheet PO Confirm, Delivery, VAT) · Q1 FY68 (T9 → T11/2026) chưa áp dụng, chưa tính KPI cho ai; từ quý 2 chuyển cho Mai.',
     'P5-06': '100 điểm khi nộp báo cáo tháng dự án hành chính · tự nhập ở sheet KPI FY68.',
     'P5-07': '100 điểm mỗi tháng · trừ 3 mỗi lỗi không phát sinh nộp chậm, trừ 5 mỗi lỗi có nộp chậm (sheet Tax Filling).'
   }
@@ -175,6 +177,7 @@ function kscBo_(ctx, why) {
       var v = x.vals[m], n = kscNum_(v);
       if (v === undefined) return;                                       // file Back Office không có cột tháng này
       if (typeof v === 'string' && v.trim() && n == null) { if (notes.length < 6) notes.push(code + ' ' + m + ': "' + v.slice(0, 20) + '"'); return; }
+      if (KSC_BO.FROM[code] && m < KSC_BO.FROM[code]) { d[m] = KSC_CLEAR; return; }   // KPI chưa áp dụng tháng này
       if (cum) { if (n != null) run += n; if (n != null || run) d[m] = run; return; }
       if (code === KSC_BO.INV.code && inv && inv.months[m] && !inv.months[m].ok) { d[m] = KSC_CLEAR; return; }
       if (n != null) d[m] = n;

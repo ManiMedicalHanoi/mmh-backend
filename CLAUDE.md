@@ -149,3 +149,6 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
 - **23/10/2026 — Rule KPI người tham dự sự kiện (C15, `marketing/MKT_SheetAuto.gs` v1.2, chị Tuyên cập nhật 4. Rule)**: Actual Participant (REPORT_EVENT, sự kiện từ `RULE_FROM` 14/10/2026) = SĐT khác nhau
   ở CUSTOMER LIST cùng sự kiện + tháng, đủ **Họ tên · SĐT · Nơi công tác (Workplace) · Email** (bỏ Province / Tittle), và **Ký tay + "Đồng ý sử dụng dữ liệu" = Đã đồng ý…** (trực tiếp) hoặc **Zoom** (webinar).
   Tab chưa có cột Email ⇒ code tự thêm. Công thức cũ của sự kiện từ 14/10 tự được ghi lại (dấu nhận diện có cột Email + Đồng ý).
+- **23/10/2026 — Review rule KPI Back office (`kpi/KpiBackOffice.gs` v1.1)**: nhóm Back office sửa công thức P2-04 (Hậu / Việt) trên file của họ; P5-01 chỉ tính theo thời gian nộp (không tính lỗi sai);
+  **P5-05 VAT chưa áp dụng quý 1** ⇒ `KSC_BO.FROM['P5-05'] = 202612` (tháng trước đó để trống ở file KPI, từ quý 2 chuyển cho Mai); P1-00 = sheet Internal Docs (Month K, PIC L = Dam Ha);
+  P2-07 = hồ sơ thầu đúng hạn ÷ hồ sơ đã nhận, quy đổi thang 100. P3-00 / P4-00 / P5-01a / P5-06 (của chị Hoà) còn chờ chị Hoà xác nhận.
