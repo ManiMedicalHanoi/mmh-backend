@@ -57,6 +57,8 @@ function rkvRoute0_(p) {
   if (a === 'rhKpiMail') return rkvMail_(p, 'data');
   if (a === 'rhKpiMailPreview') return rkvMail_(p, 'preview');
   if (a === 'rhKpiMailSend') return rkvMail_(p, 'send');
+  if (a === 'rhSeSend') return rkvSeSend_(p);                     /* ⭐ 23/10/2026: email tự đánh giá quý (file Word) */
+  if (a === 'rpLog') return rplApi_(p);                           /* ⭐ 23/10/2026: thống kê gửi báo cáo (MMH_ReportLog.gs) */
   return {ok: false, error: 'Không tìm thấy chức năng: ' + a};
 }
 
@@ -221,7 +223,7 @@ function rkvMail_(p, mode) {
   }
   var f = {pic: pic, month: month, greeting: String(p.greeting || ''), intro: String(p.intro || ''), showQ: String(p.showQ) !== '0',
            analysis: String(p.analysis || ''), highlights: String(p.highlights || ''), sign: String(p.sign || ''),
-           subject: String(p.subject || ''), to: String(p.to || ''), cc: String(p.cc || ''), lang: p.lang === 'en' ? 'en' : ''};
+           subject: String(p.subject || ''), to: String(p.to || ''), cc: String(p.cc || ''), lang: p.lang === 'en' ? 'en' : '', by: vw.u.pic || ''};
   if (mode === 'preview') return kscMailPreview(f);
   var only = function(s){ return String(s || '').split(/[,;\s]+/).filter(function(e){ return e; }).every(function(e){ return /@(mani\.inc|manimedicalhanoi\.com)$/i.test(e); }); };
   if (!only(f.to) || !only(f.cc)) return {ok: false, error: 'Chỉ gửi tới email công ty (@mani.inc / @manimedicalhanoi.com).'};
@@ -327,4 +329,37 @@ function rkvTotal_(p) {
   var t = rkvTotalData_();
   return {ok: true, v: RKV.VERSION, me: sc.myName, scope: sc.scope, sync: d.sync || [], head: t.head, persp: t.persp, kpi: t.kpi, months: t.months,
           rules: t.rules, guide: t.guide, members: t.members, mperiods: t.mperiods, colors: t.colors, at: t.at};
+}
+
+/* ════ 23/10/2026 — EMAIL TỰ ĐÁNH GIÁ QUÝ (Setting Expectation) ════
+   POST rhSeSend { tk, pic, fy (68), q ('Q1'..'Q4'), to, cc, subject, body (chữ thường), name (tên file), b64 (file Word), test, lang }
+   · Người gửi phải xem được KPI của pic (cùng phạm vi rhKpi). Chỉ gửi tới email công ty.
+   · Gửi thật ⇒ ghi nhận "quarter" FYxx-Qn vào _MMH_REPORT_LOG (MMH_ReportLog.gs) để thống kê đúng hạn / muộn. Bản thử ([TEST]) không ghi. */
+function rkvSeSend_(p) {
+  var vw = rkvViewer_(p.tk);
+  if (vw.err) return {ok: false, code: 'AUTH', error: vw.err};
+  var d = rkvData_(), sc = rkvScope_(vw.u, d), pic = String(p.pic || sc.myName).trim();
+  if (!sc.see(pic)) return {ok: false, code: 'FORBIDDEN', error: 'Bạn không gửi được tự đánh giá của ' + pic + '.'};
+  var fy = String(p.fy || '').replace(/\D/g, ''), q = String(p.q || '').toUpperCase();
+  if (!fy || !/^Q[1-4]$/.test(q)) return {ok: false, error: 'Kỳ đánh giá không hợp lệ.'};
+  var split = function(s){ return String(s || '').split(/[,;\s]+/).map(function(x){ return x.trim(); }).filter(function(x){ return x; }); };
+  var to = split(p.to), cc = split(p.cc), test = String(p.test) === '1';
+  if (!to.length) return {ok: false, error: 'Chưa có người nhận (To).'};
+  var bad = to.concat(cc).filter(function(e){ return !/^[^@\s]+@(mani\.inc|manimedicalhanoi\.com)$/i.test(e); });
+  if (bad.length) return {ok: false, error: 'Chỉ gửi tới email công ty (@mani.inc / @manimedicalhanoi.com): ' + bad.join(', ')};
+  var b64 = String(p.b64 || '');
+  if (!b64 || b64.length > 7000000) return {ok: false, error: 'Thiếu file Word (hoặc file quá lớn).'};
+  var en = p.lang === 'en', per = 'FY' + fy + ' ' + q;
+  var name = String(p.name || (pic.replace(/\s+/g, '_') + '-Setting_Expectation-Term_' + fy + '_' + q + '.docx')).replace(/[\\\/:*?"<>|]+/g, '_');
+  var blob = Utilities.newBlob(Utilities.base64Decode(b64), 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', name);
+  var subject = String(p.subject || (en ? 'Setting Expectation & self-evaluation ' + per + ' · ' + pic : 'Setting Expectation & tự đánh giá ' + per + ' · ' + pic));
+  if (test && !/^\[TEST\]/.test(subject)) subject = '[TEST] ' + subject;
+  var esc = function(s){ return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); };
+  var body = String(p.body || '');
+  var html = '<div style="font-family:Aptos,Calibri,Arial,sans-serif;font-size:11pt;color:#1A2340;line-height:1.55">' +
+             esc(body).split(/\r?\n/).map(function(l){ return l ? '<div>' + l + '</div>' : '<div>&nbsp;</div>'; }).join('') + '</div>';
+  var full = (d.staff[pic] && d.staff[pic].full) || pic, reply = vw.u.local ? vw.u.local + '@manimedicalhanoi.com' : '';
+  mmhMail_({to: to.join(','), cc: cc.join(','), subject: subject, htmlBody: html, body: body, attachments: [blob], name: full, replyTo: reply});
+  if (!test && typeof rplAdd_ === 'function') rplAdd_('quarter', pic, 'FY' + fy + '-' + q, {by: vw.u.pic || '', opt: 'email', cal: en ? 'TH' : 'VN', note: to.join(', ')});
+  return {ok: true, message: (en ? 'Self-evaluation ' + per + ' sent to ' : 'Đã gửi tự đánh giá ' + per + ' tới ') + to.join(', ') + (cc.length ? ' · CC ' + cc.join(', ') : '')};
 }
