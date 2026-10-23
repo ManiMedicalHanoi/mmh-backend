@@ -146,3 +146,6 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
 - **Ảnh thương hiệu cho giao diện Training Hub (21/10/2026, training `RH_Brand.gs`, HUB v3.33)**: `HB_LIST` (tên ngắn + mã file Drive: ảnh sản phẩm, catalogue, workshop, ảnh video giới thiệu công ty) + mọi ảnh trong thư mục Drive
   **"Training Hub — Ảnh trang chủ"** (trong thư mục gốc Hub, tên `f-<tên file>`) ⇒ ảnh thu nhỏ Drive (`thumbnailLink` =s1600, Bearer `ScriptApp.getOAuthToken`) ⇒ GitHub `Training-Hub/media/brand/` + `brand.json`.
   Chạy nền: `hubBrandTick_` (hubDispatch) hẹn trigger 1 lần `hubBrandSync` (≤ 4,5 phút / lượt, tự hẹn lượt sau); bản `HB.VER` xong ⇒ chỉ kiểm thư mục ≤ 15 phút / lần. Trạng thái: `action=brandStatus` (công khai). Không dùng ảnh có nhân sự (sơ đồ tổ chức).
+- **23/10/2026 — Rule KPI người tham dự sự kiện (C15, `marketing/MKT_SheetAuto.gs` v1.2, chị Tuyên cập nhật 4. Rule)**: Actual Participant (REPORT_EVENT, sự kiện từ `RULE_FROM` 14/10/2026) = SĐT khác nhau
+  ở CUSTOMER LIST cùng sự kiện + tháng, đủ **Họ tên · SĐT · Nơi công tác (Workplace) · Email** (bỏ Province / Tittle), và **Ký tay + "Đồng ý sử dụng dữ liệu" = Đã đồng ý…** (trực tiếp) hoặc **Zoom** (webinar).
+  Tab chưa có cột Email ⇒ code tự thêm. Công thức cũ của sự kiện từ 14/10 tự được ghi lại (dấu nhận diện có cột Email + Đồng ý).
