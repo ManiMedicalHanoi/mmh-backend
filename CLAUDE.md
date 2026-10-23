@@ -157,3 +157,8 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   vào email + PDF. Không UrlFetch (backoffice chưa có quyền). Công tác đã có sẵn (key "Lịch công tác MMYYYY" do `rhxTripSync` ghi vào WEEKLY); `cellRich` đổi `**…**` (báo cáo công tác) thành chữ đậm.
   v1.1 (23/10/2026, người dùng yêu cầu): việc QUÁ HẠN (`isOverdueGS`) rút khỏi "This week" + "Plan for next week" ⇒ mục riêng **② Overdue tasks** (`wxOverdue_` gộp không trùng,
   `wxOdEmail_` / `wxOdPdf_`), Plan for next week thành ③.
+- **23/10/2026 — Nhật ký gửi báo cáo + hạn nộp theo lịch MMH (`MMH_ReportLog.gs` GIỐNG HỆT ở marketing / backoffice / management / crm-dental / crm-surgical / crm-eyeless / crm-thai / kpi)**:
+  mỗi email báo cáo THẬT ⇒ `rplAdd_(type, pic, period, {to, by, opt, cal})` ghi sheet ẨN **`_MMH_REPORT_LOG`** của bảng tính backend (bỏ gửi thử / TEST / hộp cát). `type`: `week` (báo cáo tuần: RH `sendWeeklyReport`,
+  CRM VN `sendWeeklyReport`, crm-thai `sendReport_` week, lịch TH) · `kpi` (`kscMailSend`, bỏ tiêu đề `[TEST]`) · `quarter` (kpi `rhSeSend` mới: email file Word tự đánh giá quý). Hạn: tuần = 23:59 ngày làm việc cuối (T2–T7)
+  theo `RPL_CAL` (lịch 2026 VN / TH: thứ 7 đi làm + ngày nghỉ T2–T6 — **năm mới phải thêm**), KPI tháng = 16:00 ngày 02 tháng sau, quý = 17:00 ngày 09 tháng đầu quý sau. Đọc: action `rpLog` (phiên `tk`;
+  Admin / Director / HOD hoặc Perms `rps` — Training Hub `RH_PERM_KEYS.rps`); kpi trả thêm lịch sử cũ từ sheet log email KPI (`KSC_MAIL.LOG`). App (Report Hub v18.6 / CRM v33.3, `rpstat/rpstat.js`) gom mọi backend ⇒ Excel, lấy LẦN GỬI GẦN NHẤT.

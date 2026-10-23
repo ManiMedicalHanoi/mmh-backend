@@ -1227,6 +1227,7 @@ function sendReport_(user, p, kind){
     if(!to.length) throw new Error('No e-mail address for ' + user.pic);
     mmhMail_({ to: to.join(','), cc: cc.join(','), replyTo: (USERS[pic] || {}).email || '', subject: R.subject,
       htmlBody: R.html, attachments: [blob], name: 'MMH CRM — ' + CFG.TEAM });
+    if(kind === 'week' && option !== 'self' && typeof rplAdd_ === 'function') rplAdd_('week', pic, iso_(p.from), { to: iso_(p.to), by: user.pic, opt: option, cal: 'TH' });   /* ⭐ MMH_ReportLog.gs */
     sent.push(pic + ' → ' + to.join(', ') + (cc.length ? ' (cc ' + cc.join(', ') + ')' : ''));
   });
   if(!_tt) log_(user.pic, 'report', 'report', (kind === 'week' ? 'Weekly report ' : 'Monthly report ') + (kind === 'week' ? dmy_(p.from) : p.month), option + ' · ' + pics.join(', '), '');
@@ -1280,6 +1281,7 @@ function route_(p){
   if(/^kr[A-Z]/.test(a)) return krRoute_(a, user, p);                    /* v1.9 */
   if(/^trip(Master|Propose)2$/.test(a)) return tripRoute_(a, user, p);  /* v1.16 */
   switch(a){
+    case 'rpLog': return rplApi_(p);                                      /* ⭐ 23/10/2026: thống kê gửi báo cáo (MMH_ReportLog.gs) */
     case 'kpiPush': return { ok: true, kpiPush: k68PushQuick_() };       /* v1.9 */
     case 'kpiLate': return kpiLate_(user, p);                            /* v1.12 */
     case 'ping': return { ok: true, team: CFG.TEAM, cors: true, ver: '1.19', dateFix: props_().getProperty('CRM_DATEFIX_LOG') || '', trip2: true, kpi68: true, tenderPrice: true, custLog: true, delAccount: true, na: true, kr: true, idem: true, kpiPush: true };

@@ -231,6 +231,7 @@ function dispatch(action, user, p){
       case 'ping':          try{ if(typeof rhDateFix_==='function') rhDateFix_(); }catch(_e){}   /* ⭐ 13/10 chuẩn hoá ngày */
                                      out = { ok:true, pong:true, pic:user.pic, source:SOURCE, allowed:mgmtAllowed(user), full:mgmtFull(user) }; break;
       case 'roster':        out = { ok:true, source:SOURCE, picList: rosterList() }; break;   /* danh bạ cho màn đăng nhập — không cần quyền */
+      case 'rpLog':         out = (typeof rplApi_==='function') ? rplApi_(p) : { ok:false, error:'Thiếu MMH_ReportLog.gs' }; break;   /* ⭐ 23/10/2026: thống kê gửi báo cáo */
       case 'version':       out = dataVersion(); break;   /* ⭐ v5.11: dấu vân tay dữ liệu */
       case 'sheets':        out = sheetInfo(); break;    /* ⭐ v5.12: kiểm tra đang đọc đúng sheet nào */
       case 'debugLayout':   out = debugLayout(); break;   /* ⭐ v5.2: tự kiểm tra map cột */
@@ -2259,6 +2260,7 @@ function sendWeeklyReport(user, p){
       attachments:[blob], name:t.pic+' (MMH Report Hub)', replyTo:t.email||undefined
     });
     logActivity(t.pic,'report','gửi báo cáo tuần '+fmtVN(thisFrom)+'–'+fmtVN(thisTo),'','');
+    if(!t.test && typeof rplAdd_==='function') rplAdd_('week', t.pic, thisFrom, { to:thisTo, by:user.pic, opt:option });   /* ⭐ MMH_ReportLog.gs */
     sent.push(t.pic);
   });
   return { ok:true, message:

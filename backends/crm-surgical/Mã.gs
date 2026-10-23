@@ -532,6 +532,7 @@ function handle(e, method){
 
       case 'weeklyReport'    : out = sendWeeklyReport(user, p); break;
       case 'rpStatus'        : out = rpStatus_(); break;
+      case 'rpLog'           : out = rplApi_(p); break;   /* ⭐ 23/10/2026: thống kê gửi báo cáo (MMH_ReportLog.gs) */
       case 'monthlyReport'   : out = sendMonthlyReport(user, p); break;
       default: out = { ok:false, error:'Unknown action: ' + action };
     }
@@ -2746,6 +2747,7 @@ function sendWeeklyReport(user, p){
       htmlBody: buildCombinedEmailBody(recipient, thisFrom, thisTo, tKeys, nextFrom, nextTo, nKeys, oCur, oNext),
       attachments: [blob], name: appName_()
     });
+    if (!t.test && typeof rplAdd_ === 'function') rplAdd_('week', t.pic, thisFrom, { to:thisTo, by:user.pic, opt:option });   /* ⭐ MMH_ReportLog.gs */
     sent.push(t.pic);
   });
 
