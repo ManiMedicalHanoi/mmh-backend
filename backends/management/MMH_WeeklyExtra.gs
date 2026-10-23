@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
- * MMH_WeeklyExtra.gs — v1.0 (23/10/2026)
+ * MMH_WeeklyExtra.gs — v1.1 (23/10/2026)
  * GIỐNG HỆT NHAU ở marketing / backoffice / management (sửa 1 nơi ⇒ chép sang nơi khác).
  *
  * Báo cáo tuần (email + PDF) thêm khối "Đào tạo (Training Hub)": các buổi đào tạo
@@ -52,4 +52,49 @@ function wxAppend_(keys, p, pic, from, to, isNext){
     var k = wxTrnKey_(wxTrnList_(p), pic, from, to, isNext);
     return k ? keys.concat([k]) : keys;
   }catch(e){ return keys; }
+}
+
+/* ═══ v1.1 (23/10/2026): việc QUÁ HẠN tách thành mục riêng "Overdue tasks" ═══
+   Trước: việc quá hạn chưa xong lặp lại ở cả "This week" lẫn "Plan for next week".
+   Nay: sub quá hạn (isOverdueGS) rút khỏi 2 mục đó, gom (không trùng) vào mục ② Overdue tasks. */
+function wxSplitOd_(keys){
+  var keep = [], od = [];
+  (keys || []).forEach(function(k){
+    var a = [], b = [];
+    (k.subs || []).forEach(function(s){ (isOverdueGS(s) ? b : a).push(s); });
+    if (a.length) keep.push(wxWith_(k, a));
+    if (b.length) od.push(wxWith_(k, b));
+  });
+  return { keep:keep, od:od };
+}
+function wxWith_(k, subs){ var o = {}; for (var x in k) o[x] = k[x]; o.subs = subs; return o; }
+function wxMergeOd_(a, b){
+  var out = [], by = {};
+  a.concat(b).forEach(function(k){
+    var id = (k.__src || '') + '|' + k.no, t = by[id];
+    if (!t){ t = by[id] = wxWith_(k, []); t.__seen = {}; out.push(t); }
+    k.subs.forEach(function(s){ var sid = String(s.no || s.name); if (!t.__seen[sid]){ t.__seen[sid] = 1; t.subs.push(s); } });
+  });
+  out.forEach(function(k){ delete k.__seen; k.subs.sort(function(x, y){ return String(x.revised || x.planned || '') < String(y.revised || y.planned || '') ? -1 : 1; }); });
+  return out;
+}
+/* dùng trong sendWeeklyReport: { t: this week, n: next week, o: overdue } */
+function wxOverdue_(thisKeys, nextKeys){
+  var a = wxSplitOd_(thisKeys), b = wxSplitOd_(nextKeys);
+  return { t:a.keep, n:b.keep, o:wxMergeOd_(a.od, b.od) };
+}
+function wxOdCount_(keys){ var n = 0; (keys || []).forEach(function(k){ n += (k.subs || []).length; }); return n; }
+function wxOdEmail_(keys){
+  if (!keys) return '';
+  var n = wxOdCount_(keys);
+  return '<h3 style="margin:18px 0 6px;font-size:12.5pt;color:#8A1C1C;border-left:4px solid #D9433F;padding-left:8px">② Overdue tasks — past deadline, not completed ('+n+')</h3>'+
+    (n ? weeklyEmailTable(keys, false)
+       : '<p style="margin:0 0 6px;color:#5A6A8A;font-size:10pt">No overdue task.</p>');
+}
+function wxOdPdf_(keys){
+  if (!keys) return '';
+  var n = weeklyPdfBlocks(keys, false);
+  return '<div class="sec" style="border-left-color:#D9433F;background:#FFF3F3;color:#8A1C1C">② Overdue tasks — past deadline, not completed</div>'+
+    '<div class="summary"><div class="sm od"><b>'+n.totalSubs+'</b>Overdue sub-tasks</div><div class="sm"><b>'+n.keyCount+'</b>Key tasks</div></div>'+
+    (n.totalSubs ? n.blocks : '<p style="color:#5A6A8A;font-size:11px">No overdue task.</p>');
 }
