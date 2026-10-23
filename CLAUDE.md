@@ -155,3 +155,5 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
 - **23/10/2026 — Báo cáo tuần có buổi đào tạo (`MMH_WeeklyExtra.gs` GIỐNG HỆT ở marketing / backoffice / management)**: app Report Hub v18.4 gửi kèm `trn` (JSON gọn các buổi
   Training Hub người gửi là trainer / được mời, tuần báo cáo + tuần sau) + `trnPic` trong `weeklyReport` ⇒ `wxAppend_` thêm key ảo "Đào tạo (Training Hub)" (sub `ĐT.n`, `__noOd` không tính quá hạn)
   vào email + PDF. Không UrlFetch (backoffice chưa có quyền). Công tác đã có sẵn (key "Lịch công tác MMYYYY" do `rhxTripSync` ghi vào WEEKLY); `cellRich` đổi `**…**` (báo cáo công tác) thành chữ đậm.
+  v1.1 (23/10/2026, người dùng yêu cầu): việc QUÁ HẠN (`isOverdueGS`) rút khỏi "This week" + "Plan for next week" ⇒ mục riêng **② Overdue tasks** (`wxOverdue_` gộp không trùng,
+  `wxOdEmail_` / `wxOdPdf_`), Plan for next week thành ③.
