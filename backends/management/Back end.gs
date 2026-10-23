@@ -2235,6 +2235,8 @@ function sendWeeklyReport(user, p){
     var recipient = { pic:t.pic, email:t.email, title:t.title };
     var thisKeys = filterKeysForPic(allKeys, t.pic, thisFrom, thisTo, 'thisweek');
     var nextKeys = filterKeysForPic(allKeys, t.pic, nextFrom, nextTo, 'nextweek');
+    /* ⭐ 23/10/2026: buổi đào tạo (Training Hub, app gửi kèm `trn`) — MMH_WeeklyExtra.gs */
+    if(typeof wxAppend_==='function'){ thisKeys = wxAppend_(thisKeys, p, t.pic, thisFrom, thisTo, false); nextKeys = wxAppend_(nextKeys, p, t.pic, nextFrom, nextTo, true); }
     var html = buildCombinedReportHtml(recipient, thisFrom, thisTo, thisKeys, nextFrom, nextTo, nextKeys);
     var blob = HtmlService.createHtmlOutput(html).getBlob().getAs('application/pdf')
                 .setName('MMH_MGMT_Weekly_'+t.pic.replace(/\s+/g,'')+'_'+thisFrom+'.pdf');
@@ -2267,6 +2269,7 @@ function subPctGS(s){
   return pct100(s.progress);
 }
 function isOverdueGS(s){
+  if(s && s.__noOd) return false;   /* buổi đào tạo: không tính quá hạn */
   var st=String(s.status||'');
   if(/complet/i.test(st)||/cancel/i.test(st)) return false;
   var eff=s.revised||s.planned||'';
@@ -2331,6 +2334,7 @@ function cellRich(txt){
   txt=String(txt||'').trim();
   if(!txt) return '<span style="color:#B0B8C8">—</span>';
   var safe=esc(txt);
+  safe=safe.replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>');   /* báo cáo công tác: **I. Key Activities** */
   safe=safe.replace(/^([^\n:]{1,32}:)/gm,'<b>$1</b>');
   safe=safe.replace(/\n/g,'<br>');
   return safe;

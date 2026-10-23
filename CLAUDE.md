@@ -152,3 +152,6 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
 - **23/10/2026 — Review rule KPI Back office (`kpi/KpiBackOffice.gs` v1.1)**: nhóm Back office sửa công thức P2-04 (Hậu / Việt) trên file của họ; P5-01 chỉ tính theo thời gian nộp (không tính lỗi sai);
   **P5-05 VAT chưa áp dụng quý 1** ⇒ `KSC_BO.FROM['P5-05'] = 202612` (tháng trước đó để trống ở file KPI, từ quý 2 chuyển cho Mai); P1-00 = sheet Internal Docs (Month K, PIC L = Dam Ha);
   P2-07 = hồ sơ thầu đúng hạn ÷ hồ sơ đã nhận, quy đổi thang 100. P3-00 / P4-00 / P5-01a / P5-06 (của chị Hoà) còn chờ chị Hoà xác nhận.
+- **23/10/2026 — Báo cáo tuần có buổi đào tạo (`MMH_WeeklyExtra.gs` GIỐNG HỆT ở marketing / backoffice / management)**: app Report Hub v18.4 gửi kèm `trn` (JSON gọn các buổi
+  Training Hub người gửi là trainer / được mời, tuần báo cáo + tuần sau) + `trnPic` trong `weeklyReport` ⇒ `wxAppend_` thêm key ảo "Đào tạo (Training Hub)" (sub `ĐT.n`, `__noOd` không tính quá hạn)
+  vào email + PDF. Không UrlFetch (backoffice chưa có quyền). Công tác đã có sẵn (key "Lịch công tác MMYYYY" do `rhxTripSync` ghi vào WEEKLY); `cellRich` đổi `**…**` (báo cáo công tác) thành chữ đậm.
