@@ -170,7 +170,7 @@
 
 var HUB = {
 
-  VERSION: '3.33',   // ★ 21/10/2026 — v3.33 ảnh thương hiệu ⇒ GitHub (RH_Brand.gs) · 17/10/2026 — v3.32 rhTurnover: cầu nối đọc file Turnover cho CRM · 16/10/2026 — v3.31 bài kiểm tra bật lại (RH_Assess.gs) · v3.30 leaderboard: bảng xếp hạng học viên (RH_Leaderboard.gs)
+  VERSION: '3.34',   // ★ 28/10/2026 — v3.34 rhAuthLink: link đăng nhập trong email duyệt đơn CRM (RH_Auth.gs) · 21/10/2026 — v3.33 ảnh thương hiệu ⇒ GitHub (RH_Brand.gs) · 17/10/2026 — v3.32 rhTurnover: cầu nối đọc file Turnover cho CRM · 16/10/2026 — v3.31 bài kiểm tra bật lại (RH_Assess.gs) · v3.30 leaderboard: bảng xếp hạng học viên (RH_Leaderboard.gs)
                      // 3.29 — claimCert: nút Nhận chứng chỉ (tạo / gửi lại chứng chỉ qua email)
   /* v3.28 */   // ★ 16/10/2026 — asLearner cho cả trainer (nút Học thử như học viên)
   /* v3.27 */   // ★ 15/10/2026 — RH_Warm.gs v1.1: làm nóng đệm KHÔNG giữ khoá ghi (v3.26 làm thao tác ghi báo bận)
@@ -583,6 +583,7 @@ var HUB_ROUTES = {
   'rhAuthStart'     : {fn:'apiRhAuthStart',     auth:0},
   'rhAuthVerify'    : {fn:'apiRhAuthVerify',    auth:0},
   'rhAuthMe'        : {fn:'apiRhAuthMe',        auth:0},
+  'rhAuthLink'      : {fn:'apiRhAuthLink',      auth:0},   // ★ v3.34 — link đăng nhập trong email xin xác nhận đơn (CRM)
   // ★ v3.13 — trang phân quyền Report Hub (tự kiểm phiên + vai trò trong hàm)
   'rhAdminList'     : {fn:'apiRhAdminList',     auth:0},
   'rhAdminSave'     : {fn:'apiRhAdminSave',     auth:0},
