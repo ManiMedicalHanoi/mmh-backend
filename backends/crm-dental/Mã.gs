@@ -1,5 +1,10 @@
 /*************************************************************************************************
- * MMH CRM — Google Apps Script backend  (v10.18)  ·  MỘT FILE CODE CHO CẢ 3 NHÓM
+ * MMH CRM — Google Apps Script backend  (v10.19)  ·  MỘT FILE CODE CHO CẢ 3 NHÓM
+ * ⭐ v10.19 (28/10/2026) · ĐƠN BỊ TÁCH SAU KHI CẬP NHẬT CHỨNG TỪ · ĐỔI NGÀY TASK KHÔNG LƯU
+ *   ① ordNoHeal_: dòng không số cùng account + ngày đặt + PIC + tháng với dòng ĐÃ có số ⇒ điền cùng Order No. + loại đơn / chứng từ còn trống
+ *      (app cũ sửa 1 dòng ⇒ chỉ dòng đó được cấp số). ≤ 1 lần / 20 phút ở ping / boot / bundle / version + đầu orderPending.
+ *   ② saveOrders: dòng đang sửa vốn chưa có số ⇒ điền số + loại đơn / chứng từ cho các dòng không số cùng đơn.
+ *   ③ wkResolve_: đúng dòng theo account + PIC + ngày cũ khi số No đã đổi (trước đây báo "Dòng đã đổi" ⇒ đổi ngày không lưu).
  * ⭐ v10.18 (28/10/2026) · EMAIL XIN XÁC NHẬN ĐƠN: link mở đúng đơn (#oa=<key>) + vé đăng nhập riêng cho người duyệt (&lk=, Training Hub rhAuthLink);
  *   email gửi riêng người duyệt (có vé) và bản sao cho sales (không vé) — trước là 1 email To người duyệt Cc sales.
  * ⭐ v10.17 (28/10/2026) · ĐƠN NHIỀU SẢN PHẨM: gom đúng cả đơn + sửa cả đơn (thêm / bớt dòng)
@@ -438,7 +443,7 @@ function handle(e, method){
     if (/^tm[A-Z]/.test(String(action)) && typeof tmRoute_ === 'function'){ var _tmr = tmRoute_(String(action), p); if (_tmr) return reply(_tmr, callback); }
     var user = whoAmI(p);
     try { ordX_(); } catch(eX){}                                      /* ⭐ v10.11 — cột mới của 3. SALE ORDER */
-    if (/^(ping|boot|bundle|version)$/.test(String(action))) { try { crmMigrateMaybe_(); } catch(eM){} try { dfMaybe_(); } catch(eD){} try { k68VisitPatch_(); } catch(eK){} }   /* ⭐ v10.11 — bố cục 1 lần · v10.12 — chuẩn hoá ngày */
+    if (/^(ping|boot|bundle|version)$/.test(String(action))) { try { crmMigrateMaybe_(); } catch(eM){} try { dfMaybe_(); } catch(eD){} try { k68VisitPatch_(); } catch(eK){} try { ordNoHeal_(); } catch(eO){} }   /* ⭐ v10.19 — gộp đơn bị tách · ⭐ v10.11 — bố cục 1 lần · v10.12 — chuẩn hoá ngày */
 
     /* TRẢ LỜI RỖNG KHI DỮ LIỆU CHƯA ĐỔI (app gửi kèm cv = phiên bản nó đang giữ) */
     var _cv = (typeof tmOn_ === 'function' && tmOn_()) ? '' : S(p.cv);
@@ -494,7 +499,7 @@ function handle(e, method){
     if (action === 'kpiLate') return reply(kpiLate_(user, p), callback);               /* ⭐ v10.4 */
 
     switch (action) {
-      case 'ping'            : out = { ok:true, pong:true, source:TEAM(), app:appName_(), pic:user.pic, ver:'10.18', orderLink:true, orderEdit:true, rpStatus:true, sandbox:true, careGate:true, visitDone:true, rate:K68_RATE_DEF, dateFix:props_().getProperty('CRM_DATEFIX_LOG') || '', orderApproval:true, presentTpl:true, migrate:props_().getProperty('CRM_LAYOUT_V') || '', meeting:true, trip2:true, kpi68:true, tenderPrice:true, custLog:true, deleteAccount:true, na:true, kr:true, idem:true, kpiPush:true }; break;
+      case 'ping'            : out = { ok:true, pong:true, source:TEAM(), app:appName_(), pic:user.pic, ver:'10.19', orderHeal:true, orderLink:true, orderEdit:true, rpStatus:true, sandbox:true, careGate:true, visitDone:true, rate:K68_RATE_DEF, dateFix:props_().getProperty('CRM_DATEFIX_LOG') || '', orderApproval:true, presentTpl:true, migrate:props_().getProperty('CRM_LAYOUT_V') || '', meeting:true, trip2:true, kpi68:true, tenderPrice:true, custLog:true, deleteAccount:true, na:true, kr:true, idem:true, kpiPush:true }; break;
       case 'boot'            : out = boot(user); break;
       case 'master'          : out = { ok:true, master: readMaster() }; break;
       case 'customerIndex'   : out = { ok:true, rows: customerIndex() }; break;
@@ -1224,16 +1229,14 @@ function saveOrders(user, p){
     /* ⭐ v10.17 — ORDER NO.: cả đơn dùng 1 số. Đơn chưa có số ⇒ cấp số mới (lớn nhất + 1) và điền cho cả các dòng cùng đơn đã có trên sheet
        (dòng không số trước đây bị tính thành từng đơn riêng ⇒ Gửi xác nhận / duyệt / KPI chỉ lấy dòng đầu). */
     var no = ''; keep.some(function(d){ return (no = S(d.orderNo)); });
-    var fill = [];
-    if (!no){
-      no = ordNextNo_();
-      var olds = {};
-      keep.forEach(function(d){ var r = parseInt(d._row || 0, 10); if (r) olds[r] = 1; });
-      if (Object.keys(olds).length){
-        var all = readTab('order'), ks = {};
-        all.forEach(function(o){ if (olds[o._row] && !S(o.orderNo)) ks[ordKey_(o)] = 1; });
-        all.forEach(function(o){ if (!olds[o._row] && dels.indexOf(o._row) < 0 && !S(o.orderNo) && ks[ordKey_(o)]) fill.push(o._row); });
-      }
+    if (!no) no = ordNextNo_();
+    /* ⭐ v10.19 — dòng đang sửa vốn KHÔNG có số trên sheet (kể cả khi app gửi kèm số mới) ⇒ các dòng không số cùng đơn nhận cùng số + loại đơn / chứng từ */
+    var fill = [], olds = {}, blank = false;
+    keep.forEach(function(d){ var r = parseInt(d._row || 0, 10); if (!r) return; olds[r] = 1; if (!blank && !S(s.getRange(r, map.orderNo).getValue())) blank = true; });
+    if (blank){
+      var all = readTab('order'), ks = {};
+      all.forEach(function(o){ if (olds[o._row] && !S(o.orderNo)) ks[ordKey_(o)] = 1; });
+      all.forEach(function(o){ if (!olds[o._row] && dels.indexOf(o._row) < 0 && !S(o.orderNo) && ks[ordKey_(o)]) fill.push(o); });
     }
     keep.forEach(function(d){ if (!S(d.orderNo)) d.orderNo = no; });
 
@@ -1260,7 +1263,11 @@ function saveOrders(user, p){
       });
     }
     upd.forEach(function(u){ writeRowKeepFormulas_(s, u.row, u.cur, lastCol, lockF, map); out[u.i] = u.row; });
-    fill.forEach(function(r){ s.getRange(r, map.orderNo).setValue(no); });
+    var share = keep[0] || {};
+    fill.forEach(function(o){
+      s.getRange(o._row, map.orderNo).setValue(no);
+      ORD_SHARE.forEach(function(f){ if (map[f] && !S(o[f]) && S(share[f])) s.getRange(o._row, map[f]).setValue(f === 'tender' ? num(share[f]) : share[f]); });
+    });
 
     if (news.length){
       var start = firstEmptyRow('order');
@@ -6724,6 +6731,44 @@ function ordSuppList_(orders){
   _ORDSUPP = { src:orders, list:out };
   return out;
 }
+/* ⭐ v10.19 (28/10/2026) — GỘP LẠI ĐƠN BỊ TÁCH: app cũ sửa 1 dòng của đơn không số ⇒ chỉ dòng đó được cấp số (+ loại đơn / chứng từ),
+   các dòng còn lại thành "đơn" riêng thiếu loại / chứng từ. Dòng không số cùng account + ngày đặt + PIC + tháng với dòng ĐÃ có số (chỉ 1 số)
+   ⇒ điền cùng Order No. + Order Type / chứng từ / trị giá thầu / tháng KQTT còn trống. ≤ 1 lần / 20 phút (ping / boot / bundle / version, orderPending). */
+var ORD_SHARE = ['otype', 'tender', 'kqtt', 'docs'];
+function ordK2_(o){ return normName_(o.name) + '|' + (wkIso_(o.day) || S(o.day)) + '|' + normName_(o.pic) + '|' + ordYm_(o); }
+function ordNoHeal_(force){
+  var map = COL.order; if (!map.orderNo) return 0;
+  var c = CacheService.getScriptCache(), ck = 'ORDHEAL' + ((typeof sbOn_ === 'function' && sbOn_()) ? '|SB' : '');
+  if (!force && c.get(ck)) return 0;
+  c.put(ck, '1', 1200);
+  var rows = readTab('order'), by = {}, fix = [];
+  rows.forEach(function(o){ if (S(o.orderNo)) (by[ordK2_(o)] = by[ordK2_(o)] || []).push(o); });
+  rows.forEach(function(o){
+    if (S(o.orderNo) || !S(o.name)) return;
+    var L = by[ordK2_(o)]; if (!L) return;
+    var nos = {}; L.forEach(function(x){ nos[S(x.orderNo)] = 1; });
+    if (Object.keys(nos).length !== 1) return;
+    var set = { orderNo:S(L[0].orderNo) };
+    ORD_SHARE.forEach(function(f){ if (!map[f] || S(o[f])) return; var v = ''; L.some(function(x){ return (v = S(x[f])); }); if (v) set[f] = f === 'tender' ? num(v) : v; });
+    fix.push({ row:o._row, name:S(o.name), set:set });
+  });
+  if (!fix.length) return 0;
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(20000); } catch(e){ c.remove(ck); return 0; }
+  var n = 0;
+  try {
+    var s = sh('order');
+    fix.forEach(function(f){
+      var v = s.getRange(f.row, 1, 1, Math.max(map.orderNo, map.name)).getValues()[0];
+      if (S(v[map.orderNo - 1]) || normName_(v[map.name - 1]) !== normName_(f.name)) return;   /* sheet đã đổi ⇒ bỏ qua */
+      for (var k in f.set) s.getRange(f.row, map[k]).setValue(f.set[k]);
+      n++;
+    });
+    if (n){ SpreadsheetApp.flush(); bumpVersion(bumpTabsFor_('order')); _RAW = {}; _ORDSUPP = null; }
+  } finally { lock.releaseLock(); }
+  if (n) try { logAct({ pic:'system' }, 'heal', 'order', '', n + ' dòng không số gộp vào đơn có số', ''); } catch(e){}
+  return n;
+}
 /* khoá 1 ĐƠN: Order No. + PIC + tháng. ⭐ v10.17 — dòng KHÔNG có Order No. ⇒ account + ngày đặt + PIC + tháng (trước đây mỗi dòng không số
    là 1 đơn riêng ⇒ đơn nhiều sản phẩm bị tách: Gửi xác nhận / duyệt / KPI C5 chỉ lấy dòng đầu). Đơn mới từ v10.17 luôn được cấp số. */
 function ordKey_(o){
@@ -6786,6 +6831,7 @@ function ordCanDecide_(me, pic){
 }
 function orderPending(user, p){
   var me = ordMe_(user, p); if (me.err) return { ok:false, code:'AUTH', error:me.err };
+  try { ordNoHeal_(); } catch(eH){}
   var test = typeof tmOn_ === 'function' && tmOn_();
   var appr = test || ordIsApprover_(me), all = S(p.all) === '1';
   _RAW = {};
@@ -7211,9 +7257,12 @@ function wkResolve_(row, h, opts){
     if (!h.no && h.start && st && st !== h.start) return false;
     return true;
   };
+  /* ⭐ v10.19 — số No đã đổi (sheet sắp xếp lại / sửa tay) nhưng vẫn đúng account + PIC + ngày (cũ) ⇒ vẫn là task đó */
+  var same = function(acc, pic, st){ return !!(h.acc && h.start) && wkAccKey_(acc) === wkAccKey_(h.acc) && (!h.pic || normName_(pic) === normName_(h.pic)) && st === h.start; };
   if (row >= DATA_ROW && row <= lr){
     var v = s.getRange(row, 1, 1, W.account).getValues()[0];
     if (match(v[W.no - 1], v[W.account - 1], v[W.pic - 1], d2s(v[W.start - 1]))) return { row:row };
+    if (same(v[W.account - 1], v[W.pic - 1], d2s(v[W.start - 1]))) return { row:row };
   }
   if (lr >= DATA_ROW){
     var n = lr - DATA_ROW + 1, V = s.getRange(DATA_ROW, 1, n, W.account).getValues(), best = 0, bd = 1e9;
@@ -7222,6 +7271,11 @@ function wkResolve_(row, h, opts){
       if (h.no){ if (wkNo_(r[W.no - 1]) !== h.no) continue; if (h.pic && normName_(r[W.pic - 1]) !== normName_(h.pic)) continue; if (h.acc && wkAccKey_(r[W.account - 1]) !== wkAccKey_(h.acc)) continue; }
       else if (!match(r[W.no - 1], r[W.account - 1], r[W.pic - 1], d2s(r[W.start - 1]))) continue;
       var d = Math.abs(DATA_ROW + i - row); if (d < bd){ bd = d; best = DATA_ROW + i; }
+    }
+    if (best) return { row:best, moved:best !== row };
+    if (h.no) for (var j = 0; j < n; j++){
+      if (!same(V[j][W.account - 1], V[j][W.pic - 1], d2s(V[j][W.start - 1]))) continue;
+      var d2 = Math.abs(DATA_ROW + j - row); if (d2 < bd){ bd = d2; best = DATA_ROW + j; }
     }
     if (best) return { row:best, moved:best !== row };
   }

@@ -170,3 +170,7 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   người duyệt nhận email RIÊNG có `&lk=<vé>` (`ordLinkTicket_`: HMAC bằng `RH_Secret` + `'|lk'`, `{k:'lk', e, s:Session, i, x}` hạn 7 ngày; bỏ qua ở chế độ TEST / hộp cát), sales nhận bản sao KHÔNG có vé
   (trước: 1 email To người duyệt Cc sales). Training Hub `rhAuthLink` (RH_Auth.gs) đổi vé ⇒ phiên thường 30 ngày (khoá ký khác phiên ⇒ vé không dùng thay phiên được; đổi Session ⇒ vé cũ hết hiệu lực).
   App CRM v33.5 (khối `v335-js`) dùng vé khi trình duyệt chưa có phiên (app email trên điện thoại).
+- **28/10/2026 — CRM v10.19 (crm-dental / surgical / eyeless `Mã.gs`)**: ① `ordNoHeal_` (≤ 1 lần / 20 phút, CacheService `ORDHEAL`, ở ping / boot / bundle / version + đầu `orderPending`): dòng KHÔNG số cùng account + ngày + PIC + tháng
+  (`ordK2_`) với dòng ĐÃ có số (chỉ 1 số) ⇒ điền cùng Order No. + `ORD_SHARE` (Order Type / chứng từ / trị giá thầu / tháng KQTT) còn trống — sửa đơn bị app cũ tách khi cập nhật chứng từ 1 dòng.
+  ② `saveOrders`: dòng đang sửa vốn không số trên sheet ⇒ các dòng không số cùng đơn nhận cùng số + `ORD_SHARE`. ③ `wkResolve_`: số No lệch nhưng đúng account + PIC + ngày cũ (`_start`) ⇒ vẫn nhận dòng
+  (trước đây STALE ⇒ đổi ngày task không lưu, app tải lại thấy ngày cũ). App CRM v33.6.
