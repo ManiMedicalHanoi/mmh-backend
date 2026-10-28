@@ -1,5 +1,9 @@
 /*************************************************************************************************
- * MMH CRM — Google Apps Script backend  (v10.16)  ·  MỘT FILE CODE CHO CẢ 3 NHÓM
+ * MMH CRM — Google Apps Script backend  (v10.17)  ·  MỘT FILE CODE CHO CẢ 3 NHÓM
+ * ⭐ v10.17 (28/10/2026) · ĐƠN NHIỀU SẢN PHẨM: gom đúng cả đơn + sửa cả đơn (thêm / bớt dòng)
+ *   ① ordKey_: dòng không có Order No. gom theo account + ngày đặt + PIC + tháng (trước đây mỗi dòng 1 đơn ⇒ Gửi xác nhận / duyệt / KPI chỉ dòng đầu).
+ *   ② saveOrders: đơn chưa có số ⇒ cấp Order No. (ordNextNo_) cho cả đơn; nhận dòng _del (bỏ khỏi đơn, kiểm Order No. + account + quyền);
+ *      sửa / thêm / bớt dòng của đơn đã duyệt hoặc từ chối ⇒ cả đơn về Chờ duyệt; đơn đang sửa không kiểm chăm sóc, không email đơn mới.
  * ⭐ v10.16 (22/10/2026) · EMAIL ĐƠN HÀNG MỚI GỬI HOD (người duyệt đơn của nhóm, ORDER_APPROVERS) thay vì Giám đốc — người dùng yêu cầu.
  * ⭐ v10.14 (16/10/2026) · ĐƠN HÀNG CẦN LỊCH SỬ CHĂM SÓC · EMAIL ĐƠN MỚI TỚI GIÁM ĐỐC · VISITING COMPLETED ĐỦ TRƯỜNG · KPI VISIT = COMPLETED + ẢNH
  *   ① saveOrders: đơn MỚI chỉ ghi khi account có hoạt động Completed (Visiting / Telephone / Message…) trên tab 6 trong 30 ngày trước ngày đặt
@@ -488,7 +492,7 @@ function handle(e, method){
     if (action === 'kpiLate') return reply(kpiLate_(user, p), callback);               /* ⭐ v10.4 */
 
     switch (action) {
-      case 'ping'            : out = { ok:true, pong:true, source:TEAM(), app:appName_(), pic:user.pic, ver:'10.15', rpStatus:true, sandbox:true, careGate:true, visitDone:true, rate:K68_RATE_DEF, dateFix:props_().getProperty('CRM_DATEFIX_LOG') || '', orderApproval:true, presentTpl:true, migrate:props_().getProperty('CRM_LAYOUT_V') || '', meeting:true, trip2:true, kpi68:true, tenderPrice:true, custLog:true, deleteAccount:true, na:true, kr:true, idem:true, kpiPush:true }; break;
+      case 'ping'            : out = { ok:true, pong:true, source:TEAM(), app:appName_(), pic:user.pic, ver:'10.17', orderEdit:true, rpStatus:true, sandbox:true, careGate:true, visitDone:true, rate:K68_RATE_DEF, dateFix:props_().getProperty('CRM_DATEFIX_LOG') || '', orderApproval:true, presentTpl:true, migrate:props_().getProperty('CRM_LAYOUT_V') || '', meeting:true, trip2:true, kpi68:true, tenderPrice:true, custLog:true, deleteAccount:true, na:true, kr:true, idem:true, kpiPush:true }; break;
       case 'boot'            : out = boot(user); break;
       case 'master'          : out = { ok:true, master: readMaster() }; break;
       case 'customerIndex'   : out = { ok:true, rows: customerIndex() }; break;
@@ -1179,10 +1183,13 @@ function saveOrders(user, p){
   var list = p.rows || p.data;
   if (typeof list === 'string'){ try { list = JSON.parse(list); } catch(e){ return { ok:false, error:'Dữ liệu không hợp lệ' }; } }
   if (!list || !list.length) return { ok:false, error:'Thiếu dữ liệu đơn hàng' };
+  /* ⭐ v10.17 (28/10/2026) — app gửi CẢ ĐƠN khi sửa: dòng có _row = sửa, _row 0 = dòng sản phẩm thêm vào, _del = dòng bỏ khỏi đơn.
+     Đơn đang sửa (có dòng _row) ⇒ không kiểm lịch sử chăm sóc, không email "đơn mới". */
+  var editing = list.some(function(d){ return parseInt(d && d._row || 0, 10) > 0; });
 
   /* ⭐ v10.14 (16/10/2026) — đơn MỚI chỉ tạo được khi khách hàng đã có LỊCH SỬ CHĂM SÓC (Visiting / Telephone / Message … Completed)
      trong 30 ngày trước ngày đặt (tab 6). Đơn đã có (sửa dòng) không kiểm. */
-  if (!S(p.rid) || !orderLogFind_(S(p.rid)).length){
+  if (!editing && (!S(p.rid) || !orderLogFind_(S(p.rid)).length)){
     var _care = ordCareCheck_(list);
     if (_care) return _care;
   }
@@ -1191,7 +1198,7 @@ function saveOrders(user, p){
   try {
     var s = sh('order'), map = COL.order, lockF = FORMULA_FIELDS.order || {};
     var lastCol = lastColOf('order');
-    var rowsOut = [], news = [], newData = [];
+    var out = [], upd = [], news = [], newData = [], dels = [], skipped = [];
     /* ⭐ v10.0 — đơn đã ghi bởi chính yêu cầu này (rid) ⇒ không ghi lại */
     var rid = S(p.rid);
     if (rid){
@@ -1199,38 +1206,96 @@ function saveOrders(user, p){
       if (prev.length) return { ok:true, dup:true, rows:prev, count:prev.length, orderNo:S(list[0] && list[0].orderNo),
                                 message:'Đơn đã được lưu trước đó (' + prev.length + ' dòng) — không ghi trùng' };
     }
+    var keep = list.filter(function(d){ return d && !d._del; });
+    if (!keep.length) return { ok:false, error:'Đơn hàng phải còn ít nhất một dòng sản phẩm — muốn bỏ cả đơn thì bấm Xoá đơn.' };
 
-    list.forEach(function(d){
+    /* ⭐ v10.17 — dòng bỏ khỏi đơn: kiểm đúng dòng (Order No. + account như app đang thấy) + quyền (quản lý / sales phụ trách dòng) */
+    list.forEach(function(d, i){
+      if (!d || !d._del) return;
+      var row = parseInt(d._row || 0, 10); out[i] = 0; if (!row) return;
+      var v = s.getRange(row, 1, 1, lastCol).getValues()[0], g = function(f){ return S(v[map[f] - 1]); };
+      if (S(d._no) !== g('orderNo') || normName_(d._nm || d.name) !== normName_(g('name'))){ skipped.push(row); return; }
+      if (!isManager(user) && g('pic') && normName_(g('pic')) !== normName_(user && user.pic)){ skipped.push(row); return; }
+      dels.push(row);
+    });
+
+    /* ⭐ v10.17 — ORDER NO.: cả đơn dùng 1 số. Đơn chưa có số ⇒ cấp số mới (lớn nhất + 1) và điền cho cả các dòng cùng đơn đã có trên sheet
+       (dòng không số trước đây bị tính thành từng đơn riêng ⇒ Gửi xác nhận / duyệt / KPI chỉ lấy dòng đầu). */
+    var no = ''; keep.some(function(d){ return (no = S(d.orderNo)); });
+    var fill = [];
+    if (!no){
+      no = ordNextNo_();
+      var olds = {};
+      keep.forEach(function(d){ var r = parseInt(d._row || 0, 10); if (r) olds[r] = 1; });
+      if (Object.keys(olds).length){
+        var all = readTab('order'), ks = {};
+        all.forEach(function(o){ if (olds[o._row] && !S(o.orderNo)) ks[ordKey_(o)] = 1; });
+        all.forEach(function(o){ if (!olds[o._row] && dels.indexOf(o._row) < 0 && !S(o.orderNo) && ks[ordKey_(o)]) fill.push(o._row); });
+      }
+    }
+    keep.forEach(function(d){ if (!S(d.orderNo)) d.orderNo = no; });
+
+    list.forEach(function(d, i){
+      if (!d || d._del) return;
       var row = parseInt(d._row || 0, 10);
       ordGuard_(d);                                                     /* ⭐ v10.11 — app không tự ghi cột duyệt */
       if (row){
         var cur = s.getRange(row, 1, 1, lastCol).getValues()[0], _o = cur.slice();
         fillOrderCells_(cur, d, map, lockF);
         ordStatus_(_o, cur, map);
-        writeRowKeepFormulas_(s, row, cur, lastCol, lockF, map);
-        rowsOut.push(row);
-      } else { news.push(d); }
+        upd.push({ i:i, row:row, cur:cur, old:_o });
+      } else { news.push({ i:i, d:d }); }
     });
+    /* ⭐ v10.17 — đơn đã duyệt / từ chối được sửa (đổi, thêm hoặc bớt dòng sản phẩm) ⇒ CẢ ĐƠN về Chờ duyệt */
+    if (map.appr && upd.length){
+      var stOf = function(r){ return ordAppr_(r[map.appr - 1]); };
+      var touched = news.length || dels.length || upd.some(function(u){ return stOf(u.old) !== stOf(u.cur); });
+      if (touched) upd.forEach(function(u){
+        var st = stOf(u.cur); if (st !== 'ok' && st !== 'no') return;
+        var nt = S(u.cur[map.apprNote - 1]);
+        u.cur[map.appr - 1] = ORDER_ST.wait; u.cur[map.apprBy - 1] = ''; u.cur[map.apprAt - 1] = '';
+        u.cur[map.apprNote - 1] = ('Sửa sau khi ' + (st === 'ok' ? 'đã duyệt' : 'bị từ chối') + (nt ? ' · ' + nt : '')).slice(0, 500);
+      });
+    }
+    upd.forEach(function(u){ writeRowKeepFormulas_(s, u.row, u.cur, lastCol, lockF, map); out[u.i] = u.row; });
+    fill.forEach(function(r){ s.getRange(r, map.orderNo).setValue(no); });
 
     if (news.length){
       var start = firstEmptyRow('order');
       var cur2 = s.getRange(start, 1, news.length, lastCol).getValues();
-      news.forEach(function(d, i){ fillOrderCells_(cur2[i], d, map, lockF); ordStatus_(null, cur2[i], map); });
+      news.forEach(function(x, i){ fillOrderCells_(cur2[i], x.d, map, lockF); ordStatus_(null, cur2[i], map); });
       writeBlockKeepFormulas_(s, start, cur2, lastCol, lockF, map);
       try { ensureFormulas_(s, start, lockF, map, news.length); } catch(e){}
-      news.forEach(function(d, i){ rowsOut.push(start + i); newData.push(d); });
+      news.forEach(function(x, i){ out[x.i] = start + i; newData.push(x.d); });
+    }
+    /* xoá từ dưới lên ⇒ số dòng trả về cho app tính lại theo vị trí sau khi xoá */
+    if (dels.length){
+      dels.sort(function(a, b){ return b - a; }).forEach(function(r){ s.deleteRow(r); });
+      out = out.map(function(r){ return r ? r - dels.filter(function(x){ return x < r; }).length : 0; });
+      SpreadsheetApp.flush();
     }
 
     bumpVersion(bumpTabsFor_('order'));
-    orderLog_(user, list, rowsOut, rid);
-    var no = S(list[0] && list[0].orderNo), acc = S(list[0] && list[0].name);
-    logAct(user, 'add', 'order', acc, 'đơn ' + no + ' · ' + list.length + ' dòng sản phẩm', rowsOut[0] || 0);
-    var _out = { ok:true, rows:rowsOut, count:list.length, orderNo:no,
-             message:'Đã lưu ' + list.length + ' dòng sản phẩm cho đơn ' + no };
+    orderLog_(user, keep, keep.map(function(d){ return out[list.indexOf(d)] || ''; }), rid);
+    var acc = S(keep[0].name);
+    logAct(user, editing ? 'edit' : 'add', 'order', acc, 'đơn ' + no + ' · ' + keep.length + ' dòng sản phẩm' + (dels.length ? ' · bỏ ' + dels.length + ' dòng' : ''), out[list.indexOf(keep[0])] || 0);
+    var rowsOut = list.map(function(d, i){ return out[i] || 0; });
+    var _out = { ok:true, rows:rowsOut, count:keep.length, orderNo:no, deleted:dels.length, skipped:skipped,
+             message:'Đã lưu ' + keep.length + ' dòng sản phẩm cho đơn ' + no + (dels.length ? ' (bỏ ' + dels.length + ' dòng)' : '') +
+                     (skipped.length ? ' — ' + skipped.length + ' dòng chưa bỏ được (dữ liệu đã đổi, tải lại rồi sửa lại)' : '') };
   } finally { lock.releaseLock(); }
   /* ⭐ v10.14 — ĐƠN MỚI ⇒ email thông báo (ngoài khoá; lỗi email không làm hỏng việc lưu). v10.16: người nhận = HOD (ORDER_APPROVERS), không còn Giám đốc */
-  if (newData.length){ try { _out.dirMail = ordNewMail_(user, newData); } catch(eM){ _out.dirMail = 'lỗi: ' + (eM && eM.message || eM); } }
+  if (newData.length && !editing){ try { _out.dirMail = ordNewMail_(user, newData); } catch(eM){ _out.dirMail = 'lỗi: ' + (eM && eM.message || eM); } }
   return _out;
+}
+/* ⭐ v10.17 — Order No. kế tiếp (như app nextOrderNo: số lớn nhất ở cuối chuỗi + 1, giữ tiền tố; chưa có ⇒ "No. 1") */
+function ordNextNo_(){
+  var col = colValues('order', COL.order.orderNo), mx = 0, pre = 'No. ';
+  for (var i = 0; i < col.length; i++){
+    var t = S(col[i]), m = /(\d+)\s*$/.exec(t); if (!m) continue;
+    var v = parseInt(m[1], 10); if (isFinite(v) && v > mx){ mx = v; pre = t.slice(0, t.length - m[1].length); }
+  }
+  return pre + (mx + 1);
 }
 /* ── lịch sử chăm sóc: tab 6 cùng account, hoạt động đã Completed, ngày bắt đầu trong [ngày đặt − 30, ngày đặt] ── */
 var ORD_CARE_DAYS = 30;
@@ -6642,9 +6707,9 @@ function ordSuppList_(orders){
     if (!t && ym < ORDER_CUTOFF){ out.push({ pic:S(o.pic), ym:ym, vnd:num(o.amount), row:o._row, legacy:true }); return; }
     if (st !== 'ok') return;
     if (t === '1'){
-      var key = normName_(o.orderNo || ('r' + o._row)) + '|' + normName_(o.pic);
+      var key = ordKey_(o);
       if (seen[key]) return; seen[key] = 1;
-      var tv = 0; (orders || []).forEach(function(x){ if (normName_(x.orderNo || ('r' + x._row)) + '|' + normName_(x.pic) === key) tv = Math.max(tv, num(x.tender)); });
+      var tv = 0; (orders || []).forEach(function(x){ if (ordKey_(x) === key) tv = Math.max(tv, num(x.tender)); });
       out.push({ pic:S(o.pic), ym:S(o.kqtt).replace(/\D/g, '').slice(0, 6) || ym, vnd:tv, row:o._row, type:1 }); return;
     }
     if (t === '2'){
@@ -6657,11 +6722,18 @@ function ordSuppList_(orders){
   _ORDSUPP = { src:orders, list:out };
   return out;
 }
-/* gom các dòng sản phẩm thành đơn (Order No. + PIC + tháng) */
+/* khoá 1 ĐƠN: Order No. + PIC + tháng. ⭐ v10.17 — dòng KHÔNG có Order No. ⇒ account + ngày đặt + PIC + tháng (trước đây mỗi dòng không số
+   là 1 đơn riêng ⇒ đơn nhiều sản phẩm bị tách: Gửi xác nhận / duyệt / KPI C5 chỉ lấy dòng đầu). Đơn mới từ v10.17 luôn được cấp số. */
+function ordKey_(o){
+  var ym = ordYm_(o), no = S(o.orderNo);
+  if (no) return no + '|' + S(o.pic) + '|' + ym;
+  return '~' + normName_(o.name) + '|' + (wkIso_(o.day) || S(o.day)) + '|' + S(o.pic) + '|' + ym;
+}
+/* gom các dòng sản phẩm thành đơn (ordKey_) */
 function ordGroups_(rows){
   var g = {}, list = [], open = null;
   rows.forEach(function(o){
-    var ym = ordYm_(o), key = (S(o.orderNo) || ('row' + o._row)) + '|' + S(o.pic) + '|' + ym;
+    var ym = ordYm_(o), key = ordKey_(o);
     if (!g[key]){ g[key] = { key:key, orderNo:S(o.orderNo), pic:S(o.pic), month:ym, day:S(o.day), account:S(o.name), code:S(o.code), rows:[], lines:[],
                              amount:0, otype:'', tender:0, kqtt:'', docs:[], appr:'', apprBy:'', apprAt:'', apprNote:'', partner:S(o.partner) }; list.push(g[key]); }
     var x = g[key];

@@ -162,3 +162,7 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   CRM VN `sendWeeklyReport`, crm-thai `sendReport_` week, lịch TH) · `kpi` (`kscMailSend`, bỏ tiêu đề `[TEST]`) · `quarter` (kpi `rhSeSend` mới: email file Word tự đánh giá quý). Hạn: tuần = 23:59 ngày làm việc cuối (T2–T7)
   theo `RPL_CAL` (lịch 2026 VN / TH: thứ 7 đi làm + ngày nghỉ T2–T6 — **năm mới phải thêm**), KPI tháng = 16:00 ngày 02 tháng sau, quý = 17:00 ngày 09 tháng đầu quý sau. Đọc: action `rpLog` (phiên `tk`;
   Admin / Director / HOD hoặc Perms `rps` — Training Hub `RH_PERM_KEYS.rps`); kpi trả thêm lịch sử cũ từ sheet log email KPI (`KSC_MAIL.LOG`). App (Report Hub v18.6 / CRM v33.3, `rpstat/rpstat.js`) gom mọi backend ⇒ Excel, lấy LẦN GỬI GẦN NHẤT.
+- **28/10/2026 — CRM v10.17: đơn nhiều sản phẩm (crm-dental / surgical / eyeless `Mã.gs`)**: lỗi — đơn lưu khi Order No. trống ⇒ `ordGroups_` coi MỖI DÒNG là 1 đơn ⇒ Gửi xác nhận / duyệt / KPI C5 chỉ dòng đầu.
+  `ordKey_` (dùng ở `ordGroups_` + `ordSuppList_`): có số = Order No. + PIC + tháng; không số = account + ngày đặt + PIC + tháng. `saveOrders`: đơn chưa có số ⇒ `ordNextNo_` cấp 1 số cho cả đơn
+  (kể cả dòng cũ không số cùng đơn trên sheet); dòng `_del` (`_no` + `_nm` phải khớp, sales chỉ bỏ dòng của mình) xoá từ dưới lên, `rows` trả về theo đúng thứ tự gửi (dòng bỏ = 0);
+  sửa / thêm / bớt dòng đơn đã duyệt hoặc từ chối ⇒ cả đơn Chờ duyệt; đơn đang sửa (có `_row`) không kiểm chăm sóc, không email đơn mới. App CRM v33.4 gửi cả đơn khi sửa.
