@@ -1,5 +1,5 @@
 /*************************************************************************************************
- * MMH CRM — Google Apps Script backend  (v10.19)  ·  MỘT FILE CODE CHO CẢ 3 NHÓM
+ * MMH CRM — Google Apps Script backend  (v10.20)  ·  MỘT FILE CODE CHO CẢ 3 NHÓM
  * ⭐ v10.19 (28/10/2026) · ĐƠN BỊ TÁCH SAU KHI CẬP NHẬT CHỨNG TỪ · ĐỔI NGÀY TASK KHÔNG LƯU
  *   ① ordNoHeal_: dòng không số cùng account + ngày đặt + PIC + tháng với dòng ĐÃ có số ⇒ điền cùng Order No. + loại đơn / chứng từ còn trống
  *      (app cũ sửa 1 dòng ⇒ chỉ dòng đó được cấp số). ≤ 1 lần / 20 phút ở ping / boot / bundle / version + đầu orderPending.
@@ -499,7 +499,7 @@ function handle(e, method){
     if (action === 'kpiLate') return reply(kpiLate_(user, p), callback);               /* ⭐ v10.4 */
 
     switch (action) {
-      case 'ping'            : out = { ok:true, pong:true, source:TEAM(), app:appName_(), pic:user.pic, ver:'10.19', orderHeal:true, orderLink:true, orderEdit:true, rpStatus:true, sandbox:true, careGate:true, visitDone:true, rate:K68_RATE_DEF, dateFix:props_().getProperty('CRM_DATEFIX_LOG') || '', orderApproval:true, presentTpl:true, migrate:props_().getProperty('CRM_LAYOUT_V') || '', meeting:true, trip2:true, kpi68:true, tenderPrice:true, custLog:true, deleteAccount:true, na:true, kr:true, idem:true, kpiPush:true }; break;
+      case 'ping'            : out = { ok:true, pong:true, source:TEAM(), app:appName_(), pic:user.pic, ver:'10.20', orderNotes:true, orderHeal:true, orderLink:true, orderEdit:true, rpStatus:true, sandbox:true, careGate:true, visitDone:true, rate:K68_RATE_DEF, dateFix:props_().getProperty('CRM_DATEFIX_LOG') || '', orderApproval:true, presentTpl:true, migrate:props_().getProperty('CRM_LAYOUT_V') || '', meeting:true, trip2:true, kpi68:true, tenderPrice:true, custLog:true, deleteAccount:true, na:true, kr:true, idem:true, kpiPush:true }; break;
       case 'boot'            : out = boot(user); break;
       case 'master'          : out = { ok:true, master: readMaster() }; break;
       case 'customerIndex'   : out = { ok:true, rows: customerIndex() }; break;
@@ -6859,7 +6859,10 @@ function orderDecide(user, p){
   if (!/^(approve|reject|return)$/.test(dec)) return { ok:false, error:'decision?' };
   if (dec === 'reject' && cm.length < 3) return { ok:false, error:'Từ chối cần ghi lý do.' };
   /* ⭐ 15/10/2026 — Trả lại bổ sung: đơn vẫn Chờ duyệt, ghi "Cần bổ sung: …" vào Ghi chú duyệt, email tới sales (không cần đủ điều kiện) */
-  if (dec === 'return' && cm.length < 3) return { ok:false, error:'Ghi rõ cần bổ sung gì.' };
+  /* ⭐ v10.20 (28/10/2026) — Yêu cầu chỉnh sửa GOM NHIỀU ĐƠN: p.notes = JSON {key: nhận xét riêng từng đơn} ⇒ ghi từng đơn, mỗi sales nhận 1 email liệt kê mọi đơn + nhận xét */
+  var notes = p.notes; if (typeof notes === 'string'){ try { notes = JSON.parse(notes); } catch(e){ notes = null; } }
+  if (!notes || typeof notes !== 'object' || Array.isArray(notes)) notes = {};
+  if (dec === 'return' && cm.length < 3 && !Object.keys(notes).length) return { ok:false, error:'Ghi rõ cần bổ sung gì.' };
   var keys = p.keys; if (typeof keys === 'string'){ try { keys = JSON.parse(keys); } catch(e){ keys = String(keys).split(','); } }
   keys = (Array.isArray(keys) ? keys : []).map(S).filter(String);
   var fPic = S(p.forPic || p.orderPic), fMonth = S(p.month).replace(/\D/g, '').slice(0, 6);
@@ -6881,9 +6884,10 @@ function orderDecide(user, p){
         if (!ordCanDecide_(me, x.pic)) throw new Error((typeof tmOn_ === 'function' && tmOn_()) ? 'Chế độ TEST chỉ duyệt được đơn của TEST' : 'Bạn không có quyền duyệt đơn này');
         if (dec === 'approve' && !x.ready) throw new Error('Chưa đủ điều kiện: ' + x.warn.join(' · '));
         if (dec === 'return'){
-          var rn = ('Cần bổ sung: ' + cm + ' · ' + who + ' ' + Utilities.formatDate(now, Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm')).slice(0, 500);
+          var c1 = S(notes[x.key]) || cm; if (c1.length < 3) throw new Error('Ghi rõ cần chỉnh sửa gì cho đơn này.');
+          var rn = ('Cần bổ sung: ' + c1 + ' · ' + who + ' ' + Utilities.formatDate(now, Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm')).slice(0, 500);
           x.rows.forEach(function(row){ s.getRange(row, map.apprNote).setValue(rn); });
-          r.ok = true; r.status = ORDER_ST.wait; r.kpi = x.kpi; r.month = x.kpiMonth; r.otype = x.otype; r.ret = true;
+          r.ok = true; r.status = ORDER_ST.wait; r.kpi = x.kpi; r.month = x.kpiMonth; r.otype = x.otype; r.ret = true; r.note = c1;
           (byPic[x.pic] = byPic[x.pic] || []).push(r); res.push(r); return;
         }
         var st = dec === 'approve' ? ORDER_ST.ok : ORDER_ST.no;
@@ -6906,10 +6910,11 @@ function orderDecide(user, p){
       var meU = userByPic(me.pic), L = byPic[pic];
       var full = ordGroups_(readTab('order')).filter(function(x){ return L.some(function(r){ return r.key === x.key; }); });
       var f = { map:{} };
-      var html = ordMailBody_({ dear:pic, orders:full, inl:f.map, link:NA_CRM_URL, linkText:'Mở CRM', sign:who, comment:cm,
-        intro:e_(ordDear_(who).replace(/^anh\/chị /, '').replace(/^./, function(c){ return c.toUpperCase(); })) + ' đã <b>' + (dec === 'approve' ? 'xác nhận' : dec === 'return' ? 'trả lại để bổ sung' : 'không xác nhận') + '</b> ' + (L.length > 1 ? L.length + ' đơn hàng' : 'đơn hàng') + ' dưới đây.' +
-              (dec === 'approve' ? ' Các đơn này được tính vào KPI C5 (tỷ giá 26.700 VND/USD).' : ' Em vui lòng bổ sung / sửa đơn trên CRM rồi bấm Gửi xác nhận lại.') });
-      var opt = { to:to || (MMH_TEST && MMH_TEST.email) || '', subject:'[MMH CRM] ' + (dec === 'approve' ? 'ĐÃ XÁC NHẬN' : dec === 'return' ? 'CẦN BỔ SUNG' : 'KHÔNG XÁC NHẬN') + ' ' + L.length + ' đơn hàng · ' + pic, htmlBody:html, name:'MMH CRM · ' + who };
+      var nmap = {}; if (dec === 'return') L.forEach(function(r){ nmap[r.key] = r.note || cm; });
+      var html = ordMailBody_({ dear:pic, orders:full, inl:f.map, link:NA_CRM_URL + (dec === 'return' ? '#ox' : ''), linkText:dec === 'return' ? 'Xem nhận xét và sửa đơn trên CRM' : 'Mở CRM', sign:who, comment:dec === 'return' ? '' : cm, notes:nmap,
+        intro:e_(ordDear_(who).replace(/^anh\/chị /, '').replace(/^./, function(c){ return c.toUpperCase(); })) + ' đã <b>' + (dec === 'approve' ? 'xác nhận' : dec === 'return' ? 'yêu cầu chỉnh sửa' : 'không xác nhận') + '</b> ' + (L.length > 1 ? L.length + ' đơn hàng' : 'đơn hàng') + ' dưới đây.' +
+              (dec === 'approve' ? ' Các đơn này được tính vào KPI C5 (tỷ giá 26.700 VND/USD).' : (dec === 'return' ? ' Nhận xét ghi dưới từng đơn. Em sửa từng đơn trên CRM (Đơn hàng ▸ Cần chỉnh sửa) rồi bấm Gửi xác nhận lại.' : ' Em vui lòng bổ sung / sửa đơn trên CRM rồi bấm Gửi xác nhận lại.')) });
+      var opt = { to:to || (MMH_TEST && MMH_TEST.email) || '', subject:'[MMH CRM] ' + (dec === 'approve' ? 'ĐÃ XÁC NHẬN' : dec === 'return' ? 'CẦN CHỈNH SỬA' : 'KHÔNG XÁC NHẬN') + ' ' + L.length + ' đơn hàng · ' + pic, htmlBody:html, name:'MMH CRM · ' + who };
       if (meU && meU.email && meU.email !== to) opt.cc = meU.email;
       mmhMail_(opt); mails.push(to);
     } catch(e){ mails.push('lỗi: ' + (e && e.message || e)); }
@@ -6938,6 +6943,7 @@ function ordMailBody_(o){
       d.push('<div>Chứng từ ' + (k + 1) + ': <a href="' + e(dc.url) + '">' + e(dc.name || 'mở file') + '</a>' +
         (im ? '<br><img src="cid:' + im + '" style="max-width:600px;height:auto;border:1px solid #DDD;margin-top:6px" alt="">' : '') + '</div>');
     });
+    if (o.notes && o.notes[x.key]) d.push('<div style="color:#8A5A00"><b>Cần chỉnh sửa:</b> ' + e(o.notes[x.key]) + '</div>');
     if ((x.warn || []).length) d.push('<div style="color:#8A5A00">Lưu ý: ' + e(x.warn.join(' · ')) + '</div>');
     h.push('<div style="margin:0 0 14px">' + d.join('') + '</div>');
   });

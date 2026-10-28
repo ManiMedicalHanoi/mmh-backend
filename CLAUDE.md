@@ -174,3 +174,5 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   (`ordK2_`) với dòng ĐÃ có số (chỉ 1 số) ⇒ điền cùng Order No. + `ORD_SHARE` (Order Type / chứng từ / trị giá thầu / tháng KQTT) còn trống — sửa đơn bị app cũ tách khi cập nhật chứng từ 1 dòng.
   ② `saveOrders`: dòng đang sửa vốn không số trên sheet ⇒ các dòng không số cùng đơn nhận cùng số + `ORD_SHARE`. ③ `wkResolve_`: số No lệch nhưng đúng account + PIC + ngày cũ (`_start`) ⇒ vẫn nhận dòng
   (trước đây STALE ⇒ đổi ngày task không lưu, app tải lại thấy ngày cũ). App CRM v33.6.
+- **28/10/2026 — CRM v10.20 (crm-dental / surgical / eyeless `Mã.gs`)**: `orderDecide decision=return` nhận `notes` = JSON `{key: nhận xét}` (nhận xét RIÊNG từng đơn, `comment` chung làm dự phòng) ⇒ ghi "Cần bổ sung: <nhận xét> · người · giờ"
+  từng đơn; mỗi sales nhận **1 email** "CẦN CHỈNH SỬA n đơn hàng" liệt kê mọi đơn + dòng "Cần chỉnh sửa: …" dưới từng đơn (`ordMailBody_` ▸ `o.notes`), link `NA_CRM_URL#ox` (app CRM v33.7 mở danh sách đơn cần chỉnh sửa).
