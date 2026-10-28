@@ -285,6 +285,30 @@ function apiRhAuthVerify(p) {
   return {ok:true, token: iss.token, exp: iss.exp, user: rhPublicUser(u, email)};
 }
 
+/** ★ v3.34 (28/10/2026) — LINK ĐĂNG NHẬP trong email xin xác nhận đơn hàng (CRM v10.18 orderRequest ▸ ordLinkTicket_).
+ *  Vé = <dữ liệu>.<HMAC> ký bằng rhSecret() + '|lk' (khoá khác phiên ⇒ vé không dùng thay phiên, phiên không dùng thay vé),
+ *  dữ liệu {k:'lk', e:<local>, s:<Session>, i, x} — hạn 7 ngày, chỉ gửi riêng người duyệt. Hợp lệ ⇒ cấp phiên thường (rhIssue) như rhAuthVerify.
+ *  Mở link trong app email trên điện thoại (trình duyệt riêng, không có phiên) ⇒ vào thẳng đơn cần duyệt, không phải nhập mã. */
+function apiRhAuthLink(p) {
+  var lk = hubNorm(p.lk), dot = lk.indexOf('.');
+  if (dot < 10) return {ok:false, code:'LINK', error:'Link đăng nhập không hợp lệ.'};
+  var data = lk.substring(0, dot), sig = lk.substring(dot + 1), t;
+  if (!rhSame(sig, rhB64(Utilities.computeHmacSha256Signature(data, rhSecret() + '|lk')))) return {ok:false, code:'LINK', error:'Link đăng nhập không hợp lệ.'};
+  try { t = JSON.parse(Utilities.newBlob(Utilities.base64DecodeWebSafe(data)).getDataAsString()); }
+  catch (e) { return {ok:false, code:'LINK', error:'Link đăng nhập không hợp lệ.'}; }
+  if (!t || t.k !== 'lk' || !t.x || Date.now() > t.x) return {ok:false, code:'EXPIRED', error:'Link đăng nhập trong email đã hết hạn (7 ngày).'};
+  var u = rhUserByLocal(t.e);
+  if (!u || !u.active) return {ok:false, code:'NOUSER', error:'Tài khoản không còn quyền đăng nhập.'};
+  if ((t.s || 1) !== u.session) return {ok:false, code:'EXPIRED', error:'Link đăng nhập đã hết hiệu lực.'};
+  var email = u.local + '@' + HUB.SEND_DOMAIN, iss = rhIssue(u, email);
+  try {
+    hubWithLock(function(){ rhUsersSheet().getRange(u.row, 7, 1, 2).setValues([[new Date(), (u.logins || 0) + 1]]); });
+    hubSC().remove('rhUsers');
+  } catch (e) {}
+  hubLog('INFO', 'rhAuthLink', u.pic + ' đăng nhập bằng link email (CRM)', '');
+  return {ok:true, token: iss.token, exp: iss.exp, user: rhPublicUser(u, email)};
+}
+
 /** Report Hub hỏi lại phiên mỗi lần mở app (bị khoá / đăng xuất từ xa ⇒ báo ngay) */
 function apiRhAuthMe(p) {
   var r = rhCheck(p.tk);

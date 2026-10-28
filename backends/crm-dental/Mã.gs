@@ -1,5 +1,7 @@
 /*************************************************************************************************
- * MMH CRM — Google Apps Script backend  (v10.17)  ·  MỘT FILE CODE CHO CẢ 3 NHÓM
+ * MMH CRM — Google Apps Script backend  (v10.18)  ·  MỘT FILE CODE CHO CẢ 3 NHÓM
+ * ⭐ v10.18 (28/10/2026) · EMAIL XIN XÁC NHẬN ĐƠN: link mở đúng đơn (#oa=<key>) + vé đăng nhập riêng cho người duyệt (&lk=, Training Hub rhAuthLink);
+ *   email gửi riêng người duyệt (có vé) và bản sao cho sales (không vé) — trước là 1 email To người duyệt Cc sales.
  * ⭐ v10.17 (28/10/2026) · ĐƠN NHIỀU SẢN PHẨM: gom đúng cả đơn + sửa cả đơn (thêm / bớt dòng)
  *   ① ordKey_: dòng không có Order No. gom theo account + ngày đặt + PIC + tháng (trước đây mỗi dòng 1 đơn ⇒ Gửi xác nhận / duyệt / KPI chỉ dòng đầu).
  *   ② saveOrders: đơn chưa có số ⇒ cấp Order No. (ordNextNo_) cho cả đơn; nhận dòng _del (bỏ khỏi đơn, kiểm Order No. + account + quyền);
@@ -492,7 +494,7 @@ function handle(e, method){
     if (action === 'kpiLate') return reply(kpiLate_(user, p), callback);               /* ⭐ v10.4 */
 
     switch (action) {
-      case 'ping'            : out = { ok:true, pong:true, source:TEAM(), app:appName_(), pic:user.pic, ver:'10.17', orderEdit:true, rpStatus:true, sandbox:true, careGate:true, visitDone:true, rate:K68_RATE_DEF, dateFix:props_().getProperty('CRM_DATEFIX_LOG') || '', orderApproval:true, presentTpl:true, migrate:props_().getProperty('CRM_LAYOUT_V') || '', meeting:true, trip2:true, kpi68:true, tenderPrice:true, custLog:true, deleteAccount:true, na:true, kr:true, idem:true, kpiPush:true }; break;
+      case 'ping'            : out = { ok:true, pong:true, source:TEAM(), app:appName_(), pic:user.pic, ver:'10.18', orderLink:true, orderEdit:true, rpStatus:true, sandbox:true, careGate:true, visitDone:true, rate:K68_RATE_DEF, dateFix:props_().getProperty('CRM_DATEFIX_LOG') || '', orderApproval:true, presentTpl:true, migrate:props_().getProperty('CRM_LAYOUT_V') || '', meeting:true, trip2:true, kpi68:true, tenderPrice:true, custLog:true, deleteAccount:true, na:true, kr:true, idem:true, kpiPush:true }; break;
       case 'boot'            : out = boot(user); break;
       case 'master'          : out = { ok:true, master: readMaster() }; break;
       case 'customerIndex'   : out = { ok:true, rows: customerIndex() }; break;
@@ -6927,15 +6929,32 @@ function orderRequest(user, p){
   var pic = list[0].pic, aps = (ORDER_APPROVERS[TEAM()] || []).filter(function(a){ return normName_(a) !== normName_(pic); });
   var to = aps.map(function(a){ var u = userByPic(a); return u && u.email; }).filter(String);
   if (!to.length && !test) return { ok:false, error:'Chưa cấu hình người duyệt đơn hàng của nhóm.' };
-  var su = userByPic(pic), f = ordMailFiles_(list), link = NA_CRM_URL + '#oa';
-  var html = ordMailBody_({ dear:aps.map(ordDear_).join(', '), orders:list, inl:f.map, link:link, linkText:'Link xác nhận trên CRM', sign:pic,
-    intro:'Em xin gửi ' + (list.length > 1 ? list.length + ' đơn hàng' : 'đơn hàng') + ' dưới đây, kèm chứng từ theo quy định KPI. Nhờ ' + e_(ordDear_(aps[0] || '')) + ' xem và xác nhận trên CRM giúp em.' });
-  var opt = { to:to.join(','), subject:'[MMH CRM] Xin xác nhận ' + list.length + ' đơn hàng · ' + pic + ' · ' + list.map(function(x){ return x.account; }).slice(0, 2).join(', '),
-              htmlBody:html, name:'MMH CRM · ' + pic };
-  if (su && su.email) { opt.cc = su.email; opt.replyTo = su.email; }
-  if (Object.keys(f.inl).length) opt.inlineImages = f.inl;
-  if (f.att.length) opt.attachments = f.att;
-  try { mmhMail_(opt); } catch(e){ return { ok:false, error:'Chưa gửi được email: ' + (e && e.message || e) }; }
+  /* ⭐ v10.18 — link mở đúng đơn (1 đơn) / màn duyệt (nhiều đơn); người duyệt nhận email RIÊNG kèm vé đăng nhập (mở từ app email trên điện thoại
+     không phải nhập mã), sales nhận bản sao không có vé (không ai đăng nhập thay người duyệt được) */
+  var su = userByPic(pic), f = ordMailFiles_(list), link = NA_CRM_URL + '#oa' + (list.length === 1 ? '=' + encodeURIComponent(list[0].key) : '');
+  var subj = '[MMH CRM] Xin xác nhận ' + list.length + ' đơn hàng · ' + pic + ' · ' + list.map(function(x){ return x.account; }).slice(0, 2).join(', ');
+  var body = function(lk){
+    return ordMailBody_({ dear:aps.map(ordDear_).join(', '), orders:list, inl:f.map, link:lk, linkText:'Link xác nhận trên CRM', sign:pic,
+      intro:'Em xin gửi ' + (list.length > 1 ? list.length + ' đơn hàng' : 'đơn hàng') + ' dưới đây, kèm chứng từ theo quy định KPI. Nhờ ' + e_(ordDear_(aps[0] || '')) + ' xem và xác nhận trên CRM giúp em.' });
+  };
+  var mk = function(to2, lk){
+    var o = { to:to2, subject:subj, htmlBody:body(lk), name:'MMH CRM · ' + pic };
+    if (su && su.email) o.replyTo = su.email;
+    if (Object.keys(f.inl).length) o.inlineImages = f.inl;
+    if (f.att.length) o.attachments = f.att;
+    return o;
+  };
+  try {
+    if (!to.length){ var o0 = mk('', link); if (su && su.email) o0.cc = su.email; mmhMail_(o0); }      /* chế độ TEST: mmhMail_ đổi người nhận = Admin */
+    else {
+      aps.forEach(function(a){
+        var u = userByPic(a); if (!u || !u.email) return;
+        var t = ordLinkTicket_(u.email);
+        mmhMail_(mk(u.email, t ? link + '&lk=' + t : link));
+      });
+      if (su && su.email) mmhMail_(mk(su.email, link));
+    }
+  } catch(e){ return { ok:false, error:'Chưa gửi được email: ' + (e && e.message || e) }; }
   /* ghi dấu "đã gửi" vào Ghi chú duyệt (orderDecide ghi đè khi duyệt) */
   var stamp = 'Đã gửi xác nhận tới ' + aps.join(', ') + ' · ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm');
   try {
@@ -6945,6 +6964,23 @@ function orderRequest(user, p){
   } catch(e){}
   try { logAct({ pic:pic }, 'request', 'order', pic, list.length + ' đơn → ' + aps.join(', '), ''); } catch(e){}
   return { ok:true, sent:list.length, to:to, note:stamp, message:'Đã gửi email xin xác nhận ' + list.length + ' đơn hàng tới ' + aps.map(ordDear_).join(', ') };
+}
+/* ⭐ v10.18 — vé đăng nhập 1 người trong link email (Training Hub rhAuthLink đổi vé ⇒ phiên 30 ngày như đăng nhập bằng mã).
+   Ký HMAC bằng RH_Secret + '|lk' (khác khoá phiên ⇒ vé không dùng thay phiên được), hạn 7 ngày, gắn số Session của RH_Users
+   (Admin "đăng xuất từ xa" ⇒ vé cũ hết hiệu lực). Không đọc được Training Master ⇒ '' (link thường, đăng nhập bằng mã). */
+function ordLinkTicket_(email){
+  try {
+    if (typeof tmOn_ === 'function' && tmOn_()) return '';
+    if (typeof tmSb_ === 'function' && tmSb_()) return '';
+    var local = tfLocal_(email); if (!local) return '';
+    var book = SpreadsheetApp.openById(TF.MASTER_ID), sec = book.getSheetByName('RH_Secret'), key = sec ? tfS_(sec.getRange(2, 1).getValue()) : '';
+    if (key.length < 32) return '';
+    var us = book.getSheetByName('RH_Users'), V = us ? us.getRange(2, 1, Math.max(1, us.getLastRow() - 1), 6).getValues() : [], row = null;
+    V.forEach(function(r){ if (tfLocal_(r[0]) === local) row = r; });
+    if (!row) return '';
+    var now = Date.now(), data = tfB64_(JSON.stringify({ k:'lk', e:local, s:Math.max(1, parseInt(row[5], 10) || 1), i:now, x:now + 7 * 86400000 }));
+    return data + '.' + tfB64_(Utilities.computeHmacSha256Signature(data, key + '|lk'));
+  } catch(e){ return ''; }
 }
 function e_(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){ return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]; }); }
 /* chứng từ đơn hàng: lưu folder "Sales Order docs/<yyyy-MM>" trong folder chứng từ Mở mới của nhóm */

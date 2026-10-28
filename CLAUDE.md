@@ -166,3 +166,7 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   `ordKey_` (dùng ở `ordGroups_` + `ordSuppList_`): có số = Order No. + PIC + tháng; không số = account + ngày đặt + PIC + tháng. `saveOrders`: đơn chưa có số ⇒ `ordNextNo_` cấp 1 số cho cả đơn
   (kể cả dòng cũ không số cùng đơn trên sheet); dòng `_del` (`_no` + `_nm` phải khớp, sales chỉ bỏ dòng của mình) xoá từ dưới lên, `rows` trả về theo đúng thứ tự gửi (dòng bỏ = 0);
   sửa / thêm / bớt dòng đơn đã duyệt hoặc từ chối ⇒ cả đơn Chờ duyệt; đơn đang sửa (có `_row`) không kiểm chăm sóc, không email đơn mới. App CRM v33.4 gửi cả đơn khi sửa.
+- **28/10/2026 — CRM v10.18 + Training Hub v3.34: email xin xác nhận đơn mở thẳng đúng đơn**: `orderRequest` (crm-dental / surgical / eyeless) — link `#oa=<key đơn>` (1 đơn) / `#oa` (nhiều đơn);
+  người duyệt nhận email RIÊNG có `&lk=<vé>` (`ordLinkTicket_`: HMAC bằng `RH_Secret` + `'|lk'`, `{k:'lk', e, s:Session, i, x}` hạn 7 ngày; bỏ qua ở chế độ TEST / hộp cát), sales nhận bản sao KHÔNG có vé
+  (trước: 1 email To người duyệt Cc sales). Training Hub `rhAuthLink` (RH_Auth.gs) đổi vé ⇒ phiên thường 30 ngày (khoá ký khác phiên ⇒ vé không dùng thay phiên được; đổi Session ⇒ vé cũ hết hiệu lực).
+  App CRM v33.5 (khối `v335-js`) dùng vé khi trình duyệt chưa có phiên (app email trên điện thoại).
