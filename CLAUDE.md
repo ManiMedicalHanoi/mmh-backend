@@ -185,4 +185,4 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   sang `Training-Hub/media/lib/<id>.mp4` (1 lần, dùng lại cho mọi khoá) rồi thêm dòng HUB_Videos (`CatalogID = lib:<id>`) ⇒ học online như video bài giảng. Token đọc thư viện:
   Script Property `HUB_LIB_TOKEN` (Admin dán: `ghSetup kind=lib`), không có ⇒ thử `HUB_GH_TOKEN`; boot trả `lib` (1 đọc được · -1 lỗi quyền · 0 chưa kết nối). Video `confidential` không đưa lên.
   Hoàn thành: `hubStudyDone_` đọc lại danh sách bài khi đệm nguội (trước bỏ qua ⇒ học xong không được cấp chứng chỉ); bảng học viên chỉ đếm bài còn trong khoá (`filesTotal`).
-  Chẩn đoán (chỉ số tổng hợp, không email): workflow **Kiểm tra** ▸ ping `training?action=elDiag&full=1` (`gas.mjs ping` in đủ 6000 ký tự khi có `full=1`).
+  Chẩn đoán (chỉ số tổng hợp, không email): workflow **Kiểm tra** ▸ ping `training?action=elDiag&full=1` (`ed` = người học là trainer / Admin của khoá ⇒ đúng luật không cấp; `noCert` = sót ⇒ thêm `&fix=1` cấp bù) (`gas.mjs ping` in đủ 6000 ký tự khi có `full=1`).
