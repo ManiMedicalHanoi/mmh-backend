@@ -143,7 +143,9 @@ function hubTestSync_(sid) {
   } catch (e) { hubLog('WARN', 'testSync', sid + ': ' + e.message, ''); }
 }
 
-/** Luật Completed của Training Master: cần kết quả test (trừ Coaching / External). Trả lỗi hoặc ''. */
+/** ★ v3.37 (29/10/2026, người dùng yêu cầu): KHÔNG bắt buộc kết quả bài kiểm tra khi chuyển Completed (true = bật lại luật v3.31). */
+var HUB_TEST_REQUIRED = false;
+/** Luật Completed (v3.31, nay chỉ dùng khi HUB_TEST_REQUIRED): cần kết quả test (trừ Coaching / External). */
 function hubNeedTestResult_(type) {
   if (hubIsCoaching(type)) return false;
   return !/external/i.test(hubNorm(type));

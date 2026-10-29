@@ -170,7 +170,7 @@
 
 var HUB = {
 
-  VERSION: '3.36',   // ★ 29/10/2026 — v3.36 Admin học xong được cấp chứng chỉ (chỉ trainer của khoá không nhận) · v3.35 chọn video từ MMH Library (RH_Library.gs) + sửa luật hoàn thành học online · 28/10/2026 — v3.34 rhAuthLink: link đăng nhập trong email duyệt đơn CRM (RH_Auth.gs) · 21/10/2026 — v3.33 ảnh thương hiệu ⇒ GitHub (RH_Brand.gs) · 17/10/2026 — v3.32 rhTurnover: cầu nối đọc file Turnover cho CRM · 16/10/2026 — v3.31 bài kiểm tra bật lại (RH_Assess.gs) · v3.30 leaderboard: bảng xếp hạng học viên (RH_Leaderboard.gs)
+  VERSION: '3.37',   // ★ 29/10/2026 — v3.37 chuyển Completed không cần kết quả bài kiểm tra · v3.36 Admin học xong được cấp chứng chỉ (chỉ trainer của khoá không nhận) · v3.35 chọn video từ MMH Library (RH_Library.gs) + sửa luật hoàn thành học online · 28/10/2026 — v3.34 rhAuthLink: link đăng nhập trong email duyệt đơn CRM (RH_Auth.gs) · 21/10/2026 — v3.33 ảnh thương hiệu ⇒ GitHub (RH_Brand.gs) · 17/10/2026 — v3.32 rhTurnover: cầu nối đọc file Turnover cho CRM · 16/10/2026 — v3.31 bài kiểm tra bật lại (RH_Assess.gs) · v3.30 leaderboard: bảng xếp hạng học viên (RH_Leaderboard.gs)
                      // 3.29 — claimCert: nút Nhận chứng chỉ (tạo / gửi lại chứng chỉ qua email)
   /* v3.28 */   // ★ 16/10/2026 — asLearner cho cả trainer (nút Học thử như học viên)
   /* v3.27 */   // ★ 15/10/2026 — RH_Warm.gs v1.1: làm nóng đệm KHÔNG giữ khoá ghi (v3.26 làm thao tác ghi báo bận)
@@ -2088,7 +2088,8 @@ function apiSaveSession(p, user) {
     if (hubIsCoaching(vals[1]) && vals[7] === 'Completed' && (isNew || existing.status !== 'Completed')) {
       if (isNew || !hubCoachReview_(existing).hasPdf) return {ok:false, code:'COACH_PDF', error:hubCoachNeedPdfMsg_()};
     }
-    // ★ v3.31 (16/10/2026) — Completed cần KẾT QUẢ BÀI KIỂM TRA (cột Q) — trừ Coaching / External; Hub có bài nộp ⇒ tự điền
+    // ★ v3.31 (16/10/2026) — Completed: Hub có bài nộp ⇒ tự điền KẾT QUẢ BÀI KIỂM TRA (cột Q)
+    // ★ v3.37 (29/10/2026, người dùng yêu cầu) — KHÔNG còn bắt buộc kết quả bài kiểm tra: trainer chuyển Completed được khi Q trống
     var testCells = null;
     if (p.assessment !== undefined || p.assessmentResult !== undefined) {
       var pq0 = isNew ? ['', ''] : sh.getRange(row, C.ASSESSMENT, 1, 2).getValues()[0];
@@ -2097,7 +2098,7 @@ function apiSaveSession(p, user) {
     if (vals[7] === 'Completed' && hubNeedTestResult_(vals[1]) && (isNew || existing.status !== 'Completed')) {
       var qRes = testCells ? hubNorm(testCells[1]) : (isNew ? '' : hubNorm(existing.assessmentResult));
       if (!qRes && !isNew) { var sm = hubTestSummary_(sid); if (sm) { qRes = sm; testCells = testCells || sh.getRange(row, C.ASSESSMENT, 1, 2).getValues()[0]; testCells[1] = sm; if (!hubNorm(testCells[0])) testCells[0] = hubTestLink_(sid); } }
-      if (!qRes) return {ok:false, code:'NEED_TEST', error:hubTestNeedMsg_()};
+      if (!qRes && HUB_TEST_REQUIRED) return {ok:false, code:'NEED_TEST', error:hubTestNeedMsg_()};
     }
     sh.getRange(row, C.DATE, 1, width).setValues([vals]);
     sh.getRange(row, C.SID).setValue(sid);
