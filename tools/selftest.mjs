@@ -27,6 +27,10 @@ const P = {
     { name: 'Code', type: 'SERVER_JS', source: 'function doGet(){}\n' },
     { name: 'Kết nối KPI', type: 'SERVER_JS', source: 'var KPI = 1;\n' },   // tên file có dấu (lỗi thật 06/10/2026)
   ], versions: {}, deps: { D2: 1 } },
+  S3: { name: 'Dự trù NPP (chỉ menu Sheet)', drive: false, head: [
+    { name: 'appsscript', type: 'JSON', source: JSON.stringify({ timeZone: 'Asia/Ho_Chi_Minh', runtimeVersion: 'V8' }) },
+    { name: 'Code', type: 'SERVER_JS', source: 'function onOpen(){}\n' },
+  ], versions: {}, deps: {} },
 };
 for (const p of Object.values(P)) p.versions[1] = clone(p.head);
 const calls = [];
@@ -217,6 +221,35 @@ try {
 
   r = await run('deploy', 'mkt');
   check('deploy tay đưa bản trong repo lên lại (sau rollback)', r.code === 0 && P.S1.deps.D1 === 7, r.out);
+
+  // script gắn Sheet, không có web app (không có deploymentId)
+  { const c3 = cfg(); c3.menu = { name: 'Dự trù NPP', scriptId: 'S3', sheetId: 'SHEET_S3' }; fs.writeFileSync(path.join(dir, 'backends.json'), JSON.stringify(c3, null, 2)); }
+  r = await run('pull', 'menu');
+  check('chỉ menu Sheet: kéo code về', r.code === 0 && fs.existsSync(path.join(dir, 'backends/menu/Code.gs')) && /chỉ menu trong Sheet/.test(r.out), r.out);
+  before = sha; sha = commit('kéo về menu');
+  r = await run('deploy-changed', before, sha);
+  check('chỉ menu Sheet: bản gốc vừa kéo về ⇒ không deploy', r.code === 0 && /bản gốc vừa đưa vào repo/.test(r.out) && Object.keys(P.S3.versions).length === 1, r.out);
+  wr('menu/Code.gs', 'function onOpen(){ return 2; }\n');
+  before = sha; sha = commit('menu: sửa');
+  r = await run('deploy-changed', before, sha);
+  check('chỉ menu Sheet: deploy = đẩy code + lưu phiên bản, không cần deployment', r.code === 0 && /return 2/.test(P.S3.head[1].source) && Object.keys(P.S3.versions).length === 2 && /lưu phiên bản \*\*2\*\*/.test(r.out), r.out);
+  r = await run('deploy', 'menu');
+  check('chỉ menu Sheet: không đổi ⇒ không có gì mới', r.code === 0 && /không có gì mới/.test(r.out) && Object.keys(P.S3.versions).length === 2, r.out);
+  P.S3.head[1].source = 'function onOpen(){ return 9; } // sửa tay\n';
+  wr('menu/Code.gs', 'function onOpen(){ return 3; }\n');
+  before = sha; sha = commit('menu: sửa lần 3');
+  r = await run('deploy-changed', before, sha);
+  check('chỉ menu Sheet: có người sửa tay ⇒ dừng', r.code === 1 && /sửa trực tiếp/.test(r.out) && /return 9/.test(P.S3.head[1].source), r.out);
+  P.S3.head = clone(P.S3.versions[2]);
+  r = await run('deploy-changed', before, sha);
+  check('chỉ menu Sheet: deploy lần 3', r.code === 0 && Object.keys(P.S3.versions).length === 3, r.out);
+  r = await run('rollback', 'menu');
+  check('chỉ menu Sheet: quay lại = code phiên bản 2', r.code === 0 && /return 2/.test(P.S3.head[1].source), r.out);
+  r = await run('ping', 'menu');
+  check('chỉ menu Sheet: ping bỏ qua', r.code === 0 && /không có web app/.test(r.out), r.out);
+  r = await run('status');
+  check('chỉ menu Sheet: status', /Dự trù NPP \(`menu`\) \| `S3…` \| HEAD \(phiên bản lưu gần nhất: 3\)/.test(r.out) && /code trong dự án khác repo/.test(r.out), r.out);
+  { const c3 = cfg(); delete c3.menu; fs.writeFileSync(path.join(dir, 'backends.json'), JSON.stringify(c3, null, 2)); }
 
   r = await run('status');
   check('status: bảng tình trạng', r.code === 0 && /\| MKT \(`mkt`\) \| `S1…` \| 7 · USER_DEPLOYING\/ANYONE_ANONYMOUS \| 7 \| OK \|/.test(r.out), r.out);

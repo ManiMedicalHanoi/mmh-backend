@@ -161,5 +161,11 @@
     "scriptId": "",
     "sheetId": "1IQmW_8kD-YqlxVR_FVvmyYvtZwMLBmvuMIfySbgKmAo",
     "url": "https://script.google.com/macros/s/AKfycbxH-EoEvrR46I5TYdCmF8OiWy8JVH6udnOKMk8JEBH9UvMVZ5ltIIgXw21IqOWaJ1y_Og/exec"
+  },
+  "du-tru-npp": {
+    "name": "Dự trù NPP Dashboard (menu trong Sheet — xuất / nhập file Excel NPP)",
+    "apps": [],
+    "scriptId": "1R1tJ85Pze-v35DNodoHdeMW611cH8yGheMQtgz71Qlfa3ixa56H-84AL",
+    "sheetId": "1lhc4c0-sSlLRRgJ5e8hzkZslzsyl3ZBXiPJ5BslfSX4"
   }
 }
