@@ -53,7 +53,8 @@ function hubLibCatalog_(fresh) {
     return {id: hubNorm(v.id), title: hubNorm(v.title), category: hubNorm(v.category), group: hubNorm(v.group), topic: hubNorm(v.topic),
             product: hubNorm(v.product), lang: hubNorm(v.lang), desc: hubNorm(v.desc).substring(0, 400), date: hubNorm(v.date),
             path: hubNorm(v.path), poster: hubNorm(v.poster), vtt: hubNorm(v.vtt), duration: hubNum(v.duration, 0), mb: hubNum(v.mb, 0),
-            training: v.training !== false, confidential: !!v.confidential};
+            training: v.training !== false, confidential: !!v.confidential,
+            thumb: /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(String(v.thumb || '')) && String(v.thumb).length < 20000 ? String(v.thumb) : ''};
   });
   var out = {ok: true, videos: vids, categories: j.categories || {}, updated: hubNorm(j.updated)};
   hubCachePut('libcat', out, HUB_LIB.TTL);
@@ -107,6 +108,7 @@ function hubLibListFor_(sid, fresh) {
           videos: c.videos.filter(function(v){ return v.training; }).map(function(v){
             var o = {}; for (var k in v) o[k] = v[k];
             o.attached = !!inSid[v.id]; o.published = !!pub[v.id];
+            o.pv = pub[v.id] && v.poster ? HUB_GH.PAGES + hubLibSrc_(v).replace(/\.[a-z0-9]+$/, '') + '.' + ((/\.(jpe?g|png|webp)$/i.exec(v.poster) || [, 'jpg'])[1].toLowerCase()) : '';
             o.blocked = v.confidential ? 'Video mật — không đưa lên Training Hub.' : v.mb > HUB_LIB.MAX_MB ? 'Video lớn hơn ' + HUB_LIB.MAX_MB + ' MB.' : '';
             return o;
           }),
@@ -201,15 +203,16 @@ function hubLibStatus_() {
 
 // ============================================================================
 //  CHẨN ĐOÁN LUẬT HOÀN THÀNH HỌC ONLINE (action elDiag — chỉ số tổng hợp, không có tên / email)
-//  Gọi: workflow "Kiểm tra" ▸ ping = training?action=elDiag&full=1
+//  Gọi: workflow "Kiểm tra" ▸ ping = training?action=elDiag&full=1  (thêm &fix=1 ⇒ cấp bù chứng chỉ cho học viên đã học xong mà bị sót)
 // ============================================================================
 function apiElDiag(p) {
   var sessions = hubReadSessions(), byS = {};
   sessions.forEach(function(s){ byS[s.sid] = s; });
   var vids = hubReadVideos_(), vBy = {};
   vids.forEach(function(v){ (vBy[v.sid] = vBy[v.sid] || []).push(v.id); });
-  var prog = hubReadProgressRaw(), enr = hubReadEnrollment(), out = [], tot = {sess: 0, learners: 0, allDoneNoCert: 0, failShownDone: 0, orphan: 0, vid70: 0, cold: 0};
-  var sids = {};
+  var prog = hubReadProgressRaw(), enr = hubReadEnrollment(), out = [], tot = {sess: 0, learners: 0, allDoneNoCert: 0, editorNoCert: 0, fixed: 0, failShownDone: 0, orphan: 0, vid70: 0, cold: 0};
+  var sids = {}, uBy = {}, fix = hubBool(p.fix);
+  hubReadUsers().forEach(function(u){ uBy[hubPrefix(u.email)] = u; });
   prog.forEach(function(x){ sids[x.sid] = 1; });
   Object.keys(vBy).forEach(function(k){ sids[k] = 1; });
   Object.keys(sids).forEach(function(sid){
@@ -225,20 +228,27 @@ function apiElDiag(p) {
       if (ids && ids.indexOf(x.fileId) < 0) o.orphan++;
       if (/^V/.test(x.fileId) && !x.completed && x.percent >= 70) o.v70++;
     });
-    var row = {sid: sid, files: ids ? ids.length : -1, vids: (vBy[sid] || []).length, quiz: quiz ? 1 : 0, L: 0, all: 0, cert: 0, allNoCert: 0, failDone: 0, orphan: 0, v70: 0};
+    var row = {sid: sid, files: ids ? ids.length : -1, vids: (vBy[sid] || []).length, quiz: quiz ? 1 : 0, L: 0, all: 0, cert: 0, allNoCert: 0, ed: 0, fixed: 0, failDone: 0, orphan: 0, v70: 0};
     Object.keys(per).forEach(function(em){
       var o = per[em], e = enr.filter(function(x){ return x.sid === sid && hubPrefix(x.email) === em; })[0];
       row.L++; row.orphan += o.orphan; row.v70 += o.v70;
       var all = ids && ids.length && ids.every(function(id){ return o.done[id]; });
       if (all) row.all++;
       if (e && e.certUrl) row.cert++;
-      if (all && !quiz && !(e && e.certUrl)) row.allNoCert++;
+      var u = uBy[em], editor = !!(u && hubCanEdit(s, u));
+      if (all && !quiz && !(e && e.certUrl)) {
+        if (editor) row.ed++;                                   // trainer / Admin của khoá: không nhận chứng chỉ (trừ "Học thử như học viên")
+        else {
+          row.allNoCert++;
+          if (fix && u) { try { var st = hubStudyDone_(sid, u); if (st && st.done) row.fixed++; } catch (err) {} }   // cấp bù chứng chỉ bị sót
+        }
+      }
       if (quiz && e && e.status === 'Completed' && !e.pass) row.failDone++;
     });
-    tot.sess++; tot.learners += row.L; tot.allDoneNoCert += row.allNoCert; tot.failShownDone += row.failDone; tot.orphan += row.orphan; tot.vid70 += row.v70; if (!ids) tot.cold++;
+    tot.sess++; tot.learners += row.L; tot.allDoneNoCert += row.allNoCert; tot.editorNoCert += row.ed; tot.fixed += row.fixed; tot.failShownDone += row.failDone; tot.orphan += row.orphan; tot.vid70 += row.v70; if (!ids) tot.cold++;
     out.push(row);
   });
   var full = hubBool(p.full);
   return {ok: true, at: hubFmt(new Date(), 'yyyy-MM-dd HH:mm'), total: tot,
-          rows: full ? out.map(function(r){ return [r.sid, 'f' + r.files, 'v' + r.vids, 'q' + r.quiz, 'L' + r.L, 'all' + r.all, 'cert' + r.cert, 'noCert' + r.allNoCert, 'failDone' + r.failDone, 'orph' + r.orphan, 'v70' + r.v70].join(' '); }) : undefined};
+          rows: full ? out.map(function(r){ return [r.sid, 'f' + r.files, 'v' + r.vids, 'q' + r.quiz, 'L' + r.L, 'all' + r.all, 'cert' + r.cert, 'noCert' + r.allNoCert, 'ed' + r.ed, 'fixed' + r.fixed, 'failDone' + r.failDone, 'orph' + r.orphan, 'v70' + r.v70].join(' '); }) : undefined};
 }
