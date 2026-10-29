@@ -2681,8 +2681,8 @@ var KSC_MOFF = {
     'C9-00' : 'REPORT_EVENT · Σ Actual sales - Jizai (Sheets) của các sự kiện có Month = tháng.',
     'C12-01': 'REPORT_EVENT · số sự kiện có Month = tháng, Segment Dental/MMG và đã có Detail event folder link.',
     'C12-02': 'REPORT_EVENT · số sự kiện có Month = tháng, Segment Surgical/Eyeless và đã có Detail event folder link.',
-    'C15-01': 'REPORT_EVENT · Σ Actual Participant của sự kiện có Month = tháng, Segment Dental/MMG (Actual Participant = khách mỗi người 1 lần / sự kiện, đủ Họ tên · SĐT · Nơi công tác · Email; trực tiếp: có chữ ký check-in + đồng ý sử dụng dữ liệu / hình ảnh; webinar: có trong báo cáo Zoom).',
-    'C15-02': 'REPORT_EVENT · Σ Actual Participant của sự kiện có Month = tháng, Segment Surgical/Eyeless (Actual Participant = khách mỗi người 1 lần / sự kiện, đủ Họ tên · SĐT · Nơi công tác · Email; trực tiếp: có chữ ký check-in + đồng ý sử dụng dữ liệu / hình ảnh; webinar: có trong báo cáo Zoom).'
+    'C15-01': 'REPORT_EVENT · Σ Actual Participant của sự kiện có Month = tháng, Segment Dental/MMG (Actual Participant = khách mỗi người 1 lần / sự kiện, đủ Họ tên · SĐT · Nơi công tác · Email; trực tiếp: có chữ ký check-in; webinar: có trong báo cáo Zoom; không xét Đồng ý sử dụng dữ liệu / Speciality).',
+    'C15-02': 'REPORT_EVENT · Σ Actual Participant của sự kiện có Month = tháng, Segment Surgical/Eyeless (Actual Participant = khách mỗi người 1 lần / sự kiện, đủ Họ tên · SĐT · Nơi công tác · Email; trực tiếp: có chữ ký check-in; webinar: có trong báo cáo Zoom; không xét Đồng ý sử dụng dữ liệu / Speciality).'
   }
 };
 function kscMoffId_() { var v = ''; try { v = PropertiesService.getScriptProperties().getProperty('KSC_ID_MOFF') || ''; } catch (e) {} return v || KSC_MOFF.ID; }
