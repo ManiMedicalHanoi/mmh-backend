@@ -144,13 +144,19 @@ function apiVideoSave(p, user) {
 //  - Trainer của buổi (không đóng vai học viên) không nhận chứng chỉ của buổi mình dạy.
 // ============================================================================
 
+/** ★ v3.36 (29/10/2026) — chỉ TRAINER CỦA CHÍNH KHOÁ không nhận chứng chỉ (trừ "Học thử như học viên").
+ *  Trước: hubCanEdit ⇒ Admin bị coi là người phụ trách mọi khoá ⇒ Admin học xong không bao giờ có chứng chỉ (elDiag 29/10: 4/4 lượt sót đều vì luật này). */
+function hubIsCourseTrainer_(s, user) {
+  try { return !!(s && user && hubIsTrainer(user) && hubIsTrainerOf(s.trainer, user)); } catch (e) { return false; }
+}
+
 var HUB_CERT_BY_QUIZ = true;   // ★ v3.31 (16/10/2026) — bật lại: khoá có bài kiểm tra ⇒ chứng chỉ khi đạt điểm (RH_Assess.gs)
 
 /** Đã học xong mọi bài của buổi chưa; xong ⇒ ghi Completed + cấp chứng chỉ (1 lần). */
 function hubStudyDone_(sid, user) {
   var s = hubFindSession(sid);
   if (!s) return null;
-  if (hubCanEdit(s, user) && !user.asLearner) return null;
+  if (hubIsCourseTrainer_(s, user) && !user.asLearner) return null;
   // ★ v3.35 — đệm danh sách bài nguội: đọc lại (chờ tối đa ~20 giây) thay vì bỏ qua ⇒ trước đây học xong bài cuối lúc đệm
   //   vừa hết hạn thì không được tính hoàn thành / không cấp chứng chỉ
   var m = hubMaterials(s, {cacheOnly: true});
@@ -189,7 +195,7 @@ function hubStudyDone_(sid, user) {
 function apiClaimCert(p, user) {
   var sid = hubNorm(p.sid), s = hubFindSession(sid);
   if (!s) return {ok: false, error: 'Không tìm thấy khoá học.'};
-  if (hubCanEdit(s, user) && !user.asLearner) return {ok: false, code: 'TRAINER', error: 'Bạn là trainer / Admin của khoá này — bật "Học thử như học viên" và học xong để nhận chứng chỉ.'};
+  if (hubIsCourseTrainer_(s, user) && !user.asLearner) return {ok: false, code: 'TRAINER', error: 'Bạn là trainer của khoá này — bật "Học thử như học viên" và học xong để nhận chứng chỉ.'};
   var e = hubFindEnroll(sid, user.email);
   if (e && e.certUrl) {
     try {

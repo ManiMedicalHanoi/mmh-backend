@@ -186,3 +186,6 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   Script Property `HUB_LIB_TOKEN` (Admin dán: `ghSetup kind=lib`), không có ⇒ thử `HUB_GH_TOKEN`; boot trả `lib` (1 đọc được · -1 lỗi quyền · 0 chưa kết nối). Video `confidential` không đưa lên.
   Hoàn thành: `hubStudyDone_` đọc lại danh sách bài khi đệm nguội (trước bỏ qua ⇒ học xong không được cấp chứng chỉ); bảng học viên chỉ đếm bài còn trong khoá (`filesTotal`).
   Chẩn đoán (chỉ số tổng hợp, không email): workflow **Kiểm tra** ▸ ping `training?action=elDiag&full=1` (`ed` = người học là trainer / Admin của khoá ⇒ đúng luật không cấp; `noCert` = sót ⇒ thêm `&fix=1` cấp bù) (`gas.mjs ping` in đủ 6000 ký tự khi có `full=1`).
+- **29/10/2026 — Training Hub v3.36: Admin học xong được cấp chứng chỉ**: `elDiag` cho thấy mọi lượt "học xong mà không có chứng chỉ" là người học = trainer / Admin (`hubCanEdit`) ⇒ Admin không bao giờ
+  nhận chứng chỉ. Nay `hubIsCourseTrainer_` (trainer CỦA CHÍNH KHOÁ) thay `hubCanEdit` ở `hubStudyDone_` / `apiClaimCert` / chứng chỉ theo bài kiểm tra; Admin vẫn được bỏ qua điều kiện mở bài (`hubGate`).
+  `listSessions` trả `iTrain`. App Training Hub v6.1 tự gửi lại tiến độ khoá đã học xong ⇒ máy chủ cấp chứng chỉ bù.
