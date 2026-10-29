@@ -170,7 +170,7 @@
 
 var HUB = {
 
-  VERSION: '3.35',   // ★ 29/10/2026 — v3.35 chọn video từ MMH Library (RH_Library.gs) + sửa luật hoàn thành học online · 28/10/2026 — v3.34 rhAuthLink: link đăng nhập trong email duyệt đơn CRM (RH_Auth.gs) · 21/10/2026 — v3.33 ảnh thương hiệu ⇒ GitHub (RH_Brand.gs) · 17/10/2026 — v3.32 rhTurnover: cầu nối đọc file Turnover cho CRM · 16/10/2026 — v3.31 bài kiểm tra bật lại (RH_Assess.gs) · v3.30 leaderboard: bảng xếp hạng học viên (RH_Leaderboard.gs)
+  VERSION: '3.36',   // ★ 29/10/2026 — v3.36 Admin học xong được cấp chứng chỉ (chỉ trainer của khoá không nhận) · v3.35 chọn video từ MMH Library (RH_Library.gs) + sửa luật hoàn thành học online · 28/10/2026 — v3.34 rhAuthLink: link đăng nhập trong email duyệt đơn CRM (RH_Auth.gs) · 21/10/2026 — v3.33 ảnh thương hiệu ⇒ GitHub (RH_Brand.gs) · 17/10/2026 — v3.32 rhTurnover: cầu nối đọc file Turnover cho CRM · 16/10/2026 — v3.31 bài kiểm tra bật lại (RH_Assess.gs) · v3.30 leaderboard: bảng xếp hạng học viên (RH_Leaderboard.gs)
                      // 3.29 — claimCert: nút Nhận chứng chỉ (tạo / gửi lại chứng chỉ qua email)
   /* v3.28 */   // ★ 16/10/2026 — asLearner cho cả trainer (nút Học thử như học viên)
   /* v3.27 */   // ★ 15/10/2026 — RH_Warm.gs v1.1: làm nóng đệm KHÔNG giữ khoá ghi (v3.26 làm thao tác ghi báo bận)
@@ -1896,6 +1896,7 @@ function apiListSessions(p, user) {
     s.myAttempts    = myAttempts[s.sid] || 0;
     s.hasFolder     = !!s.folderUrl;
     s.canEdit       = hubCanEdit(s, user);
+    s.iTrain        = hubIsCourseTrainer_(s, user);   // ★ v3.36 — trainer của chính khoá (không nhận chứng chỉ)
     delete s.row;
   });
 
@@ -4104,7 +4105,7 @@ function apiQuizSubmit(p, user) {
   // --- chứng chỉ (ngoài khoá — tạo PDF + gửi email mất vài giây) ---
   var cert = null;
   var hadCert = (function(){ try { var e0 = hubFindEnroll(sid, user.email); return e0 && e0.certUrl ? e0.certUrl : ''; } catch (e) { return ''; } })();
-  if (pass && HUB_CERT_BY_QUIZ && !hadCert && !(hubCanEdit(s, user) && !user.asLearner)) {   // ★ v3.31: bật lại — đạt điểm trainer yêu cầu ⇒ chứng chỉ
+  if (pass && HUB_CERT_BY_QUIZ && !hadCert && !(hubIsCourseTrainer_(s, user) && !user.asLearner)) {   // ★ v3.36 chỉ trainer của khoá không nhận · ★ v3.31: bật lại — đạt điểm trainer yêu cầu ⇒ chứng chỉ
     try {
       cert = hubIssueCertificate(s, user, percent, score, maxScore);
       hubWithLock(function(){

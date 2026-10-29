@@ -235,7 +235,7 @@ function apiElDiag(p) {
       var all = ids && ids.length && ids.every(function(id){ return o.done[id]; });
       if (all) row.all++;
       if (e && e.certUrl) row.cert++;
-      var u = uBy[em], editor = !!(u && hubCanEdit(s, u));
+      var u = uBy[em], editor = !!(u && hubIsCourseTrainer_(s, u));
       if (all && !quiz && !(e && e.certUrl)) {
         if (editor) row.ed++;                                   // trainer / Admin của khoá: không nhận chứng chỉ (trừ "Học thử như học viên")
         else {
