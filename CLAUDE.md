@@ -194,3 +194,9 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   `listSessions` trả `iTrain`. App Training Hub v6.1 tự gửi lại tiến độ khoá đã học xong ⇒ máy chủ cấp chứng chỉ bù.
 - **29/10/2026 — Training Hub v3.37: chuyển Completed KHÔNG cần kết quả bài kiểm tra (người dùng yêu cầu)**: `HUB_TEST_REQUIRED = false` (RH_Assess.gs) ⇒ `saveSession` / `rhSaveSession` (cả Report Hub)
   không còn trả `NEED_TEST`; buổi có bài nộp trên Hub vẫn tự điền cột P / Q. Luật Coaching (PDF trong Review/) giữ nguyên. App Training Hub v6.2 bỏ chữ "Bắt buộc" ở form buổi.
+- **29/10/2026 — KPI sự kiện Thái Lan tự động (`kpi/KpiThaiEvents.gs`, KpiSyncCenter v1.20, người dùng xác nhận rule)**: thay "KPI Hub" cũ (không còn code đếm ⇒ C11 / C13 trống từ đầu FY68).
+  2 nguồn mới đọc thẳng sheet **REPORT_EVENT**: `th_surg` = "4. Thailand - Surgical - Marketing Offline FY67-FY68" (`1s6ny0…`, Script Property `KSC_ID_THS`) ⇒ C13-00 · C11-01 · C11-01a;
+  `th_dent` = "2. Thailand - Dental Event Report FY67" (`12GnjS0…`, `KSC_ID_THD`) ⇒ C14-00 · C11-02. Rule (4. Rule nhóm 7 + 4B + 3B): phân loại theo **người dẫn** (cột KOL/PIC):
+  Type có Exhibition / Booth ⇒ triển lãm · KOL/PIC bắt đầu "MMH" ⇒ MMH dẫn · còn lại ⇒ KOL; chỉ tính Action Status = As planned / Additional / Change schedule, theo cột Month.
+  C13-00 = KOL + triển lãm · C11-01 / C11-02 = MMH dẫn · C11-01a = MMH dẫn + Target product có Manipler · C14-00 = mọi sự kiện Dental Thái. Cùng Shared Drive ⇒ không cần cấp quyền.
+  `KSC.EVENT_CODES = []` (bỏ nhánh KPI Hub). Tab KPI CRM Thái (dòng `event_hub`) tự nhận số từ file KPI.
