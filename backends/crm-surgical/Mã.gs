@@ -494,7 +494,8 @@ function handle(e, method){
       if (_rid && WRITE_ACTIONS[action]) idemEnd_(_rid, out);
       return reply(out, callback);
     }
-    if (action === 'k68Diag') return reply(k68Diag_(p), callback);   /* 17/10/2026 — chẩn đoán ô #ERROR! KPI viếng thăm (chỉ đọc; fix=1 chạy lại bản vá) */
+    if (action === 'k68Diag') return reply(k68Diag_(p), callback);
+    if (action === 'kpiAudit') return reply(kpiAudit_(p), callback);   /* 29/10/2026 — soát KPI viếng thăm / mở mới của 1 PIC (chỉ đọc, chỉ trả số đếm) */   /* 17/10/2026 — chẩn đoán ô #ERROR! KPI viếng thăm (chỉ đọc; fix=1 chạy lại bản vá) */
     if (action === 'kpiPush') return reply({ ok:true, kpiPush:k68PushQuick_() }, callback);
     if (action === 'kpiLate') return reply(kpiLate_(user, p), callback);               /* ⭐ v10.4 */
 
@@ -6249,6 +6250,32 @@ function k68VisInside_(f){
 }
 /* "Complete*" đã nằm bên trong COUNTIFS chưa */
 function k68VisHas_(f){ var at = k68VisInside_(f); if (at < 0) return false; var st = f.lastIndexOf('COUNTIFS(', at); return f.slice(st, at).indexOf('"Complete*"') >= 0; }
+/* soát KPI C3 (viếng thăm) + C1 (mở mới) của 1 PIC theo tháng: vì sao lượt / case không được tính. Chỉ đọc, chỉ trả số đếm (không tên khách). */
+function kpiAudit_(p){
+  var pic = S(p.pic), out = { ok:true, pic:pic, today:wkToday_(), visit:{}, na:{}, typeAction:{} };
+  if (!pic) return { ok:false, err:'thiếu pic' };
+  readTab('weekly').forEach(function(w){
+    if (S(w.pic).toLowerCase() !== pic.toLowerCase()) return;
+    var d = wkIso_(w.start), ym = d ? d.slice(0, 4) + d.slice(5, 7) : (S(w.month) || 'no-date');
+    var ta = S(w.typeAction) || '(trống)', T = out.typeAction[ym] = out.typeAction[ym] || {}; T[ta] = (T[ta] || 0) + 1;
+    if (ta !== 'Visiting') return;
+    var o = out.visit[ym] = out.visit[ym] || { rows:0, counted:0, notCompleted:0, status:{}, completedNoPhoto:0, future:0, tbd:0, missResult:0, missFeedback:0, missNext:0 };
+    o.rows++;
+    var st = S(w.status) || '(trống)'; o.status[st] = (o.status[st] || 0) + 1;
+    if (visitOk_(w)) { o.counted++; return; }
+    var done = /^complete/i.test(st);
+    if (/^TBD\//i.test(S(w.account)) || /^TBD$/i.test(S(w.type))) o.tbd++;
+    else if (d && d > wkToday_()) o.future++;
+    else if (done && !S(w.photo)) o.completedNoPhoto++;
+    else if (!done) { o.notCompleted++; if (!S(w.result)) o.missResult++; if (!S(w.feedback)) o.missFeedback++; if (!S(w.nextAction)) o.missNext++; }
+  });
+  try { naReadAll_().forEach(function(x){
+    if (S(x.pic).toLowerCase() !== pic.toLowerCase()) return;
+    var k = S(x.month) || '(chưa có tháng)', o = out.na[k] = out.na[k] || {};
+    var st = S(x.status) || '(trống)'; o[st] = (o[st] || 0) + 1;
+  }); } catch(e){ out.naErr = String(e); }
+  return out;
+}
 /* chẩn đoán: liệt kê ô lỗi của tab 9 + công thức; fix=1 ⇒ chạy lại k68VisitPatch_ ngay */
 function k68Diag_(p){
   var out = { ok:true, nBad:0, ver:props_().getProperty(K68_VIS_KEY) || '', want:K68_VIS_VER };
