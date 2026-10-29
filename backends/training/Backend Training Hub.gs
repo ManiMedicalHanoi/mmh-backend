@@ -170,7 +170,7 @@
 
 var HUB = {
 
-  VERSION: '3.34',   // ★ 28/10/2026 — v3.34 rhAuthLink: link đăng nhập trong email duyệt đơn CRM (RH_Auth.gs) · 21/10/2026 — v3.33 ảnh thương hiệu ⇒ GitHub (RH_Brand.gs) · 17/10/2026 — v3.32 rhTurnover: cầu nối đọc file Turnover cho CRM · 16/10/2026 — v3.31 bài kiểm tra bật lại (RH_Assess.gs) · v3.30 leaderboard: bảng xếp hạng học viên (RH_Leaderboard.gs)
+  VERSION: '3.35',   // ★ 29/10/2026 — v3.35 chọn video từ MMH Library (RH_Library.gs) + sửa luật hoàn thành học online · 28/10/2026 — v3.34 rhAuthLink: link đăng nhập trong email duyệt đơn CRM (RH_Auth.gs) · 21/10/2026 — v3.33 ảnh thương hiệu ⇒ GitHub (RH_Brand.gs) · 17/10/2026 — v3.32 rhTurnover: cầu nối đọc file Turnover cho CRM · 16/10/2026 — v3.31 bài kiểm tra bật lại (RH_Assess.gs) · v3.30 leaderboard: bảng xếp hạng học viên (RH_Leaderboard.gs)
                      // 3.29 — claimCert: nút Nhận chứng chỉ (tạo / gửi lại chứng chỉ qua email)
   /* v3.28 */   // ★ 16/10/2026 — asLearner cho cả trainer (nút Học thử như học viên)
   /* v3.27 */   // ★ 15/10/2026 — RH_Warm.gs v1.1: làm nóng đệm KHÔNG giữ khoá ghi (v3.26 làm thao tác ghi báo bận)
@@ -549,6 +549,9 @@ var HUB_ROUTES = {
   'leaderboard'     : {fn:'apiLeaderboard',     auth:1},   // ★ v3.30 — bảng xếp hạng học viên (RH_Leaderboard.gs)
   'brandStatus'     : {fn:'apiBrandStatus',     auth:0},   // ★ v3.33 — ảnh thương hiệu cho giao diện (RH_Brand.gs)
   'videoPublish'    : {fn:'apiVideoPublish',    auth:2},   // ★ v3.25 — video tải từ app ⇒ GitHub Pages (RH_HubCourse.gs)
+  'libList'         : {fn:'apiLibList',         auth:2},   // ★ v3.35 — chọn video từ MMH Library (RH_Library.gs)
+  'libAttach'       : {fn:'apiLibAttach',       auth:2},
+  'elDiag'          : {fn:'apiElDiag',          auth:0},   // ★ v3.35 — chẩn đoán luật hoàn thành học online (chỉ số tổng hợp)
   'imgPublish'      : {fn:'apiImgPublish',      auth:2},   // ★ v3.25 — ảnh bìa khoá học / ảnh giao diện
   'sessionMeta'     : {fn:'apiSessionMeta',     auth:2},   // ★ v3.25 — nhóm sản phẩm / ảnh bìa của khoá học
   // admin
@@ -600,6 +603,8 @@ var HUB_ROUTES = {
   // ★ 13/10/2026 — RH_CustTrain.gs: bằng chứng Coaching (PDF Review) + đào tạo khách hàng (T&E) từ CRM
   'rhCoachReview'   : {fn:'apiRhCoachReview',   auth:0},
   'rhCustTrain'     : {fn:'apiRhCustTrain',     auth:0},
+  'rhLibList'       : {fn:'apiRhLibList',       auth:0},   // ★ v3.35 — Report Hub: chọn video từ MMH Library cho buổi đào tạo
+  'rhLibAttach'     : {fn:'apiRhLibAttach',     auth:0},
   'rhTurnover'      : {fn:'apiRhTurnover',      auth:0}    // ★ v3.32 — đọc file Turnover giúp CRM (RH_Turnover.gs)
 };
 
@@ -1995,10 +2000,14 @@ function hubLearnerRows(s, audience, enrollAll, progress) {
     o.status = e.status; o.percent = e.percent; o.pass = e.pass; o.attempt = e.attempt;
     o.certUrl = e.certUrl; o.completedAt = e.completedAt ? hubFmt(e.completedAt, 'dd/MM/yyyy HH:mm') : '';
   });
+  // ★ v3.35 — chỉ đếm bài CÒN trong khoá (video / tài liệu đã gỡ không tính), kèm tổng số bài
+  var curIds = null;
+  try { var mm = hubMaterials(s, {cacheOnly:true}); if (mm && mm.files) { curIds = {}; mm.files.forEach(function(f){ curIds[f.id] = 1; }); } } catch (e) {}
   progress.forEach(function(x){
     var o = byPre[x.email];
     if (!o) return;
-    if (x.completed) o.filesDone++;
+    if (curIds) o.filesTotal = Object.keys(curIds).length;
+    if (x.completed && (!curIds || curIds[x.fileId])) o.filesDone++;
     if (!o.lastOpened || x.last > o.lastOpened) o.lastOpened = x.last;
   });
   var list = [];
@@ -4809,6 +4818,7 @@ function apiBootstrap(p, user) {
     smeta: hubMetaAll_(),                            // ★ v3.25 — nhóm sản phẩm / ảnh bìa từng khoá (RH_HubCourse.gs)
     ui: hubUi_(),                                    // ★ v3.25 — giao diện chỉnh trên app
     gh: !!hubGhToken_(),                             // ★ v3.25 — đã kết nối GitHub (đăng video từ app)
+    lib: hubLibStatus_(),                            // ★ v3.35 — đọc được MMH Library (1) / lỗi (-1) / chưa kết nối (0)
     unread: noti.filter(function(n){ return !n.read; }).length,
     groups: hubGroupList(),
     users: hubReadUsers().filter(function(u){ return u.active; }).map(function(u){

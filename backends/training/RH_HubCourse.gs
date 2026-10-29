@@ -134,6 +134,7 @@ function hubGhNeed_() {
 
 /** action ghSetup (Admin) — lưu / gỡ GitHub token. Token cần quyền Contents: Read and write trên kho Training-Hub. */
 function apiGhSetup(p, user) {
+  if (hubNorm(p.kind) === 'lib') return hubLibSetup_(p, user);   // ★ v3.35 — token đọc kho mmh-library (RH_Library.gs)
   var props = PropertiesService.getScriptProperties();
   var t = hubNorm(p.ghToken);
   if (!t || hubBool(p.remove)) { props.deleteProperty('HUB_GH_TOKEN'); hubLog('WARN', 'ghSetup', 'gỡ GitHub token by ' + user.email, ''); return {ok: true, gh: false, message: 'Đã gỡ kết nối GitHub.'}; }

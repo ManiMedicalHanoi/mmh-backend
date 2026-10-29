@@ -513,7 +513,7 @@ async function cmdPing(arg) {
         hops.push(`${r.status} ${new URL(u).host}${new URL(u).pathname.replace(/\/s\/[^/]+/, '/s/…').slice(0, 40)}`);
         if (loc && r.status >= 300 && r.status < 400) { u = new URL(loc, u).href; continue; }
         const t = (await r.text()).replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-        say(`- ${b.name}${q ? ' ' + q.slice(0, 60) : ''}: ${hops.join(' → ')} · ${r.headers.get('content-type') || ''} · «${t.slice(0, 300)}»`);
+        say(`- ${b.name}${q ? ' ' + q.slice(0, 60) : ''}: ${hops.join(' → ')} · ${r.headers.get('content-type') || ''} · «${t.slice(0, /[?&]full=1/.test(q) ? 6000 : 300)}»`);
         break;
       }
     } catch (e) { say(`- ${b.name}: ${hops.join(' → ')} ✗ ${e.message}`); }
