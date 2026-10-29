@@ -176,3 +176,7 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   (trước đây STALE ⇒ đổi ngày task không lưu, app tải lại thấy ngày cũ). App CRM v33.6.
 - **28/10/2026 — CRM v10.20 (crm-dental / surgical / eyeless `Mã.gs`)**: `orderDecide decision=return` nhận `notes` = JSON `{key: nhận xét}` (nhận xét RIÊNG từng đơn, `comment` chung làm dự phòng) ⇒ ghi "Cần bổ sung: <nhận xét> · người · giờ"
   từng đơn; mỗi sales nhận **1 email** "CẦN CHỈNH SỬA n đơn hàng" liệt kê mọi đơn + dòng "Cần chỉnh sửa: …" dưới từng đơn (`ordMailBody_` ▸ `o.notes`), link `NA_CRM_URL#ox` (app CRM v33.7 mở danh sách đơn cần chỉnh sửa).
+- **29/10/2026 — Report Hub không thấy dữ liệu sửa thẳng trên Sheet / báo cáo tuần thiếu dòng (marketing / backoffice / management `Back end.gs`, GIỐNG HỆT 3 nơi)**: bộ nhớ đệm 6 giờ theo vân tay
+  `dataVersion`, trước chỉ đổi khi sửa qua web / trigger onChange (phải chạy tay `installTriggers`) / `warmCache` (10 phút, 6h–21h). Nay: vân tay thêm `liveSig_(lastRow)` = MD5 cột B..O sheet WEEKLY
+  (đệm 60 giây) ⇒ mọi sửa trên Sheet hiện sau ≤ 1 phút; `ensureEditTrigger_` tự cài onChange + onEdit (≤ 1 lần thử / 6 giờ, ở boot); `xsReadWeeklyAll` (gửi báo cáo) đọc `readWeeklyFresh_` (thẳng sheet);
+  action `weekly` nhận `fresh=1`. `doneStampOnEdit` lấy trạng thái cũ từ bản đệm gần nhất (`lastk_wk`) khi vân tay đã đổi.

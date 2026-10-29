@@ -237,7 +237,7 @@ function dispatch(action, user, p){
       case 'debugLayout':   out = debugLayout(); break;   /* ⭐ v5.2: tự kiểm tra map cột */
       case 'boot':          out = boot(user); break;
       /* ⭐ v10: tải NHẸ — chỉ danh sách task + vân tay (nhanh hơn boot nhiều lần) */
-      case 'weekly':        out = { ok:true, keyTasks: readWeekly(), v: dataVersion().v }; break;
+      case 'weekly':        out = { ok:true, keyTasks: (String(p.fresh||'')==='1' ? readWeeklyFresh_() : readWeekly()), v: dataVersion().v }; break;
       case 'healRows':      out = { ok:true, healed: healMissingNo() }; break;
       case 'monthly':       out = { ok:true, rows: readMonthly() }; break;
       case 'updateSub':     out = updateWeeklyRow(user, p); break;
@@ -407,6 +407,7 @@ function boot(user){
   }
     try{ if(typeof mkEnsureMonthly_==='function') mkEnsureMonthly_(); }catch(_e){}   /* ⭐ 13/10/2026: key Internal Meeting chung hằng tháng */
     try{ if(typeof rhDateFix_==='function') rhDateFix_(); }catch(_e){}            /* ⭐ 13/10/2026: chuẩn hoá ngày Weekly new (≤ 1 lần / 20 giờ) */
+  try{ ensureEditTrigger_(); }catch(_e){}
   var bkey = 'boot_' + dataVersion().v;       /* ⭐ v10.2: cả gói dữ liệu boot qua bộ nhớ đệm */
   var data = cGetBig(bkey);
   if(!data){
@@ -580,8 +581,30 @@ function dataVersion(){
   var wr=0, mr=0;
   try{ var w=shWeekly();  if(w) wr=w.getLastRow(); }catch(e){}
   try{ var m=shMonthly(); if(m) mr=m.getLastRow(); }catch(e){}
-  _DV = { ok:true, source:SOURCE, v: stamp+'|'+wr+'|'+mr };
+  _DV = { ok:true, source:SOURCE, v: stamp+'|'+wr+'|'+mr+'|'+liveSig_(wr) };
   return _DV;
+}
+/* ⭐ 29/10/2026 — "dấu" nội dung sheet WEEKLY (cột B..O: No, key, sub, PIC, kết quả, ngày, trạng thái, %), tính lại tối đa 1 lần / 60 giây.
+   Trước đây vân tay chỉ đổi khi sửa qua web / trigger onChange / warmCache (10 phút, 6h–21h) ⇒ thêm / sửa thẳng trên Google Sheet
+   (Completed, Task result…) có khi không hiện trên Report Hub và báo cáo tuần gửi đi bị thiếu / sai. Nay mọi thay đổi hiện sau ≤ 1 phút. */
+function liveSig_(wr){
+  try{
+    var c = CacheService.getScriptCache(), hit = c.get('lsig_' + wr);
+    if(hit) return hit;
+    var sh = shWeekly(); if(!sh || wr < WEEKLY_DATA_ROW) return '0';
+    var v = sh.getRange(WEEKLY_DATA_ROW, 2, wr - WEEKLY_DATA_ROW + 1, 14).getDisplayValues();
+    var sig = Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, JSON.stringify(v))).slice(0, 12);
+    c.put('lsig_' + wr, sig, 60);
+    return sig;
+  }catch(e){ return '0'; }
+}
+/* đọc thẳng sheet (bỏ qua bộ nhớ đệm) + cập nhật lại bộ nhớ đệm — dùng khi gửi báo cáo / người dùng bấm Tải lại */
+function readWeeklyFresh_(){
+  try{ CacheService.getScriptCache().removeAll(['lsig_' + (shWeekly() ? shWeekly().getLastRow() : 0)]); }catch(e){}
+  _DV = null;
+  var r = readWeeklyRaw();
+  try{ cPutBig('wk_' + dataVersion().v, r, cacheTtl()); }catch(e){}
+  return r;
 }
 /* ══════════════ ⭐ v12.2: TĂNG TỐC MỞ APP — TRIGGER "LÀM ẤM" BỘ NHỚ ĐỆM ══════════════
  * Vấn đề cũ: bộ nhớ đệm chỉ sống 60 giây ⇒ ai mở app sau 1 phút không có người dùng là
@@ -617,6 +640,19 @@ function ensureWarmTrigger(){
     if(!throttleOk('warm_install', 21600)) return;
     var has = ScriptApp.getProjectTriggers().some(function(t){ return t.getHandlerFunction()==='warmCache'; });
     if(!has) ScriptApp.newTrigger('warmCache').timeBased().everyMinutes(10).create();
+  }catch(e){}
+  ensureEditTrigger_();
+}
+/* ⭐ 29/10/2026 — trigger onChange / onEdit (sửa thẳng trên Google Sheet ⇒ Report Hub đọc lại ngay) trước đây phải chạy tay installTriggers ⇒ tự cài */
+function ensureEditTrigger_(){
+  try{
+    if(!throttleOk('edit_trig', 21600)) return;
+    var ts = ScriptApp.getProjectTriggers().filter(function(t){ return t.getHandlerFunction() === 'onChangeTouch'; });
+    if(ts.length >= 2) return;
+    ts.forEach(function(t){ ScriptApp.deleteTrigger(t); });
+    var book = ss();
+    ScriptApp.newTrigger('onChangeTouch').forSpreadsheet(book).onChange().create();
+    ScriptApp.newTrigger('onChangeTouch').forSpreadsheet(book).onEdit().create();
   }catch(e){}
 }
 /* ⚠️ CÓ THỂ CHẠY TAY 1 LẦN: chọn hàm installSpeedTrigger → Run (cho chắc chắn trigger đã cài) */
@@ -740,6 +776,7 @@ function doneStampOnEdit(e){
   var prev = {};
   try{
     var old = cGetBig('wk_' + dataVersion().v);
+    if(!old){ var _lk = CacheService.getScriptCache().get('lastk_wk'); if(_lk) old = cGetBig(_lk); }   /* ⭐ 29/10/2026: vân tay mới ⇒ lấy bản đệm gần nhất */
     (old||[]).forEach(function(k){ prev[k.row] = k.status; (k.subs||[]).forEach(function(x){ prev[x.row] = x.status; }); });
   }catch(err){}
   var single = (r1 === r2 && rg.getNumColumns() === 1);
@@ -2197,7 +2234,7 @@ function xsReadWeeklyAll(){
   XS_SKIPPED = [];
   var out = [];
   var mine = [];
-  try{ mine = readWeekly() || []; }catch(err){ mine = []; }
+  try{ mine = readWeeklyFresh_() || []; }catch(err){ mine = []; }   /* ⭐ 29/10/2026: báo cáo luôn đọc thẳng sheet, không dùng bộ nhớ đệm */
   var myLabel = (XS_SOURCES[SOURCE] || {}).label || SOURCE;
   mine.forEach(function(k){
     k.__src = myLabel;
