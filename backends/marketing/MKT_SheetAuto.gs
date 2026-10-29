@@ -1,5 +1,5 @@
 /*************************************************************************************************
- * MMH REPORT HUB — MKT_SheetAuto.gs   (v1.3 · 29/10/2026 · v1.3: người tham dự không cần đồng ý dữ liệu, không xét Speciality · v1.2: rule KPI người tham dự mới (4 trường + đồng ý dữ liệu) · v1.1: file Ads nhiều cấp ⇒ chỉ cộng dòng chiến dịch · thư mục Ads Manager: MKT_AdsImport.gs)
+ * MMH REPORT HUB — MKT_SheetAuto.gs   (v1.4 · 29/10/2026 · v1.4: bỏ bắt buộc Email · v1.3: người tham dự không cần đồng ý dữ liệu, không xét Speciality · v1.2: rule KPI người tham dự mới (4 trường + đồng ý dữ liệu) · v1.1: file Ads nhiều cấp ⇒ chỉ cộng dòng chiến dịch · thư mục Ads Manager: MKT_AdsImport.gs)
  * ─────────────────────────────────────────────────────────────────────────────────────────────
  * TỰ ĐỘNG HOÁ 2 FILE MARKETING — chạy trong project marketing (có quyền Drive / Sheets của mọi file).
  * Gọi từ: evsOnChange (trigger onChange 2 file MKT) · evsSyncTick (10 phút/lần) · action=mktAuto.
@@ -24,11 +24,12 @@
  *  ④ REPORT_EVENT / PLAN_EVENT: Month = CÔNG THỨC theo Date ("20261026-29" ⇒ 202610) — chỉ dòng có Date.
  *     REPORT_EVENT thêm cột "Hình thức" (Trực tiếp / Webinar) + "Bằng chứng tham dự (scan ký tên / báo cáo Zoom)".
  *     "Actual Participant" = số SĐT KHÁC NHAU ở CUSTOMER LIST cùng sự kiện + tháng (mỗi người 1 lần / sự kiện), đủ 4 trường bắt buộc
- *     Họ tên (Name) · SĐT (Tel) · Nơi công tác (Workplace) · Email, và "Xác nhận tham dự" = Ký tay (trực tiếp) hoặc Zoom (webinar).
+ *     Họ tên (Name) · SĐT (Tel) · Nơi công tác (Workplace) (v1.4: Email KHÔNG bắt buộc), và "Xác nhận tham dự" = Ký tay (trực tiếp) hoặc Zoom (webinar).
  *     Chưa có bằng chứng tham dự ⇒ 0 (không tính KPI).
  *     v1.2 (23/10/2026 — rule KPI mới của chị Tuyên): bỏ điều kiện Province / Tittle, thêm Email; trực tiếp phải có đồng ý dữ liệu / hình ảnh.
  *     v1.3 (29/10/2026 — người dùng yêu cầu): "Đồng ý sử dụng dữ liệu" (kể cả "Không" / "Chưa" / trống) và Speciality (kể cả
  *     "Không có thông tin") KHÔNG ảnh hưởng KPI — vẫn đếm. Công thức v1.2 trong file tự được ghi lại theo v1.3.
+ *     v1.4 (29/10/2026 — người dùng yêu cầu): chỉ cần Họ tên · SĐT · Nơi công tác — bỏ bắt buộc Email (công thức v1.3 tự được ghi lại).
  *     Chỉ áp cho sự kiện bắt đầu từ MKTA.RULE_FROM (14/10/2026) — sự kiện cũ giữ công thức cũ (KPI quá khứ không đổi).
  *  ⑤ CUSTOMER LIST: thêm "Xác nhận tham dự" (Ký tay / Zoom / Chưa xác nhận) + "Đồng ý sử dụng dữ liệu" + "Email" (nếu tab chưa có cột Email).
  *  ⑥ action=evProof — tải bằng chứng tham dự vào folder sự kiện (op=list | upload).
@@ -48,7 +49,7 @@ var MKTA = {
   FORM_LIST: ['Trực tiếp', 'Webinar'],
   CONF_LIST: ['Ký tay', 'Zoom', 'Chưa xác nhận'],
   CONSENT_LIST: ['Đã đồng ý (form online)', 'Đã đồng ý (ký tay)', 'Không', 'Chưa'],
-  NOTE_V: '1.3',           // đổi ⇒ ghi lại ghi chú (note) tiêu đề cột Xác nhận tham dự / Đồng ý sử dụng dữ liệu của tab CUSTOMER LIST
+  NOTE_V: '1.4',           // đổi ⇒ ghi lại ghi chú (note) tiêu đề cột Xác nhận tham dự / Đồng ý sử dụng dữ liệu của tab CUSTOMER LIST
   ADS_PER_RUN: 6,
   RULE_FROM: '20261014',   // sự kiện bắt đầu từ ngày này mới áp quy định xác nhận tham dự (sự kiện cũ giữ công thức cũ ⇒ KPI quá khứ không đổi)
   PROOF_MAX_MB: 25,
@@ -57,10 +58,10 @@ var MKTA = {
   NOTE_CONF: 'QUY ĐỊNH XÁC NHẬN THAM DỰ (theo quản lý):\n' +
     '• Sự kiện trực tiếp: phải có danh sách check-in KÝ TÊN — chữ ký xác nhận người đó đã tham dự.\n' +
     '• Webinar: phải có báo cáo người tham dự xuất từ Zoom (người THỰC SỰ vào phòng, không phải danh sách đăng ký).\n' +
-    '• Mỗi người chỉ tính 1 lần / sự kiện (bỏ trùng theo SĐT) và phải đủ 4 thông tin bắt buộc: Họ tên (Name), SĐT (Tel), Nơi công tác (Workplace), Email.\n' +
+    '• Mỗi người chỉ tính 1 lần / sự kiện (bỏ trùng theo SĐT) và phải đủ 3 thông tin bắt buộc: Họ tên (Name), SĐT (Tel), Nơi công tác (Workplace). Email không bắt buộc.\n' +
     '• Cột "Đồng ý sử dụng dữ liệu" và Speciality KHÔNG ảnh hưởng KPI (ghi "Không" / "Không có thông tin" vẫn được tính).\n' +
     'Chọn "Ký tay" / "Zoom" khi đã đối chiếu; chưa đối chiếu ⇒ "Chưa xác nhận" (không tính).',
-  NOTE_EMAIL: 'Email của khách — 1 trong 4 thông tin bắt buộc để tính KPI người tham dự (Họ tên, SĐT, Nơi công tác, Email).',
+  NOTE_EMAIL: 'Email của khách (không bắt buộc để tính KPI người tham dự — chỉ cần Họ tên, SĐT, Nơi công tác).',
   NOTE_CONSENT: 'Khách đã đồng ý cho MMH sử dụng dữ liệu cá nhân chưa: "Đã đồng ý (form online)" (tick trên form đăng ký), ' +
     '"Đã đồng ý (ký tay)" (ký trên tờ check-in / phiếu đồng ý), "Không", "Chưa". Chỉ để theo dõi — KHÔNG ảnh hưởng KPI người tham dự (ghi "Không" vẫn được tính).',
   NOTE_FORM: 'Trực tiếp ⇒ bằng chứng = scan danh sách ký tên · Webinar ⇒ bằng chứng = báo cáo người tham dự xuất từ Zoom.',
@@ -563,16 +564,19 @@ function mktaEvDay_(v){
   if (mktaIsDate_(v)) return Utilities.formatDate(v, 'Asia/Ho_Chi_Minh', 'yyyyMMdd');
   var m = /^(\d{8})/.exec(mktaS_(v).replace(/\s+/g, '')); return m ? m[1] : '';
 }
-/* Actual Participant (v1.3): SĐT khác nhau (9 số cuối) của khách cùng sự kiện + tháng, đủ Họ tên · SĐT · Nơi công tác · Email,
-   Xác nhận tham dự = Ký tay hoặc Zoom; chưa có bằng chứng ⇒ 0. KHÔNG xét "Đồng ý sử dụng dữ liệu" / Speciality (v1.3). */
-var MKTA_PART_MARK = '"^(Ký tay|Zoom)$"';   /* dấu riêng công thức v1.3 (công thức v1.2 không có ⇒ tự được ghi lại) */
+/* Actual Participant (v1.4): SĐT khác nhau (9 số cuối) của khách cùng sự kiện + tháng, đủ Họ tên · SĐT · Nơi công tác,
+   Xác nhận tham dự = Ký tay hoặc Zoom; chưa có bằng chứng ⇒ 0. KHÔNG xét Email (v1.4), "Đồng ý sử dụng dữ liệu" / Speciality (v1.3). */
+var MKTA_PART_MARK = '"^(Ký tay|Zoom)$"';   /* dấu riêng công thức v1.3+ (công thức v1.2 không có ⇒ tự được ghi lại) */
+/* công thức Actual Participant hiện hành? (v1.4: không còn điều kiện Email — công thức còn "@" là v1.3 ⇒ ghi lại) */
+function mktaPartOurs_(f, L, r){
+  return mktaOurs_(f, ['COUNTUNIQUE(FILTER(', '$' + L.proof + r, "'CUSTOMER LIST'!$" + L.conf + '$', MKTA_PART_MARK]) && mktaFx_(f).indexOf('@') < 0;
+}
 function mktaPartF_(L, r){
   var q = "'CUSTOMER LIST'!", rg = function(c){ return q + '$' + c + '$' + L.first + ':$' + c; };
   var tel = 'REGEXREPLACE(TO_TEXT(' + rg(L.tel) + '),"[^0-9]","")';
   return '=IF(LEN(TRIM($' + L.proof + r + '))=0,0,IFERROR(COUNTUNIQUE(FILTER(RIGHT(' + tel + ',9),' +
     'TRIM(' + rg(L.ev) + ')=TRIM($' + L.evR + r + '),' + rg(L.mo) + '=$' + L.moR + r + ',' +
     'LEN(TRIM(' + rg(L.name) + '))>0,LEN(' + tel + ')>=9,LEN(TRIM(' + rg(L.work) + '))>0,' +
-    'REGEXMATCH(TRIM(TO_TEXT(' + rg(L.mail) + ')),"^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"),' +
     'REGEXMATCH(TRIM(TO_TEXT(' + rg(L.conf) + ')),' + MKTA_PART_MARK + '))),0))';
 }
 function mktaCust_(ss, rep, mig){
@@ -629,7 +633,7 @@ function mktaOffline_(ss, rep, mig){
           if (!has) continue;
           if (C.month && mktaS_(v[C.date - 1]) && !mktaOurs_(f[C.month - 1], ['LEFT(TRIM(TO_TEXT(' + Dl + r + ')'])){ mktaPut_(W, r, C.month, mktaOffMonthF_(Dl, r), 'f'); fx++; }
           var evDay = mktaEvDay_(v[C.date - 1]);
-          if (L && C.part && C.ev && C.month && evDay && evDay >= MKTA.RULE_FROM && !mktaOurs_(f[C.part - 1], ['COUNTUNIQUE(FILTER(', '$' + L.proof + r, "'CUSTOMER LIST'!$" + L.conf + '$', "'CUSTOMER LIST'!$" + L.mail + '$', MKTA_PART_MARK])){
+          if (L && C.part && C.ev && C.month && evDay && evDay >= MKTA.RULE_FROM && !mktaPartOurs_(f[C.part - 1], L, r)){
             mktaPut_(W, r, C.part, mktaPartF_(L, r), 'f'); fx++;
           }
         }
