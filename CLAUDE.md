@@ -202,3 +202,8 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   Type có Exhibition / Booth ⇒ triển lãm · KOL/PIC bắt đầu "MMH" ⇒ MMH dẫn · còn lại ⇒ KOL; chỉ tính Action Status = As planned / Additional / Change schedule, theo cột Month.
   C13-00 = KOL + triển lãm · C11-01 / C11-02 = MMH dẫn · C11-01a = MMH dẫn + Target product có Manipler · C14-00 = mọi sự kiện Dental Thái. Cùng Shared Drive ⇒ không cần cấp quyền.
   `KSC.EVENT_CODES = []` (bỏ nhánh KPI Hub). Tab KPI CRM Thái (dòng `event_hub`) tự nhận số từ file KPI.
+- **29/10/2026 — Dự trù NPP (`du-tru-npp`, script GẮN file Sheet "20261028_MMH_Du_tru_NPP_Dashboard_1", KHÔNG có web app)**: backends.json không có `deploymentId` ⇒ `gas.mjs`
+  deploy = đẩy code vào dự án + lưu phiên bản (menu dùng ngay, không gọi thử), rollback = trả code phiên bản trước. Menu "MMH · File NPP": **Xuất file Excel cho NPP** (mỗi NPP 1 file .xlsx
+  dựng từ mẫu `Mau_Excel.gs` — base64, dựng bằng `mau/build_tpl.py` + `mau/mk_mau.py`, không sửa tay; số liệu đọc sheet SUM, cùng cách tính file gốc; lưu Drive "MMH – File NPP/Tháng yyyy-mm")
+  và **Nhập file Excel NPP gửi lại** (nhận diện bằng ký hiệu `MMH_DUTRU_NPP_V1` trong sheet ẩn + tiêu đề cột, không phụ thuộc tên sheet; ghi cột A–G sheet "1 Dự trù cố định",
+  thay dòng NPP + tháng dự trù). Nhật ký: sheet "NHẬT KÝ FILE EXCEL NPP". Bố cục / công thức các sheet của file gốc KHÔNG được sửa (người dùng yêu cầu).
