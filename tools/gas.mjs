@@ -9,6 +9,9 @@
  *   node tools/gas.mjs rollback <key> [version]  đưa web app về phiên bản trước (hoặc số phiên bản chỉ định), có gọi thử
  *   node tools/gas.mjs diff <key> [version]      so code repo với phiên bản đang chạy (hoặc chỉ định), in diff từng file
  *
+ * Backend KHÔNG có web app (script gắn Sheet chỉ chạy menu / trigger — backends.json không có deploymentId):
+ * deploy = đẩy code vào dự án (menu dùng ngay) + lưu 1 phiên bản để quay lại; rollback = trả code của phiên bản trước.
+ *
  * Chìa khoá: biến môi trường CLASPRC_JSON (nội dung ~/.clasprc.json của clasp) hoặc file ~/.clasprc.json.
  * Cấu hình: backends.json — mỗi backend: name, deploymentId, scriptId, url.
  */
@@ -37,6 +40,7 @@ function stop(msg) { throw new Stop(msg); }
 /* ───────── cấu hình ───────── */
 function loadCfg() { return JSON.parse(fs.readFileSync(CFG_FILE, 'utf8')); }
 function saveCfg(cfg) { fs.writeFileSync(CFG_FILE, JSON.stringify(cfg, null, 2) + '\n'); }
+const menuOnly = b => !b.deploymentId;   // script gắn Sheet, không có web app
 function backendDir(key) { return path.join(ROOT, 'backends', key); }
 function pickKeys(cfg, arg) {
   if (!arg || arg === 'all') return Object.keys(cfg);
@@ -286,6 +290,17 @@ async function cmdStatus() {
   for (const [k, b] of Object.entries(cfg)) {
     if (!b.scriptId) { say(`| ${b.name} (\`${k}\`) | — | | | chưa có Script ID |`); bad++; continue; }
     try {
+      if (menuOnly(b)) {
+        const vs = await listVersions(b.scriptId);
+        const last = vs.map(v => v.versionNumber).sort((a, c) => c - a)[0];
+        const local = readLocal(k);
+        const notes = ['chỉ menu trong Sheet (không có web app)'];
+        if (!local) notes.push('chưa kéo code về');
+        else if (diff(await getContent(b.scriptId), local).length) notes.push('⚠️ code trong dự án khác repo');
+        if (vs.length >= VERSION_WARN) notes.push('⚠️ gần giới hạn 200 phiên bản — xoá bớt trong Lịch sử dự án');
+        say(`| ${b.name} (\`${k}\`) | \`${b.scriptId.slice(0, 10)}…\` | HEAD (phiên bản lưu gần nhất: ${last ?? '—'}) | ${vs.length} | ${notes.join('<br>')} |`);
+        continue;
+      }
       const d = await getDeployment(b.scriptId, b.deploymentId);
       const vs = await listVersions(b.scriptId);
       const cur = d.deploymentConfig?.versionNumber;
@@ -316,8 +331,9 @@ async function cmdStatus() {
 
 async function cmdDiscover() {
   const cfg = loadCfg();
-  const want = new Map(Object.entries(cfg).filter(([, b]) => !b.scriptId).map(([k, b]) => [b.deploymentId, k]));
-  if (!want.size) { say('Tất cả backend đã có Script ID.'); return; }
+  const want = new Map(Object.entries(cfg).filter(([, b]) => !b.scriptId && !menuOnly(b)).map(([k, b]) => [b.deploymentId, k]));
+  for (const [, b] of Object.entries(cfg)) if (!b.scriptId && menuOnly(b)) say(`- ❓ ${b.name}: script gắn Sheet, không có web app ⇒ cần Script ID: mở Sheet ▸ Tiện ích mở rộng ▸ Apps Script ▸ copy địa chỉ …/projects/<Script ID>/edit.`);
+  if (!want.size) { say('Tất cả backend có web app đã có Script ID.'); return; }
   say(`### Tự tìm Script ID cho ${want.size} backend`);
   const q = encodeURIComponent("mimeType='application/vnd.google-apps.script' and trashed=false");
   let files = [];
@@ -362,6 +378,13 @@ async function cmdPull(arg) {
       if (/^AKfycb/.test(b.scriptId)) stop(`"${b.scriptId.slice(0, 14)}…" là Mã triển khai, không phải Script ID (Script ID nằm trong địa chỉ trang Apps Script: …/projects/<Script ID>/edit).`);
       const p = await api('GET', `${API}/projects/${b.scriptId}`);
       if (b.sheetId && p.parentId && p.parentId !== b.sheetId) stop(`Script ID của ${b.name} là script "${p.title}" gắn với file khác (${p.parentId.slice(0, 10)}…), không phải Sheet ${b.sheetId.slice(0, 10)}… — có thể dán nhầm thứ tự.`);
+      if (menuOnly(b)) {
+        const set = await getContent(b.scriptId);
+        writeLocal(k, set);
+        fs.writeFileSync(path.join(backendDir(k), PULL_FILE), JSON.stringify({ version: null, pending: [] }, null, 2) + '\n');
+        say(`- ✅ ${b.name} (chỉ menu trong Sheet): ${set.order.length} file (${set.order.join(', ')})`);
+        continue;
+      }
       const deps = await listDeployments(b.scriptId);
       if (!deps.some(d => d.deploymentId === b.deploymentId)) stop(`Script "${p.title}" không có deployment ${b.deploymentId.slice(0, 14)}… mà app đang gọi. Các deployment hiện có: ${deps.map(d => d.deploymentId.slice(0, 14) + '…').join(', ') || 'không có'}.`);
       const set = await getContent(b.scriptId);
@@ -404,11 +427,12 @@ async function deployOne(key, before, description, auto = false) {
   try { JSON.parse(local.map['appsscript.json']); } catch (e) { stop(`${b.name}: appsscript.json sai cú pháp JSON (${e.message})`); }
 
   const remote = await getContent(b.scriptId);
-  const dep = await getDeployment(b.scriptId, b.deploymentId);
+  const menu = menuOnly(b);
+  const dep = menu ? {} : await getDeployment(b.scriptId, b.deploymentId);
   const prevVer = dep.deploymentConfig?.versionNumber;
 
   const live = liveWebapp(dep) || webapp(remote);
-  if (webapp(local) !== live) stop(`${b.name}: quyền web app trong appsscript.json (${webapp(local)}) khác quyền URL đang chạy (${live}) — dừng để không đổi quyền truy cập. Sửa mục "webapp" trong appsscript.json cho khớp ${live} rồi gộp lại.`);
+  if (!menu && webapp(local) !== live) stop(`${b.name}: quyền web app trong appsscript.json (${webapp(local)}) khác quyền URL đang chạy (${live}) — dừng để không đổi quyền truy cập. Sửa mục "webapp" trong appsscript.json cho khớp ${live} rồi gộp lại.`);
 
   if (auto) {
     const base = validSha(before) ? readAt(before, key) : null;
@@ -437,11 +461,18 @@ async function deployOne(key, before, description, auto = false) {
     if (drift.length) stop(`${b.name}: code trên Apps Script đã bị sửa trực tiếp (ngoài GitHub) ở: ${drift.join(', ')}. Dừng để không ghi đè. Chạy workflow "Kéo code về" cho backend này, rồi áp lại thay đổi.`);
     await api('PUT', `${API}/projects/${b.scriptId}/content`, { scriptId: b.scriptId, files: toRemote(local) });
     pushed = true;
+  } else if (menu) {
+    say(`- ➖ ${b.name}: không có gì mới.`); return;
   } else if (prevVer) {
     const live = await getContent(b.scriptId, prevVer);
     if (!diff(live, local).length) { say(`- ➖ ${b.name}: không có gì mới (đang chạy phiên bản ${prevVer}).`); return; }
   }
 
+  if (menu) {
+    const v = await api('POST', `${API}/projects/${b.scriptId}/versions`, { description: (description || '').slice(0, 100) });
+    say(`- ✅ ${b.name}: đã cập nhật code (menu trong Sheet dùng ngay, mở lại file để thấy menu mới) · lưu phiên bản **${v.versionNumber}**`);
+    return;
+  }
   const pre = await smoke(b);
   const v = await api('POST', `${API}/projects/${b.scriptId}/versions`, { description: (description || '').slice(0, 100) });
   await setDeployment(b.scriptId, b.deploymentId, v.versionNumber, description);
@@ -476,7 +507,7 @@ async function cmdDiff(key, version) {
   const cfg = loadCfg();
   const b = cfg[key];
   if (!b || !b.scriptId) stop(`Không có backend "${key}" (hoặc thiếu Script ID).`);
-  const ver = Number(version) || (await getDeployment(b.scriptId, b.deploymentId)).deploymentConfig?.versionNumber;
+  const ver = Number(version) || (menuOnly(b) ? null : (await getDeployment(b.scriptId, b.deploymentId)).deploymentConfig?.versionNumber);
   const live = await getContent(b.scriptId, ver);
   const local = readLocal(key);
   if (!local) stop(`${b.name}: chưa có code trong repo.`);
@@ -504,6 +535,7 @@ async function cmdPing(arg) {
   if (qi >= 0) arg = String(arg).slice(0, qi);
   for (const k of pickKeys(cfg, arg)) {
     const b = cfg[k];
+    if (!b.url) { say(`- ${b.name}: không có web app (chỉ menu trong Sheet).`); continue; }
     let u = b.url + (q || b.smokeQuery || '?action=ping');
     const hops = [];
     try {
@@ -524,6 +556,17 @@ async function cmdRollback(key, version) {
   const cfg = loadCfg();
   const b = cfg[key];
   if (!b || !b.scriptId) stop(`Không có backend "${key}" (hoặc thiếu Script ID).`);
+  if (menuOnly(b)) {
+    const vs = (await listVersions(b.scriptId)).map(v => v.versionNumber).sort((a, c) => c - a);
+    const target = Number(version) || vs[1];
+    if (!target || !vs.includes(target)) stop(`${b.name}: không có phiên bản ${target || 'cũ hơn'} để quay lại.`);
+    const set = await getContent(b.scriptId, target);
+    await api('PUT', `${API}/projects/${b.scriptId}/content`, { scriptId: b.scriptId, files: toRemote(set) });
+    say('### Quay lại bản trước');
+    say(`- ↶ ${b.name}: code trong dự án = phiên bản **${target}** (menu trong Sheet dùng ngay).`);
+    say(`- Lưu ý: code trong repo không đổi. Lần gộp tiếp theo vào backends/${key}/ sẽ báo "sửa trực tiếp" — chạy "Kéo code về" trước.`);
+    return;
+  }
   const cur = (await getDeployment(b.scriptId, b.deploymentId)).deploymentConfig?.versionNumber;
   let target = Number(version) || 0;
   if (!target) {

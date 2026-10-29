@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<style>
+  body { font-family: Arial, sans-serif; font-size: 13px; color: #1a1a1a; margin: 0; padding: 14px 18px; }
+  h3 { margin: 0 0 6px; font-size: 15px; color: #003047; }
+  h4 { margin: 14px 0 6px; font-size: 13px; color: #003047; }
+  p { margin: 4px 0 10px; line-height: 1.45; }
+  .muted { color: #666; }
+  table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+  th, td { border: 1px solid #d9d9d9; padding: 5px 8px; text-align: left; vertical-align: middle; }
+  th { background: #cfe2f3; font-weight: bold; }
+  td.n { text-align: right; }
+  input[type=text] { width: 58%; padding: 5px 6px; border: 1px solid #bbb; border-radius: 3px; }
+  button { font-size: 13px; padding: 6px 14px; border-radius: 4px; border: 1px solid #3a5caa; background: #3a5caa; color: #fff; cursor: pointer; }
+  button.sec { background: #fff; color: #3a5caa; }
+  button:disabled { opacity: .5; cursor: default; }
+  .ok { color: #2e7d32; } .err { color: #c62828; } .warn { color: #b45309; }
+  ul { margin: 4px 0 8px 18px; padding: 0; } li { margin: 2px 0; }
+  #files { max-height: 190px; overflow: auto; }
+  .box { border: 1px solid #d9d9d9; border-radius: 4px; padding: 10px 12px; margin-top: 12px; }
+  .btns { margin-top: 12px; text-align: right; }
+  a { color: #1155cc; }
+</style>
+</head>
+<body>
+<h3>Nhập số liệu từ file NPP</h3>
+<p id="info" class="muted">Đang đọc dữ liệu…</p>
+<div id="files"></div>
+<p style="margin-top:10px">Hoặc dán đường dẫn file NPP: <input type="text" id="link" placeholder="https://docs.google.com/spreadsheets/d/…">
+  <button class="sec" onclick="check(document.getElementById('link').value)">Kiểm tra</button></p>
+<div id="result"></div>
+<div class="btns"><button class="sec" onclick="google.script.host.close()">Đóng</button></div>
+<script>
+  var CUR = null;
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function n0(x) { return Number(x || 0).toLocaleString('vi-VN'); }
+  google.script.run.withSuccessHandler(function (r) {
+    if (!r.ok) { document.getElementById('info').innerHTML = '<span class="err">' + esc(r.error) + '</span>'; return; }
+    document.getElementById('info').innerHTML = 'Tháng hiện tại: <b>' + esc(r.cm) + '</b>. Khi nhập, số liệu của NPP trong file gốc được thay bằng số liệu trong file NPP: ' +
+      '<b>đặt hàng dự kiến từ tháng ' + esc(r.fromDK) + '</b> (sheet 3) và <b>dự trù cố định từ tháng ' + esc(r.fromDT) + '</b> (sheet 1). ' +
+      'Các tháng trước đó không thay đổi.';
+    if (!r.files.length) { document.getElementById('files').innerHTML = '<p class="muted">Chưa có file nào được tạo bằng menu "Tạo file cho NPP".</p>'; return; }
+    document.getElementById('files').innerHTML = '<table><thead><tr><th>NPP</th><th>File</th><th>Tạo lúc</th><th>Lần nhập gần nhất</th><th></th></tr></thead><tbody>' +
+      r.files.map(function (f, i) {
+        return '<tr><td><b>' + esc(f.npp) + '</b></td><td><a href="' + esc(f.url) + '" target="_blank">' + esc(f.name) + '</a></td><td>' + esc(f.time) +
+          '</td><td>' + (f.lastImport ? esc(f.lastImport) : '<span class="muted">Chưa nhập</span>') + '</td>' +
+          '<td><button class="sec" onclick="check(\'' + esc(f.id) + '\')">Kiểm tra</button></td></tr>';
+      }).join('') + '</tbody></table>';
+  }).withFailureHandler(function (e) {
+    document.getElementById('info').innerHTML = '<span class="err">' + esc(e.message || e) + '</span>';
+  }).apiImportInfo();
+
+  function check(ref) {
+    ref = String(ref || '').trim();
+    if (!ref) return;
+    CUR = ref;
+    document.getElementById('result').innerHTML = '<div class="box">Đang đọc và kiểm tra file…</div>';
+    google.script.run.withSuccessHandler(show).withFailureHandler(fail).apiPreviewImport(ref);
+  }
+  function fail(e) { document.getElementById('result').innerHTML = '<div class="box err">' + esc(e.message || e) + '</div>'; }
+  function part(p) {
+    var rows = p.months.map(function (m) {
+      return '<tr><td>' + esc(m.m) + '</td><td class="n">' + m.oldN + '</td><td class="n">' + n0(m.oldSum) + '</td><td class="n">' + m.newN +
+        '</td><td class="n">' + n0(m.newSum) + '</td></tr>';
+    }).join('');
+    return '<h4>' + esc(p.sheet) + ' – từ tháng ' + esc(p.from) + '</h4>' + (p.months.length
+      ? '<table><thead><tr><th>Tháng</th><th>Số dòng hiện có</th><th>Số lượng hiện có</th><th>Số dòng trong file NPP</th><th>Số lượng trong file NPP</th></tr></thead><tbody>' +
+        rows + '<tr><th>Cộng</th><th class="n">' + p.oldN + '</th><th class="n">' + n0(p.oldSum) + '</th><th class="n">' + p.newN + '</th><th class="n">' +
+        n0(p.newSum) + '</th></tr></tbody></table>'
+      : '<p class="muted">Không có số liệu ở các tháng này.</p>');
+  }
+  function list(cls, title, arr, total) {
+    if (!arr || !arr.length) return '';
+    return '<h4 class="' + cls + '">' + title + ' (' + (total || arr.length) + ')</h4><ul>' + arr.map(function (x) { return '<li class="' + cls + '">' + esc(x) + '</li>'; }).join('') +
+      '</ul>' + (total > arr.length ? '<p class="muted">Còn ' + (total - arr.length) + ' mục khác.</p>' : '');
+  }
+  function show(r) {
+    var h = '<div class="box">';
+    if (r.fatal) { document.getElementById('result').innerHTML = '<div class="box err">' + esc(r.fatal) + '</div>'; return; }
+    h += '<b>' + esc(r.npp) + '</b> · <a href="' + esc(r.url) + '" target="_blank">' + esc(r.name) + '</a>';
+    if (r.committed) h += '<p class="ok"><b>' + esc(r.note) + '</b></p>';
+    else if (r.note) h += '<p class="err"><b>' + esc(r.note) + '</b></p>';
+    h += part(r.dk) + part(r.dt);
+    h += list('err', 'Lỗi – cần NPP sửa trước khi nhập', r.errors, r.nErrors);
+    h += list('warn', 'Lưu ý – vẫn nhập được', r.warnings, r.nWarnings);
+    h += list('muted', 'Thông tin', r.infos);
+    if (!r.committed) {
+      h += '<div class="btns"><button id="commit" ' + (r.ok ? '' : 'disabled') + ' onclick="commit()">Nhập vào file gốc</button></div>';
+    }
+    h += '</div>';
+    document.getElementById('result').innerHTML = h;
+  }
+  function commit() {
+    var b = document.getElementById('commit');
+    b.disabled = true; b.textContent = 'Đang nhập…';
+    google.script.run.withSuccessHandler(show).withFailureHandler(fail).apiCommitImport(CUR);
+  }
+</script>
+</body>
+</html>
