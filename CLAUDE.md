@@ -191,3 +191,5 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
 - **29/10/2026 — Training Hub v3.36: Admin học xong được cấp chứng chỉ**: `elDiag` cho thấy mọi lượt "học xong mà không có chứng chỉ" là người học = trainer / Admin (`hubCanEdit`) ⇒ Admin không bao giờ
   nhận chứng chỉ. Nay `hubIsCourseTrainer_` (trainer CỦA CHÍNH KHOÁ) thay `hubCanEdit` ở `hubStudyDone_` / `apiClaimCert` / chứng chỉ theo bài kiểm tra; Admin vẫn được bỏ qua điều kiện mở bài (`hubGate`).
   `listSessions` trả `iTrain`. App Training Hub v6.1 tự gửi lại tiến độ khoá đã học xong ⇒ máy chủ cấp chứng chỉ bù.
+- **29/10/2026 — Training Hub v3.37: chuyển Completed KHÔNG cần kết quả bài kiểm tra (người dùng yêu cầu)**: `HUB_TEST_REQUIRED = false` (RH_Assess.gs) ⇒ `saveSession` / `rhSaveSession` (cả Report Hub)
+  không còn trả `NEED_TEST`; buổi có bài nộp trên Hub vẫn tự điền cột P / Q. Luật Coaching (PDF trong Review/) giữ nguyên. App Training Hub v6.2 bỏ chữ "Bắt buộc" ở form buổi.
