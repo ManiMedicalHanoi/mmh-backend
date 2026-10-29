@@ -180,3 +180,9 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   `dataVersion`, trước chỉ đổi khi sửa qua web / trigger onChange (phải chạy tay `installTriggers`) / `warmCache` (10 phút, 6h–21h). Nay: vân tay thêm `liveSig_(lastRow)` = MD5 cột B..O sheet WEEKLY
   (đệm 60 giây) ⇒ mọi sửa trên Sheet hiện sau ≤ 1 phút; `ensureEditTrigger_` tự cài onChange + onEdit (≤ 1 lần thử / 6 giờ, ở boot); `xsReadWeeklyAll` (gửi báo cáo) đọc `readWeeklyFresh_` (thẳng sheet);
   action `weekly` nhận `fresh=1`. `doneStampOnEdit` lấy trạng thái cũ từ bản đệm gần nhất (`lastk_wk`) khi vân tay đã đổi.
+- **29/10/2026 — Training Hub v3.35: video từ MMH Library (`training/RH_Library.gs`) + sửa luật hoàn thành học online**: kho riêng tư `mmh-library` ▸ `Videos/catalog.json`
+  (3 thư mục Skill · Product · Knowledge, video ≤ 30 MB, git thường). `libList` / `libAttach` (trainer của buổi) + cầu nối Report Hub `rhLibList` / `rhLibAttach`: chép video (+ ảnh bìa, .vtt)
+  sang `Training-Hub/media/lib/<id>.mp4` (1 lần, dùng lại cho mọi khoá) rồi thêm dòng HUB_Videos (`CatalogID = lib:<id>`) ⇒ học online như video bài giảng. Token đọc thư viện:
+  Script Property `HUB_LIB_TOKEN` (Admin dán: `ghSetup kind=lib`), không có ⇒ thử `HUB_GH_TOKEN`; boot trả `lib` (1 đọc được · -1 lỗi quyền · 0 chưa kết nối). Video `confidential` không đưa lên.
+  Hoàn thành: `hubStudyDone_` đọc lại danh sách bài khi đệm nguội (trước bỏ qua ⇒ học xong không được cấp chứng chỉ); bảng học viên chỉ đếm bài còn trong khoá (`filesTotal`).
+  Chẩn đoán (chỉ số tổng hợp, không email): workflow **Kiểm tra** ▸ ping `training?action=elDiag&full=1` (`gas.mjs ping` in đủ 6000 ký tự khi có `full=1`).

@@ -151,7 +151,10 @@ function hubStudyDone_(sid, user) {
   var s = hubFindSession(sid);
   if (!s) return null;
   if (hubCanEdit(s, user) && !user.asLearner) return null;
-  var m = hubMaterials(s, {cacheOnly: true}) || hubMaterials(s, {noWait: true});
+  // ★ v3.35 — đệm danh sách bài nguội: đọc lại (chờ tối đa ~20 giây) thay vì bỏ qua ⇒ trước đây học xong bài cuối lúc đệm
+  //   vừa hết hạn thì không được tính hoàn thành / không cấp chứng chỉ
+  var m = hubMaterials(s, {cacheOnly: true});
+  if (!m || m.pending) m = hubMaterials(s);
   if (!m || m.pending || !m.files || !m.files.length) return null;
   var pre = hubPrefix(user.email), done = {};
   hubReadProgressRaw().forEach(function(x){ if (x.email === pre && x.sid === sid && x.completed) done[x.fileId] = 1; });
