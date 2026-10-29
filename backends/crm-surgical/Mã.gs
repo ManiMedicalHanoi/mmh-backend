@@ -1,5 +1,8 @@
 /*************************************************************************************************
- * MMH CRM — Google Apps Script backend  (v10.20)  ·  MỘT FILE CODE CHO CẢ 3 NHÓM
+ * MMH CRM — Google Apps Script backend  (v10.21)  ·  MỘT FILE CODE CHO CẢ 3 NHÓM
+ * ⭐ v10.21 (29/10/2026) · SỐ LƯỢNG COMPOSITE / JIZAI HỖ TRỢ (C6 / C7) CHỈ CỘNG ĐƠN ĐÃ DUYỆT — giống C5 (người dùng yêu cầu).
+ *   k68CalcSupp_: dòng đơn cần duyệt (có Order Type hoặc tháng ≥ ORDER_CUTOFF) mà chưa "Đã duyệt" ⇒ không cộng số lượng; đơn cũ trước ORDER_CUTOFF
+ *   không có loại vẫn tính như trước. Tháng của số lượng vẫn là tháng đặt hàng (không đổi theo tháng KQTT / hạn FY như trị giá C5).
  * ⭐ v10.19 (28/10/2026) · ĐƠN BỊ TÁCH SAU KHI CẬP NHẬT CHỨNG TỪ · ĐỔI NGÀY TASK KHÔNG LƯU
  *   ① ordNoHeal_: dòng không số cùng account + ngày đặt + PIC + tháng với dòng ĐÃ có số ⇒ điền cùng Order No. + loại đơn / chứng từ còn trống
  *      (app cũ sửa 1 dòng ⇒ chỉ dòng đó được cấp số). ≤ 1 lần / 20 phút ở ping / boot / bundle / version + đầu orderPending.
@@ -500,7 +503,7 @@ function handle(e, method){
     if (action === 'kpiLate') return reply(kpiLate_(user, p), callback);               /* ⭐ v10.4 */
 
     switch (action) {
-      case 'ping'            : out = { ok:true, pong:true, source:TEAM(), app:appName_(), pic:user.pic, ver:'10.20', orderNotes:true, orderHeal:true, orderLink:true, orderEdit:true, rpStatus:true, sandbox:true, careGate:true, visitDone:true, rate:K68_RATE_DEF, dateFix:props_().getProperty('CRM_DATEFIX_LOG') || '', orderApproval:true, presentTpl:true, migrate:props_().getProperty('CRM_LAYOUT_V') || '', meeting:true, trip2:true, kpi68:true, tenderPrice:true, custLog:true, deleteAccount:true, na:true, kr:true, idem:true, kpiPush:true }; break;
+      case 'ping'            : out = { ok:true, pong:true, source:TEAM(), app:appName_(), pic:user.pic, ver:'10.21', suppApproved:true, orderNotes:true, orderHeal:true, orderLink:true, orderEdit:true, rpStatus:true, sandbox:true, careGate:true, visitDone:true, rate:K68_RATE_DEF, dateFix:props_().getProperty('CRM_DATEFIX_LOG') || '', orderApproval:true, presentTpl:true, migrate:props_().getProperty('CRM_LAYOUT_V') || '', meeting:true, trip2:true, kpi68:true, tenderPrice:true, custLog:true, deleteAccount:true, na:true, kr:true, idem:true, kpiPush:true }; break;
       case 'boot'            : out = boot(user); break;
       case 'master'          : out = { ok:true, master: readMaster() }; break;
       case 'customerIndex'   : out = { ok:true, rows: customerIndex() }; break;
@@ -2204,6 +2207,7 @@ function k68CalcSupp_(sh){
       var ym = S(o.month).replace(/\D/g, '').slice(0, 6) || ymOfIso_(S(o.day));
       var k = idx[ym]; if (k == null || out[k] === '') return;
       if (x.key === 'supp_amt') return;                                  /* ⭐ v10.11 — C5 tính riêng theo loại đơn + duyệt (ordSuppAmt_) */
+      if ((ordType_(o.otype) || ym >= ORDER_CUTOFF) && ordAppr_(o.appr) !== 'ok') return;   /* ⭐ v10.21 — C6 / C7 chỉ đơn Đã duyệt (đơn cũ không loại trước ORDER_CUTOFF tính như trước) */
       var txt = (S(o.detail) + ' ' + S(o.ptype)).toLowerCase(), kws = x.key === 'supp_comp' ? kComp : kJz;
       if (!kws.some(function(w){ return txt.indexOf(w) >= 0; })) return;
       if (npp.length){ var pt = S(o.partner).toLowerCase(); if (!npp.some(function(w){ return pt.indexOf(w) >= 0; })) return; }
@@ -4415,8 +4419,8 @@ var K68_TXT = {
       event_trn: 'Training Master (buổi đào tạo khách hàng T&E tạo trên CRM, Completed, có số người tham dự + review đủ mẫu) → file KPI → tab này (chỉ hiển thị)',
       event_kol_team: '6. WEEKLY REPORT · Type action = Event + Task Status ≠ Not Started / Cancel + date ≤ today (cả nhóm)',
       supp_amt: '3. SALE ORDER · đơn ĐÃ DUYỆT theo MMH sales PIC (Order Type 1 = trị giá trúng thầu ở tháng KQTT · 2 = đơn Account mở mới tới hết FY mở · 3 = đơn tư vấn; đơn cũ trước 10/2026 tính như trước) ÷ tỷ giá cố định 26.700 — số do code ghi',
-      supp_comp: '3. SALE ORDER · tổng Quantity theo MMH sales PIC + Month, Detail/Product type chứa từ khoá Composite (D7/E7), Partner = NPP phụ trách (K68_NPP)',
-      supp_jizai: '3. SALE ORDER · tổng Quantity theo MMH sales PIC + Month, Detail/Product type chứa từ khoá JIZAI (D8/E8), Partner = NPP phụ trách (K68_NPP)'
+      supp_comp: '3. SALE ORDER · đơn ĐÃ DUYỆT (đơn cũ trước 10/2026 tính như trước) · tổng Quantity theo MMH sales PIC + Month, Detail/Product type chứa từ khoá Composite (D7/E7), Partner = NPP phụ trách (K68_NPP) — số do code ghi',
+      supp_jizai: '3. SALE ORDER · đơn ĐÃ DUYỆT (đơn cũ trước 10/2026 tính như trước) · tổng Quantity theo MMH sales PIC + Month, Detail/Product type chứa từ khoá JIZAI (D8/E8), Partner = NPP phụ trách (K68_NPP) — số do code ghi'
     },
     msgNoLink: 'Chưa có link file MMH KPI FY68 ở ô D9 của tab KPI.',
     msgNoMaster: 'Không mở được file KPI FY68 (kiểm tra link và quyền truy cập của tài khoản chạy script): ',
@@ -4461,8 +4465,8 @@ var K68_TXT = {
       event_trn: 'Training Master (customer training T&E sessions created in the CRM, Completed, with attendees + complete review) → KPI file → this tab (display only)',
       event_kol_team: '6. WEEKLY REPORT · Type action = Event + Task Status not Not Started / Cancel + date ≤ today (whole team)',
       supp_amt: '3. SALE ORDER · APPROVED orders by MMH sales PIC (Order Type 1 = tender value in the award month · 2 = new-account orders until the end of the opening FY · 3 = consulting orders; legacy rows before 10/2026 as before) ÷ fixed rate 26,700 VND/USD',
-      supp_comp: '3. SALE ORDER · total Quantity by MMH sales PIC + Month where Detail / Product type contains the Composite keyword (D7/E7) and Partner = the PIC\'s distributor (K68_NPP)',
-      supp_jizai: '3. SALE ORDER · total Quantity by MMH sales PIC + Month where Detail / Product type contains the JIZAI keyword (D8/E8) and Partner = the PIC\'s distributor (K68_NPP)'
+      supp_comp: '3. SALE ORDER · APPROVED orders (legacy rows before 10/2026 as before) · total Quantity by MMH sales PIC + Month where Detail / Product type contains the Composite keyword (D7/E7) and Partner = the PIC\'s distributor (K68_NPP)',
+      supp_jizai: '3. SALE ORDER · APPROVED orders (legacy rows before 10/2026 as before) · total Quantity by MMH sales PIC + Month where Detail / Product type contains the JIZAI keyword (D8/E8) and Partner = the PIC\'s distributor (K68_NPP)'
     },
     msgNoLink: 'No link to the MMH KPI FY68 file in cell D9 of the KPI tab.',
     msgNoMaster: 'Cannot open the KPI FY68 file (check the link and the access of the account running the script): ',
@@ -4506,7 +4510,7 @@ var K68_TXT = {
       event_mmh_team: '7. PRODUCT PRESENTATION · sessions of the whole team by Month · only sessions with Actual participant > 0 and a complete Event review',
       event_trn: 'Training Master (customer training T&E sessions created in the CRM, Completed, with attendees + complete review) → KPI file → this tab (display only)',
       event_kol_team: '6. CUSTOMER VISITING · Type action = Event + Task Status ≠ Not Started / Cancel + date ≤ today (KOL-led events & exhibitions, whole team) by Start date',
-      supp_amt: '3. SALE ORDER · approved orders ÷ fixed rate 26,700 (D5)', supp_comp: '3. SALE ORDER · Composite quantity', supp_jizai: '3. SALE ORDER · JIZAI quantity'
+      supp_amt: '3. SALE ORDER · approved orders ÷ fixed rate 26,700 (D5)', supp_comp: '3. SALE ORDER · Composite quantity of approved orders', supp_jizai: '3. SALE ORDER · JIZAI quantity of approved orders'
     },
     msgNoLink: 'No link to the MMH KPI FY68 file in cell D9 of the KPI tab.',
     msgNoMaster: 'Cannot open the KPI FY68 file (check the link and the access of the account running the script): ',
@@ -6669,7 +6673,7 @@ function presCheckSave_(user, p){
    Loại 2 · Đơn từ Account mở mới: cần phiếu bán hàng & xuất kho của NPP; tính mọi tháng tới hết FY mở account (FY68 hết 202708);
             account phải là case Approved ở 16. NEW ACCOUNT & SKU (chỉ cảnh báo nếu chưa).
    Loại 3 · Đơn từ tư vấn (khách lẻ): cần phiếu bán hàng & xuất kho của NPP.
-   Chỉ đơn "Đã duyệt" được cộng vào C5. Đơn trước ORDER_CUTOFF không có loại = đơn cũ, tính như trước (không cần duyệt). */
+   Chỉ đơn "Đã duyệt" được cộng vào C5 (v10.21: cả C6 / C7 — số lượng Composite / JIZAI). Đơn trước ORDER_CUTOFF không có loại = đơn cũ, tính như trước (không cần duyệt). */
 var ORDER_CUTOFF   = '202610';
 var ORDER_TYPES    = ['1. Đơn từ trúng thầu', '2. Đơn từ Account mở mới', '3. Đơn từ tư vấn (khách lẻ)'];
 var ORDER_ST       = { wait:'Chờ duyệt', ok:'Đã duyệt', no:'Từ chối' };
