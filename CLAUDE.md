@@ -151,6 +151,7 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   Tab chưa có cột Email ⇒ code tự thêm. Công thức cũ của sự kiện từ 14/10 tự được ghi lại (dấu nhận diện có cột Email + Đồng ý).
   **v1.3 (29/10/2026, người dùng yêu cầu)**: BỎ điều kiện "Đồng ý sử dụng dữ liệu" (ghi "Không" / "Chưa" / trống vẫn đếm) và không xét Speciality ("Không có thông tin" vẫn đếm) ⇒
   điều kiện còn: đủ Họ tên · SĐT · Nơi công tác · Email + Xác nhận tham dự = Ký tay hoặc Zoom + có Bằng chứng tham dự. Dấu công thức v1.3 = `MKTA_PART_MARK` (công thức v1.2 tự được ghi lại).
+  **v1.4 (29/10/2026, người dùng yêu cầu)**: chỉ cần Họ tên · SĐT · Nơi công tác — BỎ bắt buộc Email (`mktaPartOurs_`: công thức còn `@` = v1.3 ⇒ tự ghi lại).
 - **23/10/2026 — Review rule KPI Back office (`kpi/KpiBackOffice.gs` v1.1)**: nhóm Back office sửa công thức P2-04 (Hậu / Việt) trên file của họ; P5-01 chỉ tính theo thời gian nộp (không tính lỗi sai);
   **P5-05 VAT chưa áp dụng quý 1** ⇒ `KSC_BO.FROM['P5-05'] = 202612` (tháng trước đó để trống ở file KPI, từ quý 2 chuyển cho Mai); P1-00 = sheet Internal Docs (Month K, PIC L = Dam Ha);
   P2-07 = hồ sơ thầu đúng hạn ÷ hồ sơ đã nhận, quy đổi thang 100. P3-00 / P4-00 / P5-01a / P5-06 (của chị Hoà) còn chờ chị Hoà xác nhận.
