@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<style>
+  body { font-family: Arial, sans-serif; font-size: 13px; color: #1a1a1a; margin: 0; padding: 14px 18px; }
+  h3 { margin: 0 0 6px; font-size: 15px; color: #003047; }
+  p { margin: 4px 0 10px; line-height: 1.45; }
+  .muted { color: #666; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  th, td { border: 1px solid #d9d9d9; padding: 6px 8px; text-align: left; vertical-align: middle; }
+  th { background: #cfe2f3; font-weight: bold; }
+  input[type=email] { width: 100%; box-sizing: border-box; padding: 5px 6px; border: 1px solid #bbb; border-radius: 3px; }
+  .btns { margin-top: 14px; text-align: right; }
+  button { font-size: 13px; padding: 7px 16px; border-radius: 4px; border: 1px solid #3a5caa; background: #3a5caa; color: #fff; cursor: pointer; }
+  button.sec { background: #fff; color: #3a5caa; }
+  button:disabled { opacity: .5; cursor: default; }
+  .ok { color: #2e7d32; } .err { color: #c62828; }
+  #log div { margin: 4px 0; }
+  a { color: #1155cc; }
+</style>
+</head>
+<body>
+<h3>Tạo file cho nhà phân phối</h3>
+<p id="info" class="muted">Đang đọc dữ liệu…</p>
+<p>Mỗi NPP nhận một bản sao của file gốc (giữ nguyên bố cục, công thức), trong đó chỉ có số liệu của NPP đó.
+  NPP nhập <b>đặt hàng dự kiến</b> ở sheet 3 và <b>dự trù cố định</b> ở sheet 1; các sheet khác được khoá.
+  Nếu nhập email, NPP được cấp quyền sửa file và nhận thư thông báo của Google.</p>
+<table>
+  <thead><tr><th style="width:34px"></th><th>Nhà phân phối</th><th style="width:250px">Email NPP (không bắt buộc)</th><th>File đã tạo</th></tr></thead>
+  <tbody id="rows"></tbody>
+</table>
+<div id="log"></div>
+<div class="btns">
+  <button class="sec" onclick="google.script.host.close()">Đóng</button>
+  <button id="go" onclick="go()" disabled>Tạo file</button>
+</div>
+<script>
+  var NPPS = [];
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  google.script.run.withSuccessHandler(function (r) {
+    if (!r.ok) { document.getElementById('info').innerHTML = '<span class="err">' + esc(r.error) + '</span>'; return; }
+    NPPS = r.npps;
+    document.getElementById('info').innerHTML = 'Tháng hiện tại: <b>' + esc(r.cm) + '</b>. NPP nhập đặt hàng dự kiến từ tháng <b>' +
+      esc(r.fromDK) + '</b> và dự trù cố định từ tháng <b>' + esc(r.fromDT) + '</b>.';
+    document.getElementById('rows').innerHTML = r.npps.map(function (n, i) {
+      return '<tr><td><input type="checkbox" id="c' + i + '" checked></td><td><b>' + esc(n.name) + '</b></td>' +
+        '<td><input type="email" id="e' + i + '" value="' + esc(n.lastShare) + '" placeholder="vd: npp@congty.vn"></td>' +
+        '<td>' + (n.count ? 'Đã tạo ' + n.count + ' lần · <a href="' + esc(n.lastUrl) + '" target="_blank">mở file gần nhất</a>' :
+        '<span class="muted">Chưa có</span>') + '</td></tr>';
+    }).join('');
+    document.getElementById('go').disabled = false;
+  }).withFailureHandler(function (e) {
+    document.getElementById('info').innerHTML = '<span class="err">' + esc(e.message || e) + '</span>';
+  }).apiCreateInfo();
+
+  function go() {
+    var jobs = [];
+    NPPS.forEach(function (n, i) {
+      if (document.getElementById('c' + i).checked) jobs.push({ npp: n.name, email: document.getElementById('e' + i).value.trim() });
+    });
+    if (!jobs.length) { alertBox('Vui lòng chọn ít nhất một NPP.'); return; }
+    document.getElementById('go').disabled = true;
+    var log = document.getElementById('log');
+    log.innerHTML = '';
+    (function next(k) {
+      if (k >= jobs.length) { log.innerHTML += '<div><b>Hoàn tất.</b> Có thể đóng hộp thoại.</div>'; return; }
+      var j = jobs[k];
+      var line = document.createElement('div');
+      line.innerHTML = 'Đang tạo file cho <b>' + esc(j.npp) + '</b> (khoảng 20–60 giây)…';
+      log.appendChild(line);
+      google.script.run.withSuccessHandler(function (r) {
+        line.innerHTML = r.ok
+          ? '<span class="ok">✓</span> <b>' + esc(r.npp) + '</b>: <a href="' + esc(r.url) + '" target="_blank">' + esc(r.name) + '</a> · thư mục ' +
+            '<a href="' + esc(r.folderUrl) + '" target="_blank">' + esc(r.folder) + '</a> · ' + r.nDT + ' dòng dự trù, ' + r.nTT +
+            ' dòng thực tế, ' + r.nDK + ' dòng dự kiến' + (r.email ? ' · đã chia sẻ cho ' + esc(r.email) : ' · chưa chia sẻ')
+          : '<span class="err">✗ ' + esc(j.npp) + ': ' + esc(r.error) + '</span>';
+        next(k + 1);
+      }).withFailureHandler(function (e) {
+        line.innerHTML = '<span class="err">✗ ' + esc(j.npp) + ': ' + esc(e.message || e) + '</span>';
+        next(k + 1);
+      }).apiCreateFile(j.npp, j.email);
+    })(0);
+  }
+  function alertBox(t) { document.getElementById('log').innerHTML = '<div class="err">' + esc(t) + '</div>'; }
+</script>
+</body>
+</html>
