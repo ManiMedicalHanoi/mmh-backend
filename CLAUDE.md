@@ -242,9 +242,10 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   ⚠️ 2 lượt `vsSync_` chạy cùng lúc (cronTh + onEdit / saveWeekly / bước sync) ⇒ ALL TASK nhân đôi dòng (2.882 → 4.768). Nay `vsSync_` giữ **DocumentLock**
   (app ghi dùng ScriptLock ⇒ không phải chờ), bận ⇒ bỏ qua; `vsRebuild_` xoá mọi dòng cột U `visit|` / `visitk|` + dòng con KHÔNG có dấu U dưới key đồng bộ / không có key cha (U lệch dòng khi chạy chồng) rồi ghi lại (key tay + dòng con giữ nguyên) — bước sync chạy 1 lần
   (Script Property `THD_VS_CLEAN`), `op=resync` để chạy lại.
-- **30/10/2026 — File "Kế hoạch & tiến độ sự kiện" (`marketing/MKT_EventPlan.gs`, mẫu ở `docs/ke-hoach-su-kien/`)**: 1 Google Sheet chung cho mọi sự kiện (SOP MMHSOP_0XX):
-  Dashboard · Giao việc · Sự kiện · Mẫu việc · Cài đặt. `epSync` (trong `evsSyncTick`) ghi tab Sự kiện từ `evsReadEvents_` (REPORT_EVENT + PLAN_EVENT, thêm trường `form` = Hình thức),
-  giữ cột Owner / Theo dõi theo Mã SK (`EV-` + `evsHash_` tên; đổi tên mà cùng ngày D ⇒ giữ mã); sự kiện mới có ngày, D ≥ hôm nay ⇒ chèn bộ việc theo Mẫu việc
-  (người mặc định theo vai trò ở Cài đặt; hạn đã qua lúc tạo ⇒ "Bỏ qua"), mỗi sự kiện 1 lần (`EP_GEN_<id>`). Tên sự kiện / Ngày D / Hạn / Cảnh báo ở Giao việc là công thức (tên vùng SK_*, HOLI, PEOPLE).
-  ID file: `EP.ID` (hoặc Script Property `EP_ID`); trống ⇒ không làm gì. Lần đầu xoá dữ liệu ví dụ (`VD-…`, "(ví dụ)"). action `epSync` (`mode=status`).
-
+- **30/10/2026 — File "Kế hoạch & tiến độ sự kiện" (`marketing/MKT_EventPlan.gs` v1.1, mẫu ở `docs/ke-hoach-su-kien/`)**: 1 Google Sheet chung cho mọi sự kiện (SOP MMHSOP_0XX):
+  Dashboard · **Điều phối** (Owner chọn 1 sự kiện ⇒ thẻ tổng, bản đồ tiến độ hạng mục × giai đoạn, đội thực hiện, việc cần theo dõi, nhật ký) · Giao việc · Sự kiện · **Nhật ký** · Mẫu việc · Cài đặt.
+  `epSync` (trong `evsSyncTick`) ghi tab Sự kiện A–J từ `evsReadEvents_` (REPORT_EVENT + PLAN_EVENT, thêm trường `form` = Hình thức); K–O = ĐỘI của sự kiện (Owner · Digital · Trade · Sales · Đầu mối NPP),
+  P Theo dõi — giữ theo Mã SK (`EV-` + `evsHash_` tên; đổi tên mà cùng ngày D ⇒ giữ mã). Sự kiện mới có ngày, D ≥ hôm nay ⇒ chèn bộ việc theo Mẫu việc, người = đội theo vai trò
+  (cột ẩn U `_auto`; G ≠ U = Owner giao tay ⇒ không đổi theo đội); hạn đã qua lúc tạo ⇒ "Bỏ qua"; mỗi sự kiện 1 lần (`EP_GEN_<id>`). Trigger `epOnEdit` (tự cài): sửa G..L ⇒ cột N giờ cập nhật
+  (ghi chú = người sửa), "Xong" ⇒ Ngày xong = hôm nay; sửa đội ⇒ giao lại ngay. Công thức Giao việc / Sự kiện (`epTaskF_` / `epEvF_`) PHẢI giống `build_plan.py` (tên vùng SK_*, SEL_K, SEL_N, HOLI, PEOPLE).
+  ID file: `EP.ID` (hoặc Script Property `EP_ID`); trống ⇒ không làm gì. Lần đầu xoá dữ liệu ví dụ (`VD-…`, "(ví dụ)"). action `epSync` (`mode=status`). Thử: `docs/ke-hoach-su-kien/test_harness.js`.
