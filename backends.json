@@ -122,6 +122,14 @@
     "sheetId": "1rX8BDcbFGOjpXFmPJeKTkllE4LH7q9A8zz22R7jDA0E",
     "url": "https://script.google.com/macros/s/AKfycbwglPhfcC3y20-lPO8mRC7yapGUyVHSO2Mp3k4fyPJXnraQEu6bbO4dysL0E9MNadwHwg/exec"
   },
+  "crm-thai-dental": {
+    "name": "CRM Thailand Dental (FY68_Thailand_Dental_CRM)",
+    "apps": [
+      "ManiMedicalHanoi/MMH-CRM"
+    ],
+    "scriptId": "1Wh-WbDkgdhSWFBPZoU8sQPjrcub2DYn32SDcTJiM2EIbfziq8ZGxqEeW",
+    "sheetId": "1uZ8GtOFgXRg-kPQ_xMGW04tULazP5DIf1_Nser01Rb0"
+  },
   "cust-data": {
     "name": "Data khách hàng (đồng bộ khách hàng từ Event)",
     "apps": [
