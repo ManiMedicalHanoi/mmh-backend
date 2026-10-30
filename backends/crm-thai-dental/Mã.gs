@@ -364,6 +364,9 @@ function master_(){
     var list = []; for(var r = 1; r < v.length; r++){ var x = v[r][c]; if(x === '' || x == null) continue; list.push(String(x).trim()); }
     m[k] = list;
   }
+  /* Dental Thái: Type action "Co-visiting with distributor" (KPI C4-01 / C4-03) luôn có trong danh sách chọn của app */
+  m.typeAction = m.typeAction || [];
+  ['Co-visiting with distributor'].forEach(function(x){ if(!m.typeAction.some(function(y){ return picKey_(y) === picKey_(x); })) m.typeAction.push(x); });
   /* PIC list of the team always first */
   var pics = TEAM_PICS.slice(); (m.pic || []).forEach(function(p){ if(pics.indexOf(p) < 0 && !/^others?$/i.test(p)) pics.push(p); });
   m.pic = pics;
@@ -1802,9 +1805,9 @@ K68_SPEC.thaid = {"title":"THAILAND DENTAL SALES TEAM","lang":"en","pics":[
   {"code":"C4-01","key":"covisit","name":"Co-visits with distributor sales reps – commercial support","unit":"Times","agg":"SUM","w":0.2,"t":null}]},
  {"pic":"Man","role":"Thailand Dental - Training & Education Lead","rows":[
   {"code":"F4-00","key":"turnover","name":"Turnover to distributors – Dental & MMG Thailand (team, cumulative)","unit":"USD","agg":"LAST","w":0.25,"t":null},
-  {"code":"C4-03","key":"covisit_day","name":"Co-visiting days with distributor sales reps – field training (≥ 5 visits / day)","unit":"Days","agg":"SUM","w":0.15,"t":null},
+  {"code":"C4-03","key":"covisit_day","name":"Co-visiting days with distributor sales reps – field training","unit":"Days","agg":"SUM","w":0.15,"t":null},
   {"code":"C11-02","key":"event_hub","name":"T&E events led by MMH members – product presentation / case demo","unit":"Times","agg":"SUM","w":0.25,"t":null},
-  {"code":"C11-03","key":"manual","name":"Product knowledge test pass rate – distributor sales reps","unit":"%","agg":"LAST","w":0.25,"t":null}]},
+  {"code":"C11-03","key":"test_rate","name":"Product knowledge test pass rate – distributor sales reps (sheet PRODUCT TEST)","unit":"%","agg":"LAST","w":0.25,"t":null}]},
  {"pic":"Sui","role":"Thailand Dental - Marketing Lead","rows":[
   {"code":"F4-00","key":"turnover","name":"Turnover to distributors – Dental & MMG Thailand (team, cumulative)","unit":"USD","agg":"LAST","w":0.2,"t":null},
   {"code":"C14-00","key":"event_hub","name":"T&E events led by KOLs, MMH members & exhibitions – Dental Thailand","unit":"Times","agg":"SUM","w":0.2,"t":null},
@@ -1816,7 +1819,7 @@ var K68_N  = 20000;   /* số dòng quét ở tab viếng thăm / khách hàng *
 var K68_N2 = 6000;    /* số dòng quét ở tab thuyết trình / đơn hàng */
 var K68_SRC = {
   vi: { wk: '6. WEEKLY REPORT',     cu: 'CUSTOMER CODE', pr: 'PRODUCT PRESENTATION', od: '3. SALE ORDER' },
-  en: { wk: 'CUSTOMER VISITING', cu: 'CUSTOMER CODE', pr: 'PRODUCT PRESENTATION', od: '', na: 'NEW ACCOUNT & SKU' }
+  en: { wk: 'CUSTOMER VISITING', cu: 'CUSTOMER CODE', pr: 'PRODUCT PRESENTATION', od: '', na: 'NEW ACCOUNT & SKU', pt: 'PRODUCT TEST' }
 };
 /* cột cố định của tab KPI */
 var K68 = { tag: 1, code: 2, pic: 3, name: 4, unit: 5, w: 6, agg: 7, tFY: 8, t0: 9, aFY: 21, a0: 22,
@@ -1825,7 +1828,7 @@ var K68 = { tag: 1, code: 2, pic: 3, name: 4, unit: 5, w: 6, agg: 7, tFY: 8, t0:
 var K68_SET = { fy: 'C4', rate: 'D5', photo: 'D6', comp1: 'D7', comp2: 'E7', jz1: 'D8', jz2: 'E8', link: 'D9', cur: 'D10', sync: 'D11' };
 var K68_MANUAL = { turnover: 1, manual: 1, event_hub: 1 };   /* v1.4 — event counts come from the KPI Hub (Marketing Offline file) */
 /* ⭐ phiên bản bố cục tab KPI — tab dựng bằng code cũ (khác nhãn này) sẽ TỰ dựng lại khi đồng bộ, giữ ô nhập tay */
-var K68_LAYOUT = 'k68v6';   /* v1.9 — C2-03 counts approved cases of sheet 23 ⇒ the tab rebuilds itself once, typed cells kept */   /* v1.4 — event codes now pulled from the KPI Hub: the tab rebuilds itself once, typed cells kept */
+var K68_LAYOUT = 'k68v6d2';   /* Dental Thái 30/10/2026: C4-03 = số ngày có co-visit (không cần xác nhận ≥ 5 lượt) · C11-03 = sheet PRODUCT TEST ⇒ tab tự dựng lại 1 lần, giữ ô nhập tay */   /* v1.9 — C2-03 counts approved cases of sheet 23 ⇒ the tab rebuilds itself once, typed cells kept */   /* v1.4 — event codes now pulled from the KPI Hub: the tab rebuilds itself once, typed cells kept */
 
 var K68_TXT = {
   vi: {
@@ -1911,7 +1914,8 @@ var K68_TXT = {
       event_hub: 'Thailand Surgical Marketing Offline file (REPORT_EVENT) · counted by the KPI Hub by event type (sheet 4B)',
       event_kol_team: 'CUSTOMER VISITING · Type action = Event + Task Status ≠ Not Started / Cancel + date ≤ today (KOL-led events & exhibitions, whole team) by Start date',
       covisit: 'CUSTOMER VISITING · Sales PIC + Start date in month + Type action = Co-visiting with distributor + Task Status ≠ Not Started / Cancel + date ≤ today',
-      covisit_day: 'CUSTOMER VISITING · number of DAYS (Start date) in the month with ≥ 5 co-visits of the PIC (Type action = Co-visiting with distributor, not Cancel / Not Started) — one field day with one distributor rep',
+      covisit_day: 'CUSTOMER VISITING · number of DAYS (Start date) in the month with a co-visit of the PIC (Type action = Co-visiting with distributor, not Cancel / Not Started) — no confirmation needed',
+      test_rate: 'PRODUCT TEST · Result = Pass ÷ tests with a result (Sales PIC), from the start of the FY to the end of the month — cumulative',
       newacct_key: 'NEW ACCOUNT & SKU · approved cases by PIC + Month · Account type = DSO / University / Hospital (key accounts) · evidence = distributor confirmation',
       supp_amt: '3. SALE ORDER · Amount ÷ exchange rate (D5)', supp_comp: '3. SALE ORDER · Composite quantity', supp_jizai: '3. SALE ORDER · JIZAI quantity'
     },
@@ -1964,7 +1968,7 @@ var K68_GROUPS = {
 };
 /* Dental: source text of the event codes / typed codes */
 K68_TXT.en.src.event_hub = '2. Thailand - Dental Event Report (REPORT_EVENT) · counted by the KPI Sync Center (by WHO leads: KOL / MMH member / exhibition — sheet 4B) · this row shows the number of the KPI file';
-K68_TXT.en.src.manual = 'Typed in the MMH KPI FY68 file (or here when the KPI file is still empty) — C2-02 profiling % · C11-03 test pass rate · C16-00 first distributor orders · C17-07 content published';
+K68_TXT.en.src.manual = 'Typed in the MMH KPI FY68 file (or here when the KPI file is still empty) — C2-02 profiling % · C16-00 first distributor orders · C17-07 content published';
 
 /* ── tiện ích ── */
 function k68Col_(n){ var s = ''; while(n > 0){ var m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; }
@@ -2083,11 +2087,18 @@ function k68Build_(sh, team, keep){
     if(key === 'event_kol_team') return '=COUNTIFS(' + rg('wk', 'N') + ',"Event",' + dates + ')';
     /* Dental Thailand (4. Rule nhóm 4) — C4-01: visits with Type action "Co-visiting with distributor" */
     if(key === 'covisit') return '=COUNTIFS(' + rg('wk', 'G') + ',' + pic + ',' + rg('wk', 'N') + ',"Co-visit*",' + dates + ')';
-    /* C4-03: DAYS (start date) with at least 5 co-visits of the PIC in the month */
+    /* C4-03: number of DAYS (start date) with a co-visit of the PIC in the month — no confirmation needed (user 30/10/2026: the ≥ 5 visits check is not applied) */
     if(key === 'covisit_day'){
       var E = rg('wk', 'E'), G = rg('wk', 'G'), Nn = rg('wk', 'N'), R = rg('wk', 'R');
-      return '=IFERROR(SUMPRODUCT(--(COUNTIFS(' + G + ',' + pic + ',' + Nn + ',"Co-visit*",' + R + ',"<>Not Started",' + R + ',"<>Cancel*",' + E + ',UNIQUE(FILTER(' + E + ',' + G + '=' + pic +
-             ',LEFT(' + Nn + ',8)="Co-visit",' + E + '>=' + md + ',' + E + '<EDATE(' + md + ',1),' + E + '<=TODAY(),' + R + '<>"Not Started",LEFT(' + R + ',6)<>"Cancel")))>=5)),0)';
+      return '=IFERROR(COUNTUNIQUE(FILTER(' + E + ',' + G + '=' + pic + ',LEFT(' + Nn + ',8)="Co-visit",' + E + '>=' + md + ',' + E + '<EDATE(' + md + ',1),' + E + '<=TODAY(),' +
+             R + '<>"Not Started",LEFT(' + R + ',6)<>"Cancel")),0)';
+    }
+    /* C11-03: product knowledge test pass rate of distributor sales reps — sheet PRODUCT TEST (sales fill it in):
+       tests of the PIC from the start of the FY to the end of the month, Pass ÷ tests with a result (cumulative ⇒ agg LAST) */
+    if(key === 'test_rate'){
+      var fy0 = '$' + AC(0) + '$' + MD, TD = rg('pt', 'C'), TP = rg('pt', 'D'), TR = rg('pt', 'J');
+      var base = TP + ',' + pic + ',' + TD + ',">="&' + fy0 + ',' + TD + ',"<"&EDATE(' + md + ',1),' + TD + ',"<="&TODAY()';
+      return '=IF(' + md + '>TODAY(),"",IFERROR(COUNTIFS(' + base + ',' + TR + ',"Pass")/COUNTIFS(' + base + ',' + TR + ',"?*"),""))';
     }
     /* C2-01: approved new-account cases of KEY accounts (DSO · dental university · hospital) */
     if(key === 'newacct_key')
@@ -2329,6 +2340,7 @@ function k68Snapshot_(sh){
 /* dựng (hoặc dựng lại) tab KPI — tab cũ không đúng mẫu được đổi tên và ẩn đi */
 function k68Setup_(ss, name, team){
   try{ naSheet_(); }catch(e){}        /* v1.9 — the C2-03 formula points to sheet 23 ⇒ it must exist first */
+  try{ ptSheet_(); }catch(e){}        /* Dental Thái — C11-03 points to sheet PRODUCT TEST */
   var T = K68_TXT[(K68_SPEC[team] || {}).lang || 'vi'];
   var sh = ss.getSheetByName(name), keep = null, idx = null;
   if(sh){
@@ -2470,6 +2482,7 @@ function k68Sync_(sh, lang, source, opts){
   /* ⭐ v22 — tab có ô mã tháng #ERROR! (công thức sai dấu phân cách) ⇒ tự dựng lại, giữ ô nhập tay */
   var broken = v.some(function(r){ var t = k68Str_(r[0]); return (t === 'months' || t === 'mstart') && /^#/.test(String(r[K68.t0 - 1])); });
   if((k68Str_(v[0][0]) !== K68_LAYOUT || broken) && source && K68_SPEC[source]){
+    try{ ptSheet_(); }catch(ePt){}
     /* tab KPI dựng bằng code cũ (vd còn #ERROR!) ⇒ dựng lại theo bố cục mới, giữ ô nhập tay */
     var nm = sh.getName(), ssx = sh.getParent();
     k68Setup_(ssx, nm, source); SpreadsheetApp.flush(); sh = ssx.getSheetByName(nm); rebuilt = true;
@@ -4139,4 +4152,31 @@ function dfMaybe_(){
     if (P.getProperty(DF_KEY) !== DF_VER && !T.some(function(t){ return t.getHandlerFunction() === 'crmDateFixRun'; }))
       ScriptApp.newTrigger('crmDateFixRun').timeBased().after(40 * 1000).create();
   } catch(e){}
+}
+
+
+/* ══════════════ PRODUCT TEST — Dental Thái (30/10/2026) ══════════════
+   Kết quả bài kiểm tra kiến thức sản phẩm của sales nhà phân phối (KPI C11-03, Man) — sales tự điền trên sheet.
+   Header hàng 3, dữ liệu từ hàng 4, cột B…K. Tỉ lệ đạt = số dòng Result "Pass" ÷ số dòng có Result (tab TARGET & KPI, cộng dồn từ đầu FY). */
+var PT_SHEET = 'PRODUCT TEST';
+var PT_HDR = ['No.', 'Test date', 'MMH sales PIC', 'Distributor', 'Distributor sales rep', 'Product / topic', 'Score', 'Pass mark', 'Result', 'Note'];
+function ptSheet_(){
+  var book = ss_(), s = book.getSheetByName(PT_SHEET);
+  if(s) return s;
+  s = book.insertSheet(PT_SHEET);
+  s.getRange(1, 2).setValue('PRODUCT KNOWLEDGE TEST — DISTRIBUTOR SALES REPS').setFontWeight('bold').setFontSize(14).setFontColor('#003047');
+  s.getRange(2, 2).setValue('One row = one test of one distributor sales rep. Result = Pass / Fail (pick from the list). KPI C11-03 (TARGET & KPI) = Pass ÷ tests with a result, from the start of the FY.')
+    .setFontColor('#595959').setFontSize(9);
+  s.getRange(3, 2, 1, PT_HDR.length).setValues([PT_HDR]).setFontWeight('bold').setBackground('#F0F7FF').setFontColor('#003047').setWrap(true);
+  s.setFrozenRows(3);
+  var n = Math.max(1, s.getMaxRows() - 3);
+  s.getRange(4, 3, n, 1).setNumberFormat('dd/MM/yyyy')
+    .setDataValidation(SpreadsheetApp.newDataValidation().requireDate().setAllowInvalid(false).setHelpText('Test date (dd/MM/yyyy)').build());
+  s.getRange(4, 4, n, 1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(TEAM_PICS.concat(['Dao']), true).setAllowInvalid(true).build());
+  s.getRange(4, 5, n, 1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['DDI', 'Promptdent', 'VRP', 'Others'], true).setAllowInvalid(true).build());
+  s.getRange(4, 10, n, 1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['Pass', 'Fail'], true).setAllowInvalid(false).build());
+  [50, 95, 110, 110, 180, 200, 70, 80, 80, 260].forEach(function(w, i){ s.setColumnWidth(i + 2, w); });
+  s.setColumnWidth(1, 20);
+  try{ s.setTabColor('#3A5CAA'); }catch(e){}
+  return s;
 }
