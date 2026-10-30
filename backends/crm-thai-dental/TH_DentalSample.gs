@@ -31,14 +31,14 @@ function thdSampleTrigger_(sec){
 function thdSampleRun(){
   ScriptApp.getProjectTriggers().forEach(function(t){ if(t.getHandlerFunction() === 'thdSampleRun') ScriptApp.deleteTrigger(t); });
   var op = props_().getProperty(THS.WANT); if(!op) return;
-  var done = thdDone_(), left = THD.STEPS.filter(function(s){ return !done[s]; });
+  var done = thdDone_(), left = THD.STEPS.filter(function(s){ return !done[s] && s !== 'sync'; });   /* ALL TASK sync not needed for the KPI (trigger cronTh runs it every 10 min) */
   if(left.length){
     var busy = +(props_().getProperty('THD_RUN') || 0);
-    if(!(busy && Date.now() - busy < 7 * 60 * 1000)){
+    if(!(busy && Date.now() - busy < 6.5 * 60 * 1000)){
       try{ thdRun_(false); }                                             /* builds as many steps as fit; schedules thdBuildCont itself */
       catch(e){ var k = +(props_().getProperty('THD_TRY') || 0) + 1; props_().setProperty('THD_TRY', String(k)); if(k < 3) thdSampleTrigger_(60); return; }
     }
-    done = thdDone_(); left = THD.STEPS.filter(function(s){ return !done[s]; });
+    done = thdDone_(); left = THD.STEPS.filter(function(s){ return !done[s] && s !== 'sync'; });
     if(left.length){ thdSampleTrigger_(120); return; }                  /* come back when the layout is ready */
   }
   props_().deleteProperty(THS.WANT);
@@ -49,7 +49,7 @@ function thdSampleStatus(){
   var s = null; try{ s = JSON.parse(props_().getProperty(THS.PROP) || 'null'); }catch(e){}
   var done = thdDone_();
   return { ok: true, layout: THD.STEPS.map(function(x){ return (done[x] ? '✓ ' : '· ') + x; }).join(' '), pending: props_().getProperty(THS.WANT) || '',
-           error: props_().getProperty('THD_ERR') || '', tries: props_().getProperty('THD_TRY') || '', sample: s };
+           error: props_().getProperty('THD_ERR') || '', progress: props_().getProperty('THD_PROG') || '', tries: props_().getProperty('THD_TRY') || '', sample: s };
 }
 
 /* ── seed ── */
@@ -107,7 +107,7 @@ function thdSampleSeed(){
     SpreadsheetApp.flush();
   } finally { L.releaseLock(); }
   bump_();
-  try{ vsSync_(false); }catch(e){ out.syncError = e.message; }
+  /* ALL TASK: mirrored by the 10-minute trigger (cronTh) */
   /* KPI tab after the formulas recalculate */
   SpreadsheetApp.flush(); Utilities.sleep(3000);
   out.kpi = thdSampleKpi_();

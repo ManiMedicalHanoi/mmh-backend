@@ -34,7 +34,7 @@ var THD = {
           'TARGET & KPI', 'MASTER LIST', 'CODE MAP', 'CUSTOMER ANALYSIS', 'YEARLY FUNCTION PLAN', 'JIZAI REPORT',
           'JIZAI MOU PROJECT', 'DDI JIZAI SALE', 'DDI SALE REPORT', 'FRAMEWORK', 'WEEKLY MEETING', 'TENDER TRACK',
           'TENDER PRICE LOG', 'NEW ACCOUNT & SKU', 'PRODUCT TEST', 'SALE ORDERS', 'OLD KPI (before FY68)'],
-  STEPS: ['names', 'copy', 'master', 'customers', 'cbc', 'visits', 'monthly', 'adp', 'sheets', 'kpi', 'guide', 'triggers', 'sync', 'ptest'],
+  STEPS: ['names', 'copy', 'master', 'customers', 'cbc', 'visits', 'monthly', 'adp', 'sheets', 'kpi', 'guide', 'triggers', 'ptest', 'sync'],
   MASTER: {
     'pic': { set: ['Yong', 'Man', 'Sui', 'Dao', 'Moo', 'Sale Admin', 'Others'] },
     'account type': { add: ['DSO'] },
@@ -67,7 +67,7 @@ function thdBuildCont(){
 }
 function thdRun_(ui){
   var t0 = Date.now(), done = thdDone_(), log = [], P = props_(), busy = +(P.getProperty('THD_RUN') || 0);
-  if(busy && t0 - busy < 7 * 60 * 1000){ thdSay_(ui, 'The layout is already being built (another run is in progress). Try again in a few minutes.\n\n' + thdStatus()); return; }
+  if(busy && t0 - busy < 6.5 * 60 * 1000){ thdSay_(ui, 'The layout is already being built (another run is in progress). Try again in a few minutes.\n\n' + thdStatus()); return; }
   P.setProperty('THD_RUN', String(t0));
   try{
     for(var i = 0; i < THD.STEPS.length; i++){
@@ -77,9 +77,14 @@ function thdRun_(ui){
         thdSay_(ui, 'Done so far:\n' + log.join('\n') + '\n\nThe remaining steps continue by themselves in the background (≈ 1–5 minutes).\nMenu ⓪ shows the progress.');
         return { ok: true, more: true, log: log };
       }
-      _SH = {}; _TAB = {};
+      _SH = {}; _TAB = {}; THD_T0 = t0;
       var r = THD_STEP[st]();
       SpreadsheetApp.flush();
+      if(r === THD_MORE){                                                /* step wrote a part, the rest goes in the next run */
+        ScriptApp.newTrigger('thdBuildCont').timeBased().after(30 * 1000).create();
+        thdSay_(ui, 'Done so far:\n' + log.join('\n') + '\n\nStep "' + st + '" continues by itself in the background (' + (props_().getProperty('THD_PROG') || '') + ').\nMenu ⓪ shows the progress.');
+        return { ok: true, more: true, log: log };
+      }
       thdMark_(st, (r || '') + ' · ' + Utilities.formatDate(new Date(), tz_(), 'dd/MM HH:mm'));
       log.push('✓ ' + st + (r ? ' — ' + r : ''));
     }
@@ -156,6 +161,22 @@ function thdDvRelax_(s, first, n, w){
     if(!rule) return;
     try{ s.getRange(first, j + 2, Math.max(1, s.getMaxRows() - first + 1), 1).setDataValidation(rule.copy().setAllowInvalid(true).build()); }catch(e){}
   });
+}
+var THD_T0 = 0, THD_MORE = '__more__', THD_CHUNK = 400, THD_STEP_MS = 240000;
+/* big tab: written THD_CHUNK rows at a time; position kept in Script Property THD_OFF_<tab> so a run cut by the 6-minute limit goes on where it stopped */
+function thdWriteChunked_(k, list){
+  var key = 'THD_OFF_' + k, off = +(props_().getProperty(key) || 0), d = TABS[k], s = sh_(d.sh), first = CFG.DATA, fml = THD_FML[d.sh] || {};
+  if(!off){ thdDvRelax_(s, first, list.length + 50, d.w); if(s.getMaxRows() < first + list.length + 50) s.insertRowsAfter(s.getMaxRows(), first + list.length + 50 - s.getMaxRows()); }
+  while(off < list.length){
+    var part = list.slice(off, off + THD_CHUNK), n = part.length;
+    s.getRange(first + off, 2, n, d.w).setValues(part.map(function(o){ return d.f.map(function(f){ return d.formula.indexOf(f) >= 0 ? '' : (o[f] == null ? '' : o[f]); }); }));
+    Object.keys(fml).forEach(function(c){ s.getRange(first + off, +c, n, 1).setFormulaR1C1(thdFmlName_(fml[c])); });
+    SpreadsheetApp.flush();
+    off += n; props_().setProperty(key, String(off)); props_().setProperty('THD_PROG', k + ' ' + off + ' / ' + list.length + ' rows');
+    if(off < list.length && THD_T0 && Date.now() - THD_T0 > THD_STEP_MS) return THD_MORE;
+  }
+  props_().deleteProperty(key);
+  return list.length;
 }
 /* formulas (R1C1) of the first data row of each copied template sheet — filled during step "copy" */
 var THD_FML = {};
@@ -363,7 +384,7 @@ var THD_STEP = {
         status: thdS_(r['status']).replace(/\s+/g, ' ') || (st && st <= today ? '' : 'Not Started'),
         feedback: '', nextAction: '', stopReason: '', photo: /^https?:/i.test(photo) ? photo : '', gps: '' });
     });
-    thdFmlLoad_(); thdWrite_('weekly', list);
+    thdFmlLoad_(); if(thdWriteChunked_('weekly', list) === THD_MORE) return THD_MORE;
     return list.length + ' actions';
   },
 
