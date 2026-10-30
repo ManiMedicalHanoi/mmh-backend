@@ -209,3 +209,5 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   thay dòng NPP + tháng dự trù). Nhật ký: sheet "NHẬT KÝ FILE EXCEL NPP". Bố cục / công thức các sheet của file gốc KHÔNG được sửa (người dùng yêu cầu).
   v2.1 (30/10/2026, người dùng yêu cầu): file NPP dùng chữ "dự trù" (bỏ "cố định"), "chưa lấy" ⇒ "dự trù chưa đặt hàng"; ghi rõ đơn đã đặt đến tháng nào (sheet 2) / dự trù đã gửi đến tháng nào;
   hộp thoại xuất báo NPP chưa có đơn tháng hiện tại (nên cập nhật sheet 2 trước khi xuất). Bối cảnh: hằng tháng NPP gửi dự trù cho tháng +3 và đặt hàng nhiều lần trong tháng.
+  v2.2 (30/10/2026, người dùng yêu cầu): file tải THẲNG về máy (apiExportFile trả base64, hộp thoại tạo Blob tải xuống; lưu Drive chỉ khi tích ô); danh sách DỰ TRÙ điền sẵn mã
+  NPP đang dự trù / đặt hàng (6 tháng gần nhất hoặc còn số liệu kỳ / đề xuất; `CFG.P0` 9, mẫu 1.000 dòng, chừa ≥ 60 dòng trống), kẻ dòng; lịch sử từng tháng chuyển sang sheet LỊCH SỬ MÃ.
