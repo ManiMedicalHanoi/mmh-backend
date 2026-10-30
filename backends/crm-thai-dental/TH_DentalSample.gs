@@ -61,7 +61,23 @@ function thdSampleStatus(){
   var done = thdDone_();
   return { ok: true, layout: THD.STEPS.map(function(x){ return (done[x] ? '✓ ' : '· ') + x; }).join(' '), pending: props_().getProperty(THS.WANT) || '',
            error: props_().getProperty('THD_ERR') || '', progress: props_().getProperty('THD_PROG') || '', tries: props_().getProperty('THD_TRY') || '', sample: s,
-           allTask: (function(){ try{ return atSummary_(); }catch(e){ return { error: String(e && e.message || e) }; } })() };
+           allTask: (function(){ try{ return atSummary_(); }catch(e){ return { error: String(e && e.message || e) }; } })(),
+           visits: (function(){ try{ return thdVisitDiag_(); }catch(e){ return { error: String(e && e.message || e) }; } })() };
+}
+/* v1.1 — CUSTOMER VISITING: rows, rows with an empty No., duplicates (same PIC · start · account · type action · plan · result) */
+function thdVisitDiag_(){
+  _TAB = {};
+  var rows = readTab_('weekly'), seen = {}, dup = 0, noBlank = 0, ex = [], dupRows = [];
+  rows.forEach(function(w){
+    if(str_(w.no) === '') noBlank++;
+    var k = [w.pic, w.start, w.account, w.typeAction, str_(w.plan), str_(w.result)].join('\u0001');
+    if(seen[k]){ dup++; dupRows.push(w._row); if(ex.length < 4) ex.push({ first: seen[k], again: w._row, no: w.no, pic: w.pic, start: w.start, acc: str_(w.account).slice(0, 40) }); }
+    else seen[k] = w._row;
+  });
+  var runs = [], a = -1, b = -1;
+  dupRows.forEach(function(r){ if(r === b + 1) b = r; else { if(a > 0) runs.push(a + '-' + b); a = b = r; } });
+  if(a > 0) runs.push(a + '-' + b);
+  return { rows: rows.length, noBlank: noBlank, dupes: dup, dupRuns: runs.slice(0, 8), dupRunCount: runs.length, examples: ex, lastRow: sh_(CFG.SH_WK).getLastRow() };
 }
 
 /* ── seed ── */
