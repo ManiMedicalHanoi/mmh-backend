@@ -211,6 +211,12 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   hộp thoại xuất báo NPP chưa có đơn tháng hiện tại (nên cập nhật sheet 2 trước khi xuất). Bối cảnh: hằng tháng NPP gửi dự trù cho tháng +3 và đặt hàng nhiều lần trong tháng.
   v2.2 (30/10/2026, người dùng yêu cầu): file tải THẲNG về máy (apiExportFile trả base64, hộp thoại tạo Blob tải xuống; lưu Drive chỉ khi tích ô); danh sách DỰ TRÙ điền sẵn mã
   NPP đang dự trù / đặt hàng (6 tháng gần nhất hoặc còn số liệu kỳ / đề xuất; `CFG.P0` 9, mẫu 1.000 dòng, chừa ≥ 60 dòng trống), kẻ dòng; lịch sử từng tháng chuyển sang sheet LỊCH SỬ MÃ.
+  **v3.0 (30/10/2026, người dùng yêu cầu — hướng CHÍNH)**: mỗi NPP 1 file **Google Sheet dùng liên tục** (`FileNPP.gs`, menu 1–2): tạo bằng `copyTo` TỪNG sheet của file gốc (không makeCopy
+  cả file — lần trước bị treo), chỉ giữ số NPP đó, sheet chép trước SUM được ghi lại công thức từ file gốc; khoá: NPP chỉ nhập A–G sheet 1 (dự trù) + sheet 3 (dự kiến), chọn tháng DASHBOARD E5 /
+  LÊN DỰ TRÙ F3. Thêm vào file gốc: sheet **LÊN DỰ TRÙ** (lọc SUM theo NPP + tháng dự trù: dự kiến tháng T, pending đến hết T−1 = V, đề xuất X, đã nhập H, cần điều chỉnh Y, P/Q/N/T)
+  và **DANH SÁCH FILE NPP**. Đồng bộ (`apiGSync` / trigger `gNightly` 1h sáng, bật ở menu): lấy dự trù từ `gFromDT_` (tháng T đang nhận, đến hết ngày 05 tháng T−lead+1 vẫn nhận tháng cũ)
+  + dự kiến từ tháng hiện tại; đẩy sheet 1/2/3 của NPP, DANH MỤC, CÀI ĐẶT D2:D25 + G2:H6, SUM!D2 sang file NPP (dự trù tháng đã chốt bị trả về số file gốc). File NPP lỗi ⇒ không nhận,
+  chỉ đẩy sheet 2 + danh mục. Bối cảnh người dùng: dự trù = số cố định trước 3 tháng, NPP lấy hết hàng; dự kiến = forecast cập nhật bất cứ lúc nào đến tháng dự trù. Excel = mục "File Excel (dự phòng)".
 - **30/10/2026 — CRM Thailand Dental (`crm-thai-dental`, Sheet "Bản sao của 1. Thailand - Dental Action FY68" `1uZ8GtOF…`, team app `thaid`)**: code = bản sao `crm-thai`
   (Surgical) với cấu hình Dental: Yong (Commercial Lead) · Man (T&E Lead) · Sui (Marketing Lead), Dao = lead; báo cáo tuần / tháng To Shuhei · Cc Ha + Hoa (giữ như menu "MMH Report" cũ).
   `TH_DentalLayout.gs` ▸ menu ⓪ `thdBuild` (chủ file chạy 1 lần): chép sheet CRM của file Surgical Thái (`THD.TEMPLATE_ID`), xoá dữ liệu, dựng lại công thức (R1C1) + dropdown trỏ
