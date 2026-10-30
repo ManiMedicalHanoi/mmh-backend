@@ -33,8 +33,8 @@ var THD = {
   ORDER: ['GUIDE', 'CUSTOMER CODE', 'CBC', 'MONTHLY REPORT', 'CUSTOMER VISITING', 'ALL TASK', 'PRODUCT PRESENTATION', 'ADP',
           'TARGET & KPI', 'MASTER LIST', 'CODE MAP', 'CUSTOMER ANALYSIS', 'YEARLY FUNCTION PLAN', 'JIZAI REPORT',
           'JIZAI MOU PROJECT', 'DDI JIZAI SALE', 'DDI SALE REPORT', 'FRAMEWORK', 'WEEKLY MEETING', 'TENDER TRACK',
-          'TENDER PRICE LOG', 'NEW ACCOUNT & SKU', 'SALE ORDERS', 'OLD KPI (before FY68)'],
-  STEPS: ['names', 'copy', 'master', 'customers', 'cbc', 'visits', 'monthly', 'adp', 'sheets', 'kpi', 'guide', 'triggers', 'sync'],
+          'TENDER PRICE LOG', 'NEW ACCOUNT & SKU', 'PRODUCT TEST', 'SALE ORDERS', 'OLD KPI (before FY68)'],
+  STEPS: ['names', 'copy', 'master', 'customers', 'cbc', 'visits', 'monthly', 'adp', 'sheets', 'kpi', 'guide', 'triggers', 'sync', 'ptest'],
   MASTER: {
     'pic': { set: ['Yong', 'Man', 'Sui', 'Dao', 'Moo', 'Sale Admin', 'Others'] },
     'account type': { add: ['DSO'] },
@@ -418,7 +418,7 @@ var THD_STEP = {
       ['A. GENERAL RULES'],
       ['1. Type only into white cells. BLUE text cells are formulas — do not overwrite them. Every dropdown comes from MASTER LIST.'],
       ['2. Customer code (column B of sheet 1) = Area + Province + Account type + row number (codes in CODE MAP). Check account name = Account name / Account type / Province / Area.'],
-      ['3. Co-visits with a distributor sales rep: Type action = "Co-visiting with distributor" (KPI C4-01 Yong · C4-03 Man = days with ≥ 5 co-visits).'],
+      ['3. Co-visits with a distributor sales rep: Type action = "Co-visiting with distributor" (KPI C4-01 Yong = co-visits · C4-03 Man = days with a co-visit, no confirmation needed).'],
       ['4. New KEY accounts (DSO / dental university / hospital) are recorded in the app ▸ New accounts & SKU (sheet NEW ACCOUNT & SKU) with the distributor confirmation (KPI C2-01).'],
       [''],
       ['B. SHEETS'],
@@ -432,9 +432,9 @@ var THD_STEP = {
       [''],
       ['D. KPI FY68 (TARGET & KPI ⇄ MMH KPI FY68 file, synced by the KPI Sync Center)'],
       ['Yong: F4-00 turnover (40%) · C2-01 new key accounts (20%) · C2-02 key account profiling % (10%) · C4-01 co-visits (20%)'],
-      ['Man: F4-00 (25%) · C4-03 co-visiting days (15%) · C11-02 T&E events led by MMH (25%) · C11-03 product test pass rate (25%)'],
+      ['Man: F4-00 (25%) · C4-03 co-visiting days (15%) · C11-02 T&E events led by MMH (25%) · C11-03 product test pass rate (25%, sheet PRODUCT TEST)'],
       ['Sui: F4-00 (20%) · C14-00 T&E events KOL + MMH + exhibitions (20%) · C16-00 new product categories (30%) · C17-07 product content published (20%)'],
-      ['Targets come from the KPI file. Turnover and events come from the KPI file (Turnover report · 2. Thailand - Dental Event Report). C2-02 / C11-03 / C16-00 / C17-07: typed in the KPI file.'],
+      ['Targets come from the KPI file. Turnover and events come from the KPI file (Turnover report · 2. Thailand - Dental Event Report). C2-02 / C16-00 / C17-07: typed in the KPI file. C11-03 = sheet PRODUCT TEST (Pass ÷ tests).'],
       [''],
       ['E. REPORTS'],
       ['Weekly / monthly report e-mails (English, PDF attached) from the app: To Shuhei · Cc Ha + Hoa. Weekly PDF also saved to the Sales teams folder ▸ "Thailand Dental".']
@@ -461,6 +461,12 @@ var THD_STEP = {
     return 'onEdit · onChange · every 10 min';
   },
 
+  /* ⑬ (30/10/2026) sheet PRODUCT TEST (KPI C11-03) + KPI tab with the new rules (C4-03 days without the 5-visit check, C11-03 from PRODUCT TEST) */
+  ptest: function(){
+    var book = ss_(), pt = ptSheet_(), r = k68Setup_(book, CFG.SH_KPI, CFG.KEY);
+    var after = book.getSheetByName('NEW ACCOUNT & SKU'); if(after){ book.setActiveSheet(pt); book.moveActiveSheet(after.getIndex() + 1); }
+    return 'PRODUCT TEST ready · KPI tab rebuilt (' + r.rows + ' rows)';
+  },
   /* ⑫ mirror the visits into ALL TASK (long: done in its own run) */
   sync: function(){ bump_(); var r = vsSync_(false); return r.added + ' month(s) added to ALL TASK'; }
 };
