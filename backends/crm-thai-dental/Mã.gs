@@ -155,7 +155,10 @@ function ss_(){ return _SS || (_SS = SpreadsheetApp.getActiveSpreadsheet()); }
 function sh_(name){
   if(_SH[name]) return _SH[name];
   var s = ss_().getSheetByName(name);
-  if(!s) throw new Error('Sheet "' + name + '" not found in ' + ss_().getName());
+  /* Dental Thái: tên sheet không số — file còn tên có số ("10. MASTER LIST", layout dựng bằng bản cũ) thì vẫn nhận */
+  if(!s){ var all = ss_().getSheets(); for(var i = 0; i < all.length && !s; i++) if(all[i].getName().replace(/^\d+\.\s+/, '') === name) s = all[i]; }
+  if(!s) throw new Error('The CRM layout of this file is not built yet (sheet "' + name + '" not found in ' + ss_().getName() + '). ' +
+    'Open the Google Sheet ▸ reload ▸ menu MMH CRM (Thailand Dental) ▸ ⓪ Build the CRM layout, then press Retry.');
   return (_SH[name] = s);
 }
 function tz_(){ try{ return ss_().getSpreadsheetTimeZone() || 'Asia/Bangkok'; }catch(e){ return 'Asia/Bangkok'; } }
