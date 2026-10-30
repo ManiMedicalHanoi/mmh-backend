@@ -211,3 +211,14 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   hộp thoại xuất báo NPP chưa có đơn tháng hiện tại (nên cập nhật sheet 2 trước khi xuất). Bối cảnh: hằng tháng NPP gửi dự trù cho tháng +3 và đặt hàng nhiều lần trong tháng.
   v2.2 (30/10/2026, người dùng yêu cầu): file tải THẲNG về máy (apiExportFile trả base64, hộp thoại tạo Blob tải xuống; lưu Drive chỉ khi tích ô); danh sách DỰ TRÙ điền sẵn mã
   NPP đang dự trù / đặt hàng (6 tháng gần nhất hoặc còn số liệu kỳ / đề xuất; `CFG.P0` 9, mẫu 1.000 dòng, chừa ≥ 60 dòng trống), kẻ dòng; lịch sử từng tháng chuyển sang sheet LỊCH SỬ MÃ.
+- **30/10/2026 — CRM Thailand Dental (`crm-thai-dental`, Sheet "Bản sao của 1. Thailand - Dental Action FY68" `1uZ8GtOF…`, team app `thaid`)**: code = bản sao `crm-thai`
+  (Surgical) với cấu hình Dental: Yong (Commercial Lead) · Man (T&E Lead) · Sui (Marketing Lead), Dao = lead; báo cáo tuần / tháng To Shuhei · Cc Ha + Hoa (giữ như menu "MMH Report" cũ).
+  `TH_DentalLayout.gs` ▸ menu ⓪ `thdBuild` (chủ file chạy 1 lần): chép sheet CRM của file Surgical Thái (`THD.TEMPLATE_ID`), xoá dữ liệu, dựng lại công thức (R1C1) + dropdown trỏ
+  về 10. MASTER LIST của file này, chuyển Customer list / CBC / WEEK / MONTHLY REPORT / YEAR - Account sang 1 / 2 / 6 / 5 / 8, đổi tên sheet 12–17, ẩn sheet cũ (không xoá), dựng
+  9. TARGET & KPI, trigger, đồng bộ ALL TASK. Từng bước nhớ ở Script Property `THD_DONE` (`thdStatus()` / `thdReset()`), quá ~4,5 phút ⇒ tự chạy tiếp (`thdBuildCont`).
+  KPI (`K68_SPEC.thaid`, rule 4. Rule nhóm 3 / 4): C4-01 = `covisit` (Type action "Co-visiting with distributor"), C4-03 = `covisit_day` (số NGÀY có ≥ 5 co-visit),
+  C2-01 = `newacct_key` (case mở mới đã duyệt, loại DSO / University / Hospital), F4-00 / C11-02 / C14-00 kéo từ file KPI, C2-02 / C11-03 / C16-00 / C17-07 nhập tay (`manual`).
+  Target do KpiSyncCenter ghi (CRM_DEFAULT `thaid`). Thử: harness Node giả lập SpreadsheetApp với file xlsx (không có trong repo).
+  **Web app mới**: backends.json `"newWebapp": true` ⇒ lần deploy đầu `gas.mjs` TẠO deployment web app rồi ghi `deploymentId` / `url` vào backends.json (workflow Deploy tự commit).
+  Chủ script phải mở trình soạn ▸ chạy 1 hàm ▸ cấp quyền thì URL mới chạy.
+  Training Hub `rhCustTrain`: `TE.TEAMS` thêm `thaid`; nhóm Thái (thai / thaid) ghi Purpose / Target Audience tiếng Anh.

@@ -128,7 +128,8 @@
       "ManiMedicalHanoi/MMH-CRM"
     ],
     "scriptId": "1Wh-WbDkgdhSWFBPZoU8sQPjrcub2DYn32SDcTJiM2EIbfziq8ZGxqEeW",
-    "sheetId": "1uZ8GtOFgXRg-kPQ_xMGW04tULazP5DIf1_Nser01Rb0"
+    "sheetId": "1uZ8GtOFgXRg-kPQ_xMGW04tULazP5DIf1_Nser01Rb0",
+    "newWebapp": true
   },
   "cust-data": {
     "name": "Data khách hàng (đồng bộ khách hàng từ Event)",

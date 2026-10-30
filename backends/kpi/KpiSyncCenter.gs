@@ -202,13 +202,14 @@ var KSC = {
   MKT_ID      : '1JbuvmdfJAX2f8fl49tpcJhgepyGLm81GOS4xXiEKSfc',   // 3. Vietnam - Digital Marketing & Design FY68
   /* link file CRM: dùng khi cột B của _CRM_LINKS còn trống (kscSetup tự điền vào _CRM_LINKS) */
   CRM_DEFAULT : { dental: '13aLqhO4H7he4LeHWNCdwNRhGXcIzieuNtFcA0BJJJj0', surgical: '16ke8ZRvmbG6TUte-oDLFSGzKbW9_PA98EJnLo5LoauM',
-                  eyeless: '1FxMj1uWZBi6yimnAlPCOG0dh2OF0dFfWIQntFXVduZA', thai: '1rX8BDcbFGOjpXFmPJeKTkllE4LH7q9A8zz22R7jDA0E' },
-  CRM_TAB     : { dental: '9. TARGET & KPI', surgical: '9. TARGET & KPI', eyeless: '9. TARGET & KPI', thai: '9. TARGET & KPI' },
+                  eyeless: '1FxMj1uWZBi6yimnAlPCOG0dh2OF0dFfWIQntFXVduZA', thai: '1rX8BDcbFGOjpXFmPJeKTkllE4LH7q9A8zz22R7jDA0E',
+                  thaid: '1uZ8GtOFgXRg-kPQ_xMGW04tULazP5DIf1_Nser01Rb0' },   // 30/10/2026 — CRM Thailand Dental (Yong · Man · Sui)
+  CRM_TAB     : { dental: '9. TARGET & KPI', surgical: '9. TARGET & KPI', eyeless: '9. TARGET & KPI', thai: '9. TARGET & KPI', thaid: '9. TARGET & KPI' },
   CRM_TAB_OLD : ['9. MỤC TIÊU & KPI'],                              // tên tab KPI trước CRM v9.5
   FULL_EVERY  : 15,          // phút: đọc lại toàn bộ
   EDIT_WAIT_S : 30,          // giây: lần sửa mới chờ tối đa bấy nhiêu nếu đang có lượt khác chạy (không bỏ lần sửa)
   STATUS_EVERY: 2,           // phút: ghi lại sheet KPI SYNC STATUS tối đa 1 lần trong khoảng này
-  TEAM_LABEL  : { dental: 'CRM Dental', surgical: 'CRM Surgical', eyeless: 'CRM Eyeless', thai: 'CRM Thailand Surgical' },
+  TEAM_LABEL  : { dental: 'CRM Dental', surgical: 'CRM Surgical', eyeless: 'CRM Eyeless', thai: 'CRM Thailand Surgical', thaid: 'CRM Thailand Dental' },
   CRM_MANUAL  : { turnover: 1, manual: 1, event_hub: 1, event_trn: 1 },   // các dòng CRM nhận số TỪ file KPI (event_trn: Dental C10-03/04/05 — T&E từ Training Master, CRM v10.11)
   EVENT_CODES : []                                                  // v1.20: sự kiện Thái do KpiThaiEvents.gs đọc (trước: KPI Hub ['C11-01','C11-01a','C13-00'])
 };
@@ -624,7 +625,7 @@ function kscLinks_(ss) {
     seen[team] = 1;
     out.push({ row: i + 2, team: team, link: link || (id ? 'https://docs.google.com/spreadsheets/d/' + id + '/edit' : ''), id: id, tab: String(r[2] || '').trim() || KSC.CRM_TAB[team] || '', lang: String(r[3] || '').trim(), fromDefault: !m && !!id });
   });
-  Object.keys(KSC.CRM_DEFAULT).forEach(function (t) { if (!seen[t]) out.push({ row: 0, team: t, link: 'https://docs.google.com/spreadsheets/d/' + KSC.CRM_DEFAULT[t] + '/edit', id: KSC.CRM_DEFAULT[t], tab: KSC.CRM_TAB[t], lang: t === 'thai' ? 'en' : 'vi', fromDefault: true }); });
+  Object.keys(KSC.CRM_DEFAULT).forEach(function (t) { if (!seen[t]) out.push({ row: 0, team: t, link: 'https://docs.google.com/spreadsheets/d/' + KSC.CRM_DEFAULT[t] + '/edit', id: KSC.CRM_DEFAULT[t], tab: KSC.CRM_TAB[t], lang: /^thai/.test(t) ? 'en' : 'vi', fromDefault: true }); });
   return out;
 }
 /* ghi link CRM mặc định vào _CRM_LINKS (để KPI Hub cũng đọc được) */
@@ -634,7 +635,7 @@ function kscFillLinks_(ss) {
   kscLinks_(ss).forEach(function (l) {
     if (!l.fromDefault) return;
     var row = l.row || sh.getLastRow() + 1;
-    sh.getRange(row, 1, 1, 5).setValues([[l.team, l.link, l.tab, l.lang || (l.team === 'thai' ? 'en' : 'vi'), Utilities.formatDate(new Date(), KSC.TZ, 'dd/MM/yyyy HH:mm')]]);
+    sh.getRange(row, 1, 1, 5).setValues([[l.team, l.link, l.tab, l.lang || (/^thai/.test(l.team) ? 'en' : 'vi'), Utilities.formatDate(new Date(), KSC.TZ, 'dd/MM/yyyy HH:mm')]]);
     n++;
   });
   return n;

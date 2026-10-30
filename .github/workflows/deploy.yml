@@ -12,7 +12,7 @@ on:
         required: true
         default: all
 concurrency: { group: gas-deploy, cancel-in-progress: false }
-permissions: { contents: read }
+permissions: { contents: write }   # ghi lại backends.json khi tạo web app lần đầu (newWebapp)
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -36,3 +36,12 @@ jobs:
           else
             node tools/gas.mjs deploy "$INPUT_BACKEND"
           fi
+      - name: Lưu URL web app mới vào backends.json
+        if: always()
+        run: |
+          if git diff --quiet -- backends.json; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add backends.json
+          git commit -m "Ghi Deployment ID + URL web app vừa tạo (deploy lần đầu)"
+          for i in 1 2 3; do git pull --rebase -q origin main && git push origin HEAD:main && break; sleep 5; done
