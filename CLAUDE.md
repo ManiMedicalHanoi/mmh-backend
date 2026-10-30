@@ -222,3 +222,6 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   **Web app mới**: backends.json `"newWebapp": true` ⇒ lần deploy đầu `gas.mjs` TẠO deployment web app rồi ghi `deploymentId` / `url` vào backends.json (workflow Deploy tự commit).
   Chủ script phải mở trình soạn ▸ chạy 1 hàm ▸ cấp quyền thì URL mới chạy.
   Training Hub `rhCustTrain`: `TE.TEAMS` thêm `thaid`; nhóm Thái (thai / thaid) ghi Purpose / Target Audience tiếng Anh.
+  **Tên sheet KHÔNG đánh số** (người dùng yêu cầu 30/10/2026): CUSTOMER CODE · CBC · MONTHLY REPORT · CUSTOMER VISITING · PRODUCT PRESENTATION · ADP · TARGET & KPI · MASTER LIST ·
+  CODE MAP · WEEKLY MEETING · TENDER TRACK · TENDER PRICE LOG · NEW ACCOUNT & SKU · GUIDE… (`CFG.SH_*`, `K68_SRC.en`, `NA_ENV.sheet`, `MT_CFG` của crm-thai-dental). Bước `names` (đầu tiên của ⓪):
+  bỏ số ở sheet đã tạo (vd. menu ⑤ tạo "9. TARGET & KPI"), sheet cũ ⇒ "OLD · <tên>" (ẩn); `THD_NAME` / `thdFmlName_` bỏ số cả trong công thức chép từ file Surgical. KSC `CRM_TAB.thaid = 'TARGET & KPI'`.

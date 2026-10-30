@@ -30,7 +30,7 @@
  *        number came from "accounts opened". Runs at the next save in the app, the "Sync KPI FY68 file" button or naSetup (menu ⑨ to rerun).
  *        Personal KPI / KPI report: Target and Actual fall back to 3. Detail KPI; the total is summed when no TOTAL row is read.
  * v1.9 (03/10/2026) — NEW ACCOUNTS & NEW SKU LISTINGS + KPI REPORT + NO DUPLICATE SAVES
- *        · Sheet "23. NEW ACCOUNT & SKU": the sales rep records a new account / new SKU with evidence (drag & drop in the app),
+ *        · Sheet "NEW ACCOUNT & SKU": the sales rep records a new account / new SKU with evidence (drag & drop in the app),
  *          files go to the Thailand Surgical Drive folder (one sub-folder per month), named PIC_ddMMyyyy_Account_SKU.
  *          "Send for approval" e-mails the team leader (To) with the files attached, CC Director + chief accountant.
  *          The approver approves / rejects in the CRM (a rejection needs a comment and deletes the evidence files);
@@ -53,12 +53,12 @@
  *        After pasting: open the CRM file ▸ menu ⑤ "Rebuild the KPI tab from the KPI FY68 file" (typed cells are kept).
  * v1.5 — customer data log (sheet "_CUSTOMER_LOG": every add / update / delete of an Account or CBC, with the changed fields)
  *        · delete an account (with its CBC) or a CBC from the app
- * v1.4 — weekly meeting · tenders: product-code price log per area (sheet 22. TENDER PRICE LOG, every entry is a new row,
+ * v1.4 — weekly meeting · tenders: product-code price log per area (sheet TENDER PRICE LOG, every entry is a new row,
  *        actions mtPrices / mtPriceSave / mtPriceDelete) · a tender holds several code lines (qty × unit price), new columns
- *        Province · Region · Items (JSON) at the end of sheet 21. TENDER TRACK
+ *        Province · Region · Items (JSON) at the end of sheet TENDER TRACK
  * v1.3 — a visit belongs to a week when its START date is in the week; a visit that started earlier counts only while
  *        it is still running and lasts <= 14 days (a finish date typed wrong no longer pulls old visits into this week)
- * v1.2 — sheet "9. TARGET & KPI" follows the MMH KPI FY68 file: one row per KPI code (F1-00, F6-03, C13-00, C11-01,
+ * v1.2 — sheet "TARGET & KPI" follows the MMH KPI FY68 file: one row per KPI code (F1-00, F6-03, C13-00, C11-01,
  *        F1-01, C11-01a, C4-02, C2-03), 12 monthly targets, actuals are sheet FORMULAS, two-way sync with the KPI file
  *        (menu ⑤ rebuild · ⑥ sync now · ⑦ sync every morning · "Sync" button in the app for managers / Dao)
  * v1.1 — weekly report: a visit belongs to the week when its start OR finish date is in the week (a finish date typed
@@ -69,14 +69,14 @@
  * First time only: reload the sheet and run menu  MMH CRM (Thailand) ▸ ① Setup.
  *
  * Sheets (header row 3, data from row 4, first column B):
- *   1. CUSTOMER CODE · 2. CBC · 5. MONTHLY REPORT · 6. CUSTOMER VISITING · 7. PRODUCT PRESENTATION ·
- *   8. ADP · 9. TARGET & KPI · 10. MASTER LIST · 11. CODE MAP · _LOG
+ *   CUSTOMER CODE · CBC · MONTHLY REPORT · CUSTOMER VISITING · PRODUCT PRESENTATION ·
+ *   ADP · TARGET & KPI · MASTER LIST · CODE MAP · _LOG
  *   ALL TASK  (header row 5, data from row 7 — same Key task ▸ Sub task layout as "WEEKYLY new" of Sales & Marketing)
  *
  * What is different from the Vietnam CRM backends:
  *   · no Sales order, no product code, no field photos (nothing is uploaded to Drive)
  *   · "Other tasks" of the Thailand team live in sheet ALL TASK of THIS file (the app reads/writes them here,
- *     not in the Report Hub); every customer visit in 6. CUSTOMER VISITING is mirrored automatically into
+ *     not in the Report Hub); every customer visit in CUSTOMER VISITING is mirrored automatically into
  *     ALL TASK as key task "YYYYMM_Thailand Surgical Customer visiting" + one sub task per visit
  *   · nothing is pushed to any other backend
  *   · report e-mails in English: Dao → To nt.ha, Cc vtt.hoa · Miew → To nt.ha, Cc Dao + vtt.hoa (v1.4)
@@ -88,9 +88,9 @@ var CFG = {
   APP: 'MMH CRM · Thailand Dental',
   TEAM: 'Thailand Dental', KEY: 'thaid', SRC: 'crm-thai-dental',
   TEAM_LABEL: 'Thailand Dental Sales Team',
-  SH_CUST: '1. CUSTOMER CODE', SH_CBC: '2. CBC', SH_MON: '5. MONTHLY REPORT', SH_WK: '6. CUSTOMER VISITING',
-  SH_PRES: '7. PRODUCT PRESENTATION', SH_ADP: '8. ADP', SH_KPI: '9. TARGET & KPI', SH_MASTER: '10. MASTER LIST',
-  SH_CODE: '11. CODE MAP', SH_LOG: '_LOG', SH_ALL: 'ALL TASK',
+  SH_CUST: 'CUSTOMER CODE', SH_CBC: 'CBC', SH_MON: 'MONTHLY REPORT', SH_WK: 'CUSTOMER VISITING',
+  SH_PRES: 'PRODUCT PRESENTATION', SH_ADP: 'ADP', SH_KPI: 'TARGET & KPI', SH_MASTER: 'MASTER LIST',
+  SH_CODE: 'CODE MAP', SH_LOG: '_LOG', SH_ALL: 'ALL TASK',
   HDR: 3, DATA: 4, AT_HDR: 5, AT_DATA: 7,
   VS_TYPE: 'Sales-Thailand Dental', VS_SUFFIX: '_Thailand Dental Customer visiting', VS_KEY_PIC: 'Yong',
   CACHE_TTL: 21600
@@ -138,9 +138,9 @@ var TABS = {
     f: ['no','account','pic','fy','abcd','caseInfo','analysis','objective','tactic','keyAction','targetAmt','actualAmt',
         'm09','m10','m11','rQ1','m12','m01','m02','rQ2','m03','m04','m05','rQ3','m06','m07','m08','rQ4','rFY','created','updated'] }
 };
-var TAB_LABEL = { weekly: '6. CUSTOMER VISITING', cbc: '2. CBC', customer: '1. CUSTOMER CODE', monthly: '5. MONTHLY REPORT',
-                  present: '7. PRODUCT PRESENTATION', adp: '8. ADP', kpi: '9. TARGET & KPI', alltask: 'ALL TASK', report: 'Report',
-                  meet: '20. WEEKLY MEETING', tender: '21. TENDER TRACK' };
+var TAB_LABEL = { weekly: 'CUSTOMER VISITING', cbc: 'CBC', customer: 'CUSTOMER CODE', monthly: 'MONTHLY REPORT',
+                  present: 'PRODUCT PRESENTATION', adp: 'ADP', kpi: 'TARGET & KPI', alltask: 'ALL TASK', report: 'Report',
+                  meet: 'WEEKLY MEETING', tender: 'TENDER TRACK' };
 /* sheet → version key (edits made directly in the sheet) */
 var SHEET_VER = {};
 SHEET_VER[CFG.SH_CUST] = 'customer'; SHEET_VER[CFG.SH_CBC] = 'cbc'; SHEET_VER[CFG.SH_MON] = 'monthly';
@@ -263,7 +263,7 @@ function customers_(){
       month: str_(c.openMonth).replace(/\D/g, '').slice(0, 6) || ymOf_(c.openDate), nCbc: cbcN[picKey_(c.name)] || 0, nOrder: 0, note: str_(c.note) };
   });
 }
-/* same rule as the formula in column B of 1. CUSTOMER CODE */
+/* same rule as the formula in column B of CUSTOMER CODE */
 var _CODEMAP = null;
 function codeMap_(){
   if(_CODEMAP) return _CODEMAP;
@@ -386,10 +386,10 @@ function bundle_(p){
   });
 }
 
-/* ══════════════ KPI (sheet 9. TARGET & KPI) — ⭐ v1.2: per the MMH KPI FY68 file ══════════════
+/* ══════════════ KPI (sheet TARGET & KPI) — ⭐ v1.2: per the MMH KPI FY68 file ══════════════
  * The sheet is built by menu "⑤ Rebuild the KPI tab from the KPI FY68 file" (module KPI FY68 at the end of this file):
  *   one row = one KPI code of one PIC (F1-00, C11-01a, C4-02…), monthly targets from the KPI FY68 file,
- *   actuals are formulas on 1. CUSTOMER CODE · 6. CUSTOMER VISITING · 7. PRODUCT PRESENTATION.
+ *   actuals are formulas on CUSTOMER CODE · CUSTOMER VISITING · PRODUCT PRESENTATION.
  * The app only READS the calculated sheet. */
 var MON_LB = ['Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug'];
 function kpi_(fy){
@@ -432,7 +432,7 @@ function setupKpiFY68(){
   var ui = null; try{ ui = SpreadsheetApp.getUi(); }catch(e){}
   if(ui){
     var a = ui.alert('Rebuild the KPI tab (FY68)', 'Sheet "' + CFG.SH_KPI + '" will be rebuilt per the MMH KPI FY68 file (KPI codes, 12 monthly targets, actual formulas).\n\n' +
-      '· An old-layout KPI sheet is renamed "9. OLD KPI (before FY68)" and hidden — nothing is lost.\n' +
+      '· An old-layout KPI sheet is renamed "OLD KPI (before FY68)" and hidden — nothing is lost.\n' +
       '· If the sheet is already in the FY68 layout, typed cells (targets, turnover, new SKU, quarter review, settings) are kept.\n\nContinue?', ui.ButtonSet.OK_CANCEL);
     if(a !== ui.Button.OK) return;
   }
@@ -572,7 +572,7 @@ function checkRow_(k, row){
 }
 function canEdit_(user, pic){ return isMgr_(user.pic) || !str_(pic) || picEq_(pic, user.pic); }
 
-/* ── 6. CUSTOMER VISITING ── */
+/* ── CUSTOMER VISITING ── */
 function saveWeekly_(user, p){
   var d = p.data; if(typeof d === 'string') d = JSON.parse(d);
   var row = parseInt(d._row, 10) || 0, isNew = !row, out = {};
@@ -603,12 +603,12 @@ function saveWeekly_(user, p){
   bump_(['weekly']);
   log_(user.pic, isNew ? 'add' : 'update', 'weekly', parseAcc_(d.account || '').name || ('row ' + row), (d.typeAction || '') + (d.status ? ' · ' + d.status : ''), row);
   try{ out.sync = vsSync_(false); }catch(e){ out.syncError = e.message; }
-  out.ok = true; out.row = row; out.message = isNew ? 'Task added to sheet 6. CUSTOMER VISITING' : 'Task updated';
+  out.ok = true; out.row = row; out.message = isNew ? 'Task added to sheet CUSTOMER VISITING' : 'Task updated';
   return out;
 }
 function mondayIso_(isoStr){ var d = date_(isoStr); if(!d) return ''; var w = (d.getDay() + 6) % 7; d.setDate(d.getDate() - w); return iso_(d); }
 
-/* ── 1. CUSTOMER CODE / 2. CBC ── */
+/* ── CUSTOMER CODE / CBC ── */
 function saveCustomer_(user, p){
   var d = p.data; if(typeof d === 'string') d = JSON.parse(d);
   return saveCustomerRow_(user, d);
@@ -648,7 +648,7 @@ function saveCbcRow_(user, d){
   var cus = null;
   if(str_(d.code)) cus = customers_().filter(function(c){ return c.code === str_(d.code); })[0];
   if(!cus && str_(d.name)) cus = customers_().filter(function(c){ return picKey_(c.name) === picKey_(d.name); })[0];
-  if(!cus && isNew) throw new Error('Account not found in 1. CUSTOMER CODE — add the account first.');
+  if(!cus && isNew) throw new Error('Account not found in CUSTOMER CODE — add the account first.');
   var L = lock_();
   try{
     if(isNew){
@@ -681,7 +681,7 @@ function saveCustomerCbc_(user, p){
   return out;
 }
 
-/* ── 5. MONTHLY REPORT · 7. PRODUCT PRESENTATION · 8. ADP ── */
+/* ── MONTHLY REPORT · PRODUCT PRESENTATION · ADP ── */
 function saveSimple_(user, k, d, prep){
   var row = parseInt(d._row, 10) || 0, isNew = !row;
   var L = lock_();
@@ -704,7 +704,7 @@ function saveMonthly_(user, p){
     if(x.area === undefined && isNew) x.area = 'Thailand';
   });
   log_(user.pic, isNew ? 'add' : 'update', 'monthly', d.typeTask || ('row ' + row), d.period || '', row);
-  return { ok: true, row: row, message: 'Saved to sheet 5. MONTHLY REPORT' };
+  return { ok: true, row: row, message: 'Saved to sheet MONTHLY REPORT' };
 }
 function savePresentation_(user, p){
   var d = p.data; if(typeof d === 'string') d = JSON.parse(d);
@@ -717,7 +717,7 @@ function savePresentation_(user, p){
     ['target', 'actual'].forEach(function(f){ if(x[f] !== undefined && x[f] !== '') x[f] = num_(x[f]); });
   });
   log_(user.pic, isNew ? 'add' : 'update', 'present', parseAcc_(d.account).name, d.day || d.month || '', row);
-  return { ok: true, row: row, message: 'Saved to sheet 7. PRODUCT PRESENTATION' };
+  return { ok: true, row: row, message: 'Saved to sheet PRODUCT PRESENTATION' };
 }
 function saveADP_(user, p){
   var d = p.data; if(typeof d === 'string') d = JSON.parse(d);
@@ -729,7 +729,7 @@ function saveADP_(user, p){
   }
   var row = saveSimple_(user, 'adp', d, function(x, nw){ if(nw) x.created = todayIso_(); x.updated = todayIso_(); });
   log_(user.pic, isNew ? 'add' : 'update', 'adp', parseAcc_(d.account).name, d.fy || '', row);
-  return { ok: true, row: row, message: 'ADP saved to sheet 8. ADP' };
+  return { ok: true, row: row, message: 'ADP saved to sheet ADP' };
 }
 function deleteRow_(user, p){
   var tab = p.tab, row = parseInt(p.row, 10);
@@ -848,7 +848,7 @@ function atStatusFix_(st, pg, curSt){
   return { status: st || undefined, progress: pg };
 }
 function atCanEdit_(user, t){
-  if(t.vSrc) throw new Error('This task is synced automatically from sheet 6. CUSTOMER VISITING — edit the visit there.');
+  if(t.vSrc) throw new Error('This task is synced automatically from sheet CUSTOMER VISITING — edit the visit there.');
   if(!canEdit_(user, t.pic)) throw new Error('Only ' + t.pic + ' (or a manager) can edit this task.');
 }
 function atResp_(msg, row){ _AT = null; bump_(['alltask']); var t = row ? atRead_().all.filter(function(x){ return x.row === row; })[0] : null;
@@ -914,7 +914,7 @@ function atAddSub_(user, p){
   try{
     var key = atFind_(p.parentNo);
     if(!key || !key.subs) throw new Error('Key task ' + p.parentNo + ' not found — reload and try again.');
-    if(key.vSrc) throw new Error('This key task is synced from 6. CUSTOMER VISITING — add a visit there instead.');
+    if(key.vSrc) throw new Error('This key task is synced from CUSTOMER VISITING — add a visit there instead.');
     if(!atFixedOf_(key.keyTask) && !atFree_(user)) throw new Error(atFixedErr_());
     var s = sh_(CFG.SH_ALL), after = atKeyEnd_(key);
     s.insertRowsAfter(after, 1); row = after + 1;
@@ -969,7 +969,7 @@ function atDelete_(user, p, isKey){
   return atResp_('Deleted from sheet ALL TASK', 0);
 }
 
-/* ══════════════ SYNC: 6. CUSTOMER VISITING → ALL TASK ══════════════
+/* ══════════════ SYNC: CUSTOMER VISITING → ALL TASK ══════════════
  *  one key task per month "YYYYMM_Thailand Surgical Customer visiting" (U = visitk|YYYYMM)
  *  one sub task per visit (U = visit|PIC|date|account|type action#n, V = JSON meta) — read-only in the app.
  *  Only blocks that really changed are rewritten.  vsBuild_() MUST stay identical to the Excel builder. */
@@ -1479,14 +1479,14 @@ function cronTh(){ try{ vsSync_(false); }catch(x){} }
 
 /* ══════════════ ⭐ v1.1 — WEEKLY MEETING (Họp tuần) · same app module as the Vietnam teams ══════════════
  *  Sheets created automatically on first use (header in ROW 1, managed by the script):
- *    20. WEEKLY MEETING — one row = one weekly meeting with one PIC (ID MT-yyyymmdd-PIC ⇒ saving again overwrites)
- *    21. TENDER TRACK   — tender packages followed in the meeting (soft delete: column Deleted = x)
+ *    WEEKLY MEETING — one row = one weekly meeting with one PIC (ID MT-yyyymmdd-PIC ⇒ saving again overwrites)
+ *    TENDER TRACK   — tender packages followed in the meeting (soft delete: column Deleted = x)
  *  The app sends Vietnamese field names / values (shared code with the Vietnam teams) — they are written to the
  *  sheet in ENGLISH here and translated back when the app reads them.
  *  Weekly-report and meeting PDFs are saved to the shared Drive folder WEEKLY_PDF_FOLDER_ID / Thailand Surgical.
  * ═══════════════════════════════════════════════════════════════════════════════════════════════════════ */
 var WEEKLY_PDF_FOLDER_ID = '1izYni9pCLaLnI-rvnXlT8BQL1M8Ci44N';     // same folder as the Vietnam sales teams
-var MT_CFG = { SH_MEET: '20. WEEKLY MEETING', SH_TENDER: '21. TENDER TRACK', SH_PRICE: '22. TENDER PRICE LOG', MAIL_RE: /^[^@\s]+@manimedicalhanoi\.com$/i, CELL_MAX: 49000 };
+var MT_CFG = { SH_MEET: 'WEEKLY MEETING', SH_TENDER: 'TENDER TRACK', SH_PRICE: 'TENDER PRICE LOG', MAIL_RE: /^[^@\s]+@manimedicalhanoi\.com$/i, CELL_MAX: 49000 };
 /* [key sent by the app, English column header] */
 var MT_MEET_COLS = [
   ['Meeting ID', 'Meeting ID'], ['Week start', 'Week start'], ['Tuần', 'Week'], ['FY', 'FY'], ['Sales PIC', 'Sales PIC'],
@@ -1815,8 +1815,8 @@ var K68_MASTER_SHEET = '3. Detail KPI';
 var K68_N  = 20000;   /* số dòng quét ở tab viếng thăm / khách hàng */
 var K68_N2 = 6000;    /* số dòng quét ở tab thuyết trình / đơn hàng */
 var K68_SRC = {
-  vi: { wk: '6. WEEKLY REPORT',     cu: '1. CUSTOMER CODE', pr: '7. PRODUCT PRESENTATION', od: '3. SALE ORDER' },
-  en: { wk: '6. CUSTOMER VISITING', cu: '1. CUSTOMER CODE', pr: '7. PRODUCT PRESENTATION', od: '', na: '23. NEW ACCOUNT & SKU' }
+  vi: { wk: '6. WEEKLY REPORT',     cu: 'CUSTOMER CODE', pr: 'PRODUCT PRESENTATION', od: '3. SALE ORDER' },
+  en: { wk: 'CUSTOMER VISITING', cu: 'CUSTOMER CODE', pr: 'PRODUCT PRESENTATION', od: '', na: 'NEW ACCOUNT & SKU' }
 };
 /* cột cố định của tab KPI */
 var K68 = { tag: 1, code: 2, pic: 3, name: 4, unit: 5, w: 6, agg: 7, tFY: 8, t0: 9, aFY: 21, a0: 22,
@@ -1858,10 +1858,10 @@ var K68_TXT = {
       visit_dealer: '6. WEEKLY REPORT · Sales PIC + Start date trong tháng + Type action = Visiting + Task Status ≠ Not Started / Cancel + date ≤ today + Account type = Dealer',
       visit_other: '6. WEEKLY REPORT · Sales PIC + Start date trong tháng + Type action = Visiting + Task Status ≠ Not Started / Cancel + date ≤ today + Account type ≠ Dealer',
       visit_all: '6. WEEKLY REPORT · Sales PIC + Start date trong tháng + Type action = Visiting + Task Status ≠ Not Started / Cancel + date ≤ today',
-      newacct_dealer: '1. CUSTOMER CODE · MMH sales PIC + Tháng mở (auto) + Account type = Dealer · cộng SKU mới (dòng dưới)',
-      newacct_all: '1. CUSTOMER CODE · MMH sales PIC + Tháng mở (auto) · cộng SKU mới (dòng dưới)',
-      event_mmh: '7. PRODUCT PRESENTATION · đếm buổi theo MMH sales PIC + Month',
-      event_mmh_team: '7. PRODUCT PRESENTATION · đếm buổi của cả nhóm theo Month',
+      newacct_dealer: 'CUSTOMER CODE · MMH sales PIC + Tháng mở (auto) + Account type = Dealer · cộng SKU mới (dòng dưới)',
+      newacct_all: 'CUSTOMER CODE · MMH sales PIC + Tháng mở (auto) · cộng SKU mới (dòng dưới)',
+      event_mmh: 'PRODUCT PRESENTATION · đếm buổi theo MMH sales PIC + Month',
+      event_mmh_team: 'PRODUCT PRESENTATION · đếm buổi của cả nhóm theo Month',
       event_hub: 'File Marketing Offline Thái (REPORT_EVENT) · KPI Hub tự đếm theo loại event (sheet 4B)',
       event_kol_team: '6. WEEKLY REPORT · Type action = Event + Task Status ≠ Not Started / Cancel + date ≤ today (cả nhóm)',
       supp_amt: '3. SALE ORDER · tổng Amount (VND) theo MMH sales PIC + Month ÷ tỷ giá ô D5',
@@ -1897,22 +1897,22 @@ var K68_TXT = {
     tot: 'KPI score of {p} (KPIs tracked in the CRM)',
     sku: '↳ New SKU listings (type the number per month — added to the row above)',
     rQ: 'Quarter', rRes: 'Key results', rWhy: 'Reasons for gaps', rPlan: 'Plan for next quarter', rMgr: 'Team leader comment / approval', rPct: 'Quarter % (auto)',
-    oldName: '9. OLD KPI (before FY68)',
+    oldName: 'OLD KPI (before FY68)',
     src: {
       turnover: 'MMH KPI FY68 file (MMH Turnover Report) — synced automatically, or type the amount of the month',
       manual: 'Synced from the KPI FY68 file or typed in',
-      visit_dealer: '6. CUSTOMER VISITING · Sales PIC + Start date in month + Type action = Visiting + Task Status ≠ Not Started / Cancel + date ≤ today + Account type = Dealer',
-      visit_other: '6. CUSTOMER VISITING · Sales PIC + Start date in month + Type action = Visiting + Task Status ≠ Not Started / Cancel + date ≤ today + Account type ≠ Dealer',
-      visit_all: '6. CUSTOMER VISITING · Sales PIC + Start date in month + Type action = Visiting + Task Status ≠ Not Started / Cancel + date ≤ today',
-      newacct_dealer: '23. NEW ACCOUNT & SKU · approved cases by PIC + Month (month of the first order) · Account type = Dealer',
-      newacct_all: '23. NEW ACCOUNT & SKU · approved cases by PIC + Month (month of the first order)',
-      event_mmh: '7. PRODUCT PRESENTATION · sessions by MMH sales PIC + Month',
-      event_mmh_team: '7. PRODUCT PRESENTATION · sessions of the whole team by Month',
+      visit_dealer: 'CUSTOMER VISITING · Sales PIC + Start date in month + Type action = Visiting + Task Status ≠ Not Started / Cancel + date ≤ today + Account type = Dealer',
+      visit_other: 'CUSTOMER VISITING · Sales PIC + Start date in month + Type action = Visiting + Task Status ≠ Not Started / Cancel + date ≤ today + Account type ≠ Dealer',
+      visit_all: 'CUSTOMER VISITING · Sales PIC + Start date in month + Type action = Visiting + Task Status ≠ Not Started / Cancel + date ≤ today',
+      newacct_dealer: 'NEW ACCOUNT & SKU · approved cases by PIC + Month (month of the first order) · Account type = Dealer',
+      newacct_all: 'NEW ACCOUNT & SKU · approved cases by PIC + Month (month of the first order)',
+      event_mmh: 'PRODUCT PRESENTATION · sessions by MMH sales PIC + Month',
+      event_mmh_team: 'PRODUCT PRESENTATION · sessions of the whole team by Month',
       event_hub: 'Thailand Surgical Marketing Offline file (REPORT_EVENT) · counted by the KPI Hub by event type (sheet 4B)',
-      event_kol_team: '6. CUSTOMER VISITING · Type action = Event + Task Status ≠ Not Started / Cancel + date ≤ today (KOL-led events & exhibitions, whole team) by Start date',
-      covisit: '6. CUSTOMER VISITING · Sales PIC + Start date in month + Type action = Co-visiting with distributor + Task Status ≠ Not Started / Cancel + date ≤ today',
-      covisit_day: '6. CUSTOMER VISITING · number of DAYS (Start date) in the month with ≥ 5 co-visits of the PIC (Type action = Co-visiting with distributor, not Cancel / Not Started) — one field day with one distributor rep',
-      newacct_key: '23. NEW ACCOUNT & SKU · approved cases by PIC + Month · Account type = DSO / University / Hospital (key accounts) · evidence = distributor confirmation',
+      event_kol_team: 'CUSTOMER VISITING · Type action = Event + Task Status ≠ Not Started / Cancel + date ≤ today (KOL-led events & exhibitions, whole team) by Start date',
+      covisit: 'CUSTOMER VISITING · Sales PIC + Start date in month + Type action = Co-visiting with distributor + Task Status ≠ Not Started / Cancel + date ≤ today',
+      covisit_day: 'CUSTOMER VISITING · number of DAYS (Start date) in the month with ≥ 5 co-visits of the PIC (Type action = Co-visiting with distributor, not Cancel / Not Started) — one field day with one distributor rep',
+      newacct_key: 'NEW ACCOUNT & SKU · approved cases by PIC + Month · Account type = DSO / University / Hospital (key accounts) · evidence = distributor confirmation',
       supp_amt: '3. SALE ORDER · Amount ÷ exchange rate (D5)', supp_comp: '3. SALE ORDER · Composite quantity', supp_jizai: '3. SALE ORDER · JIZAI quantity'
     },
     msgNoLink: 'No link to the MMH KPI FY68 file in cell D9 of the KPI tab.',
@@ -2429,7 +2429,7 @@ function k68LinksSheet_(ss){
 
 /* ⭐ v22 — CÔNG THỨC THEO DẤU PHÂN CÁCH CỦA FILE
    Script ghi công thức kiểu "=MID($C$4,3,2)" vào file đặt vùng dùng dấu ";" (vd Việt Nam) ⇒ Google Sheet báo #ERROR!
-   (đúng lỗi ở tab 9. TARGET & KPI và ALL TASK). Nay thử 1 ô trước: "=SUM(1,2)" ra 3 thì giữ dấu ",", không thì đổi
+   (đúng lỗi ở tab TARGET & KPI và ALL TASK). Nay thử 1 ô trước: "=SUM(1,2)" ra 3 thì giữ dấu ",", không thì đổi
    "," ⇒ ";" và số thập phân "1.3" ⇒ "1,3" (bỏ qua phần trong ngoặc kép / tên sheet trong ngoặc đơn). */
 var _FSEMI = {};
 function fmlSemi_(sh){
@@ -2720,7 +2720,7 @@ function custLogRead_(from, to){
 function deleteAccount_(user, p){
   var row = parseInt(p.row, 10) || 0;
   var cus = customers_().filter(function(c){ return c._row === row; })[0];
-  if(!cus) throw new Error('This account no longer exists in 1. CUSTOMER CODE — reload the app and try again.');
+  if(!cus) throw new Error('This account no longer exists in CUSTOMER CODE — reload the app and try again.');
   if(str_(p.name) && picKey_(p.name) !== picKey_(cus.name)) throw new Error('The sheet changed (row ' + row + ' is now “' + cus.name + '”) — reload the app and try again.');
   if(!canEdit_(user, cus.pic)) throw new Error('Only ' + (cus.pic || 'the PIC') + ' (or a manager) can delete this account.');
   var nm = picKey_(cus.name);
@@ -2746,7 +2746,7 @@ function deleteAccount_(user, p){
 
 /* ════════════════ v1.9 · SETTINGS OF THE SHARED MODULE FOR THE THAILAND CRM ════════════════ */
 var NA_ENV = {
-  sheet: '23. NEW ACCOUNT & SKU',
+  sheet: 'NEW ACCOUNT & SKU',
   lang: function(){ return 'en'; },
   team: function(){ return CFG.KEY; },
   teamLabel: function(){ return CFG.TEAM_LABEL; },
@@ -4009,7 +4009,7 @@ function tripRoute_(action, user, p){
 
 
 /* ════════════════════════════════════════════════════════════════════════════════════════════════
-   ⭐ v1.19 (13/10/2026) · DATES NORMALISED ON EVERY TAB — same module as crm-dental v10.12 (crmDateFix_); Thai tabs: 6. CUSTOMER VISITING, 7, 1, ALL TASK
+   ⭐ v1.19 (13/10/2026) · DATES NORMALISED ON EVERY TAB — same module as crm-dental v10.12 (crmDateFix_); Thai tabs: CUSTOMER VISITING, 7, 1, ALL TASK
    Kiểm 13/10 (bản xuất 4 file CRM): ① ngày bị ĐẢO ngày ↔ tháng khi gõ tay trên sheet đặt vùng Mỹ (gõ 10/09 ⇒ 9 tháng 10):
    Surgical 421 dòng tab 6 (cả dòng tháng 08 + 09/2026), Dental 446 dòng cũ + 127 đơn hàng cũ; ② ngày có GIỜ (10:00 / 12:00)
    ⇒ công thức đếm "≤ ngày cuối kỳ" bỏ sót; ③ ngày dạng chữ ("02/07/0205", "undefined/undefined/22/11/2025").

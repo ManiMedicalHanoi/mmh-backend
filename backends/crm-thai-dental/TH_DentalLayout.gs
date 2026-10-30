@@ -2,35 +2,39 @@
  * THAILAND DENTAL — BUILD THE CRM LAYOUT  (TH_DentalLayout.gs · v1.0 · 30/10/2026)
  *
  * Menu  MMH CRM (Thailand Dental) ▸ ⓪  (function thdBuild) — run ONCE by the owner of the file.
- * The file "1. Thailand - Dental Action FY68" gets the SAME sheets as FY68_Thailand_Surgical_CRM:
+ * The file "1. Thailand - Dental Action FY68" gets the SAME sheets as FY68_Thailand_Surgical_CRM — WITHOUT the numbers
+ * in the sheet names (user request 30/10/2026: "CUSTOMER CODE", "TARGET & KPI", "NEW ACCOUNT & SKU"…):
+ *   ⓪ names: numbered sheets already made (e.g. by menu ⑤) lose their number; old sheets become "OLD · <name>" (hidden)
  *   ① copies the CRM sheets of the Surgical file (layout, formulas, dropdowns, colours) and empties their data
- *   ② dropdown lists (10. MASTER LIST) + codes (11. CODE MAP) for Dental: PIC Yong · Man · Sui, Dental products,
+ *   ② dropdown lists (MASTER LIST) + codes (CODE MAP) for Dental: PIC Yong · Man · Sui, Dental products,
  *      Type action "Co-visiting with distributor" (KPI C4-01 / C4-03), Account type DSO (KPI C2-01)
  *   ③ moves the data of the old sheets (nothing is deleted — old sheets are hidden at the end of the file):
- *        Customer list → 1. CUSTOMER CODE · CBC → 2. CBC · WEEK → 6. CUSTOMER VISITING · MONTHLY REPORT → 5. MONTHLY REPORT
- *        YEAR - Account → 8. ADP · renamed: Customer analysis → 12 · YEAR - Function → 13 · Jizai Report → 14 ·
- *        Jizai MOU project → 15 · DDI Jizai sale → 16 · DDI Sale Report → 17 · KPI → 9. OLD KPI (before FY68)
- *   ④ 9. TARGET & KPI (KPI FY68 of Yong · Man · Sui), 20 / 21 / 22 / 23, _CUSTOMER_LOG, triggers, ALL TASK sync
+ *        Customer list → CUSTOMER CODE · CBC → CBC · WEEK → CUSTOMER VISITING · MONTHLY REPORT → MONTHLY REPORT
+ *        YEAR - Account → ADP · renamed: Customer analysis → CUSTOMER ANALYSIS · YEAR - Function → YEARLY FUNCTION PLAN ·
+ *        Jizai Report / Jizai MOU project / DDI Jizai sale / DDI Sale Report → upper case · KPI → OLD KPI (before FY68)
+ *   ④ TARGET & KPI (KPI FY68 of Yong · Man · Sui), WEEKLY MEETING / TENDER TRACK / TENDER PRICE LOG / NEW ACCOUNT & SKU,
+ *      _CUSTOMER_LOG, triggers, ALL TASK sync
  * Each step is remembered (Script Property THD_DONE): running ⓪ again only does the steps not done yet.
  * A step that needs more time continues by itself in the background (one-off trigger thdBuildCont).
  *************************************************************************************************/
 var THD = {
   TEMPLATE_ID: '1rX8BDcbFGOjpXFmPJeKTkllE4LH7q9A8zz22R7jDA0E',   /* FY68_Thailand_Surgical_CRM */
   KPI_FILE: 'https://docs.google.com/spreadsheets/d/1m3F8NEI1QuvzFnpHVrvQ903R1lNQvm_qRkgSI5mBkx0/edit',
-  /* [sheet, header row, first data row] — copied from the Surgical file, data emptied */
+  /* [sheet in the Surgical file, header row, first data row] — copied, renamed without its number (THD_NAME), data emptied */
   COPY: [['1. CUSTOMER CODE', 3, 4], ['2. CBC', 3, 4], ['5. MONTHLY REPORT', 3, 4], ['6. CUSTOMER VISITING', 3, 4],
          ['7. PRODUCT PRESENTATION', 3, 4], ['8. ADP', 3, 4], ['10. MASTER LIST', 3, 4], ['11. CODE MAP', 3, 4],
          ['ALL TASK', 5, 7], ['18. FRAMEWORK', 0, 0]],
-  RENAME: [['Customer analysis', '12. CUSTOMER ANALYSIS'], ['YEAR - Function', '13. YEARLY FUNCTION PLAN'], ['Jizai Report', '14. JIZAI REPORT'],
-           ['Jizai MOU project', '15. JIZAI MOU PROJECT'], ['DDI Jizai sale', '16. DDI JIZAI SALE'], ['DDI Sale Report', '17. DDI SALE REPORT'],
-           ['KPI', '9. OLD KPI (before FY68)']],
+  RENAME: [['Customer analysis', 'CUSTOMER ANALYSIS'], ['YEAR - Function', 'YEARLY FUNCTION PLAN'], ['Jizai Report', 'JIZAI REPORT'],
+           ['Jizai MOU project', 'JIZAI MOU PROJECT'], ['DDI Jizai sale', 'DDI JIZAI SALE'], ['DDI Sale Report', 'DDI SALE REPORT'],
+           ['KPI', 'OLD KPI (before FY68)']],
   OLD: { cust: 'Customer list', cbc: ' CBC', week: 'WEEK', mon: 'MONTHLY REPORT', adp: 'YEAR - Account' },
-  HIDE: ['Customer list', ' CBC', 'CBC', 'WEEK', 'MONTHLY REPORT', 'YEAR - Account', 'Master name', 'MONTH VIEW', 'Framework', 'SOP', 'Mani Products'],
-  ORDER: ['0. GUIDE', '1. CUSTOMER CODE', '2. CBC', '5. MONTHLY REPORT', '6. CUSTOMER VISITING', 'ALL TASK', '7. PRODUCT PRESENTATION', '8. ADP',
-          '9. TARGET & KPI', '10. MASTER LIST', '11. CODE MAP', '12. CUSTOMER ANALYSIS', '13. YEARLY FUNCTION PLAN', '14. JIZAI REPORT',
-          '15. JIZAI MOU PROJECT', '16. DDI JIZAI SALE', '17. DDI SALE REPORT', '18. FRAMEWORK', '20. WEEKLY MEETING', '21. TENDER TRACK',
-          '22. TENDER PRICE LOG', '23. NEW ACCOUNT & SKU', 'SALE ORDERS', '9. OLD KPI (before FY68)'],
-  STEPS: ['copy', 'master', 'customers', 'cbc', 'visits', 'monthly', 'adp', 'sheets', 'kpi', 'guide', 'triggers', 'sync'],
+  /* old sheets replaced by the CRM sheets ⇒ renamed "OLD · <name>" (step names, before the new sheets are made) and hidden */
+  HIDE: ['Customer list', ' CBC', 'WEEK', 'MONTHLY REPORT', 'YEAR - Account', 'Master name', 'MONTH VIEW', 'Framework', 'SOP', 'Mani Products'],
+  ORDER: ['GUIDE', 'CUSTOMER CODE', 'CBC', 'MONTHLY REPORT', 'CUSTOMER VISITING', 'ALL TASK', 'PRODUCT PRESENTATION', 'ADP',
+          'TARGET & KPI', 'MASTER LIST', 'CODE MAP', 'CUSTOMER ANALYSIS', 'YEARLY FUNCTION PLAN', 'JIZAI REPORT',
+          'JIZAI MOU PROJECT', 'DDI JIZAI SALE', 'DDI SALE REPORT', 'FRAMEWORK', 'WEEKLY MEETING', 'TENDER TRACK',
+          'TENDER PRICE LOG', 'NEW ACCOUNT & SKU', 'SALE ORDERS', 'OLD KPI (before FY68)'],
+  STEPS: ['names', 'copy', 'master', 'customers', 'cbc', 'visits', 'monthly', 'adp', 'sheets', 'kpi', 'guide', 'triggers', 'sync'],
   MASTER: {
     'pic': { set: ['Yong', 'Man', 'Sui', 'Dao', 'Moo', 'Sale Admin', 'Others'] },
     'account type': { add: ['DSO'] },
@@ -45,6 +49,10 @@ var THD = {
 
 /* the old file had an installable onOpen trigger td_buildMenu ("📊 MMH Report") — replaced by the CRM menu */
 function td_buildMenu(){}
+
+/* sheet names WITHOUT numbers: "6. CUSTOMER VISITING" → "CUSTOMER VISITING" (also inside formulas copied from the Surgical file) */
+function THD_NAME(n){ return String(n).replace(/^\d+\.\s+/, ''); }
+function thdFmlName_(f){ return String(f || '').replace(/'(\d+)\.\s+([^'!]+)'!/g, function(m, num, rest){ return "'" + rest + "'!"; }); }
 
 /* ── state ── */
 function thdDone_(){ try{ return JSON.parse(props_().getProperty('THD_DONE') || '{}'); }catch(e){ return {}; } }
@@ -87,13 +95,21 @@ function thdRun_(ui){
 function thdSay_(ui, msg){ Logger.log(msg); if(ui){ try{ SpreadsheetApp.getUi().alert(msg); }catch(e){} } }
 
 /* ── helpers ── */
+/* ids of the sheets made by step copy (so step names never takes a new CRM sheet for an old one) */
+function thdMade_(id){
+  var m = {}; try{ m = JSON.parse(props_().getProperty('THD_MADE') || '{}'); }catch(e){}
+  if(id != null){ m[id] = 1; props_().setProperty('THD_MADE', JSON.stringify(m)); }
+  return m;
+}
 var _THD_TPL = null;
 function thdTpl_(){ return _THD_TPL || (_THD_TPL = SpreadsheetApp.openById(THD.TEMPLATE_ID)); }
 function thdNorm_(s){ return String(s == null ? '' : s).replace(/\s+/g, ' ').trim().toLowerCase(); }
+/* an OLD sheet of the Dental Action file: "OLD · <name>" first, then the original name — never a sheet made by step copy */
 function thdOld_(name){
-  var s = ss_().getSheetByName(name); if(s) return s;
-  var want = thdNorm_(name), all = ss_().getSheets();
-  for(var i = 0; i < all.length; i++) if(thdNorm_(all[i].getName()) === want) return all[i];
+  var all = ss_().getSheets(), made = thdMade_();
+  var wants = [thdNorm_('OLD · ' + String(name).trim()), thdNorm_(name)];
+  for(var k = 0; k < wants.length; k++)
+    for(var i = 0; i < all.length; i++) if(thdNorm_(all[i].getName()) === wants[k] && !made[all[i].getSheetId()]) return all[i];
   return null;
 }
 /* read an old sheet: finds the header row (the row holding all `need` headers), returns rows as objects keyed by normalised header */
@@ -128,43 +144,60 @@ function thdWrite_(k, list){
   if(s.getMaxRows() < first + n + 50) s.insertRowsAfter(s.getMaxRows(), first + n + 50 - s.getMaxRows());
   var vals = list.map(function(o){ return d.f.map(function(f){ return d.formula.indexOf(f) >= 0 ? '' : (o[f] == null ? '' : o[f]); }); });
   s.getRange(first, 2, n, d.w).setValues(vals);
-  Object.keys(fml).forEach(function(c){ s.getRange(first, +c, n, 1).setFormulaR1C1(fml[c]); });
+  Object.keys(fml).forEach(function(c){ s.getRange(first, +c, n, 1).setFormulaR1C1(thdFmlName_(fml[c])); });
   return n;
 }
 /* formulas (R1C1) of the first data row of each copied template sheet — filled during step "copy" */
 var THD_FML = {};
 function thdFmlLoad_(){
-  try{ THD_FML = JSON.parse(props_().getProperty('THD_FML') || '{}'); }catch(e){ THD_FML = {}; }
+  var raw = {}; try{ raw = JSON.parse(props_().getProperty('THD_FML') || '{}'); }catch(e){}
+  THD_FML = {}; Object.keys(raw).forEach(function(k){ THD_FML[THD_NAME(k)] = raw[k]; });   /* keys of an older run may still carry the number */
   return THD_FML;
 }
 
 var THD_STEP = {
+  /* ⓪ sheet names without numbers: CRM sheets already made with a number lose it; old sheets → "OLD · <name>" (hidden) */
+  names: function(){
+    var book = ss_(), n = 0, o = 0, made = thdMade_();
+    THD.HIDE.forEach(function(nm){
+      var w = thdNorm_(nm), s = book.getSheets().filter(function(x){ return thdNorm_(x.getName()) === w && !made[x.getSheetId()]; })[0] || null;   /* never a sheet made by step copy */
+      if(!s || /^OLD · /.test(s.getName())) return;
+      var to = 'OLD · ' + String(nm).trim(); if(book.getSheetByName(to)) return;
+      s.setName(to); o++; try{ s.setTabColor('#BFBFBF'); s.hideSheet(); }catch(e){}
+    });
+    book.getSheets().forEach(function(s){
+      var nm = s.getName(), to = THD_NAME(nm);
+      if(to === nm || !/^\d+\.\s/.test(nm) || book.getSheetByName(to)) return;
+      s.setName(to); n++;
+    });
+    return n + ' sheet(s) renamed without number · ' + o + ' old sheet(s) → "OLD · …"';
+  },
   /* ① copy the CRM sheets of the Surgical file */
   copy: function(){
     var tpl = thdTpl_(), book = ss_(), made = [], fmlAll = {};
     THD.COPY.forEach(function(c){
       var name = c[0], src = tpl.getSheetByName(name);
       if(!src) throw new Error('Template sheet "' + name + '" not found in ' + tpl.getName());
-      if(book.getSheetByName(name)) return;
-      var sh = src.copyTo(book); sh.setName(name); made.push(name);
+      if(book.getSheetByName(THD_NAME(name))) return;
+      var sh = src.copyTo(book); sh.setName(THD_NAME(name)); made.push(THD_NAME(name)); thdMade_(sh.getSheetId());
     });
     _SH = {};
     THD.COPY.forEach(function(c){
-      var name = c[0], hRow = c[1], first = c[2], src = tpl.getSheetByName(name), sh = book.getSheetByName(name);
+      var name = c[0], hRow = c[1], first = c[2], src = tpl.getSheetByName(name), sh = book.getSheetByName(THD_NAME(name));
       if(!first) return;                                               /* reference sheet (18. FRAMEWORK): keep as copied */
       var lc = src.getLastColumn();
       /* header area: formulas again (cross-sheet references resolve now that every sheet exists) */
       if(first > 1){
         var hf = src.getRange(1, 1, first - 1, lc).getFormulasR1C1();
-        hf.forEach(function(r, i){ r.forEach(function(f, j){ if(f) sh.getRange(i + 1, j + 1).setFormulaR1C1(f); }); });
+        hf.forEach(function(r, i){ r.forEach(function(f, j){ if(f) sh.getRange(i + 1, j + 1).setFormulaR1C1(thdFmlName_(f)); }); });
       }
       /* first data row: remember its formulas, then empty every data row */
       var rf = src.getRange(first, 1, 1, lc).getFormulasR1C1()[0], keep = {};
-      rf.forEach(function(f, j){ if(f) keep[j + 1] = f; });
-      fmlAll[name] = keep;
+      rf.forEach(function(f, j){ if(f) keep[j + 1] = thdFmlName_(f); });
+      fmlAll[THD_NAME(name)] = keep;
       var last = Math.max(sh.getLastRow(), first);
       sh.getRange(first, 1, last - first + 1, sh.getMaxColumns()).clearContent();
-      if(name !== '10. MASTER LIST' && name !== '11. CODE MAP')
+      if(name !== '10. MASTER LIST' && name !== '11. CODE MAP')   /* template names */
         Object.keys(keep).forEach(function(col){ sh.getRange(first, +col).setFormulaR1C1(keep[col]); });
       /* dropdowns of the data rows: rebuilt so that they point to THIS file's 10. MASTER LIST */
       var dv = src.getRange(first, 1, 1, lc).getDataValidations()[0], rows = sh.getMaxRows() - first + 1;
@@ -173,7 +206,7 @@ var THD_STEP = {
         var out = rule;
         try{
           if(rule.getCriteriaType() === SpreadsheetApp.DataValidationCriteria.VALUE_IN_RANGE){
-            var a = rule.getCriteriaValues(), rg = a[0], ds = book.getSheetByName(rg.getSheet().getName());
+            var a = rule.getCriteriaValues(), rg = a[0], ds = book.getSheetByName(THD_NAME(rg.getSheet().getName()));
             out = ds ? rule.copy().requireValueInRange(ds.getRange(rg.getA1Notation()), a[1]).setAllowInvalid(true).build() : null;
           }
           if(out) sh.getRange(first, j + 1, rows, 1).setDataValidation(out);
@@ -199,7 +232,7 @@ var THD_STEP = {
   /* ② dropdown lists + codes */
   master: function(){
     var s = sh_(CFG.SH_MASTER), lc = s.getLastColumn(), lr = Math.max(s.getLastRow(), 4);
-    var tplS = thdTpl_().getSheetByName(CFG.SH_MASTER), tv = tplS.getRange(3, 1, Math.max(2, tplS.getLastRow() - 2), tplS.getLastColumn()).getValues();
+    var tplS = thdTpl_().getSheetByName('10. MASTER LIST'), tv = tplS.getRange(3, 1, Math.max(2, tplS.getLastRow() - 2), tplS.getLastColumn()).getValues();
     var hdr = s.getRange(3, 1, 1, lc).getValues()[0].map(thdNorm_), n = 0;
     /* job titles actually used in the old CBC sheet */
     var jt = []; try{ thdRead_(THD.OLD.cbc, ['account pic']).rows.forEach(function(r){ var x = thdS_(r['job title']); if(x && !THD_HINT.test(x) && jt.indexOf(x) < 0 && jt.length < 40) jt.push(x); }); }catch(e){}
@@ -220,7 +253,7 @@ var THD_STEP = {
       if(col.length) s.getRange(4, c + 1, col.length, 1).setValues(col);
     });
     /* 11. CODE MAP: template codes again + DSO + provinces of the Dental customers */
-    var cm = sh_(CFG.SH_CODE), tc = thdTpl_().getSheetByName(CFG.SH_CODE), tcv = tc.getRange(4, 2, Math.max(1, tc.getLastRow() - 3), 6).getValues();
+    var cm = sh_(CFG.SH_CODE), tc = thdTpl_().getSheetByName('11. CODE MAP'), tcv = tc.getRange(4, 2, Math.max(1, tc.getLastRow() - 3), 6).getValues();
     var areas = [], provs = [], types = [];
     tcv.forEach(function(r){ if(r[0] !== '') areas.push([r[0], r[1]]); if(r[2] !== '') provs.push([r[2], r[3]]); if(r[4] !== '') types.push([r[4], r[5]]); });
     if(!types.some(function(t){ return thdNorm_(t[0]) === 'dso'; })) types.push(['DSO', 'DS']);
@@ -376,28 +409,28 @@ var THD_STEP = {
 
   /* ⑩ guide + sheet order */
   guide: function(){
-    var book = ss_(), g = book.getSheetByName('0. GUIDE') || book.insertSheet('0. GUIDE', 0);
+    var book = ss_(), g = book.getSheetByName('GUIDE') || book.insertSheet('GUIDE', 0);
     g.clear();
     var L = [
       ['THAILAND DENTAL CRM — USER GUIDE'],
       ['MANI Medical Hanoi · Thailand Dental team (Yong · Man · Sui) · FY68 · same layout as FY68_Thailand_Surgical_CRM · works with the MMH CRM web app (team "Thailand Dental", English)'],
       [''],
       ['A. GENERAL RULES'],
-      ['1. Type only into white cells. BLUE text cells are formulas — do not overwrite them. Every dropdown comes from 10. MASTER LIST.'],
-      ['2. Customer code (column B of sheet 1) = Area + Province + Account type + row number (codes in 11. CODE MAP). Check account name = Account name / Account type / Province / Area.'],
+      ['1. Type only into white cells. BLUE text cells are formulas — do not overwrite them. Every dropdown comes from MASTER LIST.'],
+      ['2. Customer code (column B of sheet 1) = Area + Province + Account type + row number (codes in CODE MAP). Check account name = Account name / Account type / Province / Area.'],
       ['3. Co-visits with a distributor sales rep: Type action = "Co-visiting with distributor" (KPI C4-01 Yong · C4-03 Man = days with ≥ 5 co-visits).'],
-      ['4. New KEY accounts (DSO / dental university / hospital) are recorded in the app ▸ New accounts & SKU (sheet 23) with the distributor confirmation (KPI C2-01).'],
+      ['4. New KEY accounts (DSO / dental university / hospital) are recorded in the app ▸ New accounts & SKU (sheet NEW ACCOUNT & SKU) with the distributor confirmation (KPI C2-01).'],
       [''],
       ['B. SHEETS'],
-      ['1. CUSTOMER CODE · 2. CBC · 5. MONTHLY REPORT · 6. CUSTOMER VISITING · ALL TASK (other tasks + visits mirrored) · 7. PRODUCT PRESENTATION · 8. ADP · 9. TARGET & KPI · 10. MASTER LIST · 11. CODE MAP'],
-      ['12–17: Customer analysis, Yearly function plan, Jizai report, Jizai MOU project, DDI Jizai sale, DDI sale report (kept from the old file) · 18. FRAMEWORK · 20–23: weekly meeting, tenders, new accounts (written by the app)'],
+      ['CUSTOMER CODE · CBC · MONTHLY REPORT · CUSTOMER VISITING · ALL TASK (other tasks + visits mirrored) · PRODUCT PRESENTATION · ADP · TARGET & KPI · MASTER LIST · CODE MAP'],
+      ['CUSTOMER ANALYSIS · YEARLY FUNCTION PLAN · JIZAI REPORT · JIZAI MOU PROJECT · DDI JIZAI SALE · DDI SALE REPORT (kept from the old file) · FRAMEWORK · WEEKLY MEETING · TENDER TRACK · TENDER PRICE LOG · NEW ACCOUNT & SKU (written by the app)'],
       [''],
-      ['C. DATA MOVED FROM THE OLD SHEETS (30/10/2026) — old sheets are hidden at the end of the file, nothing was deleted'],
-      ['Customer list → 1. CUSTOMER CODE (accounts used in WEEK / CBC / YEAR - Account but missing from the list were added, Note = "Added from …") · CBC → 2. CBC'],
-      ['WEEK → 6. CUSTOMER VISITING (Task → Plan, Deadline / Assigner kept at the end of Plan, manager comment at the end of Task Result) · MONTHLY REPORT → 5 · YEAR - Account → 8. ADP'],
-      ['Not moved: SALE ORDERS (kept as it is), Mani Products, MONTH VIEW, Master name (replaced by 10. MASTER LIST).'],
+      ['C. DATA MOVED FROM THE OLD SHEETS (30/10/2026) — old sheets are renamed "OLD · …" and hidden at the end of the file, nothing was deleted'],
+      ['Customer list → CUSTOMER CODE (accounts used in WEEK / CBC / YEAR - Account but missing from the list were added, Note = "Added from …") · CBC → CBC'],
+      ['WEEK → CUSTOMER VISITING (Task → Plan, Deadline / Assigner kept at the end of Plan, manager comment at the end of Task Result) · MONTHLY REPORT → 5 · YEAR - Account → ADP'],
+      ['Not moved: SALE ORDERS (kept as it is), Mani Products, MONTH VIEW, Master name (replaced by MASTER LIST).'],
       [''],
-      ['D. KPI FY68 (9. TARGET & KPI ⇄ MMH KPI FY68 file, synced by the KPI Sync Center)'],
+      ['D. KPI FY68 (TARGET & KPI ⇄ MMH KPI FY68 file, synced by the KPI Sync Center)'],
       ['Yong: F4-00 turnover (40%) · C2-01 new key accounts (20%) · C2-02 key account profiling % (10%) · C4-01 co-visits (20%)'],
       ['Man: F4-00 (25%) · C4-03 co-visiting days (15%) · C11-02 T&E events led by MMH (25%) · C11-03 product test pass rate (25%)'],
       ['Sui: F4-00 (20%) · C14-00 T&E events KOL + MMH + exhibitions (20%) · C16-00 new product categories (30%) · C17-07 product content published (20%)'],
