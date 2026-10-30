@@ -223,6 +223,9 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   Chủ script phải mở trình soạn ▸ chạy 1 hàm ▸ cấp quyền thì URL mới chạy.
   **30/10/2026 (2)**: C4-03 = số NGÀY có co-visit (`COUNTUNIQUE`, KHÔNG xét ≥ 5 lượt — người dùng: không cần xác nhận); C11-03 = `test_rate` từ sheet **PRODUCT TEST** (`ptSheet_`, sales tự điền,
   Result Pass / Fail, Pass ÷ số bài có kết quả, cộng dồn từ đầu FY); `master_` luôn thêm Type action "Co-visiting with distributor"; `K68_LAYOUT = 'k68v6d2'` ⇒ tab KPI tự dựng lại ở lượt đồng bộ kế; menu ⓪ thêm bước `ptest`.
+  **Dữ liệu mẫu thử KPI** (`TH_DentalSample.gs`, người dùng yêu cầu 30/10/2026): action `thdSample&op=seed|clear|status&key=<8 ký tự cuối ID Sheet>` (chạy nền bằng trigger
+  `thdSampleRun`; chưa dựng bố cục ⇒ chạy ⓪ trước) — 11 lượt co-visit (Yong 6 · Man 5), 1 case NEW ACCOUNT & SKU Approved (Yong, Hospital), 5 dòng PRODUCT TEST (Man); mọi dòng gắn `[SAMPLE]`,
+  `op=clear` xoá hết. Gọi qua workflow **Kiểm tra** ▸ ping `crm-thai-dental?action=thdSample&op=status&key=…&full=1`. Số mẫu CÓ đẩy lên file KPI FY68 (C4-01 · C4-03 · C2-01 · C11-03).
   Training Hub `rhCustTrain`: `TE.TEAMS` thêm `thaid`; nhóm Thái (thai / thaid) ghi Purpose / Target Audience tiếng Anh.
   **Tên sheet KHÔNG đánh số** (người dùng yêu cầu 30/10/2026): CUSTOMER CODE · CBC · MONTHLY REPORT · CUSTOMER VISITING · PRODUCT PRESENTATION · ADP · TARGET & KPI · MASTER LIST ·
   CODE MAP · WEEKLY MEETING · TENDER TRACK · TENDER PRICE LOG · NEW ACCOUNT & SKU · GUIDE… (`CFG.SH_*`, `K68_SRC.en`, `NA_ENV.sheet`, `MT_CFG` của crm-thai-dental). Bước `names` (đầu tiên của ⓪):

@@ -1296,6 +1296,7 @@ function route_(p){
   if(/^kr[A-Z]/.test(a)) return krRoute_(a, user, p);                    /* v1.9 */
   if(/^trip(Master|Propose)2$/.test(a)) return tripRoute_(a, user, p);  /* v1.16 */
   switch(a){
+    case 'thdSample': return thdSampleApi_(p);                           /* 30/10/2026 — dữ liệu mẫu thử KPI (TH_DentalSample.gs) */
     case 'rpLog': return rplApi_(p);                                      /* ⭐ 23/10/2026: thống kê gửi báo cáo (MMH_ReportLog.gs) */
     case 'kpiPush': return { ok: true, kpiPush: k68PushQuick_() };       /* v1.9 */
     case 'kpiLate': return kpiLate_(user, p);                            /* v1.12 */
@@ -1398,6 +1399,9 @@ function onOpen(){
     .addSeparator()
     .addItem('⑧ New accounts & SKU: create the sheet + grant Drive / Gmail', 'naSetup')
     .addItem('⑨ Rewrite closed months of C2-03 with the new rule', 'k68FixLockedV10')
+    .addSeparator()
+    .addItem('Sample data for the KPI test: add', 'thdSampleSeed')
+    .addItem('Sample data for the KPI test: remove', 'thdSampleClear')
     .addToUi();
 }
 
