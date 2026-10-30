@@ -4,7 +4,7 @@
  *   · CUSTOMER VISITING  — Type action "Co-visiting with distributor": Yong 6 lượt (KPI C4-01), Man 5 lượt / 5 ngày (KPI C4-03)
  *   · NEW ACCOUNT & SKU  — 1 case Approved của Yong, loại Hospital (KPI C2-01)
  *   · PRODUCT TEST       — 5 bài test của Man: T9 1 Pass + 1 Fail, T10 3 Pass (KPI C11-03 = 50% T9 · 80% lũy kế T10)
- * Gọi:  web app ?action=thdSample&op=seed|clear|status&key=<8 ký tự cuối ID file Sheet>
+ * Gọi:  web app ?action=thdSample&op=seed|clear|status|build&key=<8 ký tự cuối ID file Sheet>  (build = chạy nốt bước ⓪ còn thiếu)
  *       (seed / clear chạy nền bằng trigger 1 lần ⇒ trả lời ngay; xem kết quả bằng op=status)
  *       hoặc trong trình soạn: thdSampleSeed() · thdSampleClear() · Logger thdSampleStatus()
  * Chưa dựng bố cục (menu ⓪) ⇒ seed tự chạy ⓪ trong nền trước rồi mới thêm dữ liệu mẫu.
@@ -21,7 +21,13 @@ function thdSampleApi_(p){
     thdSampleTrigger_(20);
     return { ok: true, queued: op, message: 'Running in the background (~1–5 min). Call op=status to see the result.', build: thdDone_() };
   }
-  return { ok: false, error: 'op = seed | clear | status' };
+  if(op === 'build'){                                                   /* v1.1 — run the remaining menu ⓪ steps (e.g. sync) in the background */
+    props_().deleteProperty('THD_ERR');
+    ScriptApp.getProjectTriggers().forEach(function(t){ if(t.getHandlerFunction() === 'thdBuildCont') ScriptApp.deleteTrigger(t); });
+    ScriptApp.newTrigger('thdBuildCont').timeBased().after(20 * 1000).create();
+    return { ok: true, queued: 'build', message: 'Remaining layout steps run in the background. Call op=status to see the result.', build: thdDone_() };
+  }
+  return { ok: false, error: 'op = seed | clear | status | build' };
 }
 function thdSampleTrigger_(sec){
   ScriptApp.getProjectTriggers().forEach(function(t){ if(t.getHandlerFunction() === 'thdSampleRun') ScriptApp.deleteTrigger(t); });
@@ -49,7 +55,8 @@ function thdSampleStatus(){
   var s = null; try{ s = JSON.parse(props_().getProperty(THS.PROP) || 'null'); }catch(e){}
   var done = thdDone_();
   return { ok: true, layout: THD.STEPS.map(function(x){ return (done[x] ? '✓ ' : '· ') + x; }).join(' '), pending: props_().getProperty(THS.WANT) || '',
-           error: props_().getProperty('THD_ERR') || '', progress: props_().getProperty('THD_PROG') || '', tries: props_().getProperty('THD_TRY') || '', sample: s };
+           error: props_().getProperty('THD_ERR') || '', progress: props_().getProperty('THD_PROG') || '', tries: props_().getProperty('THD_TRY') || '', sample: s,
+           allTask: (function(){ try{ return atSummary_(); }catch(e){ return { error: String(e && e.message || e) }; } })() };
 }
 
 /* ── seed ── */

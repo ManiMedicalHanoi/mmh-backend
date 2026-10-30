@@ -230,3 +230,6 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   **Tên sheet KHÔNG đánh số** (người dùng yêu cầu 30/10/2026): CUSTOMER CODE · CBC · MONTHLY REPORT · CUSTOMER VISITING · PRODUCT PRESENTATION · ADP · TARGET & KPI · MASTER LIST ·
   CODE MAP · WEEKLY MEETING · TENDER TRACK · TENDER PRICE LOG · NEW ACCOUNT & SKU · GUIDE… (`CFG.SH_*`, `K68_SRC.en`, `NA_ENV.sheet`, `MT_CFG` của crm-thai-dental). Bước `names` (đầu tiên của ⓪):
   bỏ số ở sheet đã tạo (vd. menu ⑤ tạo "9. TARGET & KPI"), sheet cũ ⇒ "OLD · <tên>" (ẩn); `THD_NAME` / `thdFmlName_` bỏ số cả trong công thức chép từ file Surgical. KSC `CRM_TAB.thaid = 'TARGET & KPI'`.
+  **v1.1 (30/10/2026)**: bước `sync` (Customer visiting ⇒ ALL TASK, ~2.900 lượt) bị Google dừng ở 6 phút vì file mới không có dòng công thức mẫu ⇒ ghi công thức TỪNG DÒNG.
+  `vsWriteBlock_` nay ghi mỗi cột công thức 1 lần (`atFillCol_`); `atHealFormulas_` (bước sync + `cronTh`) điền công thức cho dòng có việc mà thiếu công thức cột B.
+  `thdSample op=status` trả thêm `allTask` (rows · keys · visitMonths · noFormula); `op=build` chạy nốt bước ⓪ còn thiếu trong nền.
