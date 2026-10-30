@@ -1,5 +1,8 @@
 /*************************************************************************************************
- * MMH CRM — THAILAND DENTAL backend  (v1.0 · 30/10/2026 · for the MMH CRM web app, team "thaid")
+ * MMH CRM — THAILAND DENTAL backend  (v1.1 · 30/10/2026 · for the MMH CRM web app, team "thaid")
+ * v1.1 (30/10/2026) — ALL TASK sync of the visits writes the formulas per COLUMN (one call), not per row: on the new file
+ *        (no healthy formula row to copy) ~2,900 visits went over the 6-minute limit. atHealFormulas_ (step sync + cronTh)
+ *        fills rows left without formulas by a killed run.
  * Built from the Thailand Surgical backend (crm-thai v1.19) — same sheets, same API, same app screens.
  * Dental specifics: team Yong · Man · Sui (Dao = Thailand team leader) · KPI FY68 codes F4-00, C2-01, C2-02, C4-01,
  *   C4-03, C11-02, C11-03, C14-00, C16-00, C17-07 · new KPI rules: co-visits with distributor reps (C4-01),
@@ -1060,17 +1063,51 @@ function vsWriteBlock_(s, at, rows){
   s.getRange(at, 5, rows.length, 8).setValues(vals.map(function(r){ return r.slice(0, 8); }));
   s.getRange(at, 14, rows.length, 2).setValues(vals.map(function(r){ return r.slice(9, 11); }));
   s.getRange(at, 21, rows.length, 2).setValues(rows.map(function(o){ return [o.U || '', o.V || '']; }));
-  /* v1.4 — formulas of the whole block copied at once from a healthy row (never #ERROR!) */
+  /* v1.4 — formulas of the whole block copied at once from a healthy row (never #ERROR!)
+     v1.1 Dental (30/10/2026) — column B read in ONE call; no healthy row (new file) ⇒ the column is written in ONE call
+     (before: 6 formulas + flush per row ⇒ ~2,900 visits went over the 6-minute limit and the run was killed) */
   if(rows.length){
-    var need = false; for(var i = 0; i < rows.length; i++){ var c0 = s.getRange(at + i, 2); if(!c0.getFormula() || fmlBadTxt_(c0.getDisplayValue())){ need = true; break; } }
-    var slow = false;
-    if(need) atFormulas_(at).forEach(function(x){
+    var n = rows.length, F0 = s.getRange(at, 2, n, 1).getFormulas(), D0 = s.getRange(at, 2, n, 1).getDisplayValues(), need = false;
+    for(var i = 0; i < n; i++) if(!F0[i][0] || fmlBadTxt_(D0[i][0])){ need = true; break; }
+    if(need) atFormulas_(at).forEach(function(x, k){
       var col = colNum_(x[0]), src = fmlHealthy_(s, col, at, CFG.AT_DATA);
-      if(src && (src < at || src >= at + rows.length)) s.getRange(src, col).copyTo(s.getRange(at, col, rows.length, 1), SpreadsheetApp.CopyPasteType.PASTE_FORMULA, false);
-      else slow = true;
+      if(src && (src < at || src >= at + n)) s.getRange(src, col).copyTo(s.getRange(at, col, n, 1), SpreadsheetApp.CopyPasteType.PASTE_FORMULA, false);
+      else atFillCol_(s, at, n, k);
     });
-    if(slow) for(var j = 0; j < rows.length; j++) atWriteFormulas_(s, at + j);
   }
+}
+/* v1.1 Dental — formula k of atFormulas_ written for rows at..at+n-1 in one call */
+function atFillCol_(s, at, n, k){
+  var semi = fmlSemi_(s), col = colNum_(atFormulas_(at)[k][0]), out = [];
+  for(var j = 0; j < n; j++) out.push([fmlLoc_(atFormulas_(at + j)[k][1], semi)]);
+  s.getRange(at, col, n, 1).setFormulas(out);
+}
+/* v1.1 Dental — rows of ALL TASK with a task (F or G) but no formula in column B (left by a run that was killed) ⇒ formulas
+   written per block of consecutive rows. Cheap when nothing is missing (2 batch reads). Returns the number of rows fixed. */
+function atHealFormulas_(){
+  var s = sh_(CFG.SH_ALL), last = s.getLastRow(); if(last < CFG.AT_DATA) return 0;
+  var n = last - CFG.AT_DATA + 1, B = s.getRange(CFG.AT_DATA, 2, n, 1).getFormulas(), FG = s.getRange(CFG.AT_DATA, 6, n, 2).getValues();
+  var fixed = 0, runAt = -1, K = atFormulas_(CFG.AT_DATA).length;
+  function flushRun(end){ if(runAt < 0) return; var len = end - runAt; for(var k = 0; k < K; k++) atFillCol_(s, CFG.AT_DATA + runAt, len, k); fixed += len; runAt = -1; }
+  for(var i = 0; i < n; i++){
+    var miss = !B[i][0] && (str_(FG[i][0]) || str_(FG[i][1]));
+    if(miss){ if(runAt < 0) runAt = i; } else flushRun(i);
+  }
+  flushRun(n);
+  if(fixed){ SpreadsheetApp.flush(); _AT = null; }
+  return fixed;
+}
+/* v1.1 Dental — ALL TASK summary for thdSample op=status */
+function atSummary_(){
+  var s = sh_(CFG.SH_ALL), last = s.getLastRow(); if(last < CFG.AT_DATA) return { rows: 0 };
+  var n = last - CFG.AT_DATA + 1, B = s.getRange(CFG.AT_DATA, 2, n, 1).getFormulas(), v = s.getRange(CFG.AT_DATA, 6, n, 16).getValues();
+  var rows = 0, keys = 0, visitKeys = 0, noFml = 0;
+  for(var i = 0; i < n; i++){
+    var F = str_(v[i][0]), G = str_(v[i][1]); if(!F && !G) continue;
+    rows++; if(F){ keys++; if(/^visitk\|/.test(str_(v[i][15]))) visitKeys++; }
+    if(!B[i][0]) noFml++;
+  }
+  return { rows: rows, keys: keys, visitMonths: visitKeys, noFormula: noFml, lastRow: last };
 }
 
 /* ══════════════ REPORT E-MAILS (weekly / monthly, HTML + PDF, English) ══════════════ */
@@ -1485,7 +1522,7 @@ function menuCheck(){
 function onEditTh(e){ try{ var n = e && e.range ? e.range.getSheet().getName() : ''; var k = SHEET_VER[n]; bump_(k ? [k] : null);
   if(n === CFG.SH_WK) vsSync_(false); }catch(x){} }
 function onChangeTh(e){ try{ if(e && e.changeType === 'EDIT') return; bump_(); }catch(x){} }
-function cronTh(){ try{ vsSync_(false); }catch(x){} }
+function cronTh(){ try{ vsSync_(false); }catch(x){} try{ atHealFormulas_(); }catch(x){} }
 
 /* ══════════════ ⭐ v1.1 — WEEKLY MEETING (Họp tuần) · same app module as the Vietnam teams ══════════════
  *  Sheets created automatically on first use (header in ROW 1, managed by the script):

@@ -499,7 +499,7 @@ var THD_STEP = {
     return 'PRODUCT TEST ready · KPI tab rebuilt (' + r.rows + ' rows)';
   },
   /* ⑫ mirror the visits into ALL TASK (long: done in its own run) */
-  sync: function(){ bump_(); var r = vsSync_(false); return r.added + ' month(s) added to ALL TASK'; }
+  sync: function(){ bump_(); var r = vsSync_(false), h = atHealFormulas_(); return r.added + ' month(s) added to ALL TASK' + (h ? ' · formulas filled in ' + h + ' row(s)' : ''); }
 };
 
 /* evidence folder of "New accounts & SKU" — created next to this file the first time (Script Property NA_FOLDER_ID) */
