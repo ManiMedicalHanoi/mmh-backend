@@ -1,5 +1,7 @@
-"""Excel template for the NPP forecast file (same layout as the approved demo, no data).
-The Apps Script fills it: {{...}} placeholders in shared strings, the hidden DỮ LIỆU sheet, and the end row of DS_MA.
+"""Excel template for the NPP forecast file (no data).
+The Apps Script fills it: {{...}} placeholders, the hidden DỮ LIỆU sheet, the end row of DS_MA,
+and the pre-filled codes in column B of DỰ TRÙ (rows P0..).
+Sheets: HƯỚNG DẪN · DỰ TRÙ (list, input) · LỊCH SỬ MÃ (month-by-month history of one code) · DỮ LIỆU (veryHidden)
 Usage: python3 -I build_tpl.py <out.xlsx>
 """
 import sys, os
@@ -8,20 +10,23 @@ from openpyxl import Workbook
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.workbook.defined_name import DefinedName
 from openpyxl.utils import get_column_letter as CL, column_index_from_string as CI
-from openpyxl.styles import Border
+from openpyxl.styles import Border, Side
 from sty import *
 
 OUT = sys.argv[1]
-NHIST = 10            # months in the history panel (the last one is the forecast month T)
+NHIST = 10            # months in the history table (the last one is the forecast month T)
 R0 = 11               # first data row on DỮ LIỆU
 MAXR = 3000           # formula ranges cover R0 .. R0 + MAXR - 1 (catalogue size limit)
-NR = 500              # input rows on DỰ TRÙ
+P0 = 9                # first list row on DỰ TRÙ (header row 8) – Mã.gs CFG.P0
+NR = 1000             # list rows on DỰ TRÙ – Mã.gs CFG.NR
 SIG = 'MMH_DUTRU_NPP_V1'
+LINE = Side(style='thin', color='C9D3E0')
+GRID = Border(left=LINE, right=LINE, top=LINE, bottom=LINE)
 
 wb = Workbook()
 wb.remove(wb.active)
-S_HD, S_P, S_D = [wb.create_sheet(n) for n in ['HƯỚNG DẪN', 'DỰ TRÙ', 'DỮ LIỆU']]
-for ws in (S_HD, S_P):
+S_HD, S_P, S_H, S_D = [wb.create_sheet(n) for n in ['HƯỚNG DẪN', 'DỰ TRÙ', 'LỊCH SỬ MÃ', 'DỮ LIỆU']]
+for ws in (S_HD, S_P, S_H):
     ws.sheet_view.showGridLines = False
     ws.column_dimensions['A'].width = 2.5
 S_P.sheet_properties.tabColor = TAB
@@ -38,6 +43,8 @@ D.sheet_state = 'veryHidden'
 
 # ------------------------------------------------------------------ DỰ TRÙ
 ws = S_P
+LAST = P0 + NR - 1
+rng = lambda c: f'${c}${P0}:${c}${LAST}'
 ws['B1'] = 'DỰ TRÙ THÁNG {{T}} – {{NPP}}'
 ws['B1'].font = f(16, True, '000000'); ws.row_dimensions[1].height = 26
 ws['B2'] = 'Tháng gửi: {{CM}}   |   Dự trù cho tháng {{T}}   |   Hạn gửi MMH: {{HAN}}'
@@ -47,89 +54,33 @@ ws['B3'].font = f(10, False, MUTED)
 ws['B4'] = 'Nếu bảng chưa hiển thị số liệu, vui lòng bấm "Enable Editing" (Cho phép chỉnh sửa) trên thanh thông báo màu vàng.'
 ws['B4'].font = f(10, True, RED)
 
-P0 = 22
-LAST = P0 + NR - 1
-rng = lambda c: f'${c}${P0}:${c}${LAST}'
-
 ws.merge_cells('B5:M5')
 n_in = f'COUNT({rng("L")})'
 n_hi = f'SUMPRODUCT(--(ISNUMBER({rng("L")})),--(ISNUMBER({rng("J")})),--({rng("L")}>{rng("J")}))'
 n_cao = f'SUMPRODUCT(--({rng("K")}="Cao"),--({rng("L")}>0))'
-ws['B5'] = (f'=IF({n_in}=0,"Tình trạng: chưa nhập số dự trù. Chọn mã ở cột B và nhập số lượng ở cột L.",'
+ws['B5'] = (f'=IF({n_in}=0,"Tình trạng: chưa nhập số dự trù. Nhập số lượng ở cột vàng SỐ DỰ TRÙ (cột L).",'
             f'"Tình trạng: đã nhập "&{n_in}&" mã, tổng "&TEXT(SUM({rng("L")}),"#,##0")&". Cao hơn đề xuất: "&{n_hi}&" mã. '
             f'Mã có cảnh báo Cao vẫn dự trù: "&{n_cao}&" mã.")')
 ws['B5'].font = f(12, True, NAVY); ws['B5'].alignment = al('left', 'center', indent=1); ws.row_dimensions[5].height = 26
 cf_fill(ws, 'B5:M5', f'{n_in}=0', bg=ORANGE_BG, color=ORANGE, bold=True)
 cf_fill(ws, 'B5:M5', f'{n_in}>0', bg=GREEN_BG, color=GREEN, bold=True)
 
-# ---- panel: one code (rows 7-18)
-ws['B7'] = 'XEM CHI TIẾT MỘT MÃ'; ws['B7'].font = f(12, True, NAVY)
-ws['B8'] = 'Mã cần xem:'; ws['B8'].font = f(11, True)
-ws.merge_cells('C8:F8')
-c = ws['C8']; c.fill = fill(CREAM); c.font = F_IN; c.border = BORDER; unlock(c)
-for cc in 'DEF':
-    ws[f'{cc}8'].fill = fill(CREAM); ws[f'{cc}8'].border = BORDER
-ws['G8'] = '▾ chọn mã; để trống thì hiển thị mã vừa chọn gần nhất trong danh sách bên dưới.'
-ws['G8'].font = f(9, False, MUTED, True)
-dvp = DataValidation(type='list', formula1='=DS_MA', allow_blank=True)
-dvp.error, dvp.errorTitle, dvp.showErrorMessage = 'Vui lòng chọn mã trong danh sách.', 'Mã hàng', True
-ws.add_data_validation(dvp); dvp.add('C8')
-ws['Q8'] = f'=IF($C$8<>"",$C$8,IFERROR(LOOKUP(2,1/({rng("B")}<>""),{rng("B")}),""))'
-ws['Q9'] = f'=IFERROR(MATCH($Q$8,DS_MA,0),"")'
-X = lambda j: f'IF($Q$9="","",INDEX({DL(j)},$Q$9))'
-ws['B9'] = f'=IF($Q$9="","Chưa chọn mã.",{X(0)}&"   ·   "&{X(3)})'
-ws['B9'].font = f(12, True, BLUE)
-kn = [('B', 'Số lượng đặt TB/tháng', 4, '#,##0'), ('D', 'Dự trù đã gửi {{K0}}–{{LASTP}}', 5, Q_FMT), ('F', 'Đã đặt hàng {{K0}}–{{LASTP}}', 6, Q_FMT),
-      ('H', 'Dự trù chưa đặt hàng đến hết {{LASTP}}', 7, Q_FMT), ('J', 'Dự trù đề xuất {{T}}', 12, '#,##0'), ('L', 'Cảnh báo', 9, '@')]
-for col_, lb, j, fm in kn:
-    c2 = CL(CI(col_) + (0 if col_ == 'L' else 1))
-    ws[f'{col_}10'] = lb; ws[f'{col_}10'].font = f(9, True, BLUE); ws[f'{col_}10'].alignment = al('center', 'center', True)
-    ws[f'{col_}11'] = f'={X(j)}'; ws[f'{col_}11'].font = f(14, True, NAVY); ws[f'{col_}11'].alignment = al('center')
-    ws[f'{col_}11'].number_format = fm
-    for r in (10, 11):
-        for cc in range(CI(col_), CI(c2) + 1):
-            ws.cell(r, cc).fill = fill(LIGHT if r == 10 else PALE)
-        if c2 != col_:
-            ws.merge_cells(f'{col_}{r}:{c2}{r}')
-ws.row_dimensions[10].height = 26; ws.row_dimensions[11].height = 26
-cf_fill(ws, 'L11', 'L11="Cao"', bg=RED_BG, color=RED, bold=True)
-cf_fill(ws, 'L11', 'L11="Theo dõi"', bg=ORANGE_BG, color=ORANGE, bold=True)
-cf_fill(ws, 'L11', 'L11="Ổn"', bg=GREEN_BG, color=GREEN, bold=True)
-ws.merge_cells('B12:M12')
-ws['B12'] = f'={X(13)}'
-ws['B12'].font = f(10, True, INK); ws['B12'].alignment = al('left', 'center', True); ws.row_dimensions[12].height = 30
-ws['B14'] = 'Tháng'
-ws['B15'] = 'Dự trù đã gửi'
-ws['B16'] = 'Đặt hàng (đã đặt / dự kiến)'
-ws['B17'] = 'Dự trù chưa đặt hàng (cộng dồn)'
-for r in range(14, 18):
-    ws[f'B{r}'].font = f(10, True, NAVY if r == 14 else INK)
-    ws[f'B{r}'].fill = fill(LIGHT if r == 14 else 'FFFFFF'); ws[f'B{r}'].border = BORDER_LIGHT
-for k in range(NHIST):
-    colk = CL(3 + k)
-    ws[f'{colk}14'] = '{{HM%d}}' % (k + 1)
-    ws[f'{colk}14'].font = f(9, True, NAVY); ws[f'{colk}14'].alignment = al('center', 'center', True)
-    ws[f'{colk}14'].fill = fill(CREAM if k == NHIST - 1 else LIGHT); ws[f'{colk}14'].border = BORDER_LIGHT
-    for j, r in enumerate((15, 16, 17)):
-        cc = ws[f'{colk}{r}']
-        cc.value = f'={X(15 + 3 * k + j)}'
-        cc.number_format = Q_FMT; cc.alignment = al('center'); cc.font = f(10, r == 17); cc.border = BORDER_LIGHT
-ws.row_dimensions[14].height = 28
-ws['B18'] = 'Kỳ mới bắt đầu từ tháng 09: phần dự trù chưa đặt hàng được tính lại từ 0. Tháng đặt nhiều hơn dự trù không được trừ vào phần chưa đặt của các tháng trước.'
-ws['B18'].font = f(9, False, MUTED, True)
-cf_fill(ws, f'C17:{CL(2 + NHIST)}17', 'N(C17)>0', color=RED, bold=True)
+ws['B6'] = ('Danh sách đã có sẵn các mã NPP đang dự trù hoặc đặt hàng: chỉ cần nhập số ở cột vàng L. '
+            'Thêm mã khác: bấm vào ô vàng trống ở cột B (cuối danh sách) rồi chọn mã ▼. Lịch sử từng tháng của một mã: sheet LỊCH SỬ MÃ.')
+ws['B6'].font = f(10, False, INK); ws.merge_cells('B6:M6'); ws['B6'].alignment = al('left', 'center', True); ws.row_dimensions[6].height = 30
+ws['B7'] = 'Cảnh báo:'; ws['B7'].font = f(10, True, NAVY); ws['B7'].alignment = al('right')
+for colx, (v, bg, fc) in zip('CDEF', [('Cao', RED_BG, RED), ('Theo dõi', ORANGE_BG, ORANGE), ('Ổn', GREEN_BG, GREEN), ('Chưa dự trù', PALE, BLUE)]):
+    c = ws[f'{colx}7']; c.value = v; c.fill = fill(bg); c.font = f(9, True, fc); c.alignment = al('center'); c.border = BORDER_LIGHT
+ws['G7'] = 'Theo tỷ lệ dự trù chưa đặt hàng: Cao ≥ {{THH}} · Theo dõi {{THW}}–{{THH}} · Ổn dưới {{THW}} · Chưa dự trù: có đặt hàng nhưng chưa gửi dự trù.'
+ws['G7'].font = f(9, False, MUTED, True)
 
-# ---- list
-ws['B20'] = 'DANH SÁCH DỰ TRÙ THÁNG {{T}}'; ws['B20'].font = f(12, True, NAVY)
-ws['F20'] = 'Chọn mã ở cột B (bấm vào ô rồi chọn trong danh sách), thông tin của mã hiện ra ngay; sau đó nhập số lượng ở cột L. Mỗi mã một dòng.'
-ws['F20'].font = f(9, False, MUTED, True)
-heads = ['Mã hàng (chọn trong danh sách)', 'Nhóm hàng', 'Số lượng đặt TB/tháng (6 tháng)', 'Dự trù đã gửi {{K0}}–{{LASTP}}',
+heads = ['Mã hàng', 'Nhóm hàng', 'Số lượng đặt TB/tháng (6 tháng)', 'Dự trù đã gửi {{K0}}–{{LASTP}}',
          'Đã đặt hàng {{K0}}–{{LASTP}}', 'Dự trù chưa đặt hàng đến hết {{LASTP}}', 'Dự trù đã gửi cho {{EDITR}}',
          'Dự trù chưa đặt hàng dự kiến đến hết {{TM1}}', 'Dự trù đề xuất {{T}}', 'Cảnh báo', 'SỐ DỰ TRÙ {{T}} (nhập)', 'Thông tin cần lưu ý']
-header_row(ws, 21, 2, heads, 58)
+header_row(ws, 8, 2, heads, 58)
 for cc in ('B', 'L'):
-    ws[f'{cc}21'].fill = fill(CREAM)
-    ws[f'{cc}21'].border = Border(left=thin, right=thin, top=thin, bottom=YB)
+    ws[f'{cc}8'].fill = fill(CREAM)
+    ws[f'{cc}8'].border = Border(left=thin, right=thin, top=thin, bottom=YB)
 for i in range(NR):
     r = P0 + i
     cb = ws[f'B{r}']
@@ -153,8 +104,11 @@ for i in range(NR):
     ws[f'M{r}'].alignment = al('left', 'center', False)
     for colx in 'CDEFGHIJKM':
         ws[f'{colx}{r}'].font = F_
+    for colx in 'BCDEFGHIJKLM':
+        ws[f'{colx}{r}'].border = GRID
 dvb = DataValidation(type='list', formula1='=DS_MA', allow_blank=True)
 dvb.error, dvb.errorTitle, dvb.showErrorMessage = 'Vui lòng chọn mã trong danh sách.', 'Mã hàng', True
+dvb.prompt, dvb.promptTitle, dvb.showInputMessage = 'Bấm mũi tên ▼ để chọn mã.', 'Chọn mã', True
 ws.add_data_validation(dvb); dvb.add(f'B{P0}:B{LAST}')
 dvl = DataValidation(type='whole', operator='greaterThanOrEqual', formula1='0', allow_blank=True)
 dvl.error, dvl.errorTitle, dvl.showErrorMessage = 'Chỉ nhập số nguyên từ 0 trở lên.', 'Số lượng', True
@@ -169,14 +123,79 @@ cf_fill(ws, f'M{P0}:M{LAST}', f'OR(ISNUMBER(SEARCH("cao hơn đề xuất",{M1})
         f'ISNUMBER(SEARCH("không có trong",{M1})),ISNUMBER(SEARCH("Chưa chọn",{M1})))', color=RED, stop=False)
 cf_fill(ws, f'L{P0}:L{LAST}', 'TRUE', bg=CREAM, stop=False)
 cf_fill(ws, f'C{P0}:K{LAST}', f'AND($B{P0}<>"",MOD(ROW(),2)=0)', bg=PALE, stop=False)
-widths(ws, {'B': 38, 'C': 13, 'D': 11, 'E': 11, 'F': 11, 'G': 12, 'H': 12, 'I': 12, 'J': 11, 'K': 14, 'L': 13, 'M': 118, 'N': 4})
+widths(ws, {'B': 40, 'C': 13, 'D': 11, 'E': 11, 'F': 11, 'G': 12, 'H': 12, 'I': 12, 'J': 11, 'K': 13, 'L': 13, 'M': 100, 'N': 4})
 for cc in 'OPQ':
     ws.column_dimensions[cc].hidden = True
 ws.freeze_panes = f'C{P0}'
-ws.auto_filter.ref = f'B21:M{LAST}'
+ws.auto_filter.ref = f'B8:M{LAST}'
 ws.page_setup.orientation = 'landscape'; ws.page_setup.fitToWidth = 1; ws.page_setup.fitToHeight = 0
 ws.sheet_properties.pageSetUpPr.fitToPage = True
+ws.print_title_rows = '8:8'
 ws.sheet_view.zoomScale = 90
+protect(ws)
+
+# ------------------------------------------------------------------ LỊCH SỬ MÃ
+ws = S_H
+ws['B1'] = 'LỊCH SỬ DỰ TRÙ VÀ ĐẶT HÀNG THEO MÃ – {{NPP}}'
+ws['B1'].font = f(16, True, '000000'); ws.row_dimensions[1].height = 26
+ws['B2'] = '{{B3}}'; ws['B2'].font = f(10, False, MUTED)
+ws['B4'] = 'Chọn mã:'; ws['B4'].font = f(11, True)
+ws.merge_cells('C4:F4')
+c = ws['C4']; c.fill = fill(CREAM); c.font = F_IN; c.border = BORDER; unlock(c)
+for cc in 'DEF':
+    ws[f'{cc}4'].fill = fill(CREAM); ws[f'{cc}4'].border = BORDER
+ws['G4'] = '◀ bấm vào ô vàng, chọn mã ▼'
+ws['G4'].font = f(9, False, MUTED, True)
+dvp = DataValidation(type='list', formula1='=DS_MA', allow_blank=True)
+dvp.error, dvp.errorTitle, dvp.showErrorMessage = 'Vui lòng chọn mã trong danh sách.', 'Mã hàng', True
+ws.add_data_validation(dvp); dvp.add('C4')
+ws['Q4'] = '=IFERROR(MATCH($C$4,DS_MA,0),"")'
+ws.column_dimensions['Q'].hidden = True
+X = lambda j: f'IF($Q$4="","",INDEX({DL(j)},$Q$4))'
+ws['B5'] = f'=IF($Q$4="","Chưa chọn mã.",{X(0)}&"   ·   "&{X(3)})'
+ws['B5'].font = f(12, True, BLUE)
+kn = [('B', 'Số lượng đặt TB/tháng', 4, '#,##0'), ('D', 'Dự trù đã gửi {{K0}}–{{LASTP}}', 5, Q_FMT), ('F', 'Đã đặt hàng {{K0}}–{{LASTP}}', 6, Q_FMT),
+      ('H', 'Dự trù chưa đặt hàng đến hết {{LASTP}}', 7, Q_FMT), ('J', 'Dự trù đề xuất {{T}}', 12, '#,##0'), ('L', 'Cảnh báo', 9, '@')]
+for col_, lb, j, fm in kn:
+    c2 = CL(CI(col_) + (0 if col_ == 'L' else 1))
+    ws[f'{col_}7'] = lb; ws[f'{col_}7'].font = f(9, True, BLUE); ws[f'{col_}7'].alignment = al('center', 'center', True)
+    ws[f'{col_}8'] = f'={X(j)}'; ws[f'{col_}8'].font = f(14, True, NAVY); ws[f'{col_}8'].alignment = al('center')
+    ws[f'{col_}8'].number_format = fm
+    for r in (7, 8):
+        for cc in range(CI(col_), CI(c2) + 1):
+            ws.cell(r, cc).fill = fill(LIGHT if r == 7 else PALE)
+        if c2 != col_:
+            ws.merge_cells(f'{col_}{r}:{c2}{r}')
+ws.row_dimensions[7].height = 30; ws.row_dimensions[8].height = 26
+cf_fill(ws, 'L8', 'L8="Cao"', bg=RED_BG, color=RED, bold=True)
+cf_fill(ws, 'L8', 'L8="Theo dõi"', bg=ORANGE_BG, color=ORANGE, bold=True)
+cf_fill(ws, 'L8', 'L8="Ổn"', bg=GREEN_BG, color=GREEN, bold=True)
+ws.merge_cells('B9:L9')
+ws['B9'] = f'={X(13)}'
+ws['B9'].font = f(10, True, INK); ws['B9'].alignment = al('left', 'center', True); ws.row_dimensions[9].height = 32
+ws['B11'] = 'Tháng'
+ws['B12'] = 'Dự trù đã gửi'
+ws['B13'] = 'Đặt hàng (đã đặt / dự kiến)'
+ws['B14'] = 'Dự trù chưa đặt hàng (cộng dồn)'
+for r in range(11, 15):
+    ws[f'B{r}'].font = f(10, True, NAVY if r == 11 else INK)
+    ws[f'B{r}'].fill = fill(LIGHT if r == 11 else 'FFFFFF'); ws[f'B{r}'].border = BORDER_LIGHT
+for k in range(NHIST):
+    colk = CL(3 + k)
+    ws[f'{colk}11'] = '{{HM%d}}' % (k + 1)
+    ws[f'{colk}11'].font = f(9, True, NAVY); ws[f'{colk}11'].alignment = al('center', 'center', True)
+    ws[f'{colk}11'].fill = fill(CREAM if k == NHIST - 1 else LIGHT); ws[f'{colk}11'].border = BORDER_LIGHT
+    for j, r in enumerate((12, 13, 14)):
+        cc = ws[f'{colk}{r}']
+        cc.value = f'={X(15 + 3 * k + j)}'
+        cc.number_format = Q_FMT; cc.alignment = al('center'); cc.font = f(10, r == 14); cc.border = BORDER_LIGHT
+ws.row_dimensions[11].height = 30
+ws['B15'] = 'Kỳ mới bắt đầu từ tháng 09: phần dự trù chưa đặt hàng được tính lại từ 0. Tháng đặt nhiều hơn dự trù không được trừ vào phần chưa đặt của các tháng trước.'
+ws['B15'].font = f(9, False, MUTED, True)
+cf_fill(ws, f'C14:{CL(2 + NHIST)}14', 'N(C14)>0', color=RED, bold=True)
+widths(ws, {'B': 30, **{CL(3 + k): 11 for k in range(NHIST)}})
+ws.page_setup.orientation = 'landscape'; ws.page_setup.fitToWidth = 1; ws.page_setup.fitToHeight = 0
+ws.sheet_properties.pageSetUpPr.fitToPage = True
 protect(ws)
 
 # ------------------------------------------------------------------ HƯỚNG DẪN
@@ -189,11 +208,12 @@ ws['B3'] = 'Nếu bảng chưa hiển thị số liệu, vui lòng bấm "Enable
 ws['B3'].font = f(11, True, RED)
 ws['B5'] = 'CÁC BƯỚC'; ws['B5'].font = f(12, True, NAVY)
 steps = [
-    '1.  Mở sheet DỰ TRÙ. Ở cột B, chọn mã cần dự trù (bấm vào ô rồi chọn trong danh sách). Thông tin của mã hiện ra ngay trên dòng đó.',
-    '2.  Nhập số lượng dự trù tháng {{T}} ở cột SỐ DỰ TRÙ (nền vàng). Mỗi mã một dòng.',
-    '3.  Trước khi nhập, xem cột Cảnh báo và Thông tin cần lưu ý: nếu còn nhiều dự trù chưa đặt hàng, nên giảm hoặc không dự trù thêm.',
-    '4.  Muốn xem lịch sử 10 tháng của một mã: chọn mã ở ô "Mã cần xem" phía trên danh sách (để trống thì hiển thị mã vừa chọn gần nhất).',
-    '5.  Lưu file (giữ định dạng .xlsx) và gửi lại MMH trước hạn.',
+    '1.  Mở sheet DỰ TRÙ. Danh sách đã có sẵn các mã đang dự trù hoặc đặt hàng, kèm dự trù đã gửi, đơn đã đặt, dự trù chưa đặt hàng và đề xuất.',
+    '2.  Xem cột Cảnh báo và Thông tin cần lưu ý: nếu còn nhiều dự trù chưa đặt hàng, nên giảm hoặc không dự trù thêm.',
+    '3.  Nhập số lượng dự trù tháng {{T}} ở cột vàng SỐ DỰ TRÙ. Mã không cần dự trù thì để trống.',
+    '4.  Cần thêm mã khác: bấm vào ô vàng trống ở cột Mã hàng (cuối danh sách), chọn mã ▼, rồi nhập số lượng.',
+    '5.  Xem lịch sử từng tháng của một mã: sheet LỊCH SỬ MÃ.',
+    '6.  Lưu file (giữ định dạng .xlsx) và gửi lại MMH trước hạn.',
 ]
 for i, s_ in enumerate(steps):
     c = ws.cell(6 + i, 2, s_); c.font = f(11); c.alignment = al('left', 'top', True)

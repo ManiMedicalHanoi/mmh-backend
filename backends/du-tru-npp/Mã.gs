@@ -1,6 +1,6 @@
 /**
  * MMH – FILE EXCEL DỰ TRÙ CHO NHÀ PHÂN PHỐI (NPP)
- * Phiên bản 2.1 · 30/10/2026
+ * Phiên bản 2.2 · 30/10/2026
  *
  * File gốc giữ nguyên bố cục, nội dung và công thức. Script chỉ:
  *   1. Xuất file Excel cho từng NPP: danh sách chọn mã, dự trù đã gửi, đơn đã đặt, dự trù chưa đặt hàng, cảnh báo
@@ -15,7 +15,7 @@
  */
 
 const CFG = {
-  VERSION: '2.1 · 30/10/2026',
+  VERSION: '2.2 · 30/10/2026',
   SIG: 'MMH_DUTRU_NPP_V1',
   MENU: 'MMH · File NPP',
   SH: { DT: '1 Dự trù cố định', TT: '2 Đặt hàng thực tế', DM: 'DANH MỤC', CD: 'CÀI ĐẶT', SUM: 'SUM', LOG: 'NHẬT KÝ FILE EXCEL NPP' },
@@ -28,7 +28,11 @@ const CFG = {
   R0: 11,                  // dòng dữ liệu đầu tiên của sheet ẩn
   MAXR: 3000,              // số mã tối đa (công thức trong mẫu tính đến dòng R0 + MAXR - 1)
   NHIST: 10,               // số tháng trong bảng lịch sử (tháng cuối = tháng dự trù)
-  HDR_CODE: 'Mã hàng (chọn trong danh sách)',
+  HDR_CODE: /^Mã hàng( \(chọn trong danh sách\))?$/,
+  LIST_NAME: 'DỰ TRÙ',      // sheet nhập trong mẫu
+  P0: 9,                   // dòng đầu danh sách (mẫu build_tpl.py)
+  NR: 1000,                // số dòng danh sách trong mẫu
+  NBLANK: 60,              // tối thiểu số dòng trống chừa cuối danh sách để NPP thêm mã
   HDR_QTY: /^(SỐ )?DỰ TRÙ .*\(nhập\)/
 };
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -347,7 +351,9 @@ function stats_(it, ms, S, T, lastP, edit, hist, tbm, C) {
   else if (lvl === 'Chưa dự trù') hint = 'Có đặt hàng nhưng chưa gửi dự trù: nên dự trù để MMH chuẩn bị hàng.';
   else if (dx === null) hint = 'Chưa có đặt hàng dự kiến tháng ' + lbl_(T) + ' nên chưa có đề xuất.';
   else hint = 'Có thể dự trù theo đề xuất.';
-  return { code: it.code, name: it.name, group: it.group, tb: Math.round(tb), sdt: sdt, sdh: sdh, thieu: thieu, pct: pct, lvl: lvl,
+  const recent = addM_(lastP, -5);
+  const pre = !!ms && (!!(sdt || sdh || o || dx) || months.some(function (m) { return m >= recent && (get(m, C.dt) || get(m, C.tt)); }));
+  return { pre: pre, code: it.code, name: it.name, group: it.group, tb: Math.round(tb), sdt: sdt, sdh: sdh, thieu: thieu, pct: pct, lvl: lvl,
     sent: sent, o: o, dx: dx, info: info, hint: hint, hist: h };
 }
 
@@ -371,8 +377,8 @@ function apiExportInfo() {
   }
 }
 
-/** Xuất 1 file cho 1 NPP; trả về đường dẫn file trong Drive. */
-function apiExportFile(npp, han) {
+/** Xuất 1 file cho 1 NPP: trả nội dung file (base64) để hộp thoại tải thẳng về máy; saveDrive = lưu thêm 1 bản vào Drive. */
+function apiExportFile(npp, han, saveDrive) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const S = settings_(ss);
@@ -384,13 +390,18 @@ function apiExportFile(npp, han) {
     if (d.items.length > CFG.MAXR) throw new Error('Danh mục có ' + d.items.length + ' mã, vượt giới hạn ' + CFG.MAXR + ' mã của mẫu Excel.');
     const name = fmt_(new Date(), 'yyyyMMdd') + '_MMH_DuTru_' + d.T + '_' + npp.replace(/[^A-Za-z0-9À-ỹ]+/g, '-').replace(/^-+|-+$/g, '') + '.xlsx';
     const blob = buildXlsx_(d, S, ss, han || '', name);
-    const folder = outFolder_(ss, S.cm);
-    const file = folder.createFile(blob);
+    let url = '', folderUrl = '';
+    if (saveDrive) {
+      const folder = outFolder_(ss, S.cm);
+      const file = folder.createFile(blob);
+      url = file.getUrl(); folderUrl = folder.getUrl();
+    }
     const nCao = d.items.filter(function (x) { return x.lvl === 'Cao'; }).length;
     const nDx = d.items.filter(function (x) { return x.dx; }).length;
-    log_(ss, 'Xuất file', npp, d.T, name, file.getUrl(), d.items.length, '', 'Hạn gửi ' + (han || '—') + ' · ' + nDx + ' mã có đề xuất · ' + nCao + ' mã cảnh báo Cao');
-    return { ok: true, npp: npp, name: name, url: file.getUrl(), download: 'https://drive.google.com/uc?export=download&id=' + file.getId(),
-      folder: folder.getName(), folderUrl: folder.getUrl(), T: lbl_(d.T), lastP: lbl_(d.lastP), lastAct: lbl_(d.lastAct), n: d.items.length, nDx: nDx, nCao: nCao };
+    log_(ss, 'Xuất file', npp, d.T, name, url || '(tải về máy)', d.nPre, '',
+      'Hạn gửi ' + (han || '—') + ' · danh sách có sẵn ' + d.nPre + ' mã · ' + nDx + ' mã có đề xuất · ' + nCao + ' mã cảnh báo Cao');
+    return { ok: true, npp: npp, name: name, b64: Utilities.base64Encode(blob.getBytes()), url: url, folderUrl: folderUrl,
+      T: lbl_(d.T), lastP: lbl_(d.lastP), lastAct: lbl_(d.lastAct), n: d.items.length, nPre: d.nPre, nDx: nDx, nCao: nCao };
   } catch (e) {
     return { ok: false, npp: npp, error: msg_(e) };
   }
@@ -433,11 +444,23 @@ function buildXlsx_(d, S, ss, han, name) {
     return xml.replace(/\{\{([A-Z0-9]+)\}\}/g, function (all, k) { return ph.hasOwnProperty(k) ? xesc_(ph[k]) : all; });
   };
 
+  const listPath = sheetPath_(wbXml, map['xl/_rels/workbook.xml.rels'].getDataAsString(), CFG.LIST_NAME);
+  if (!listPath || !map[listPath]) throw new Error('Mẫu Excel thiếu sheet ' + CFG.LIST_NAME + '.');
+  const pre = {};
+  d.items.filter(function (x) { return x.pre; }).slice(0, CFG.NR - CFG.NBLANK).forEach(function (x, i) { pre[CFG.P0 + i] = label_(x); });
+  d.nPre = Object.keys(pre).length;
+  const prefill = function (xml) {
+    return xml.replace(/<c r="B(\d+)"( s="\d+")?(?: t="n")?(?:\/>|><\/c>)/g, function (all, r, st) {
+      return pre[r] ? '<c r="B' + r + '"' + (st || '') + ' t="inlineStr"><is><t xml:space="preserve">' + xesc_(pre[r]) + '</t></is></c>' : all;
+    });
+  };
+
   const out = [];
   files.forEach(function (b) {
     const p = b.getName().replace(/^\//, '');
     let blob = b;
-    if (p === dlPath) blob = Utilities.newBlob(dlSheetXml_(map[p].getDataAsString(), d, S, ss), 'application/xml', p);
+    if (p === listPath) blob = Utilities.newBlob(prefill(fill(b.getDataAsString())), 'application/xml', p);
+    else if (p === dlPath) blob = Utilities.newBlob(dlSheetXml_(map[p].getDataAsString(), d, S, ss), 'application/xml', p);
     else if (p === 'xl/workbook.xml') {
       const end = CFG.R0 + d.items.length - 1;
       blob = Utilities.newBlob(wbXml.replace(/(<definedName name="DS_MA">[^<]*\$D\$\d+:\$D\$)\d+/, '$1' + end), 'application/xml', p);
@@ -636,14 +659,14 @@ function analyze_(ss, src) {
   X.sheets.forEach(function (s) {
     if (inp || s === dl) return;
     Object.keys(s.cells).forEach(function (ref) {
-      if (inp || norm_(s.cells[ref]) !== CFG.HDR_CODE) return;
+      if (inp || !CFG.HDR_CODE.test(norm_(s.cells[ref]))) return;
       const p = splitRef_(ref);
       for (let c = p.c + 1; c <= p.c + 30; c++) {
         if (CFG.HDR_QTY.test(norm_(s.cells[colName_(c) + p.r]))) { inp = s; hr = p.r; cCode = p.c; cQty = c; return; }
       }
     });
   });
-  if (!inp) throw new Error('Không tìm thấy bảng nhập (cột "' + CFG.HDR_CODE + '" và cột "SỐ DỰ TRÙ"). Có thể bố cục file đã bị thay đổi.');
+  if (!inp) throw new Error('Không tìm thấy bảng nhập (cột "Mã hàng" và cột "SỐ DỰ TRÙ"). Có thể bố cục file đã bị thay đổi.');
 
   const seen = {}, merged = {}, order = [];
   let nEmptyQty = 0, nZero = 0;
@@ -672,7 +695,7 @@ function analyze_(ss, src) {
     merged[k] = { it: it, q: q };
     order.push(k);
   }
-  if (nEmptyQty) A.infos.push(nEmptyQty + ' mã đã chọn nhưng chưa nhập số lượng – không nhập.');
+  if (nEmptyQty) A.infos.push(nEmptyQty + ' mã trong danh sách không nhập số lượng – bỏ qua.');
   if (nZero) A.infos.push(nZero + ' mã nhập số lượng 0 – không ghi vào file gốc.');
 
   const note = 'Nhập từ file Excel NPP ' + fmt_(new Date(), 'dd/MM/yyyy HH:mm');
