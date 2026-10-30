@@ -11,6 +11,8 @@
  *
  * Backend KHÔNG có web app (script gắn Sheet chỉ chạy menu / trigger — backends.json không có deploymentId):
  * deploy = đẩy code vào dự án (menu dùng ngay) + lưu 1 phiên bản để quay lại; rollback = trả code của phiên bản trước.
+ * Backend MỚI cần web app ("newWebapp": true, chưa có deploymentId): lần deploy đầu tạo deployment web app (quyền theo mục
+ * "webapp" của appsscript.json) rồi ghi deploymentId + url vào backends.json (workflow Deploy tự commit). Từ đó như mọi backend.
  *
  * Chìa khoá: biến môi trường CLASPRC_JSON (nội dung ~/.clasprc.json của clasp) hoặc file ~/.clasprc.json.
  * Cấu hình: backends.json — mỗi backend: name, deploymentId, scriptId, url.
@@ -431,6 +433,7 @@ async function deployOne(key, before, description, auto = false) {
   const dep = menu ? {} : await getDeployment(b.scriptId, b.deploymentId);
   const prevVer = dep.deploymentConfig?.versionNumber;
 
+  if (menu && b.newWebapp && !/^[A-Z_]+\/[A-Z_]+$/.test(webapp(local))) stop(`${b.name}: "newWebapp" nhưng appsscript.json chưa có mục "webapp" (executeAs / access).`);
   const live = liveWebapp(dep) || webapp(remote);
   if (!menu && webapp(local) !== live) stop(`${b.name}: quyền web app trong appsscript.json (${webapp(local)}) khác quyền URL đang chạy (${live}) — dừng để không đổi quyền truy cập. Sửa mục "webapp" trong appsscript.json cho khớp ${live} rồi gộp lại.`);
 
@@ -468,6 +471,15 @@ async function deployOne(key, before, description, auto = false) {
     if (!diff(live, local).length) { say(`- ➖ ${b.name}: không có gì mới (đang chạy phiên bản ${prevVer}).`); return; }
   }
 
+  if (menu && b.newWebapp) {
+    const v = await api('POST', `${API}/projects/${b.scriptId}/versions`, { description: (description || '').slice(0, 100) });
+    const d = await api('POST', `${API}/projects/${b.scriptId}/deployments`, { versionNumber: v.versionNumber, manifestFileName: 'appsscript', description: ('Web app · ' + (description || '')).slice(0, 100) });
+    const ep = (d.entryPoints || []).find(e => e.entryPointType === 'WEB_APP');
+    const cfg2 = loadCfg(); cfg2[key].deploymentId = d.deploymentId; if (ep && ep.webApp && ep.webApp.url) cfg2[key].url = ep.webApp.url; delete cfg2[key].newWebapp; saveCfg(cfg2);
+    say(`- ✅ ${b.name}: đã đẩy code · phiên bản **${v.versionNumber}** · **tạo web app lần đầu**: \`${d.deploymentId}\`${ep && ep.webApp ? ' · URL ' + ep.webApp.url : ''} (đã ghi vào backends.json).`);
+    say(`  ⚠️ Chủ script mở trình soạn Apps Script ▸ chạy 1 hàm bất kỳ ▸ cấp quyền — trước khi cấp quyền, URL trả trang lỗi.`);
+    return;
+  }
   if (menu) {
     const v = await api('POST', `${API}/projects/${b.scriptId}/versions`, { description: (description || '').slice(0, 100) });
     say(`- ✅ ${b.name}: đã cập nhật code (menu trong Sheet dùng ngay, mở lại file để thấy menu mới) · lưu phiên bản **${v.versionNumber}**`);

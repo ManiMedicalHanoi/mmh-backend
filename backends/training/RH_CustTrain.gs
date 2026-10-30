@@ -30,7 +30,7 @@ var TE = {
   COACH   : 'Coaching',
   REVIEW  : 'Review',
   COLS    : ['T&E Team', 'T&E Product', 'T&E Place', 'T&E Target', 'T&E Actual', 'T&E Review', 'T&E Audience (JSON)'],
-  TEAMS   : ['dental', 'surgical', 'eyeless', 'thai'],
+  TEAMS   : ['dental', 'surgical', 'eyeless', 'thai', 'thaid'],   // 30/10/2026: thaid = CRM Thailand Dental (Yong · Man · Sui)
   /* 5 dòng mẫu của review (tiếng Việt | tiếng Anh), so khớp không dấu */
   LINES   : [
     ['-Số lượng tham dự thực tế:', '-Actual attendees:',  ['so luong tham du thuc te', 'actual attendees']],
@@ -240,7 +240,7 @@ function hubTeSave_(p, w) {
   if (typeof d === 'string') { try { d = JSON.parse(d); } catch (e) { return {ok:false, error:'Dữ liệu buổi đào tạo không hợp lệ (JSON).'}; } }
   d = d || {};
   var team = hubNorm(d.team || p.team).toLowerCase();
-  if (TE.TEAMS.indexOf(team) < 0) return {ok:false, error:'Thiếu / sai nhóm (team): ' + (team || '(trống)') + '.'};
+  if (TE.TEAMS.indexOf(team) < 0) return {ok:false, error:'Thiếu / sai nhóm (team): ' + (team || '(trống)') + '. / Missing or wrong team.'};
   var pic = hubNorm(d.pic) || w.pic;
   if (tmOn_() && !/^TEST/.test(pic)) pic = 'TEST';
   if (!w.all && !w.lead && !tmOn_() && hubKeyV(pic) !== hubKeyV(w.pic)) return {ok:false, code:'FORBIDDEN', error:'Bạn chỉ được ghi buổi đào tạo khách hàng của chính mình.'};
@@ -262,8 +262,10 @@ function hubTeSave_(p, w) {
   }
   var product = hubNorm(d.product).substring(0, 300), place = hubNorm(d.place).substring(0, 300);
   var names = aud.map(function(x){ return x.name.replace(/[;,|\n]+/g, ' '); }).filter(Boolean);
-  var audText = names.length ? ('Khách hàng: ' + names.join(' · ')).substring(0, 40000) : 'Khách hàng';
-  var purpose = 'Đào tạo khách hàng (T&E' + (team ? ' · ' + team : '') + ')' + (product ? ' · Sản phẩm: ' + product : '') + (place ? ' · Địa điểm: ' + place : '');
+  var en = /^thai/.test(team);                                      // 30/10/2026 — nhóm Thái (Surgical + Dental): ghi tiếng Anh
+  var audText = names.length ? ((en ? 'Customers: ' : 'Khách hàng: ') + names.join(' · ')).substring(0, 40000) : (en ? 'Customers' : 'Khách hàng');
+  var purpose = en ? 'Customer training (T&E · ' + (team === 'thaid' ? 'Thailand Dental' : 'Thailand Surgical') + ')' + (product ? ' · Product: ' + product : '') + (place ? ' · Place: ' + place : '')
+                   : 'Đào tạo khách hàng (T&E' + (team ? ' · ' + team : '') + ')' + (product ? ' · Sản phẩm: ' + product : '') + (place ? ' · Địa điểm: ' + place : '');
 
   var res = hubWithLock(function(){
     var sh = hubReportSheet(), C = HUB.COL, sid = hubNorm(d.sid || p.sid), row, isNew = false, existing = null;

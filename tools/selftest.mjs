@@ -67,6 +67,8 @@ const server = http.createServer(async (req, res) => {
   if (rest === '/content' && req.method === 'PUT') { p.head = JSON.parse(body).files; return json(200, {}); }
   if (rest === '/versions' && req.method === 'POST') { const n = Math.max(...Object.keys(p.versions).map(Number)) + 1; p.versions[n] = clone(p.head); return json(200, { versionNumber: n }); }
   if (rest === '/versions') return json(200, { versions: Object.keys(p.versions).map(n => ({ versionNumber: +n })) });
+  if (rest === '/deployments' && req.method === 'POST') { const c = JSON.parse(body), d = 'DN' + (Object.keys(p.deps).length + 1); if (!p.versions[c.versionNumber]) return json(400, { error: { message: 'bad ver' } }); p.deps[d] = c.versionNumber;
+    const i = depInfo(p, d); i.entryPoints[0].webApp.url = `${BASE}/exec/${d}`; return json(200, i); }
   if (rest === '/deployments') return json(200, { deployments: Object.keys(p.deps).map(d => depInfo(p, d)) });
   if ((m = rest.match(/^\/deployments\/(\w+)$/))) {
     if (!(m[1] in p.deps)) return json(404, { error: { message: 'nf' } });
@@ -250,6 +252,29 @@ try {
   r = await run('status');
   check('chỉ menu Sheet: status', /Dự trù NPP \(`menu`\) \| `S3…` \| HEAD \(phiên bản lưu gần nhất: 3\)/.test(r.out) && /code trong dự án khác repo/.test(r.out), r.out);
   { const c3 = cfg(); delete c3.menu; fs.writeFileSync(path.join(dir, 'backends.json'), JSON.stringify(c3, null, 2)); }
+  /* backend MỚI cần web app (newWebapp): lần deploy đầu tạo deployment + ghi deploymentId / url vào backends.json */
+  P.S4 = { name: 'CRM mới (gắn Sheet, cần web app)', drive: false, head: [
+    { name: 'appsscript', type: 'JSON', source: JSON.stringify({ timeZone: 'Asia/Bangkok', runtimeVersion: 'V8' }) },
+    { name: 'Code', type: 'SERVER_JS', source: 'function cu(){}\n' } ], versions: {}, deps: {} };
+  P.S4.versions[1] = clone(P.S4.head);
+  { const c4 = cfg(); c4.newb = { name: 'CRM mới', scriptId: 'S4', sheetId: 'SHEET_S4', newWebapp: true }; fs.writeFileSync(path.join(dir, 'backends.json'), JSON.stringify(c4, null, 2)); }
+  r = await run('pull', 'newb');
+  check('web app mới: kéo code gốc', r.code === 0 && fs.existsSync(path.join(dir, 'backends/newb/Code.gs')), r.out);
+  before = sha; sha = commit('kéo về newb');
+  wr('newb/Code.gs', 'function doGet(){ return 1; }\n');
+  before = sha; sha = commit('newb: code mới (chưa có webapp trong manifest)');
+  r = await run('deploy-changed', before, sha);
+  check('web app mới: thiếu mục webapp ⇒ dừng', r.code === 1 && /chưa có mục "webapp"/.test(r.out) && !Object.keys(P.S4.deps).length, r.out);
+  wr('newb/appsscript.json', MANIFEST);
+  before = sha; sha = commit('newb: thêm webapp');
+  r = await run('deploy-changed', before, sha);
+  { const c5 = cfg(); check('web app mới: tạo deployment + ghi backends.json', r.code === 0 && /tạo web app lần đầu/.test(r.out) && c5.newb.deploymentId === 'DN1' && /\/exec\/DN1$/.test(c5.newb.url) && !('newWebapp' in c5.newb) && /return 1/.test(P.S4.head[1].source), r.out + JSON.stringify(c5.newb)); }
+  before = sha; sha = commit('ghi deployment newb');
+  wr('newb/Code.gs', 'function doGet(){ return 2; }\n');
+  before = sha; sha = commit('newb: sửa lần 2');
+  r = await run('deploy-changed', before, sha);
+  check('web app mới: lần sau cập nhật đúng deployment vừa tạo', r.code === 0 && P.S4.deps.DN1 === 3 && Object.keys(P.S4.deps).length === 1, r.out);
+  { const c6 = cfg(); delete c6.newb; fs.writeFileSync(path.join(dir, 'backends.json'), JSON.stringify(c6, null, 2)); }
 
   r = await run('status');
   check('status: bảng tình trạng', r.code === 0 && /\| MKT \(`mkt`\) \| `S1…` \| 7 · USER_DEPLOYING\/ANYONE_ANONYMOUS \| 7 \| OK \|/.test(r.out), r.out);
