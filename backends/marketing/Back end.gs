@@ -223,6 +223,7 @@ function dispatch(action, user, p){
                             out = { ok:true, pong:true, pic:user.pic, source:SOURCE }; try{ if(typeof mmhMailInfo_==='function') out.mail=mmhMailInfo_(String(p.mailProbe||'')==='1'); }catch(_e){} break;
       case 'mktAuto':       out = (typeof mktaApi_==='function') ? mktaApi_(user, p) : { ok:false, error:'Thiếu MKT_SheetAuto.gs' }; break;   /* ⭐ 13/10/2026: tự động hoá 2 file MKT */
       case 'eventSync':     out = (typeof evsApiSync==='function') ? evsApiSync(user, p) : { ok:false, error:'Thiếu Event_Sync.gs' }; break;   /* ⭐ 13/10/2026: sự kiện MKT ⇒ key task */
+      case 'epSync':        out = (typeof epApi_==='function') ? epApi_(user, p) : { ok:false, error:'Thiếu MKT_EventPlan.gs' }; break;   /* ⭐ 30/10/2026: file Kế hoạch & tiến độ sự kiện */
       case 'evList':        out = (typeof evsApiList==='function') ? evsApiList(user, p) : { ok:false, error:'Thiếu Event_Sync.gs v2.0' }; break;   /* ⭐ 15/10/2026: gợi ý tên key sự kiện */
       case 'rpLog':         out = (typeof rplApi_==='function') ? rplApi_(p) : { ok:false, error:'Thiếu MMH_ReportLog.gs' }; break;   /* ⭐ 23/10/2026: thống kê gửi báo cáo */
       case 'version':       out = dataVersion(); break;   /* ⭐ v5.11: dấu vân tay dữ liệu */
