@@ -204,7 +204,7 @@ var KSC = {
   CRM_DEFAULT : { dental: '13aLqhO4H7he4LeHWNCdwNRhGXcIzieuNtFcA0BJJJj0', surgical: '16ke8ZRvmbG6TUte-oDLFSGzKbW9_PA98EJnLo5LoauM',
                   eyeless: '1FxMj1uWZBi6yimnAlPCOG0dh2OF0dFfWIQntFXVduZA', thai: '1rX8BDcbFGOjpXFmPJeKTkllE4LH7q9A8zz22R7jDA0E',
                   thaid: '1uZ8GtOFgXRg-kPQ_xMGW04tULazP5DIf1_Nser01Rb0' },   // 30/10/2026 — CRM Thailand Dental (Yong · Man · Sui)
-  CRM_TAB     : { dental: '9. TARGET & KPI', surgical: '9. TARGET & KPI', eyeless: '9. TARGET & KPI', thai: '9. TARGET & KPI', thaid: '9. TARGET & KPI' },
+  CRM_TAB     : { dental: '9. TARGET & KPI', surgical: '9. TARGET & KPI', eyeless: '9. TARGET & KPI', thai: '9. TARGET & KPI', thaid: 'TARGET & KPI' },   // Dental Thái: tên sheet không đánh số
   CRM_TAB_OLD : ['9. MỤC TIÊU & KPI'],                              // tên tab KPI trước CRM v9.5
   FULL_EVERY  : 15,          // phút: đọc lại toàn bộ
   EDIT_WAIT_S : 30,          // giây: lần sửa mới chờ tối đa bấy nhiêu nếu đang có lượt khác chạy (không bỏ lần sửa)
