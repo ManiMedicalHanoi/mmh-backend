@@ -207,3 +207,5 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   dựng từ mẫu `Mau_Excel.gs` — base64, dựng bằng `mau/build_tpl.py` + `mau/mk_mau.py`, không sửa tay; số liệu đọc sheet SUM, cùng cách tính file gốc; lưu Drive "MMH – File NPP/Tháng yyyy-mm")
   và **Nhập file Excel NPP gửi lại** (nhận diện bằng ký hiệu `MMH_DUTRU_NPP_V1` trong sheet ẩn + tiêu đề cột, không phụ thuộc tên sheet; ghi cột A–G sheet "1 Dự trù cố định",
   thay dòng NPP + tháng dự trù). Nhật ký: sheet "NHẬT KÝ FILE EXCEL NPP". Bố cục / công thức các sheet của file gốc KHÔNG được sửa (người dùng yêu cầu).
+  v2.1 (30/10/2026, người dùng yêu cầu): file NPP dùng chữ "dự trù" (bỏ "cố định"), "chưa lấy" ⇒ "dự trù chưa đặt hàng"; ghi rõ đơn đã đặt đến tháng nào (sheet 2) / dự trù đã gửi đến tháng nào;
+  hộp thoại xuất báo NPP chưa có đơn tháng hiện tại (nên cập nhật sheet 2 trước khi xuất). Bối cảnh: hằng tháng NPP gửi dự trù cho tháng +3 và đặt hàng nhiều lần trong tháng.

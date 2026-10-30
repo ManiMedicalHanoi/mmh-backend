@@ -8,7 +8,7 @@
   h3 { margin: 0 0 6px; font-size: 15px; color: #003047; }
   p { margin: 4px 0 10px; line-height: 1.45; }
   .muted { color: #666; }
-  .ok { color: #2e7d32; } .err { color: #c62828; }
+  .ok { color: #2e7d32; } .err { color: #c62828; } .warn { color: #b45309; }
   .box { border: 1px solid #d9d9d9; border-radius: 4px; padding: 10px 12px; margin-top: 10px; }
   label.npp { display: inline-block; min-width: 150px; margin: 3px 12px 3px 0; }
   input[type=text] { padding: 5px 6px; border: 1px solid #bbb; border-radius: 3px; width: 110px; }
@@ -29,6 +29,7 @@
   <div class="box">
     <b>Nhà phân phối</b> <a href="#" onclick="all_(true);return false">chọn tất cả</a> · <a href="#" onclick="all_(false);return false">bỏ chọn</a>
     <div id="npps" style="margin-top:6px"></div>
+    <p id="orders" style="margin-top:10px"></p>
     <p style="margin-top:10px">Hạn gửi MMH (ngày/tháng/năm): <input type="text" id="han"></p>
     <p class="muted">Mỗi NPP một file Excel, lưu trong Drive (thư mục "MMH – File NPP" cạnh file gốc). Tải file về rồi gửi cho NPP.
       Số liệu lấy từ sheet SUM tại thời điểm xuất.</p>
@@ -41,7 +42,12 @@
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   google.script.run.withSuccessHandler(function (r) {
     if (!r.ok) { document.getElementById('info').innerHTML = '<span class="err">' + esc(r.error) + '</span>'; return; }
-    document.getElementById('info').innerHTML = 'Tháng hiện tại: <b>' + esc(r.cm) + '</b>. File dùng để NPP nhập <b>dự trù cố định tháng ' + esc(r.T) + '</b>.';
+    document.getElementById('info').innerHTML = 'Tháng hiện tại: <b>' + esc(r.cm) + '</b>. File dùng để NPP gửi <b>dự trù tháng ' + esc(r.T) + '</b>; trong file có dự trù NPP đã gửi và đơn hàng đã đặt từ đầu kỳ.';
+    var old = r.orders.filter(function (o) { return o.old; });
+    document.getElementById('orders').innerHTML = '<b>Đơn hàng đã đặt (sheet 2) hiện có đến:</b> ' + r.orders.map(function (o) {
+      return esc(o.npp) + ' <span class="' + (o.old ? 'warn' : 'ok') + '">' + (o.last ? 'hết ' + esc(o.last) : 'chưa có đơn') + '</span>';
+    }).join(' · ') + (old.length ? '<br><span class="warn">Chưa có đơn tháng ' + esc(r.cm) + ' của ' + old.map(function (o) { return esc(o.npp); }).join(', ') +
+      '. Nên cập nhật sheet "2 Đặt hàng thực tế" trước khi xuất để NPP thấy đúng số đã đặt; nếu chưa cập nhật, tháng chưa có đơn sẽ tạm tính theo đặt hàng dự kiến.</span>' : '');
     document.getElementById('npps').innerHTML = r.npps.map(function (n) {
       return '<label class="npp"><input type="checkbox" value="' + esc(n) + '" checked> ' + esc(n) + '</label>';
     }).join('');
@@ -73,7 +79,7 @@
         tr.innerHTML = '<td><b>' + esc(npp) + '</b></td><td>' + esc(r.name) + '<br><a href="' + esc(r.download) + '" target="_blank">Tải về</a> · ' +
           '<a href="' + esc(r.url) + '" target="_blank">Mở trong Drive</a> · <a href="' + esc(r.folderUrl) + '" target="_blank">Thư mục</a></td>' +
           '<td class="ok">Đã tạo. Danh sách ' + r.n + ' mã; ' + r.nDx + ' mã có dự trù đề xuất; ' + r.nCao + ' mã cảnh báo Cao.<br>' +
-          '<span class="muted">Số liệu đến hết ' + esc(r.lastP) + ', dự trù tháng ' + esc(r.T) + '.</span></td>';
+          '<span class="muted">Đơn đã đặt đến hết ' + esc(r.lastAct) + ', dự trù tháng ' + esc(r.T) + '.</span></td>';
         next();
       }).withFailureHandler(function (e) {
         tr.innerHTML = '<td><b>' + esc(npp) + '</b></td><td colspan="2" class="err">' + esc(e.message || e) + '</td>';
