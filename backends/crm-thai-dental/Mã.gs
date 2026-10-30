@@ -1030,9 +1030,17 @@ function vsRebuild_(wait){
   try{
     var s = sh_(CFG.SH_ALL), last = s.getLastRow(), del = 0;
     if(last >= CFG.AT_DATA){
-      var U = s.getRange(CFG.AT_DATA, 21, last - CFG.AT_DATA + 1, 1).getValues(), end = -1;
-      for(var i = U.length - 1; i >= -1; i--){                            /* bottom-up runs of synced rows */
-        var hit = i >= 0 && /^visitk?\|/.test(str_(U[i][0]));
+      var nR = last - CFG.AT_DATA + 1, U = s.getRange(CFG.AT_DATA, 21, nR, 1).getValues(), FG = s.getRange(CFG.AT_DATA, 6, nR, 2).getValues(), end = -1;
+      /* also orphan sub rows (no U mark) under a synced key or with no key above: when 2 syncs ran together, column U and the
+         task text of a row could land on different rows. Sub rows under a key typed by a person are kept. */
+      var kill = [], cur = '';
+      for(var j = 0; j < nR; j++){
+        var u = str_(U[j][0]), F = str_(FG[j][0]), G = str_(FG[j][1]), syn = /^visitk?\|/.test(u);
+        if(F) cur = syn ? 'sync' : 'manual';
+        kill.push(syn || (!F && !u && G && cur !== 'manual'));
+      }
+      for(var i = nR - 1; i >= -1; i--){                                  /* bottom-up runs of rows to delete */
+        var hit = i >= 0 && kill[i];
         if(hit){ if(end < 0) end = i; }
         else if(end >= 0){ s.deleteRows(CFG.AT_DATA + i + 1, end - i); del += end - i; end = -1; }
       }
