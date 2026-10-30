@@ -240,5 +240,5 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   `vsWriteBlock_` nay ghi mỗi cột công thức 1 lần (`atFillCol_`); `atHealFormulas_` (bước sync + `cronTh`) điền công thức cho dòng có việc mà thiếu công thức cột B.
   `thdSample op=status` trả thêm `allTask` (rows · keys · visitMonths · noFormula); `op=build` chạy nốt bước ⓪ còn thiếu trong nền.
   ⚠️ 2 lượt `vsSync_` chạy cùng lúc (cronTh + onEdit / saveWeekly / bước sync) ⇒ ALL TASK nhân đôi dòng (2.882 → 4.768). Nay `vsSync_` giữ **DocumentLock**
-  (app ghi dùng ScriptLock ⇒ không phải chờ), bận ⇒ bỏ qua; `vsRebuild_` xoá mọi dòng cột U `visit|` / `visitk|` rồi ghi lại (dòng tay giữ nguyên) — bước sync chạy 1 lần
+  (app ghi dùng ScriptLock ⇒ không phải chờ), bận ⇒ bỏ qua; `vsRebuild_` xoá mọi dòng cột U `visit|` / `visitk|` + dòng con KHÔNG có dấu U dưới key đồng bộ / không có key cha (U lệch dòng khi chạy chồng) rồi ghi lại (key tay + dòng con giữ nguyên) — bước sync chạy 1 lần
   (Script Property `THD_VS_CLEAN`), `op=resync` để chạy lại.
