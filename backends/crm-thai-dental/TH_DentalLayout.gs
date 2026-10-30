@@ -88,6 +88,7 @@ function thdRun_(ui){
       '\n\nOld sheets are hidden at the end of the file (nothing was deleted).');
     return { ok: true, log: log };
   }catch(e){
+    try{ P.setProperty('THD_ERR', Utilities.formatDate(new Date(), tz_(), 'dd/MM HH:mm') + ' · ' + String(e && e.message || e).slice(0, 400)); }catch(x){}
     thdSay_(ui, 'Stopped at a step: ' + (e && e.message || e) + '\n\nDone so far:\n' + log.join('\n') + '\n\nRun menu ⓪ again to retry the remaining steps.');
     throw e;
   }finally{ try{ P.deleteProperty('THD_RUN'); }catch(e){} }
@@ -143,9 +144,18 @@ function thdWrite_(k, list){
   if(!n) return 0;
   if(s.getMaxRows() < first + n + 50) s.insertRowsAfter(s.getMaxRows(), first + n + 50 - s.getMaxRows());
   var vals = list.map(function(o){ return d.f.map(function(f){ return d.formula.indexOf(f) >= 0 ? '' : (o[f] == null ? '' : o[f]); }); });
+  thdDvRelax_(s, first, n + 50, d.w);   /* old Dental values may not be in the dropdown lists ⇒ warn, never reject the write */
   s.getRange(first, 2, n, d.w).setValues(vals);
   Object.keys(fml).forEach(function(c){ s.getRange(first, +c, n, 1).setFormulaR1C1(thdFmlName_(fml[c])); });
   return n;
+}
+/* dropdowns of a CRM tab: same rules, but "show a warning" instead of "reject the input" (columns B…) */
+function thdDvRelax_(s, first, n, w){
+  var dv = s.getRange(first, 2, 1, w).getDataValidations()[0];
+  dv.forEach(function(rule, j){
+    if(!rule) return;
+    try{ s.getRange(first, j + 2, Math.max(1, s.getMaxRows() - first + 1), 1).setDataValidation(rule.copy().setAllowInvalid(true).build()); }catch(e){}
+  });
 }
 /* formulas (R1C1) of the first data row of each copied template sheet — filled during step "copy" */
 var THD_FML = {};

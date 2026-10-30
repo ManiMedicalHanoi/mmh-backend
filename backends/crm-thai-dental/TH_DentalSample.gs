@@ -17,7 +17,7 @@ function thdSampleApi_(p){
   var op = str_(p.op) || 'status';
   if(op === 'status') return thdSampleStatus();
   if(op === 'seed' || op === 'clear'){
-    props_().setProperty(THS.WANT, op);
+    props_().setProperty(THS.WANT, op); props_().deleteProperty('THD_TRY'); props_().deleteProperty('THD_ERR');
     thdSampleTrigger_(20);
     return { ok: true, queued: op, message: 'Running in the background (~1–5 min). Call op=status to see the result.', build: thdDone_() };
   }
@@ -34,7 +34,10 @@ function thdSampleRun(){
   var done = thdDone_(), left = THD.STEPS.filter(function(s){ return !done[s]; });
   if(left.length){
     var busy = +(props_().getProperty('THD_RUN') || 0);
-    if(!(busy && Date.now() - busy < 7 * 60 * 1000)) thdRun_(false);   /* builds as many steps as fit; schedules thdBuildCont itself */
+    if(!(busy && Date.now() - busy < 7 * 60 * 1000)){
+      try{ thdRun_(false); }                                             /* builds as many steps as fit; schedules thdBuildCont itself */
+      catch(e){ var k = +(props_().getProperty('THD_TRY') || 0) + 1; props_().setProperty('THD_TRY', String(k)); if(k < 3) thdSampleTrigger_(60); return; }
+    }
     done = thdDone_(); left = THD.STEPS.filter(function(s){ return !done[s]; });
     if(left.length){ thdSampleTrigger_(120); return; }                  /* come back when the layout is ready */
   }
@@ -45,7 +48,8 @@ function thdSampleRun(){
 function thdSampleStatus(){
   var s = null; try{ s = JSON.parse(props_().getProperty(THS.PROP) || 'null'); }catch(e){}
   var done = thdDone_();
-  return { ok: true, layout: THD.STEPS.map(function(x){ return (done[x] ? '✓ ' : '· ') + x; }).join(' '), pending: props_().getProperty(THS.WANT) || '', sample: s };
+  return { ok: true, layout: THD.STEPS.map(function(x){ return (done[x] ? '✓ ' : '· ') + x; }).join(' '), pending: props_().getProperty(THS.WANT) || '',
+           error: props_().getProperty('THD_ERR') || '', tries: props_().getProperty('THD_TRY') || '', sample: s };
 }
 
 /* ── seed ── */
