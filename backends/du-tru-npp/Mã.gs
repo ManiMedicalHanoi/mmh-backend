@@ -1,12 +1,12 @@
 /**
  * MMH – FILE EXCEL DỰ TRÙ CHO NHÀ PHÂN PHỐI (NPP)
- * Phiên bản 2.0 · 29/10/2026
+ * Phiên bản 2.1 · 30/10/2026
  *
  * File gốc giữ nguyên bố cục, nội dung và công thức. Script chỉ:
- *   1. Xuất file Excel cho từng NPP: danh sách chọn mã, lịch sử dự trù, hàng chưa lấy, cảnh báo
+ *   1. Xuất file Excel cho từng NPP: danh sách chọn mã, dự trù đã gửi, đơn đã đặt, dự trù chưa đặt hàng, cảnh báo
  *      (số liệu đọc từ sheet SUM, cùng cách tính với file gốc). File lưu trong Drive, thư mục
  *      "MMH – File NPP / Tháng yyyy-mm" cạnh file gốc.
- *   2. Nhập file Excel NPP gửi lại: kiểm tra rồi ghi dự trù cố định tháng dự trù vào cột A–G của
+ *   2. Nhập file Excel NPP gửi lại: kiểm tra rồi ghi dự trù của tháng dự trù vào cột A–G của
  *      sheet "1 Dự trù cố định" (thay các dòng cũ của NPP đó trong tháng đó).
  *   3. Ghi nhật ký vào sheet "NHẬT KÝ FILE EXCEL NPP" (tạo thêm ở cuối file gốc).
  *
@@ -15,10 +15,10 @@
  */
 
 const CFG = {
-  VERSION: '2.0 · 29/10/2026',
+  VERSION: '2.1 · 30/10/2026',
   SIG: 'MMH_DUTRU_NPP_V1',
   MENU: 'MMH · File NPP',
-  SH: { DT: '1 Dự trù cố định', DM: 'DANH MỤC', CD: 'CÀI ĐẶT', SUM: 'SUM', LOG: 'NHẬT KÝ FILE EXCEL NPP' },
+  SH: { DT: '1 Dự trù cố định', TT: '2 Đặt hàng thực tế', DM: 'DANH MỤC', CD: 'CÀI ĐẶT', SUM: 'SUM', LOG: 'NHẬT KÝ FILE EXCEL NPP' },
   NCOL: 7,                 // dữ liệu nhập ở cột A–G
   CD_NPP: 'A2:A9',         // danh sách NPP
   SUM_MONTH: 'B2',         // tháng hiện tại
@@ -29,7 +29,7 @@ const CFG = {
   MAXR: 3000,              // số mã tối đa (công thức trong mẫu tính đến dòng R0 + MAXR - 1)
   NHIST: 10,               // số tháng trong bảng lịch sử (tháng cuối = tháng dự trù)
   HDR_CODE: 'Mã hàng (chọn trong danh sách)',
-  HDR_QTY: /^SỐ DỰ TRÙ/
+  HDR_QTY: /^(SỐ )?DỰ TRÙ .*\(nhập\)/
 };
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 const LOG_HEAD = ['Thời điểm', 'Người thực hiện', 'Việc', 'NPP', 'Tháng dự trù', 'Tên file', 'Đường dẫn', 'Số mã', 'Tổng số lượng', 'Ghi chú'];
@@ -328,12 +328,12 @@ function stats_(it, ms, S, T, lastP, edit, hist, tbm, C) {
   if (!ms) info = 'Mã chưa có dự trù và đặt hàng. Chỉ dự trù khi có kế hoạch bán chắc chắn.';
   else {
     const parts = [];
-    if (sdt === 0 && sdh > 0) parts.push('Từ đầu kỳ đã đặt ' + n0_(sdh) + ' nhưng chưa có dự trù cố định.');
-    else if (sdt || sdh) parts.push('Từ đầu kỳ đã dự trù ' + n0_(sdt) + ', đã đặt ' + n0_(sdh) +
-      (thieu ? '; còn ' + n0_(thieu) + ' chưa lấy (' + pct_(pct) + ' số đã dự trù).' : '; không còn hàng chưa lấy.'));
-    if (o) parts.push('Đến hết ' + lbl_(addM_(T, -1)) + ' dự kiến vẫn còn ' + n0_(o) + ' chưa lấy.');
+    if (sdt === 0 && sdh > 0) parts.push('Từ đầu kỳ đã đặt hàng ' + n0_(sdh) + ' nhưng chưa gửi dự trù.');
+    else if (sdt || sdh) parts.push('Từ đầu kỳ đã gửi dự trù ' + n0_(sdt) + ', đã đặt hàng ' + n0_(sdh) +
+      (thieu ? '; còn ' + n0_(thieu) + ' dự trù chưa đặt hàng (' + pct_(pct) + ' số đã dự trù).' : '; dự trù đã được đặt hết.'));
+    if (o) parts.push('Đến hết ' + lbl_(addM_(T, -1)) + ' dự kiến vẫn còn ' + n0_(o) + ' dự trù chưa đặt hàng.');
     if (dx === null) parts.push('Chưa có đặt hàng dự kiến tháng ' + lbl_(T) + ' nên chưa có đề xuất.');
-    else if (dx === 0) parts.push('Hàng chưa lấy đã đủ cho tháng ' + lbl_(T) + ': không cần dự trù thêm.');
+    else if (dx === 0) parts.push('Dự trù chưa đặt hàng đã đủ cho tháng ' + lbl_(T) + ': không cần dự trù thêm.');
     else parts.push('Đề xuất dự trù ' + n0_(dx) + '.');
     if (tb === 0 && (thieu || o)) parts.push('6 tháng gần nhất không có đơn mã này.');
     info = parts.join(' ');
@@ -341,10 +341,10 @@ function stats_(it, ms, S, T, lastP, edit, hist, tbm, C) {
   let hint;
   if (!ms) hint = 'Mã chưa có lịch sử: chỉ dự trù khi có kế hoạch bán chắc chắn.';
   else if (tb === 0 && (thieu || o)) hint = '6 tháng không có đơn mã này: trao đổi với MMH trước khi dự trù.';
-  else if (dx === 0) hint = 'Hàng chưa lấy đã đủ cho tháng ' + lbl_(T) + ': không cần dự trù thêm.';
-  else if (lvl === 'Cao') hint = 'Còn nhiều hàng đã dự trù chưa lấy (' + pct_(pct) + '): nên lấy hàng cũ trước, hạn chế dự trù thêm.';
-  else if (lvl === 'Theo dõi') hint = 'Còn hàng đã dự trù chưa lấy (' + pct_(pct) + '): cân nhắc giảm dự trù.';
-  else if (lvl === 'Chưa dự trù') hint = 'Có đặt hàng nhưng chưa dự trù: nên dự trù để MMH chuẩn bị hàng.';
+  else if (dx === 0) hint = 'Dự trù chưa đặt hàng đã đủ cho tháng ' + lbl_(T) + ': không cần dự trù thêm.';
+  else if (lvl === 'Cao') hint = 'Còn nhiều dự trù chưa đặt hàng (' + pct_(pct) + '): nên đặt hết phần đã dự trù trước, hạn chế dự trù thêm.';
+  else if (lvl === 'Theo dõi') hint = 'Còn dự trù chưa đặt hàng (' + pct_(pct) + '): cân nhắc giảm dự trù.';
+  else if (lvl === 'Chưa dự trù') hint = 'Có đặt hàng nhưng chưa gửi dự trù: nên dự trù để MMH chuẩn bị hàng.';
   else if (dx === null) hint = 'Chưa có đặt hàng dự kiến tháng ' + lbl_(T) + ' nên chưa có đề xuất.';
   else hint = 'Có thể dự trù theo đề xuất.';
   return { code: it.code, name: it.name, group: it.group, tb: Math.round(tb), sdt: sdt, sdh: sdh, thieu: thieu, pct: pct, lvl: lvl,
@@ -363,7 +363,9 @@ function apiExportInfo() {
     const S = settings_(ss);
     const next = addM_(S.cm, 1);
     const han = '05/' + String(next % 100).padStart(2, '0') + '/' + Math.floor(next / 100);
-    return { ok: true, cm: lbl_(S.cm), T: lbl_(S.T), han: han, npps: S.npps };
+    const lo = lastOrders_(ss, S.npps);
+    return { ok: true, cm: lbl_(S.cm), T: lbl_(S.T), han: han, npps: S.npps,
+      orders: S.npps.map(function (n) { const m = lo[key_(n)]; return { npp: n, last: lbl_(m), old: !m || m < S.cm }; }) };
   } catch (e) {
     return { ok: false, error: msg_(e) };
   }
@@ -388,7 +390,7 @@ function apiExportFile(npp, han) {
     const nDx = d.items.filter(function (x) { return x.dx; }).length;
     log_(ss, 'Xuất file', npp, d.T, name, file.getUrl(), d.items.length, '', 'Hạn gửi ' + (han || '—') + ' · ' + nDx + ' mã có đề xuất · ' + nCao + ' mã cảnh báo Cao');
     return { ok: true, npp: npp, name: name, url: file.getUrl(), download: 'https://drive.google.com/uc?export=download&id=' + file.getId(),
-      folder: folder.getName(), folderUrl: folder.getUrl(), T: lbl_(d.T), lastP: lbl_(d.lastP), n: d.items.length, nDx: nDx, nCao: nCao };
+      folder: folder.getName(), folderUrl: folder.getUrl(), T: lbl_(d.T), lastP: lbl_(d.lastP), lastAct: lbl_(d.lastAct), n: d.items.length, nDx: nDx, nCao: nCao };
   } catch (e) {
     return { ok: false, npp: npp, error: msg_(e) };
   }
@@ -419,11 +421,12 @@ function buildXlsx_(d, S, ss, han, name) {
   const dlPath = sheetPath_(wbXml, map['xl/_rels/workbook.xml.rels'].getDataAsString(), CFG.DL_NAME);
   if (!dlPath || !map[dlPath]) throw new Error('Mẫu Excel thiếu sheet ' + CFG.DL_NAME + '.');
 
-  const kind = function (m) { return m <= d.lastP ? 'đã chốt' : (m === d.T ? 'tháng dự trù' : 'dự kiến'); };
+  const kind = function (m) { return m === d.T ? 'cần dự trù' : (m <= d.lastAct ? 'đã đặt' : 'đặt dự kiến'); };
+  const k0 = fy_(addM_(d.lastP, 1)) * 100 + 9;
   const ph = {
     NPP: d.npp, T: lbl_(d.T), CM: lbl_(d.cm), HAN: han || '—', LASTP: lbl_(d.lastP), LASTACT: lbl_(d.lastAct), TM1: lbl_(addM_(d.T, -1)),
     EDITR: d.edit.length ? lbl_(d.edit[0]) + (d.edit.length > 1 ? '–' + lbl_(d.edit[d.edit.length - 1]) : '') : 'các tháng tới',
-    THH: pct_(S.high), THW: pct_(S.watch)
+    THH: pct_(S.high), THW: pct_(S.watch), K0: lbl_(k0), B3: b3_(d)
   };
   d.hist.forEach(function (m, k) { ph['HM' + (k + 1)] = lbl_(m) + '\n' + kind(m); });
   const fill = function (xml) {
@@ -445,6 +448,30 @@ function buildXlsx_(d, S, ss, han, name) {
   });
   const zip = Utilities.zip(out, name);
   return Utilities.newBlob(zip.getBytes(), XLSX_MIME, name);
+}
+
+/** Dòng giải thích số liệu ở đầu sheet DỰ TRÙ: đơn đã đặt đến tháng nào, dự trù đã gửi đến tháng nào. */
+function b3_(d) {
+  let t = 'Đơn hàng đã đặt cập nhật đến hết ' + lbl_(d.lastAct) + '. Dự trù đã gửi tính đến tháng ' + lbl_(addM_(d.T, -1)) + '.';
+  if (d.lastAct < d.lastP) {
+    const a = addM_(d.lastAct, 1);
+    t += ' Tháng ' + (a === d.lastP ? lbl_(a) : lbl_(a) + '–' + lbl_(d.lastP)) + ' chưa có đơn thực tế nên tạm tính theo đặt hàng dự kiến.';
+  }
+  return t + ' Kỳ bắt đầu từ tháng 09.';
+}
+
+/** Tháng có đơn thực tế gần nhất của từng NPP (sheet 2, cột A–B). */
+function lastOrders_(ss, npps) {
+  const out = {};
+  npps.forEach(function (n) { out[key_(n)] = 0; });
+  const sh = ss.getSheetByName(CFG.SH.TT);
+  if (!sh) return out;
+  const n = sh.getLastRow() - 1;
+  if (n > 0) sh.getRange(2, 1, n, 2).getValues().forEach(function (r) {
+    const k = key_(r[0]), m = toYm_(r[1]);
+    if (m && out.hasOwnProperty(k) && m > out[k]) out[k] = m;
+  });
+  return out;
 }
 
 function xesc_(s) {
@@ -491,8 +518,8 @@ function dlSheetXml_(tpl, d, S, ss) {
     ['Ngày tạo', fmt_(new Date(), 'dd/MM/yyyy HH:mm')], ['Số mã trong danh sách', d.items.length], ['ID file gốc', ss.getId()],
     ['Lead time (tháng)', S.lead]];
   meta.forEach(function (kv, i) { row(i + 1, [cell(i + 1, 1, kv[0]), cell(i + 1, 2, kv[1])]); });
-  const head = ['Nhãn chọn', 'Mã hàng', 'Tên hàng', 'Nhóm hàng', 'Số lượng đặt TB/tháng', 'Đã dự trù trong kỳ', 'Đã đặt trong kỳ', 'Chưa lấy',
-    'Tỷ lệ chưa lấy', 'Cảnh báo', 'Dự trù đã gửi các tháng tới', 'Chưa lấy dự kiến', 'Dự trù đề xuất', 'Thông tin', 'Gợi ý'];
+  const head = ['Nhãn chọn', 'Mã hàng', 'Tên hàng', 'Nhóm hàng', 'Số lượng đặt TB/tháng', 'Dự trù đã gửi trong kỳ', 'Đã đặt hàng trong kỳ', 'Dự trù chưa đặt hàng',
+    'Tỷ lệ chưa đặt', 'Cảnh báo', 'Dự trù đã gửi các tháng tới', 'Chưa đặt dự kiến', 'Dự trù đề xuất', 'Thông tin', 'Gợi ý'];
   d.hist.forEach(function (m) { head.push('DT ' + lbl_(m), 'DH ' + lbl_(m), 'CL ' + lbl_(m)); });
   row(CFG.R0 - 1, head.map(function (h, j) { return cell(CFG.R0 - 1, 4 + j, h); }));
   d.items.forEach(function (x, i) {
@@ -591,7 +618,7 @@ function analyze_(ss, src) {
   if (meta['ID file gốc'] && norm_(meta['ID file gốc']) !== ss.getId()) A.warnings.push('File này được xuất từ một file gốc khác.');
   if (S.npps.map(key_).indexOf(key_(A.npp)) < 0) A.errors.push('NPP "' + A.npp + '" không có trong sheet CÀI ĐẶT của file gốc.');
   if (A.T < S.T) A.warnings.push('File dự trù cho tháng ' + lbl_(A.T) + ', sớm hơn tháng đang nhận dự trù (' + lbl_(S.T) +
-    '). Nếu nhập, dự trù cố định tháng ' + lbl_(A.T) + ' của NPP sẽ được thay bằng số trong file.');
+    '). Nếu nhập, dự trù tháng ' + lbl_(A.T) + ' của NPP sẽ được thay bằng số trong file.');
   if (A.T > S.T) A.warnings.push('File dự trù cho tháng ' + lbl_(A.T) + ', muộn hơn tháng đang nhận dự trù (' + lbl_(S.T) + ').');
 
   // bảng mã trong sheet ẩn: nhãn / mã → thông tin

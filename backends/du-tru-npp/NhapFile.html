@@ -43,8 +43,8 @@
   function n0(x) { return Number(x || 0).toLocaleString('vi-VN'); }
   google.script.run.withSuccessHandler(function (r) {
     if (!r.ok) { document.getElementById('info').innerHTML = '<span class="err">' + esc(r.error) + '</span>'; return; }
-    document.getElementById('info').innerHTML = 'Tháng hiện tại: <b>' + esc(r.cm) + '</b> · đang nhận dự trù cố định tháng <b>' + esc(r.T) + '</b>. ' +
-      'Khi nhập, các dòng dự trù cố định của NPP trong tháng dự trù của file ở sheet "' + esc(r.sheet) + '" được thay bằng số trong file. ' +
+    document.getElementById('info').innerHTML = 'Tháng hiện tại: <b>' + esc(r.cm) + '</b> · đang nhận dự trù tháng <b>' + esc(r.T) + '</b>. ' +
+      'Khi nhập, các dòng dự trù của NPP trong tháng dự trù của file ở sheet "' + esc(r.sheet) + '" được thay bằng số trong file. ' +
       'Các tháng khác và các NPP khác không thay đổi.';
   }).withFailureHandler(function (e) {
     document.getElementById('info').innerHTML = '<span class="err">' + esc(e.message || e) + '</span>';
@@ -92,7 +92,7 @@
     var el = document.getElementById(id);
     var src = SRC[id] || {};
     if (r.fatal) { el.innerHTML = '<b>' + esc(src.name || src.ref || '') + '</b><p class="err">' + esc(r.fatal) + '</p>'; return; }
-    var h = '<b>' + esc(r.npp) + '</b> · dự trù cố định tháng <b>' + esc(r.T) + '</b> · ' + (r.url ? '<a href="' + esc(r.url) + '" target="_blank">' + esc(r.name) + '</a>' : esc(r.name));
+    var h = '<b>' + esc(r.npp) + '</b> · dự trù tháng <b>' + esc(r.T) + '</b> · ' + (r.url ? '<a href="' + esc(r.url) + '" target="_blank">' + esc(r.name) + '</a>' : esc(r.name));
     if (r.committed) h += '<p class="ok"><b>' + esc(r.note) + '</b></p>';
     else if (r.note) h += '<p class="err"><b>' + esc(r.note) + '</b></p>';
     h += '<table><thead><tr><th></th><th>Số mã</th><th>Tổng số lượng</th></tr></thead><tbody>' +
