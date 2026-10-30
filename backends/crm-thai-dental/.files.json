@@ -4,5 +4,6 @@
   "MMH_MailDomain.gs",
   "MMH_ReportLog.gs",
   "MMH_TestMode.gs",
-  "TH_DentalLayout.gs"
+  "TH_DentalLayout.gs",
+  "TH_DentalSample.gs"
 ]
