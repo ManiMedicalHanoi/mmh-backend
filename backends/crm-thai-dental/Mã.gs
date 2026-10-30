@@ -1082,32 +1082,34 @@ function atFillCol_(s, at, n, k){
   for(var j = 0; j < n; j++) out.push([fmlLoc_(atFormulas_(at + j)[k][1], semi)]);
   s.getRange(at, col, n, 1).setFormulas(out);
 }
-/* v1.1 Dental — rows of ALL TASK with a task (F or G) but no formula in column B (left by a run that was killed) ⇒ formulas
-   written per block of consecutive rows. Cheap when nothing is missing (2 batch reads). Returns the number of rows fixed. */
+/* v1.1 Dental — rows of ALL TASK with a task (F or G) but no formula in column B (left by a run that was killed) ⇒ the formula
+   columns are rewritten from the FIRST such row to the last row, ONE call per column (missing rows can be scattered: per-row
+   writes went over the 6-minute limit again). Cheap when nothing is missing (2 batch reads). Returns the number of rows fixed. */
 function atHealFormulas_(){
   var s = sh_(CFG.SH_ALL), last = s.getLastRow(); if(last < CFG.AT_DATA) return 0;
   var n = last - CFG.AT_DATA + 1, B = s.getRange(CFG.AT_DATA, 2, n, 1).getFormulas(), FG = s.getRange(CFG.AT_DATA, 6, n, 2).getValues();
-  var fixed = 0, runAt = -1, K = atFormulas_(CFG.AT_DATA).length;
-  function flushRun(end){ if(runAt < 0) return; var len = end - runAt; for(var k = 0; k < K; k++) atFillCol_(s, CFG.AT_DATA + runAt, len, k); fixed += len; runAt = -1; }
-  for(var i = 0; i < n; i++){
-    var miss = !B[i][0] && (str_(FG[i][0]) || str_(FG[i][1]));
-    if(miss){ if(runAt < 0) runAt = i; } else flushRun(i);
-  }
-  flushRun(n);
-  if(fixed){ SpreadsheetApp.flush(); _AT = null; }
-  return fixed;
+  var first = -1, miss = 0;
+  for(var i = 0; i < n; i++) if(!B[i][0] && (str_(FG[i][0]) || str_(FG[i][1]))){ if(first < 0) first = i; miss++; }
+  if(first < 0) return 0;
+  var K = atFormulas_(CFG.AT_DATA).length;
+  for(var k = 0; k < K; k++) atFillCol_(s, CFG.AT_DATA + first, n - first, k);
+  SpreadsheetApp.flush(); _AT = null;
+  return miss;
 }
 /* v1.1 Dental — ALL TASK summary for thdSample op=status */
 function atSummary_(){
   var s = sh_(CFG.SH_ALL), last = s.getLastRow(); if(last < CFG.AT_DATA) return { rows: 0 };
   var n = last - CFG.AT_DATA + 1, B = s.getRange(CFG.AT_DATA, 2, n, 1).getFormulas(), v = s.getRange(CFG.AT_DATA, 6, n, 16).getValues();
-  var rows = 0, keys = 0, visitKeys = 0, noFml = 0;
+  var rows = 0, keys = 0, visitKeys = 0, noFml = 0, firstNo = 0, runs = 0, prev = false;
   for(var i = 0; i < n; i++){
-    var F = str_(v[i][0]), G = str_(v[i][1]); if(!F && !G) continue;
-    rows++; if(F){ keys++; if(/^visitk\|/.test(str_(v[i][15]))) visitKeys++; }
-    if(!B[i][0]) noFml++;
+    var F = str_(v[i][0]), G = str_(v[i][1]), no = false;
+    if(F || G){
+      rows++; if(F){ keys++; if(/^visitk\|/.test(str_(v[i][15]))) visitKeys++; }
+      if(!B[i][0]){ no = true; noFml++; if(!firstNo) firstNo = CFG.AT_DATA + i; }
+    }
+    if(no && !prev) runs++; prev = no;
   }
-  return { rows: rows, keys: keys, visitMonths: visitKeys, noFormula: noFml, lastRow: last };
+  return { rows: rows, keys: keys, visitMonths: visitKeys, noFormula: noFml, firstNoFormula: firstNo, noFormulaRuns: runs, lastRow: last };
 }
 
 /* ══════════════ REPORT E-MAILS (weekly / monthly, HTML + PDF, English) ══════════════ */
