@@ -499,7 +499,16 @@ var THD_STEP = {
     return 'PRODUCT TEST ready · KPI tab rebuilt (' + r.rows + ' rows)';
   },
   /* ⑫ mirror the visits into ALL TASK (long: done in its own run) */
-  sync: function(){ bump_(); var r = vsSync_(false), h = atHealFormulas_(); return r.added + ' month(s) added to ALL TASK' + (h ? ' · formulas filled in ' + h + ' row(s)' : ''); }
+  sync: function(){                                                  /* v1.1 — clean rebuild once (rows duplicated by 2 syncs at the same time) */
+    bump_();
+    if(props_().getProperty('THD_VS_CLEAN') !== '1'){
+      var b = vsRebuild_(60000); if(b.busy) return THD_MORE;
+      props_().setProperty('THD_VS_CLEAN', '1');
+      return 'ALL TASK rebuilt: ' + b.deleted + ' old synced row(s) removed, ' + b.added + ' month(s) written' + (b.formulas ? ', formulas in ' + b.formulas + ' row(s)' : '');
+    }
+    var r = vsSync_(false, 60000); if(r.busy) return THD_MORE;
+    var h = atHealFormulas_(); return r.added + ' month(s) added to ALL TASK' + (h ? ' · formulas filled in ' + h + ' row(s)' : '');
+  }
 };
 
 /* evidence folder of "New accounts & SKU" — created next to this file the first time (Script Property NA_FOLDER_ID) */

@@ -21,13 +21,18 @@ function thdSampleApi_(p){
     thdSampleTrigger_(20);
     return { ok: true, queued: op, message: 'Running in the background (~1–5 min). Call op=status to see the result.', build: thdDone_() };
   }
+  if(op === 'resync'){                                                  /* v1.1 — rebuild the visit mirror of ALL TASK (step sync again) */
+    props_().deleteProperty('THD_VS_CLEAN');
+    var d = thdDone_(); delete d.sync; props_().setProperty('THD_DONE', JSON.stringify(d));
+    op = 'build';
+  }
   if(op === 'build'){                                                   /* v1.1 — run the remaining menu ⓪ steps (e.g. sync) in the background */
     props_().deleteProperty('THD_ERR');
     ScriptApp.getProjectTriggers().forEach(function(t){ if(t.getHandlerFunction() === 'thdBuildCont') ScriptApp.deleteTrigger(t); });
     ScriptApp.newTrigger('thdBuildCont').timeBased().after(20 * 1000).create();
     return { ok: true, queued: 'build', message: 'Remaining layout steps run in the background. Call op=status to see the result.', build: thdDone_() };
   }
-  return { ok: false, error: 'op = seed | clear | status | build' };
+  return { ok: false, error: 'op = seed | clear | status | build | resync' };
 }
 function thdSampleTrigger_(sec){
   ScriptApp.getProjectTriggers().forEach(function(t){ if(t.getHandlerFunction() === 'thdSampleRun') ScriptApp.deleteTrigger(t); });
