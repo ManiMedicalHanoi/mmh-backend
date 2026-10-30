@@ -1,6 +1,6 @@
 /**
  * MMH – FILE EXCEL DỰ TRÙ CHO NHÀ PHÂN PHỐI (NPP)
- * Phiên bản 2.2 · 30/10/2026
+ * Phiên bản 3.0 · 30/10/2026 (file Excel – dự phòng; file Google Sheet: FileNPP.gs)
  *
  * File gốc giữ nguyên bố cục, nội dung và công thức. Script chỉ:
  *   1. Xuất file Excel cho từng NPP: danh sách chọn mã, dự trù đã gửi, đơn đã đặt, dự trù chưa đặt hàng, cảnh báo
@@ -15,7 +15,7 @@
  */
 
 const CFG = {
-  VERSION: '2.2 · 30/10/2026',
+  VERSION: '3.0 · 30/10/2026',
   SIG: 'MMH_DUTRU_NPP_V1',
   MENU: 'MMH · File NPP',
   SH: { DT: '1 Dự trù cố định', TT: '2 Đặt hàng thực tế', DM: 'DANH MỤC', CD: 'CÀI ĐẶT', SUM: 'SUM', LOG: 'NHẬT KÝ FILE EXCEL NPP' },
@@ -44,11 +44,19 @@ const BUSY = 'Một người dùng khác đang chạy chức năng này. Vui lò
 // MENU
 // =====================================================================================
 function onOpen() {
-  SpreadsheetApp.getUi().createMenu(CFG.MENU)
-    .addItem('1. Xuất file Excel cho NPP…', 'menuXuatFile')
-    .addItem('2. Nhập file Excel NPP gửi lại…', 'menuNhapFile')
+  const ui = SpreadsheetApp.getUi();
+  ui.createMenu(CFG.MENU)
+    .addItem('1. Tạo file Google Sheet cho NPP…', 'menuTaoFileNpp')
+    .addItem('2. Đồng bộ với file NPP…', 'menuDongBo')
+    .addItem('Mở danh sách file NPP', 'menuDanhSach')
     .addSeparator()
-    .addItem('Mở nhật ký file NPP', 'menuNhatKy')
+    .addItem('Mở / dựng lại sheet LÊN DỰ TRÙ', 'menuLenDuTru')
+    .addItem('Bật / tắt đồng bộ tự động hằng đêm', 'menuTuDong')
+    .addSeparator()
+    .addSubMenu(ui.createMenu('File Excel (dự phòng)')
+      .addItem('Xuất file Excel cho NPP…', 'menuXuatFile')
+      .addItem('Nhập file Excel NPP gửi lại…', 'menuNhapFile')
+      .addItem('Mở nhật ký file Excel', 'menuNhatKy'))
     .addItem('Thông tin phiên bản', 'menuPhienBan')
     .addToUi();
 }
@@ -128,6 +136,8 @@ function qty_(v) {
 
 function tz_() { return Session.getScriptTimeZone() || 'Asia/Ho_Chi_Minh'; }
 function fmt_(d, f) { return Utilities.formatDate(d, tz_(), f); }
+
+function nowText_() { return fmt_(new Date(), 'dd/MM/yyyy HH:mm'); }
 
 function fmtTime_(v) {
   return Object.prototype.toString.call(v) === '[object Date]' ? fmt_(v, 'dd/MM/yyyy HH:mm') : (v ? String(v) : '');

@@ -1,7 +1,10 @@
 [
   "appsscript.json",
   "Mã.gs",
+  "FileNPP.gs",
   "Mau_Excel.gs",
+  "TaoFileNPP.html",
+  "DongBo.html",
   "XuatFile.html",
   "NhapFile.html"
 ]

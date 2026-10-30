@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<style>
+  body { font-family: Arial, sans-serif; font-size: 13px; color: #1a1a1a; margin: 0; padding: 14px 18px; }
+  h3 { margin: 0 0 6px; font-size: 15px; color: #003047; }
+  h4 { margin: 12px 0 6px; font-size: 13px; color: #003047; }
+  p { margin: 4px 0 10px; line-height: 1.45; }
+  .muted { color: #666; } .ok { color: #2e7d32; } .err { color: #c62828; } .warn { color: #b45309; }
+  table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+  th, td { border: 1px solid #d9d9d9; padding: 5px 8px; text-align: left; vertical-align: middle; }
+  th { background: #cfe2f3; }
+  td.n { text-align: right; }
+  button { font-size: 13px; padding: 6px 14px; border-radius: 4px; border: 1px solid #3a5caa; background: #3a5caa; color: #fff; cursor: pointer; }
+  button.sec { background: #fff; color: #3a5caa; }
+  button:disabled { opacity: .5; cursor: default; }
+  ul { margin: 4px 0 8px 18px; padding: 0; } li { margin: 2px 0; }
+  .box { border: 1px solid #d9d9d9; border-radius: 4px; padding: 10px 12px; margin-top: 10px; }
+  .btns { margin-top: 10px; text-align: right; }
+  a { color: #1155cc; }
+</style>
+</head>
+<body>
+<h3>Đồng bộ với file NPP</h3>
+<p id="info" class="muted">Đang đọc dữ liệu…</p>
+<div id="list"></div>
+<div id="result"></div>
+<div class="btns"><button id="all" onclick="syncAll()" disabled>Đồng bộ tất cả</button> <button class="sec" onclick="google.script.host.close()">Đóng</button></div>
+<script>
+  var NPPS = [];
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function n0(x) { return Number(x || 0).toLocaleString('vi-VN'); }
+  google.script.run.withSuccessHandler(function (r) {
+    if (!r.ok) { document.getElementById('info').innerHTML = '<span class="err">' + esc(r.error) + '</span>'; return; }
+    document.getElementById('info').innerHTML = 'Lấy từ file NPP: <b>dự trù từ tháng ' + esc(r.fromDT) + '</b> (hạn ' + esc(r.han) + ') và <b>đặt hàng dự kiến từ tháng ' + esc(r.fromDK) +
+      '</b>; đẩy sang file NPP: đơn thực tế, danh mục. Dự trù các tháng trước ' + esc(r.fromDT) + ' đã chốt, không thay đổi. Đồng bộ tự động hằng đêm: <b>' + (r.auto ? 'đang bật' : 'đang tắt') + '</b>.';
+    NPPS = r.npps.filter(function (n) { return n.url; });
+    if (!NPPS.length) { document.getElementById('list').innerHTML = '<p class="muted">Chưa có file NPP nào. Dùng menu "Tạo file Google Sheet cho NPP" trước.</p>'; return; }
+    document.getElementById('all').disabled = false;
+    document.getElementById('list').innerHTML = '<table><thead><tr><th>NPP</th><th>Đồng bộ gần nhất</th><th style="width:190px"></th></tr></thead><tbody>' +
+      NPPS.map(function (n, i) {
+        return '<tr><td><b>' + esc(n.name) + '</b><br><a href="' + esc(n.url) + '" target="_blank">Mở file</a></td><td id="s' + i + '">' + (n.synced ? esc(n.synced) + '<br><span class="muted">' + esc(n.result) + '</span>' : '<span class="muted">Chưa đồng bộ</span>') +
+          '</td><td><button class="sec" onclick="run(' + i + ',false)">Kiểm tra</button> <button onclick="run(' + i + ',true)">Đồng bộ</button></td></tr>';
+      }).join('') + '</tbody></table>';
+  }).withFailureHandler(function (e) { document.getElementById('info').innerHTML = '<span class="err">' + esc(e.message || e) + '</span>'; }).apiGInfo();
+
+  function card(i) {
+    var id = 'c' + i, el = document.getElementById(id);
+    if (!el) { el = document.createElement('div'); el.className = 'box'; el.id = id; document.getElementById('result').appendChild(el); }
+    return el;
+  }
+  function run(i, commit, done) {
+    var el = card(i), t0 = Date.now();
+    var tick = setInterval(function () { el.innerHTML = '<b>' + esc(NPPS[i].name) + '</b> · <span class="muted">' + (commit ? 'Đang đồng bộ' : 'Đang kiểm tra') + '… ' + Math.round((Date.now() - t0) / 1000) + ' giây</span>'; }, 1000);
+    google.script.run.withSuccessHandler(function (r) { clearInterval(tick); show(i, r); if (done) done(); })
+      .withFailureHandler(function (e) { clearInterval(tick); show(i, { fatal: e.message || String(e), npp: NPPS[i].name }); if (done) done(); })[commit ? 'apiGSync' : 'apiGPreview'](NPPS[i].name);
+  }
+  function syncAll() {
+    var b = document.getElementById('all'); b.disabled = true;
+    var i = 0;
+    (function next() { if (i >= NPPS.length) { b.disabled = false; return; } run(i++, true, next); })();
+  }
+  function list(cls, title, arr, total) {
+    if (!arr || !arr.length) return '';
+    return '<h4 class="' + cls + '">' + title + ' (' + (total || arr.length) + ')</h4><ul>' + arr.map(function (x) { return '<li class="' + cls + '">' + esc(x) + '</li>'; }).join('') + '</ul>' +
+      (total > arr.length ? '<p class="muted">Còn ' + (total - arr.length) + ' mục khác.</p>' : '');
+  }
+  function part(title, p) {
+    return '<h4>' + title + ' – từ tháng ' + esc(p.from) + '</h4>' + (p.months.length
+      ? '<table><thead><tr><th>Tháng</th><th>Dòng trong file gốc</th><th>Số lượng file gốc</th><th>Dòng trong file NPP</th><th>Số lượng file NPP</th></tr></thead><tbody>' +
+        p.months.map(function (m) { return '<tr><td>' + esc(m.m) + '</td><td class="n">' + m.oldN + '</td><td class="n">' + n0(m.oldSum) + '</td><td class="n">' + m.newN + '</td><td class="n">' + n0(m.newSum) + '</td></tr>'; }).join('') +
+        '<tr><th>Cộng</th><th class="n">' + p.oldN + '</th><th class="n">' + n0(p.oldSum) + '</th><th class="n">' + p.newN + '</th><th class="n">' + n0(p.newSum) + '</th></tr></tbody></table>'
+      : '<p class="muted">Không có số liệu ở các tháng này.</p>');
+  }
+  function show(i, r) {
+    var el = card(i);
+    if (r.fatal) { el.innerHTML = '<b>' + esc(r.npp || NPPS[i].name) + '</b><p class="err">' + esc(r.fatal) + '</p>'; return; }
+    var h = '<b>' + esc(r.npp) + '</b> · <a href="' + esc(r.url) + '" target="_blank">Mở file</a>';
+    if (r.synced) h += '<p class="' + (r.committed ? 'ok' : 'err') + '"><b>' + esc(r.note) + '</b></p>';
+    else h += '<p class="muted">Kiểm tra xong, chưa ghi gì. ' + (r.ok ? 'Bấm "Đồng bộ" để nhận số.' : 'File NPP còn lỗi: nếu đồng bộ, số của NPP sẽ chưa được nhận.') + '</p>';
+    h += part('Dự trù (sheet 1)', r.dt) + part('Đặt hàng dự kiến (sheet 3)', r.dk);
+    h += list('err', 'Lỗi trong file NPP – cần NPP sửa', r.errors, r.nErrors);
+    h += list('warn', 'Lưu ý', r.warnings, r.nWarnings);
+    h += list('muted', 'Thông tin', r.infos);
+    el.innerHTML = h;
+  }
+</script>
+</body>
+</html>

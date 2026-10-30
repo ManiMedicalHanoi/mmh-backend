@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<style>
+  body { font-family: Arial, sans-serif; font-size: 13px; color: #1a1a1a; margin: 0; padding: 14px 18px; }
+  h3 { margin: 0 0 6px; font-size: 15px; color: #003047; }
+  p { margin: 4px 0 10px; line-height: 1.45; }
+  .muted { color: #666; } .ok { color: #2e7d32; } .err { color: #c62828; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  th, td { border: 1px solid #d9d9d9; padding: 6px 8px; text-align: left; vertical-align: top; }
+  th { background: #cfe2f3; }
+  input[type=text] { width: 96%; padding: 5px 6px; border: 1px solid #bbb; border-radius: 3px; }
+  button { font-size: 13px; padding: 6px 14px; border-radius: 4px; border: 1px solid #3a5caa; background: #3a5caa; color: #fff; cursor: pointer; }
+  button.sec { background: #fff; color: #3a5caa; }
+  button:disabled { opacity: .5; cursor: default; }
+  a { color: #1155cc; }
+  .btns { margin-top: 12px; text-align: right; }
+</style>
+</head>
+<body>
+<h3>Tạo file Google Sheet cho NPP</h3>
+<p id="info" class="muted">Đang đọc dữ liệu…</p>
+<p class="muted">Mỗi NPP một file dùng liên tục, cùng bố cục với file gốc nhưng chỉ có số của NPP đó. NPP nhập dự trù (sheet 1) và đặt hàng dự kiến (sheet 3);
+  đơn thực tế (sheet 2) do MMH cập nhật qua đồng bộ. Tạo một file mất khoảng 1–2 phút.</p>
+<div id="list"></div>
+<div class="btns"><button class="sec" onclick="google.script.host.close()">Đóng</button></div>
+<script>
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  var DATA = null;
+  function load() {
+    google.script.run.withSuccessHandler(function (r) {
+      if (!r.ok) { document.getElementById('info').innerHTML = '<span class="err">' + esc(r.error) + '</span>'; return; }
+      DATA = r;
+      document.getElementById('info').innerHTML = 'Tháng hiện tại: <b>' + esc(r.cm) + '</b> · đang nhận dự trù tháng <b>' + esc(r.fromDT) + '</b> (hạn ' + esc(r.han) + ').';
+      document.getElementById('list').innerHTML = '<table><thead><tr><th style="width:110px">NPP</th><th>File hiện có</th><th style="width:230px">Email NPP (chia sẻ quyền sửa)</th><th style="width:150px"></th></tr></thead><tbody>' +
+        r.npps.map(function (n, i) {
+          return '<tr><td><b>' + esc(n.name) + '</b></td><td id="f' + i + '">' + (n.url ? '<a href="' + esc(n.url) + '" target="_blank">Mở file</a><br><span class="muted">Tạo ' + esc(n.created) +
+            (n.synced ? ' · đồng bộ ' + esc(n.synced) : '') + '</span>' : '<span class="muted">Chưa có</span>') + '</td>' +
+            '<td><input type="text" id="e' + i + '" value="' + esc(n.email) + '" placeholder="email@npp.vn (có thể để trống)"></td>' +
+            '<td><button id="b' + i + '" onclick="make(' + i + ')">' + (n.url ? 'Tạo lại' : 'Tạo file') + '</button></td></tr>';
+        }).join('') + '</tbody></table>';
+    }).withFailureHandler(function (e) { document.getElementById('info').innerHTML = '<span class="err">' + esc(e.message || e) + '</span>'; }).apiGInfo();
+  }
+  function make(i) {
+    var n = DATA.npps[i];
+    if (n.url && !confirm('NPP ' + n.name + ' đã có file. Tạo file mới? File cũ vẫn giữ trong Drive nhưng không đồng bộ nữa.')) return;
+    var b = document.getElementById('b' + i), cell = document.getElementById('f' + i), t0 = Date.now();
+    b.disabled = true;
+    var tick = setInterval(function () { cell.innerHTML = '<span class="muted">Đang tạo file… ' + Math.round((Date.now() - t0) / 1000) + ' giây</span>'; }, 1000);
+    google.script.run.withSuccessHandler(function (r) {
+      clearInterval(tick); b.disabled = false;
+      if (!r.ok) { cell.innerHTML = '<span class="err">' + esc(r.error) + '</span>'; return; }
+      cell.innerHTML = '<a href="' + esc(r.url) + '" target="_blank">Mở file</a> <span class="ok">· đã tạo (' + r.sec + ' giây): dự trù ' + r.nDT + ' dòng, thực tế ' + r.nTT +
+        ' dòng, dự kiến ' + r.nDK + ' dòng' + (r.email ? '; đã chia sẻ cho ' + esc(r.email) : '; chưa chia sẻ') + '.</span>';
+      b.textContent = 'Tạo lại'; n.url = r.url;
+    }).withFailureHandler(function (e) { clearInterval(tick); b.disabled = false; cell.innerHTML = '<span class="err">' + esc(e.message || e) + '</span>'; })
+      .apiGCreate(n.name, document.getElementById('e' + i).value, !!n.url);
+  }
+  load();
+</script>
+</body>
+</html>
