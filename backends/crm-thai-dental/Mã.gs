@@ -1014,7 +1014,36 @@ function vsBuild_(){
   return out;
 }
 function vsSig_(o){ return [o.E || '', o.F || '', o.G || '', o.H || '', o.I || '', o.J || '', o.K || '', o.N || '', Math.round(num_(o.O) * 100), o.U || '', o.V || ''].join('\u0001'); }
-function vsSync_(dry){
+/* v1.1 Dental — ONE sync at a time (document lock — the app writes use the script lock, so they never wait for it).
+   Two syncs at the same time (cronTh + onEdit / the build step) both appended the same months ⇒ duplicated, shifted rows.
+   Busy ⇒ skipped (cronTh catches up within 10 minutes). */
+function vsSync_(dry, wait){
+  var L = LockService.getDocumentLock();
+  if(!L || !L.tryLock(wait || 3000)) return { changed: 0, added: 0, removed: 0, busy: true };
+  try{ return vsSyncRun_(dry); } finally { L.releaseLock(); }
+}
+/* v1.1 Dental — rebuild the visit mirror of ALL TASK from scratch: every row written by the sync (column U "visit|…" /
+   "visitk|…") is deleted, then all months are written again + formulas. Other ALL TASK rows are kept. Under the same lock. */
+function vsRebuild_(wait){
+  var L = LockService.getDocumentLock();
+  if(!L || !L.tryLock(wait || 30000)) return { busy: true };
+  try{
+    var s = sh_(CFG.SH_ALL), last = s.getLastRow(), del = 0;
+    if(last >= CFG.AT_DATA){
+      var U = s.getRange(CFG.AT_DATA, 21, last - CFG.AT_DATA + 1, 1).getValues(), end = -1;
+      for(var i = U.length - 1; i >= -1; i--){                            /* bottom-up runs of synced rows */
+        var hit = i >= 0 && /^visitk?\|/.test(str_(U[i][0]));
+        if(hit){ if(end < 0) end = i; }
+        else if(end >= 0){ s.deleteRows(CFG.AT_DATA + i + 1, end - i); del += end - i; end = -1; }
+      }
+      if(s.getMaxRows() < CFG.AT_DATA + 50) s.insertRowsAfter(s.getMaxRows(), 50);
+    }
+    SpreadsheetApp.flush(); _AT = null;
+    var r = vsSyncRun_(false), h = atHealFormulas_();
+    return { deleted: del, added: r.added, formulas: h };
+  } finally { L.releaseLock(); }
+}
+function vsSyncRun_(dry){
   var want = vsBuild_(), s = sh_(CFG.SH_ALL), last = s.getLastRow();
   var v = last >= CFG.AT_DATA ? s.getRange(CFG.AT_DATA, 2, last - CFG.AT_DATA + 1, AT_W).getValues() : [];
   /* existing synced blocks */
@@ -1524,7 +1553,7 @@ function menuCheck(){
 function onEditTh(e){ try{ var n = e && e.range ? e.range.getSheet().getName() : ''; var k = SHEET_VER[n]; bump_(k ? [k] : null);
   if(n === CFG.SH_WK) vsSync_(false); }catch(x){} }
 function onChangeTh(e){ try{ if(e && e.changeType === 'EDIT') return; bump_(); }catch(x){} }
-function cronTh(){ try{ vsSync_(false); }catch(x){} try{ atHealFormulas_(); }catch(x){} }
+function cronTh(){ try{ var r = vsSync_(false); if(!r.busy) atHealFormulas_(); }catch(x){} }
 
 /* ══════════════ ⭐ v1.1 — WEEKLY MEETING (Họp tuần) · same app module as the Vietnam teams ══════════════
  *  Sheets created automatically on first use (header in ROW 1, managed by the script):

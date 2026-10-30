@@ -239,3 +239,6 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   **v1.1 (30/10/2026)**: bước `sync` (Customer visiting ⇒ ALL TASK, ~2.900 lượt) bị Google dừng ở 6 phút vì file mới không có dòng công thức mẫu ⇒ ghi công thức TỪNG DÒNG.
   `vsWriteBlock_` nay ghi mỗi cột công thức 1 lần (`atFillCol_`); `atHealFormulas_` (bước sync + `cronTh`) điền công thức cho dòng có việc mà thiếu công thức cột B.
   `thdSample op=status` trả thêm `allTask` (rows · keys · visitMonths · noFormula); `op=build` chạy nốt bước ⓪ còn thiếu trong nền.
+  ⚠️ 2 lượt `vsSync_` chạy cùng lúc (cronTh + onEdit / saveWeekly / bước sync) ⇒ ALL TASK nhân đôi dòng (2.882 → 4.768). Nay `vsSync_` giữ **DocumentLock**
+  (app ghi dùng ScriptLock ⇒ không phải chờ), bận ⇒ bỏ qua; `vsRebuild_` xoá mọi dòng cột U `visit|` / `visitk|` rồi ghi lại (dòng tay giữ nguyên) — bước sync chạy 1 lần
+  (Script Property `THD_VS_CLEAN`), `op=resync` để chạy lại.
