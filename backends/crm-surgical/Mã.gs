@@ -6273,6 +6273,12 @@ function wkApplyRule_(d, prev, lang){
              'This activity starts on ' + start.split('-').reverse().join('/') + ' — it has not happened yet, so it cannot be Completed / 100%. Keep it Not Started and update it once done.');
   var wasDone = !!(prev && /complet/i.test(String(prev.status || '')));
   /* hoàn thành sớm hơn ngày kết thúc dự kiến ⇒ Finish date = ngày bấm Completed; việc quá hạn giữ nguyên ngày cũ */
+  /* ⭐ v10.22 (31/10/2026) — người dùng CHỌN ngày kết thúc khi Completed (app gửi finKeep: ngày đã chọn / hôm nay / ngày khác trong quá khứ) ⇒ giữ, chỉ kẹp trong [start, hôm nay] */
+  if(d.finKeep && d.finish){
+    var fk = wkIso_(d.finish);
+    if(fk > today) fk = today; if(start && fk < start) fk = start;
+    d.finish = fk; return '';
+  }
   if(!wasDone && fin && fin > today) d.finish = today;
   return '';
 }
