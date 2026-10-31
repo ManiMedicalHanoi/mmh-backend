@@ -359,7 +359,9 @@ function ehSampleSeed_(ss, me){
   var add = function(n){ var d = new Date(today); d.setDate(d.getDate() + n); return ehIso_(d); };
   var tag = function(p){ return (U[p].dept + ' ' + U[p].title).toLowerCase(); };
   var mkt = all.filter(function(p){ return /mkt|marketing|digital|design|trade|truyền thông|thiết kế/.test(tag(p)); });
-  var sales = all.filter(function(p){ return /sale|dental|surgical|eyeless|kinh doanh/.test(tag(p)) && mkt.indexOf(p) < 0; });
+  var DEF = ehTeamDef_();   /* v1.3 */
+  var sales = all.filter(function(p){ var ti = U[p].title.toLowerCase(); return /sale|kinh doanh/.test(ti) && !/marketing|admin|director|giám đốc|head|hod/.test(ti) && !U[p].admin; });
+  if (!sales.length) sales = all.filter(function(p){ return /sale|dental|surgical|eyeless|kinh doanh/.test(tag(p)) && mkt.indexOf(p) < 0; });
   var lead = (me && me.pic) || all.filter(function(p){ return U[p].admin; })[0] || mkt[0] || all[0] || 'Admin';
   if (mkt.length < 4) mkt = mkt.concat(all.filter(function(p){ return mkt.indexOf(p) < 0 && sales.indexOf(p) < 0 && p !== lead; })).slice(0, 6);
   if (!mkt.length) mkt = [lead];
@@ -393,7 +395,8 @@ function ehSampleSeed_(ss, me){
     var e = { id: 'EVMAU-' + (i + 1), name: x.name, start: add(x.s), end: add(x.s + x.n), type: x.type, city: x.city, venue: x.venue, organizer: 'MMH', purpose: x.purpose, audience: x.audience,
               scale: x.target + ' khách', kpi: x.kpi, products: x.products, state: x.state || '', follow: 'Có', src: 'SAMPLE', cover: x.cover, target: x.target, actual: x.actual || '',
               budgetPlan: x.budget, budgetActual: x.spent || '', npp: 'NPP khu vực (mẫu)', note: 'Dữ liệu mẫu để thử app — xoá ở Cài đặt ▸ Dữ liệu mẫu.', updatedAt: now, updatedBy: 'Hệ thống', sample: 'x' };
-    e.Owner = pick([lead, mkt[0], pick(mkt, 1)], i); e.Digital = pick(mkt, i + 1); e.Design = i === 3 ? '' : pick(mkt, i + 2); e.Trade = x.type === 'Webinar' ? '' : pick(mkt, i + 3); e.Sales = pick(sales, i);
+    /* v1.3: đúng vai trò (MKT_EventHubTeam.gs) — Owner Thuong · Digital Minh Trang · Design Duc Anh · Trade (hậu cần) Trang */
+    e.Owner = DEF.Owner || lead; e.Digital = DEF.Digital || pick(mkt, i + 1); e.Design = i === 3 ? '' : (DEF.Design || pick(mkt, i + 2)); e.Trade = x.type === 'Webinar' ? '' : (DEF.Trade || pick(mkt, i + 3)); e.Sales = pick(sales, i);
     E.push(e);
     var ts = ehTasksFor_(e, tpl), kids = {}, endIso = e.end, past = endIso < ehIso_(today);
     ts.forEach(function(t){ if (t.parentId) kids[t.parentId] = 1; });

@@ -176,6 +176,7 @@ function ehLinkApi_(p){
     var ss = ehBook_(), me = ehMe_(p, ss); if (me.err) return { ok: false, code: 'AUTH', error: me.err };
     if (op !== 'status' && !me.manager) return { ok: false, error: 'Chỉ quản lý được chạy đồng bộ ngay.' };
   }
+  if (op === 'team') return ehTeamFix_(true) || { ok: true };   /* v1.3 — MKT_EventHubTeam.gs */
   if (op === 'sync'){ var r = ehLinkTick_(true); try { CacheService.getScriptCache().remove('eh_boot'); } catch(e){} return r; }
   var last = {}; try { last = JSON.parse(PropertiesService.getScriptProperties().getProperty('EHL_LAST') || '{}'); } catch(e){}
   return { ok: true, ver: EHL.VER, last: last };

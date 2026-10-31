@@ -262,3 +262,7 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   dòng REPORT_EVENT / PLAN_EVENT (`evsReadEvents_`, khớp `offlineName` / tên), CUSTOMER LIST chỉ SỐ ĐẾM (đăng ký · xác nhận Ký tay / Zoom · đủ điều kiện KPI — không trả tên / SĐT),
   EVENT REPORT (`evsReadPosts_` + link thật) và ORDER REPORT (Key Task/ Event trùng / chứa tên). `ehSyncTick_` ⇒ `ehLinkTick_` (≤ 10 phút, chỉ khi 1 trong 2 file / danh sách sự kiện đổi — `EHL_SIG`);
   `ehBoot_` trả `link` (đệm `eh_link`); action `ehLink op=status|sync` (`key` hoặc quản lý); sự kiện mẫu ⇒ số giả `ehlSample_`. Chạy tay: `ehLinkNow()`.
+  **v1.3 (31/10/2026, `MKT_EventHubTeam.gs`, người dùng xác nhận vai trò)**: Owner = Thuong (Marketing Team Leader) · Digital = Minh Trang · **Design (ấn phẩm) = Duc Anh** · **Trade (hậu cần: hàng thực hành, đồ MKT,
+  quà NPP, gửi đồ, setup) = Trang** · Sales chọn theo sự kiện. `ehTeamFix_` (1 lần, `EH_TEAM_V`; chạy lại: `ehLink op=team`): điền tab TEAM + sự kiện thật còn trống vai trò + việc chưa có người (không email);
+  Design / Trade (`EH_TEAM_FORCE`) thay cả người cũ tự điền. Dữ liệu mẫu (`ehSampleSeed_`) dùng đúng người theo vai trò; Sales mẫu lọc theo Title. App hiển thị vai trò: Truyền thông · Ấn phẩm · Hậu cần.
+
