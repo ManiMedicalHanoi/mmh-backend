@@ -16,10 +16,11 @@
  * Đồng bộ: evsSyncTick (10 phút) ⇒ ehSyncTick_ · action ehSync (mode=status chỉ xem) · tay: ehSyncNow().
  * Không dùng dịch vụ mới (SpreadsheetApp / DriveApp / Properties / Cache / Lock / MailApp qua mmhMail_ / ScriptApp) ⇒ không phải cấp quyền lại.
  * v1.1: email giao việc / chờ duyệt / bình luận / nhắc việc hằng ngày, tạo sự kiện trên app, dữ liệu mẫu — xem MKT_EventHubPlus.gs.
+ * v1.3: người mặc định theo vai trò (Duc Anh ấn phẩm · Trang hậu cần · Minh Trang digital · Thuong Owner) — MKT_EventHubTeam.gs.
  * v1.2: dữ liệu file MKT Offline (REPORT_EVENT, đếm CUSTOMER LIST) + file Digital (EVENT REPORT, ORDER REPORT) theo sự kiện — xem MKT_EventHubLink.gs.
  *************************************************************************************************/
 var EH = {
-  VER: '1.2',
+  VER: '1.3',
   ROOT: '1maHn2DD34aJBaNnH4q9Di0YH2wMurYuZ',     /* thư mục Drive "Event FY68" */
   BOOK_NAME: 'MMH · Event Hub FY68 (dữ liệu app Sự kiện MKT)',
   FILES_NAME: 'Event Hub · Tệp tải lên',
@@ -356,7 +357,7 @@ function ehPlanFiles_(){
 }
 
 /* ══════════════ ĐỒNG BỘ ══════════════ */
-function ehSyncTick_(){ var c = CacheService.getScriptCache(); if (c.get('eh_tick')) return; c.put('eh_tick', '1', 240); try { ehSync_({}); } catch(e){} try { ehTrig_(); } catch(e){} try { ehLinkTick_(); } catch(e){} }   /* v1.2: + file MKT Offline / Digital (MKT_EventHubLink.gs) */
+function ehSyncTick_(){ var c = CacheService.getScriptCache(); if (c.get('eh_tick')) return; c.put('eh_tick', '1', 240); try { ehTeamFix_(); } catch(e){} try { ehSync_({}); } catch(e){} try { ehTrig_(); } catch(e){} try { ehLinkTick_(); } catch(e){} }   /* v1.2: + file MKT Offline / Digital (MKT_EventHubLink.gs) */
 function ehSync_(opt){
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) return { ok:false, error:'Đang có tiến trình ghi khác, thử lại sau.' };
