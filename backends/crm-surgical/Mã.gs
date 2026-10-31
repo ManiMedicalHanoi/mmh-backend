@@ -503,7 +503,7 @@ function handle(e, method){
     if (action === 'kpiLate') return reply(kpiLate_(user, p), callback);               /* ⭐ v10.4 */
 
     switch (action) {
-      case 'ping'            : out = { ok:true, pong:true, source:TEAM(), app:appName_(), pic:user.pic, ver:'10.21', suppApproved:true, orderNotes:true, orderHeal:true, orderLink:true, orderEdit:true, rpStatus:true, sandbox:true, careGate:true, visitDone:true, rate:K68_RATE_DEF, dateFix:props_().getProperty('CRM_DATEFIX_LOG') || '', orderApproval:true, presentTpl:true, migrate:props_().getProperty('CRM_LAYOUT_V') || '', meeting:true, trip2:true, kpi68:true, tenderPrice:true, custLog:true, deleteAccount:true, na:true, kr:true, idem:true, kpiPush:true }; break;
+      case 'ping'            : out = { ok:true, pong:true, source:TEAM(), app:appName_(), pic:user.pic, ver:'10.22', cbcEnsure:true, suppApproved:true, orderNotes:true, orderHeal:true, orderLink:true, orderEdit:true, rpStatus:true, sandbox:true, careGate:true, visitDone:true, rate:K68_RATE_DEF, dateFix:props_().getProperty('CRM_DATEFIX_LOG') || '', orderApproval:true, presentTpl:true, migrate:props_().getProperty('CRM_LAYOUT_V') || '', meeting:true, trip2:true, kpi68:true, tenderPrice:true, custLog:true, deleteAccount:true, na:true, kr:true, idem:true, kpiPush:true }; break;
       case 'boot'            : out = boot(user); break;
       case 'master'          : out = { ok:true, master: readMaster() }; break;
       case 'customerIndex'   : out = { ok:true, rows: customerIndex() }; break;
@@ -517,6 +517,7 @@ function handle(e, method){
       case 'productCodes'    : out = productCodes(p); break;
       case 'saveOrders'      : out = saveOrders(user, p); break;
       case 'saveCustomerCbc' : out = saveCustomerCbc(user, p); break;
+      case 'cbcEnsure'       : out = cbcEnsureAct_(user, p); break;
       case 'bumpCache'       : out = { ok:true, ver: bumpVersion(),
                                        message:'Đã làm mới bộ nhớ đệm dữ liệu' }; break;
       case 'sheetInfo'       : out = { ok:true, id: ss().getId(), name: ss().getName(),
@@ -588,7 +589,7 @@ function whoAmI(p){
 function isManager(user){ return user && user.role === 'manager'; }
 
 /* ⭐ v10.0 — các action GHI dữ liệu (dùng cho chống ghi trùng theo rid) */
-var WRITE_ACTIONS = { weeklyReport:1, monthlyReport:1, tripPropose2:1, tfDecide:1, addKey:1, addSub:1, atImport:1, saveOrders:1, saveOrder:1, saveCustomer:1, saveCBC:1, saveCustomerCbc:1, saveWeekly:1, saveMonthly:1,
+var WRITE_ACTIONS = { weeklyReport:1, monthlyReport:1, tripPropose2:1, tfDecide:1, addKey:1, addSub:1, atImport:1, saveOrders:1, saveOrder:1, saveCustomer:1, saveCBC:1, saveCustomerCbc:1, cbcEnsure:1, saveWeekly:1, saveMonthly:1,
                       savePresentation:1, saveADP:1, deleteRow:1, deleteAccount:1, uploadPhoto:1,
                       naSave:1, naSubmit:1, naDecide:1, naDelete:1, orderDoc:1, orderDecide:1, orderRequest:1,
                       updateKey:1, updateSub:1, updateProgress:1, updateStatus:1, deleteKey:1, deleteSub:1, deletePhoto:1 };   /* ⭐ v10.11 — ALL TASK + xoá ảnh cũng chống trùng theo rid */
@@ -1298,6 +1299,8 @@ function saveOrders(user, p){
                      (skipped.length ? ' — ' + skipped.length + ' dòng chưa bỏ được (dữ liệu đã đổi, tải lại rồi sửa lại)' : '') };
   } finally { lock.releaseLock(); }
   /* ⭐ v10.14 — ĐƠN MỚI ⇒ email thông báo (ngoài khoá; lỗi email không làm hỏng việc lưu). v10.16: người nhận = HOD (ORDER_APPROVERS), không còn Giám đốc */
+  /* ⭐ v10.22 (31/10/2026) — người liên lạc / người đặt đơn ⇒ tự thành Key stakeholder (tab 2. CBC) của địa bàn, chưa có thì thêm */
+  try { _out.cbc = ordCbcEnsure_(user, list); } catch(eC){ _out.cbcErr = String(eC && eC.message || eC); }
   if (newData.length && !editing){ try { _out.dirMail = ordNewMail_(user, newData); } catch(eM){ _out.dirMail = 'lỗi: ' + (eM && eM.message || eM); } }
   return _out;
 }
@@ -1461,7 +1464,7 @@ function saveCustomerCbc(user, p){
     cbc.area = cbc.area || S(cus.area);
     cbc.pic  = cbc.pic  || S(cus.pic);
     cbc.address = cbc.address || S(cus.address);
-    var r2 = saveRow(user, { data:cbc, flush:true }, 'cbc');
+    var r2 = cbcEnsure_(user, cbc);
     if (r2.ok){
       out.cbcRow = r2.row;
       out.cbc = { _row:r2.row, code:code, name:S(cbc.name), contact:S(cbc.contact),
@@ -1471,6 +1474,72 @@ function saveCustomerCbc(user, p){
       out.message += ' · kèm người liên lạc ' + S(cbc.contact);
     } else out.cbcWarn = r2.error;
   }
+  return out;
+}
+
+
+/* ══════════ ⭐ v10.22 (31/10/2026) — ĐẢM BẢO NGƯỜI LIÊN LẠC LÀ KEY STAKEHOLDER (tab 2. CBC) ══════════
+   Tìm theo địa bàn (mã hoặc tên) + tên người (bỏ dấu) hoặc SĐT (≥ 8 số). Đã có ⇒ chỉ bù SĐT / chức danh / chuyên khoa còn trống.
+   Chưa có ⇒ thêm dòng mới, thông tin địa bàn lấy từ tab 1. CUSTOMER CODE. */
+function cbcPhone_(v){ var d = String(v == null ? '' : v).replace(/\D/g, ''); return d.length >= 8 ? d.slice(-9) : ''; }
+function cbcEnsure_(user, d){
+  d = d || {};
+  var who = S(d.contact); if (!who) return { ok:false, error:'Thiếu tên người liên lạc' };
+  var code = S(d.code), nm = S(d.name);
+  if (code || nm){
+    var cus = null;
+    readTab('customer').some(function(c){
+      if ((code && S(c.code) === code) || (!code && nm && normName_(c.name) === normName_(nm))){ cus = c; return true; } return false; });
+    if (cus){
+      if (!code) code = S(cus.code);
+      ['name','type','province','area','address','pic'].forEach(function(f){ if (!S(d[f]) && S(cus[f])) d[f] = S(cus[f]); });
+    }
+  }
+  if (!code && !S(d.name)) return { ok:false, error:'Thiếu địa bàn của người liên lạc' };
+  d.code = code;
+  var kN = normName_(who), kP = cbcPhone_(d.phone), kA = normName_(d.name), hit = null;
+  readTab('cbc').some(function(b){
+    var sameAcc = (code && S(b.code) === code) || (kA && normName_(b.name) === kA);
+    if (!sameAcc) return false;
+    if ((kN && normName_(b.contact) === kN) || (kP && cbcPhone_(b.phone) === kP)){ hit = b; return true; }
+    return false;
+  });
+  if (hit){
+    var fix = { _row:hit._row }, any = false;
+    ['phone','jobTitle','specialize'].forEach(function(f){ if (!S(hit[f]) && S(d[f])){ fix[f] = S(d[f]); any = true; } });
+    if (any){ saveRow(user, { data:fix, flush:true }, 'cbc'); ['phone','jobTitle','specialize'].forEach(function(f){ if (fix[f]) hit[f] = fix[f]; }); }
+    return { ok:true, row:hit._row, isNew:false, cbc:hit };
+  }
+  var data = { _row:0, code:code, name:S(d.name), type:S(d.type), province:S(d.province), area:S(d.area), address:S(d.address),
+               pic:S(d.pic) || S(user && user.pic), contact:who, phone:S(d.phone), jobTitle:S(d.jobTitle), specialize:S(d.specialize),
+               role:S(d.role), note:S(d.note), logSource:S(d.logSource) || 'App — Key stakeholder tự thêm' };
+  var r = saveRow(user, { data:data, flush:true }, 'cbc');
+  if (!r.ok) return r;
+  try { delete _RAW['cbc']; } catch(e){}
+  var o = { _row:r.row, code:code, name:data.name, contact:who, phone:data.phone, jobTitle:data.jobTitle, specialize:data.specialize,
+            type:data.type, province:data.province, area:data.area, address:data.address, pic:data.pic };
+  try { o.cbcCode = S(sh('cbc').getRange(r.row, COL.cbc.cbcCode).getValue()); o.cbcNo = S(sh('cbc').getRange(r.row, COL.cbc.cbcNo).getValue()); } catch(e){}
+  return { ok:true, row:r.row, isNew:true, cbc:o };
+}
+function cbcEnsureAct_(user, p){
+  var d = p.cbc || p.data;
+  if (typeof d === 'string'){ try { d = JSON.parse(d); } catch(e){ d = null; } }
+  if (!d) return { ok:false, error:'Thiếu dữ liệu người liên lạc' };
+  var r = cbcEnsure_(user, d);
+  if (r.ok) r.message = r.isNew ? ('Đã thêm Key stakeholder ' + S(d.contact)) : ('Key stakeholder ' + S(d.contact) + ' đã có');
+  return r;
+}
+/* đơn hàng: mỗi (địa bàn, người liên lạc) 1 lần */
+function ordCbcEnsure_(user, list){
+  var seen = {}, out = [];
+  (list || []).forEach(function(d){
+    if (!d || d._del || !S(d.contact)) return;
+    var k = (S(d.code) || normName_(d.name)) + '|' + normName_(d.contact); if (seen[k]) return; seen[k] = 1;
+    var r = cbcEnsure_(user, { code:S(d.code), name:S(d.name), contact:S(d.contact), phone:S(d.phone), jobTitle:S(d.jobTitle),
+                               type:S(d.type), province:S(d.province), area:S(d.area), address:S(d.address), pic:S(d.pic),
+                               logSource:'App — người đặt đơn ' + S(d.orderNo) });
+    if (r.ok) out.push({ isNew:r.isNew, row:r.row, cbc:r.cbc });
+  });
   return out;
 }
 
