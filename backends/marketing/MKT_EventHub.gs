@@ -24,7 +24,7 @@ var EH = {
   APP_URL: 'https://manimedicalhanoi.github.io/MMH-Event-MKTOnline/',
   FY_FROM: '2026-09-01', FY_TO: '2027-08-31',
   MAX_MB: 25,
-  BUDGET: 240000,
+  BUDGET: 150000,                 /* chạy chung lượt evsSyncTick (giới hạn 6 phút) */
   ROLES: ['Owner', 'Digital', 'Design', 'Trade', 'Sales'],
   STATUS: ['Chưa làm', 'Đang làm', 'Chờ duyệt', 'Xong', 'Bỏ qua'],
   COLS: {
