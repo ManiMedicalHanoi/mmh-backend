@@ -242,10 +242,13 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   ⚠️ 2 lượt `vsSync_` chạy cùng lúc (cronTh + onEdit / saveWeekly / bước sync) ⇒ ALL TASK nhân đôi dòng (2.882 → 4.768). Nay `vsSync_` giữ **DocumentLock**
   (app ghi dùng ScriptLock ⇒ không phải chờ), bận ⇒ bỏ qua; `vsRebuild_` xoá mọi dòng cột U `visit|` / `visitk|` + dòng con KHÔNG có dấu U dưới key đồng bộ / không có key cha (U lệch dòng khi chạy chồng) rồi ghi lại (key tay + dòng con giữ nguyên) — bước sync chạy 1 lần
   (Script Property `THD_VS_CLEAN`), `op=resync` để chạy lại.
-- **30/10/2026 — File "Kế hoạch & tiến độ sự kiện" (`marketing/MKT_EventPlan.gs` v1.1, mẫu ở `docs/ke-hoach-su-kien/`)**: 1 Google Sheet chung cho mọi sự kiện (SOP MMHSOP_0XX):
-  Dashboard · **Điều phối** (Owner chọn 1 sự kiện ⇒ thẻ tổng, bản đồ tiến độ hạng mục × giai đoạn, đội thực hiện, việc cần theo dõi, nhật ký) · Giao việc · Sự kiện · **Nhật ký** · Mẫu việc · Cài đặt.
-  `epSync` (trong `evsSyncTick`) ghi tab Sự kiện A–J từ `evsReadEvents_` (REPORT_EVENT + PLAN_EVENT, thêm trường `form` = Hình thức); K–O = ĐỘI của sự kiện (Owner · Digital · Trade · Sales · Đầu mối NPP),
-  P Theo dõi — giữ theo Mã SK (`EV-` + `evsHash_` tên; đổi tên mà cùng ngày D ⇒ giữ mã). Sự kiện mới có ngày, D ≥ hôm nay ⇒ chèn bộ việc theo Mẫu việc, người = đội theo vai trò
-  (cột ẩn U `_auto`; G ≠ U = Owner giao tay ⇒ không đổi theo đội); hạn đã qua lúc tạo ⇒ "Bỏ qua"; mỗi sự kiện 1 lần (`EP_GEN_<id>`). Trigger `epOnEdit` (tự cài): sửa G..L ⇒ cột N giờ cập nhật
-  (ghi chú = người sửa), "Xong" ⇒ Ngày xong = hôm nay; sửa đội ⇒ giao lại ngay. Công thức Giao việc / Sự kiện (`epTaskF_` / `epEvF_`) PHẢI giống `build_plan.py` (tên vùng SK_*, SEL_K, SEL_N, HOLI, PEOPLE).
-  ID file: `EP.ID` (hoặc Script Property `EP_ID`); trống ⇒ không làm gì. Lần đầu xoá dữ liệu ví dụ (`VD-…`, "(ví dụ)"). action `epSync` (`mode=status`). Thử: `docs/ke-hoach-su-kien/test_harness.js`.
+- **31/10/2026 — App "Sự kiện MKT" (`marketing/MKT_EventHub.gs`, app `ManiMedicalHanoi/MMH-Event-MKTOnline`, ghi chú ở `docs/event-hub/`)**: kho dữ liệu = Google Sheet
+  "MMH · Event Hub FY68" + thư mục "Event Hub · Tệp tải lên" TỰ TẠO trong thư mục Drive Event FY68 (`EH.ROOT` `1maHn2DD…`; ID ở Script Property `EH_BOOK` / `EH_FILES`).
+  Tab EVENTS · TASKS (task lớn = `parentId` trống, task phụ có `proof` = file | image | link | trống) · FILES · LOG · TEMPLATE (mẫu việc theo SOP) · TEAM (người mặc định theo vai trò Owner / Digital /
+  Design / Trade / Sales + dòng "Quản lý") · PLAN_JSON + các tab dễ đọc (Nhiệm vụ, Chương trình, Khuyến mại, Agenda, Nhân sự, Đồ MKT, Quà NPP, Kết quả) · NGUỒN FILE.
+  `ehSync_` (trong `evsSyncTick`, ≤ 1 lần / 4 phút): đọc mọi Google Sheet tên "yyyymmdd[-dd]_…" trong Event FY68 (2 cấp thư mục con; .xlsx ⇒ báo cần đổi sang Google Sheet; chỉ đọc lại file có
+  lastUpdated đổi), khớp sự kiện cùng ngày ở PLAN_EVENT / REPORT_EVENT (`evsReadEvents_`, trường `form`), sự kiện mới (có ngày, chưa diễn ra, Theo dõi = Có) ⇒ tạo việc theo TEMPLATE (`EH_GEN`);
+  hạn = ngày D + offset (D + n = ngày làm việc), đổi ngày D ⇒ hạn tự dời (trừ việc đã đổi hạn tay `dueManual`). API (POST JSON, phiên `tk` qua `tfWho_`): `ehBoot` · `ehSave` (op task.add / task.update /
+  task.delete / event.update / link.add / file.delete) · `ehUpload` (base64 ≤ 25 MB ⇒ thư mục sự kiện / hạng mục) · `ehSync`. Quyền: quản lý (Admin / Director / HOD / TEAM ▸ Quản lý) + Owner sự kiện sửa mọi thứ;
+  người phụ trách việc: trạng thái, ghi chú, nộp file / link. "Xong" khi việc cần bằng chứng mà chưa nộp ⇒ `code:'PROOF'`. Đổi người trong đội ⇒ việc chưa giao tay (pic = người cũ của vai trò) đổi theo.
+
