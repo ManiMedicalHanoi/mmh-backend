@@ -251,4 +251,11 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   hạn = ngày D + offset (D + n = ngày làm việc), đổi ngày D ⇒ hạn tự dời (trừ việc đã đổi hạn tay `dueManual`). API (POST JSON, phiên `tk` qua `tfWho_`): `ehBoot` · `ehSave` (op task.add / task.update /
   task.delete / event.update / link.add / file.delete) · `ehUpload` (base64 ≤ 25 MB ⇒ thư mục sự kiện / hạng mục) · `ehSync`. Quyền: quản lý (Admin / Director / HOD / TEAM ▸ Quản lý) + Owner sự kiện sửa mọi thứ;
   người phụ trách việc: trạng thái, ghi chú, nộp file / link. "Xong" khi việc cần bằng chứng mà chưa nộp ⇒ `code:'PROOF'`. Đổi người trong đội ⇒ việc chưa giao tay (pic = người cũ của vai trò) đổi theo.
+  **v1.1 (31/10/2026, `MKT_EventHubPlus.gs`)**: email thư thường qua `mmhMail_` (giao việc · nộp Chờ duyệt ⇒ Owner · Owner trả lại · bình luận / @Tên · nhắc thủ công `task.remind` /
+  `event.remind` · đội sự kiện mới), ghi tab NOTIFY; nhắc việc hằng ngày trigger `ehDaily` (tự cài ở `ehSyncTick_`, giờ = cấu hình, bỏ CN + ngày nghỉ; Owner nhận thêm việc trễ / chưa giao;
+  thứ Hai tổng hợp cho TEAM ▸ Quản lý; xem trước: action `ehDaily` dry). ehSave thêm op `event.add` (quản lý, tạo việc theo TEMPLATE, hạn đã qua ⇒ hôm nay) · `event.delete` (chỉ APP / mẫu) ·
+  `comment.add/delete` (tab COMMENTS) · `cfg.save` (Script Property EH_CFG). Cột mới thêm ở CUỐI (EVENTS: cover, target, actual, budgetPlan, budgetActual, sample; TASKS: priority, sample;
+  FILES: thumb, sample) — `ehEnsureTabs_` tự ghi lại dòng tiêu đề. **Dữ liệu mẫu**: action `ehSample op=seed|clear|status` (Admin hoặc `key` = 8 ký tự cuối EH.ROOT, gọi qua workflow
+  Kiểm tra): 7 sự kiện "(mẫu)" giao cho nhân sự thật trong RH_Users, cột sample = x ⇒ KHÔNG email / nhắc việc, đồng bộ file kế hoạch không khớp vào. `ehSync&key=…` chạy đồng bộ không cần phiên.
+  `ehPeople_` = `ehUsers_` (RH_Users: Dept cột K — v1.0 đọc nhầm cột G); email không bao giờ trả về app.
 
