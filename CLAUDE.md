@@ -258,4 +258,7 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   FILES: thumb, sample) — `ehEnsureTabs_` tự ghi lại dòng tiêu đề. **Dữ liệu mẫu**: action `ehSample op=seed|clear|status` (Admin hoặc `key` = 8 ký tự cuối EH.ROOT, gọi qua workflow
   Kiểm tra): 7 sự kiện "(mẫu)" giao cho nhân sự thật trong RH_Users, cột sample = x ⇒ KHÔNG email / nhắc việc, đồng bộ file kế hoạch không khớp vào. `ehSync&key=…` chạy đồng bộ không cần phiên.
   `ehPeople_` = `ehUsers_` (RH_Users: Dept cột K — v1.0 đọc nhầm cột G); email không bao giờ trả về app.
-
+  **v1.2 (31/10/2026, `MKT_EventHubLink.gs`, người dùng yêu cầu "kết nối với MKT Offline + MKT Online")**: CHỈ ĐỌC 2 file MKT ⇒ tab **MKT_LINK** của file Event Hub (eventId · json):
+  dòng REPORT_EVENT / PLAN_EVENT (`evsReadEvents_`, khớp `offlineName` / tên), CUSTOMER LIST chỉ SỐ ĐẾM (đăng ký · xác nhận Ký tay / Zoom · đủ điều kiện KPI — không trả tên / SĐT),
+  EVENT REPORT (`evsReadPosts_` + link thật) và ORDER REPORT (Key Task/ Event trùng / chứa tên). `ehSyncTick_` ⇒ `ehLinkTick_` (≤ 10 phút, chỉ khi 1 trong 2 file / danh sách sự kiện đổi — `EHL_SIG`);
+  `ehBoot_` trả `link` (đệm `eh_link`); action `ehLink op=status|sync` (`key` hoặc quản lý); sự kiện mẫu ⇒ số giả `ehlSample_`. Chạy tay: `ehLinkNow()`.
