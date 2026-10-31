@@ -16,9 +16,10 @@
  * Đồng bộ: evsSyncTick (10 phút) ⇒ ehSyncTick_ · action ehSync (mode=status chỉ xem) · tay: ehSyncNow().
  * Không dùng dịch vụ mới (SpreadsheetApp / DriveApp / Properties / Cache / Lock / MailApp qua mmhMail_ / ScriptApp) ⇒ không phải cấp quyền lại.
  * v1.1: email giao việc / chờ duyệt / bình luận / nhắc việc hằng ngày, tạo sự kiện trên app, dữ liệu mẫu — xem MKT_EventHubPlus.gs.
+ * v1.2: dữ liệu file MKT Offline (REPORT_EVENT, đếm CUSTOMER LIST) + file Digital (EVENT REPORT, ORDER REPORT) theo sự kiện — xem MKT_EventHubLink.gs.
  *************************************************************************************************/
 var EH = {
-  VER: '1.1',
+  VER: '1.2',
   ROOT: '1maHn2DD34aJBaNnH4q9Di0YH2wMurYuZ',     /* thư mục Drive "Event FY68" */
   BOOK_NAME: 'MMH · Event Hub FY68 (dữ liệu app Sự kiện MKT)',
   FILES_NAME: 'Event Hub · Tệp tải lên',
@@ -355,7 +356,7 @@ function ehPlanFiles_(){
 }
 
 /* ══════════════ ĐỒNG BỘ ══════════════ */
-function ehSyncTick_(){ var c = CacheService.getScriptCache(); if (c.get('eh_tick')) return; c.put('eh_tick', '1', 240); try { ehSync_({}); } catch(e){} try { ehTrig_(); } catch(e){} }
+function ehSyncTick_(){ var c = CacheService.getScriptCache(); if (c.get('eh_tick')) return; c.put('eh_tick', '1', 240); try { ehSync_({}); } catch(e){} try { ehTrig_(); } catch(e){} try { ehLinkTick_(); } catch(e){} }   /* v1.2: + file MKT Offline / Digital (MKT_EventHubLink.gs) */
 function ehSync_(opt){
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) return { ok:false, error:'Đang có tiến trình ghi khác, thử lại sau.' };
@@ -563,6 +564,7 @@ function ehRoute_(action, user, p){
     if (action === 'ehSave') return ehOnce_(p, function(){ return ehSaveN_(p); });
     if (action === 'ehSample') return ehSample_(p);
     if (action === 'ehDaily') return ehDailyApi_(p);
+    if (action === 'ehLink') return ehLinkApi_(p);   /* v1.2 — MKT_EventHubLink.gs */
     if (action === 'ehUpload') return ehOnce_(p, function(){ return ehUpload_(p); });
     if (action === 'ehSync'){
       if (String(p.mode || '') === 'status'){ var last = {}; try { last = JSON.parse(PropertiesService.getScriptProperties().getProperty('EH_LAST') || '{}'); } catch(e){} return { ok:true, ver:EH.VER, last:last }; }
@@ -600,6 +602,7 @@ function ehBoot_(p){
     try { var js = JSON.stringify(base); if (js.length < 95000) c.put('eh_boot', js, 120); } catch(e){}
   }
   var last = {}; try { last = JSON.parse(PropertiesService.getScriptProperties().getProperty('EH_LAST') || '{}'); } catch(e){}
+  try { base.link = ehLinkGet_(ss); } catch(e){ base.link = {}; }   /* v1.2: dữ liệu file MKT Offline / Digital theo sự kiện */
   base.ok = true; base.me = { pic: me.pic, manager: me.manager, admin: !!me.admin, level: me.level }; base.sync = last; base.ver = EH.VER; base.cfg = ehCfg_();
   if (!me.manager) base.notify = (base.notify || []).filter(function(n){ return n.to === me.pic || n.by === me.pic; });
   return base;
