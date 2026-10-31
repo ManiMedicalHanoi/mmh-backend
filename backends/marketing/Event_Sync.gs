@@ -160,6 +160,7 @@ function evsReadEvents_(){
         segment: evsS_(evsGet_(t, r, ['Segment'])), topic: evsS_(evsGet_(t, r, ['Topic'])),
         kol: evsS_(evsGet_(t, r, ['KOL/ ACC', 'KOL'])), partner: evsS_(evsGet_(t, r, ['Partner'])),
         place: evsS_(evsGet_(t, r, ['Place'])),
+        form: evsS_(evsGet_(t, r, ['Hình thức'])),   /* 30/10/2026: Hình thức (Trực tiếp / Webinar) — MKT_EventHub.gs */
         plan: evsS_(evsGet_(t, r, ['Plan status'])), action: evsS_(evsGet_(t, r, ['Action Status'])),
         folder: evsS_(evsGet_(t, r, ['Detail event folder link'])), folderUrl: furl[i] || '', review: evsS_(evsGet_(t, r, ['Event review'])),
         tPart: evsNum_(evsGet_(t, r, ['Target Participant'])), aPart: evsNum_(evsGet_(t, r, ['Actual Participant'])),
@@ -515,6 +516,7 @@ var EVS_LOCK_MSG = 'Key task sự kiện đồng bộ từ file MKT Offline — 
 function evsSyncTick(){
   try { if (typeof mktaRun_ === 'function') mktaRun_({}); } catch(_e){}          /* MKT_SheetAuto.gs: Month / On-air / Status / Check deadline / Ads */
   evsSync({});
+  try { if (typeof ehSyncTick_ === 'function') ehSyncTick_(); } catch(_e){}       /* 31/10/2026: MKT_EventHub.gs — app Sự kiện MKT */
 }
 function evsOnChange(e){
   try { if (typeof mktaOnChange_ === 'function') mktaOnChange_(e); } catch(_e){}  /* MKT_SheetAuto.gs — chỉ file vừa đổi */
