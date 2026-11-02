@@ -2472,8 +2472,22 @@ var KSC_MAIL = {
                'Giang': 'mmh.product@manimedicalhanoi.com', 'Tuyen': 'tt.tuyen@manimedicalhanoi.com', 'Viet Ha': 'mmh.hanoi2@manimedicalhanoi.com',
                'Khang': 'mmh.saigon1@manimedicalhanoi.com', 'Trang': 'marketing.mmh2@manimedicalhanoi.com', 'Dao': 'manithailand@manimedicalhanoi.com',
                'Miew': 'manithailand4@manimedicalhanoi.com', 'Hoa': 'vtt.hoa@manimedicalhanoi.com', 'Nguyễn Thị Thu Hà': 'nt.ha@manimedicalhanoi.com' },
-  GROUP_BG : [[/^sales/i, '#CFE2F3'], [/^marketing/i, '#FFF2CC'], [/^people/i, '#F4CCCC'], [/^(process|back|operation|finance)/i, '#D9EAD3']]
+  GROUP_BG : [[/^sales/i, '#CFE2F3'], [/^marketing/i, '#FFF2CC'], [/^people/i, '#F4CCCC'], [/^(process|back|operation|finance)/i, '#D9EAD3']],
+  /* ⭐ 02/11/2026 — xưng hô trong lời chào (người dùng yêu cầu): "Dear chị Tuyên" · "Dear chị Hòa" · "Dear sếp Hà" (Tổng Giám đốc); nhóm Thái (EN): "Dear Ha san".
+     Người chưa có trong bảng: VN "anh/chị <tên>", EN "<tên> san"; Director (Job level) luôn "sếp <tên>" / "<tên> san". */
+  HONOR    : { vi: { 'Tuyen': 'chị Tuyên', 'Hoa': 'chị Hòa', 'Nguyen Ha': 'sếp Hà', 'Nguyễn Thị Thu Hà': 'sếp Hà' },
+               en: { 'Nguyen Ha': 'Ha san', 'Nguyễn Thị Thu Hà': 'Ha san' } }
 };
+function kscPlain_(s) { return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D'); }
+/* p = dòng 0. Staff List ({key, full, level}) · en = nhóm Thái */
+function kscHonor_(p, en) {
+  if (!p) return '';
+  var H = KSC_MAIL.HONOR[en ? 'en' : 'vi'], k = p.key || '', f = p.full || '';
+  if (H[k]) return H[k]; if (H[f]) return H[f];
+  var last = String(f || k).trim().split(/\s+/).pop() || k;
+  if (/director/i.test(p.level || '')) return en ? kscPlain_(last) + ' san' : 'sếp ' + last;
+  return en ? (kscPlain_(k || last) + ' san') : ('anh/chị ' + (k || last));
+}
 function kscOpenMail() {
   var html = HtmlService.createHtmlOutput(KSC_MAIL_HTML).setWidth(980).setHeight(720);
   SpreadsheetApp.getUi().showModalDialog(html, 'Soạn và gửi email KPI tháng');
@@ -2540,7 +2554,8 @@ function kscRecipients_(D, pic) {
   var miss = [];
   toP.forEach(function (p) { if (!p.email) miss.push((p.key || p.full) + ' (To)'); });
   var names = toP.map(function (p) { return p.key || p.full; });
-  return { me: me, to: to, cc: cc, toName: names.join(', '), toNames: names, head: head ? (head.key || head.full) : '', headFull: head ? (head.full || head.key) : '',
+  var honor = toP.map(function (p) { return kscHonor_(p, false); }), honorEn = toP.map(function (p) { return kscHonor_(p, true); });
+  return { me: me, to: to, cc: cc, toName: names.join(', '), toNames: names, toHonor: honor, toHonorEn: honorEn, head: head ? (head.key || head.full) : '', headFull: head ? (head.full || head.key) : '',
            dir: dir ? (dir.key || dir.full) : '', dirFull: dir ? (dir.full || dir.key) : '', miss: miss };
 }
 /* dữ liệu cho hộp thoại */
@@ -2569,7 +2584,7 @@ function kscMailData(pic, month) {
   var T = (mem.total || {})[key] || {}, TQ = (mem.total || {})[q] || {};
   var R = kscRecipients_(kscStaffDir_(ss), pic);
   return { ok: true, pic: pic, month: m, q: q, fy: L.fy, rows: rows, total: T.pw, wsum: T.w, qtotal: TQ.pw, to: R.to.join(', '), cc: R.cc.join(', '),
-           toName: R.toName, toNames: R.toNames, head: R.head, headFull: R.headFull, dir: R.dir, dirFull: R.dirFull,
+           toName: R.toName, toNames: R.toNames, toHonor: R.toHonor, toHonorEn: R.toHonorEn, head: R.head, headFull: R.headFull, dir: R.dir, dirFull: R.dirFull,
            dept: R.me.dept || '', team: R.me.team || '', title: R.me.title || '', miss: R.miss, full: R.me.full || pic, src: M5.url };
 }
 /* HTML email — ⭐ 02/11/2026: theo Biểu mẫu Báo cáo KPI Tháng MMHSOP_009-FM01 (VN / EN cho nhóm Thái)
@@ -2665,8 +2680,9 @@ function kscMailSend(f) {
     if (!lg) { lg = ss.insertSheet(KSC_MAIL.LOG); lg.getRange(1, 1, 1, 8).setValues([['Thời điểm', 'Người gửi', 'PIC', 'Tháng', 'KPI tháng', 'To', 'CC', 'Tiêu đề']]).setFontWeight('bold'); try { lg.hideSheet(); } catch (e1) {} }
     lg.appendRow([Utilities.formatDate(new Date(), KSC.TZ, 'dd/MM/yyyy HH:mm'), me, d.pic, d.month, d.total == null ? '' : d.total, to.join(', '), cc.join(', '), subject]);
   } catch (e2) {}
-  if (f.lang === 'en') return { ok: true, msg: 'KPI email ' + kscMon_(d.month) + ' sent to ' + to.join(', ') + (cc.length ? ' · CC ' + cc.join(', ') : '') };
-  return { ok: true, msg: 'Đã gửi email KPI T' + kscMon_(d.month) + ' tới ' + to.join(', ') + (cc.length ? ' · CC ' + cc.join(', ') : '') };
+  var sent = { to: to, cc: cc, subject: subject, at: Utilities.formatDate(new Date(), KSC.TZ, 'dd/MM/yyyy HH:mm'), att: f.attName || '' };
+  if (f.lang === 'en') return { ok: true, sent: sent, msg: 'KPI email ' + kscMon_(d.month) + ' sent to ' + to.join(', ') + (cc.length ? ' · CC ' + cc.join(', ') : '') };
+  return { ok: true, sent: sent, msg: 'Đã gửi email KPI T' + kscMon_(d.month) + ' tới ' + to.join(', ') + (cc.length ? ' · CC ' + cc.join(', ') : '') };
 }
 
 var KSC_MAIL_HTML = [
@@ -2712,7 +2728,7 @@ var KSC_MAIL_HTML = [
 'function load(){$("go").disabled=true;$("msg").className="msg";$("msg").innerHTML="Đang đọc số liệu KPI…";',
 ' google.script.run.withSuccessHandler(function(d){if(!d.ok){err(d.error);return;}D=d;var m=mlab(d.month);',
 '  $("to").value=d.to;$("cc").value=d.cc;$("subj").value="Báo cáo KPI tháng "+m+" (MMHSOP_009-FM01) · "+(d.full||d.pic);',
-'  if(!$("greet").dataset.t){$("greet").value="Dear "+(d.toName||"")+" ,";}',
+'  if(!$("greet").dataset.t){$("greet").value="Dear "+((d.toHonor&&d.toHonor.length)?d.toHonor.join(", "):(d.toName||""))+",";}',
 '  if(!$("intro").dataset.t){$("intro").value="Em gửi lại KPI tháng "+m.replace("/"," ")+" của em ạ :";}',
 '  if(!$("sign").dataset.t){$("sign").value="Em "+d.pic;}',
 '  $("msg").className="msg"+(d.miss.length?" warn":"");',
