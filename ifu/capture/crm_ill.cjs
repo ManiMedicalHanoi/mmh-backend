@@ -3,7 +3,8 @@
 const { chromium } = require('playwright');
 const fs = require('fs'), path = require('path'), { execFileSync } = require('child_process');
 const ROOT = path.join(__dirname, '..', 'shots');
-const ICON = 'file:///home/user/MMH-CRM/media/app/icon-192.png';
+const dataUri = f => 'data:image/' + (/\.png$/i.test(f) ? 'png' : 'jpeg') + ';base64,' + fs.readFileSync(f).toString('base64');
+const ICON = dataUri('/home/user/MMH-CRM/media/app/icon-192.png');   /* nhúng thẳng: trang setContent không nạp được file:// */
 const T = { vi:{ ill:'Minh hoạ', url:'manimedicalhanoi.github.io/MMH-CRM', install:'Cài đặt ứng dụng', installQ:'Cài đặt ứng dụng?', cancel:'Huỷ', ok:'Cài đặt', menu:['Thẻ mới','Thẻ ẩn danh mới','Lịch sử','Dấu trang','Thẻ gần đây','Chia sẻ…','Tìm trong trang','Cài đặt ứng dụng','Trang web cho máy tính','Cài đặt'],
   apps:['Điện thoại','Tin nhắn','Ảnh','Cài đặt','Lịch','Máy ảnh','Thư','MMH CRM'], share:['Sao chép','Thêm vào Danh sách đọc','Thêm dấu trang','Thêm vào Mục ưa thích','Thêm vào MH chính','In'], addTitle:'Thêm vào Màn hình chính', add:'Thêm', addNote:'Một biểu tượng sẽ được thêm vào Màn hình chính để bạn có thể truy cập nhanh trang web này.' },
   en:{ ill:'Illustration', url:'manimedicalhanoi.github.io/MMH-CRM', install:'Install app', installQ:'Install app?', cancel:'Cancel', ok:'Install', menu:['New tab','New Incognito tab','History','Bookmarks','Recent tabs','Share…','Find in page','Install app','Desktop site','Settings'],
@@ -51,8 +52,8 @@ async function render(b, html, out, w, h){
 (async () => {
   const b = await chromium.launch();
   for (const L of ['vi', 'en']){
-    const t = T[L], dir = path.join(ROOT, L === 'en' ? 'crmg_en' : 'crmg'), png = f => 'file://' + path.join(dir, 'png', f + '.png');
-    const bgM = fs.existsSync(path.join(dir, 'png', 'm_today.png')) ? png('m_today') : '', bgD = png('home');
+    const t = T[L], dir = path.join(ROOT, L === 'en' ? 'crmg_en' : 'crmg'), png = f => dataUri(path.join(dir, 'png', f + '.png'));
+    const bgM = png('m_today'), bgD = png('home');
     const addr = (extra) => `<div class="bar"><div class="addr">🔒 ${t.url}</div><div class="dots ${extra || ''}">⋮</div></div>`;
     const phone = (inner, cls) => `<div class="ph"><div class="bg" style="background-image:url('${bgM}');top:92px"></div>${inner}<div class="tag">${t.ill}</div></div>`;
     await render(b, phone(addr('hl')), path.join(dir, 'ill_and_dots.jpg'), 390, 844);

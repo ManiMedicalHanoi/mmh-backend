@@ -26,7 +26,7 @@ Each team has **its own Google Sheet file**. The app keeps no data of its own: w
 About 1 minute, using **Chrome**.
 
 1. Open **manimedicalhanoi.github.io/MMH-CRM** in **Chrome** and sign in (section 1.5).
-2. On the bottom bar, tap **More** ▸ **Utilities** ▸ **Install app**.
+2. On the bottom bar, tap **More** ▸ **Tools** ▸ **Install app**.
 3. Chrome asks **Install app?** ▸ tap **Install**.
 4. The **MMH CRM** icon appears on your home screen. From now on, tap it to open the CRM — no need to open Chrome.
 
@@ -46,7 +46,7 @@ About 1 minute, using **Safari**. iPhone does not let web pages install themselv
 4. Open the app from the **MMH CRM** icon and **sign in once more** (iPhone keeps the app's sign-in separate from Safari).
 
 :::tip The same guide is inside the app
-Sign in to the CRM in Safari ▸ **More ▸ Utilities ▸ Install app**: the app shows the exact steps for iPhone, with a picture of each button.
+Sign in to the CRM in Safari ▸ **More ▸ Tools ▸ Install app**: the app shows the exact steps for iPhone, with a picture of each button.
 :::
 :::split-end
 
@@ -139,7 +139,7 @@ The bottom bar has 5 fixed buttons:
 | **Customers** | The account list |
 | **Today** | Today's tasks, overdue and upcoming tasks |
 | **Orders / New accounts** | Orders (Vietnam teams) or New accounts (Thailand teams) |
-| **More** | Every other feature + Utilities: Install app, News, Reload, Theme, Guide, What's new, fiscal year, other apps |
+| **More** | Every other feature + Tools: Install app, News, Reload, Theme, Guide, What's new, fiscal year, other apps |
 
 The round **＋** button at the bottom right = **Quick add** a field visit. Today's visit cards have **Report result** (and **Take photo** for the Vietnam teams) buttons.
 :::split-end
