@@ -503,7 +503,7 @@ function handle(e, method){
     if (action === 'kpiLate') return reply(kpiLate_(user, p), callback);               /* ⭐ v10.4 */
 
     switch (action) {
-      case 'ping'            : out = { ok:true, pong:true, source:TEAM(), app:appName_(), pic:user.pic, ver:'10.22', cbcEnsure:true, suppApproved:true, orderNotes:true, orderHeal:true, orderLink:true, orderEdit:true, rpStatus:true, sandbox:true, careGate:true, visitDone:true, rate:K68_RATE_DEF, dateFix:props_().getProperty('CRM_DATEFIX_LOG') || '', orderApproval:true, presentTpl:true, migrate:props_().getProperty('CRM_LAYOUT_V') || '', meeting:true, trip2:true, kpi68:true, tenderPrice:true, custLog:true, deleteAccount:true, na:true, kr:true, idem:true, kpiPush:true }; break;
+      case 'ping'            : out = { ok:true, pong:true, source:TEAM(), app:appName_(), pic:user.pic, ver:'10.23', cbcEnsure:true, suppApproved:true, orderNotes:true, orderHeal:true, orderLink:true, orderEdit:true, rpStatus:true, sandbox:true, careGate:true, visitDone:true, rate:K68_RATE_DEF, dateFix:props_().getProperty('CRM_DATEFIX_LOG') || '', orderApproval:true, presentTpl:true, migrate:props_().getProperty('CRM_LAYOUT_V') || '', meeting:true, trip2:true, kpi68:true, tenderPrice:true, custLog:true, deleteAccount:true, na:true, kr:true, idem:true, kpiPush:true }; break;
       case 'boot'            : out = boot(user); break;
       case 'master'          : out = { ok:true, master: readMaster() }; break;
       case 'customerIndex'   : out = { ok:true, rows: customerIndex() }; break;
@@ -1317,7 +1317,8 @@ function ordNextNo_(){
 var ORD_CARE_DAYS = 30;
 function ordCareOf_(name, dayIso){
   var key = normName_(name); if (!key) return null;
-  var to = wkIso_(dayIso) || wkToday_(), fromD = new Date(to + 'T00:00:00'); fromD.setDate(fromD.getDate() - ORD_CARE_DAYS);
+  /* ⭐ v10.23 (02/11/2026) — đơn NHẬP BÙ (ngày đặt đã qua): lượt chăm sóc ghi SAU ngày đặt (đến hôm nay) cũng được tính — trước chỉ nhận [ngày đặt − 30, ngày đặt] ⇒ đơn tháng trước bị chặn */
+  var day0 = wkIso_(dayIso) || wkToday_(), to = day0 < wkToday_() ? wkToday_() : day0, fromD = new Date(day0 + 'T00:00:00'); fromD.setDate(fromD.getDate() - ORD_CARE_DAYS);
   var from = Utilities.formatDate(fromD, 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd'), best = null;
   readTab('weekly').forEach(function(w){
     if (normName_(parseCheckName(w.account).name) !== key) return;
@@ -1336,7 +1337,7 @@ function ordCareCheck_(list){
   });
   if (!miss.length) return null;
   return { ok:false, code:'NOCARE', accounts:miss,
-    error:'Khách hàng "' + miss.join('", "') + '" chưa có lịch sử chăm sóc trong ' + ORD_CARE_DAYS + ' ngày trước ngày đặt. Vui lòng cập nhật thông tin khách hàng ' +
+    error:'Khách hàng "' + miss.join('", "') + '" chưa có lịch sử chăm sóc từ ' + ORD_CARE_DAYS + ' ngày trước ngày đặt đến nay. Vui lòng cập nhật thông tin khách hàng ' +
           '(tạo và hoàn thành 1 hoạt động: Visiting, Telephone, Message… trên Báo cáo tuần) rồi tạo đơn hàng.' };
 }
 /* email thư thường tới HOD (người duyệt đơn của nhóm — ORDER_APPROVERS) khi sales tạo đơn mới.
