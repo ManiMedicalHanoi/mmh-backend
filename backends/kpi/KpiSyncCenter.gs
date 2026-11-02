@@ -145,6 +145,12 @@
        Quý / năm: Target của kỳ = 0 mới tính 100%.
      · Menu 🎯 Kiểm tra rule Target = 0: sửa ngay và liệt kê từng người · mã KPI · tháng có Target = 0 kèm % đang hiện.
 
+   v1.21 (02/11/2026) · EMAIL KPI THEO QUY TRÌNH QUẢN LÝ KPI MMHSOP_009 (hiệu lực 01/10/2026)
+     · Email Báo cáo KPI Tháng theo Biểu mẫu FM01 (VN; nhóm Thái EN): bảng 1 thêm Bộ phận · Nhân sự · Chức danh · Lý do đạt/chưa đạt
+       từng chỉ tiêu; 2. Hành động tháng tới; 3. Điểm nổi bật · Khó khăn · Hỗ trợ cần thiết. App đính kèm file Word FM01 (attB64).
+     · Người nhận: To = Trưởng bộ phận + Tổng Giám đốc, CC = Kế toán (KPI EMAIL DIRECTORY ô C2). Hạn: ngày 05 tháng sau.
+     · KSC.VERSION giữ 1.18 (không chạy lại lượt nâng cấp).
+
    v1.20 (29/10/2026) · NGUỒN MỚI: SỰ KIỆN THÁI LAN — xem KpiThaiEvents.gs
      · C13-00 · C11-01 · C11-01a (Surgical) và C14-00 · C11-02 (Dental) đọc thẳng REPORT_EVENT của 2 file sự kiện nhóm Thái,
        phân loại theo người dẫn (cột KOL/PIC) đúng 4. Rule / 4B. Thay "KPI Hub" cũ (không còn code đếm ⇒ các mã này trống).
@@ -2451,10 +2457,11 @@ function kscManualSources_(ss) {
    Menu ⚡ KPI Sync ▸ ✉ Soạn và gửi email KPI tháng.
    · Chọn tháng (mặc định tháng trước) và người (mặc định người đang đăng nhập).
    · Người nhận tự điền theo sheet 0. Staff List + email ở sheet "KPI EMAIL DIRECTORY":
-     To = Team Leader cùng Team (nếu mình là Team Leader hoặc team không có Team Leader thì To = HOD cùng Department),
-     CC = HOD (nếu chưa ở To) + Director + các email "CC luôn gửi" (mặc định vtt.hoa). Thêm / bớt người nhận ngay trong hộp thoại.
-   · Bảng 1. Performance Summary KPI lấy đúng số của sheet 5. Member KPI Monthly (Target, Actual, Weight, %, % x W).
-   · Lời chào, phần 2. Analysis & Next Actions, 3. Highlights & Challenges, chữ ký: người gửi tự soạn.
+     ⭐ 02/11/2026 (Quy trình MMHSOP_009): To = Trưởng bộ phận (HOD cùng Department; chưa có HOD ⇒ Team Leader) + Tổng Giám đốc,
+     CC = Kế toán (ô C2 "Kế toán — CC luôn gửi", mặc định vtt.hoa). Thêm / bớt người nhận ngay trong hộp thoại.
+   · Nội dung theo Biểu mẫu Báo cáo KPI Tháng MMHSOP_009-FM01: 1. Tổng hợp kết quả KPI (số của sheet 5. Member KPI Monthly + lý do đạt/chưa đạt
+     từng chỉ tiêu) · 2. Phân tích và hành động tiếp theo · 3. Điểm nổi bật và khó khăn. App Report Hub / CRM đính kèm thêm file Word FM01.
+   · Hạn gửi: chậm nhất ngày 05 hằng tháng cho kết quả tháng trước (MMHSOP_009 · 4.2.1).
    · Email gửi từ tài khoản Google của người bấm gửi. Mỗi lần gửi ghi 1 dòng vào sheet ẩn _KPI_EMAIL_LOG. */
 var KSC_MAIL = {
   DIR      : 'KPI EMAIL DIRECTORY',
@@ -2501,8 +2508,8 @@ function kscStaffDir_(ss) {
   });
   /* ghi lại sheet danh bạ (thêm người mới của Staff List, giữ email đã nhập) */
   var grid = [['KPI EMAIL DIRECTORY · email dùng cho chức năng ✉ Soạn và gửi email KPI tháng', '', ''],
-              ['CC luôn gửi (cách nhau bằng dấu phẩy):', '', cc],
-              ['Cột A, B lấy theo 0. Staff List. Chỉ nhập / sửa cột C (Email). Người nhận To / CC tự chọn theo Team, Mgmt. / Role và Department của 0. Staff List.', '', ''],
+              ['Kế toán — CC luôn gửi (cách nhau bằng dấu phẩy):', '', cc],
+              ['Cột A, B lấy theo 0. Staff List. Chỉ nhập / sửa cột C (Email). Theo MMHSOP_009: To = Trưởng bộ phận (HOD cùng Department) + Tổng Giám đốc · CC = Kế toán (ô C2).', '', ''],
               ['KPI Name', 'Full name', 'Email']].concat(staff.map(function (s) { return [s.key, s.full, s.email]; }));
   try {
     if (!sh) { sh = ss.insertSheet(KSC_MAIL.DIR); try { sh.setTabColor('#FFE100'); } catch (e0) {} }
@@ -2514,21 +2521,27 @@ function kscStaffDir_(ss) {
   } catch (e2) {}
   return { staff: staff, cc: cc };
 }
+/* ⭐ 02/11/2026 — người nhận theo Quy trình quản lý KPI MMHSOP_009 (hiệu lực 01/10/2026, bước 2):
+   Báo cáo KPI Tháng (FM01) và Báo cáo KPI Quý (FM02) gửi qua email TỚI Trưởng bộ phận + Tổng Giám đốc, ĐỒNG GỬI (CC) Kế toán.
+   · Trưởng bộ phận = HOD cùng Department (mình là HOD ⇒ chỉ Tổng Giám đốc); bộ phận chưa có HOD ⇒ Team Leader cùng Team.
+   · Kế toán = ô "Kế toán (CC luôn gửi)" của sheet KPI EMAIL DIRECTORY (mặc định vtt.hoa). */
 function kscRecipients_(D, pic) {
   var me = D.staff.filter(function (s) { return s.key === pic; })[0] || { key: pic };
-  var isTL = /team leader/i.test(me.role), isHOD = /hod/i.test(me.role);
-  var tl = me.team ? D.staff.filter(function (s) { return s !== me && s.team === me.team && /team leader/i.test(s.role); })[0] : null;
-  var hod = D.staff.filter(function (s) { return s !== me && s.dept && s.dept === me.dept && /hod/i.test(s.role); })[0];
-  var dir = D.staff.filter(function (s) { return s !== me && /director/i.test(s.level); })[0];
-  var toP = (!isTL && !isHOD && tl) ? tl : (!isHOD ? hod : null) || dir;
-  var to = toP && toP.email ? [toP.email] : [], cc = [];
-  [hod, dir].forEach(function (p) { if (p && p.email) cc.push(p.email); });
+  var isHOD = /hod/i.test(me.role || '');
+  var tl = me.team ? D.staff.filter(function (s) { return s !== me && s.team === me.team && /team leader/i.test(s.role || ''); })[0] : null;
+  var hod = D.staff.filter(function (s) { return s !== me && s.dept && s.dept === me.dept && /hod/i.test(s.role || ''); })[0];
+  var dir = D.staff.filter(function (s) { return s !== me && /director/i.test(s.level || ''); })[0];
+  var head = isHOD ? null : (hod || tl || null);
+  var toP = [head, dir].filter(function (p) { return p; });
+  var to = [], cc = [];
+  toP.forEach(function (p) { if (p.email && to.indexOf(p.email) < 0 && p.email !== me.email) to.push(p.email); });
   String(D.cc || '').split(/[,;\s]+/).forEach(function (e) { if (e) cc.push(e); });
   cc = cc.filter(function (e, i) { return cc.indexOf(e) === i && to.indexOf(e) < 0 && e !== me.email; });
   var miss = [];
-  if (toP && !toP.email) miss.push((toP.key || toP.full) + ' (To)');
-  [hod, dir].forEach(function (p) { if (p && !p.email) miss.push((p.key || p.full)); });
-  return { me: me, to: to, cc: cc, toName: toP ? (toP.key || toP.full) : '', miss: miss };
+  toP.forEach(function (p) { if (!p.email) miss.push((p.key || p.full) + ' (To)'); });
+  var names = toP.map(function (p) { return p.key || p.full; });
+  return { me: me, to: to, cc: cc, toName: names.join(', '), toNames: names, head: head ? (head.key || head.full) : '', headFull: head ? (head.full || head.key) : '',
+           dir: dir ? (dir.key || dir.full) : '', dirFull: dir ? (dir.full || dir.key) : '', miss: miss };
 }
 /* dữ liệu cho hộp thoại */
 function kscMailOptions() {
@@ -2556,38 +2569,68 @@ function kscMailData(pic, month) {
   var T = (mem.total || {})[key] || {}, TQ = (mem.total || {})[q] || {};
   var R = kscRecipients_(kscStaffDir_(ss), pic);
   return { ok: true, pic: pic, month: m, q: q, fy: L.fy, rows: rows, total: T.pw, wsum: T.w, qtotal: TQ.pw, to: R.to.join(', '), cc: R.cc.join(', '),
-           toName: R.toName, miss: R.miss, full: R.me.full || pic, src: M5.url };
+           toName: R.toName, toNames: R.toNames, head: R.head, headFull: R.headFull, dir: R.dir, dirFull: R.dirFull,
+           dept: R.me.dept || '', team: R.me.team || '', title: R.me.title || '', miss: R.miss, full: R.me.full || pic, src: M5.url };
 }
-/* HTML email theo mẫu */
+/* HTML email — ⭐ 02/11/2026: theo Biểu mẫu Báo cáo KPI Tháng MMHSOP_009-FM01 (VN / EN cho nhóm Thái)
+   1. Tổng hợp kết quả KPI (Bộ phận · Nhân sự · Chức danh · Mã KPI · Tên KPI · Mục tiêu · Thực tế · Hệ số quan trọng · % hoàn thành · % x Hệ số · Lý do đạt/chưa đạt)
+   2. Phân tích và hành động tiếp theo (hành động tháng tới) · 3. Điểm nổi bật và khó khăn (điểm nổi bật · khó khăn · hỗ trợ cần thiết).
+   f: greeting, intro, sign, showQ, lang, reasons {mã KPI: lý do}, names {mã KPI: tên hiển thị}, next, high, chal, supp, attName.
+   Bản cũ (hộp thoại trong file Sheet) gửi analysis / highlights ⇒ dùng làm hành động tháng tới / điểm nổi bật. */
+var KSC_FM01 = {
+  vi: { title: 'BÁO CÁO KPI THÁNG (MMHSOP_009-FM01)', s1: '1. Tổng hợp kết quả KPI', s2: '2. Phân tích và hành động tiếp theo', s3: '3. Điểm nổi bật và khó khăn',
+        head: ['Bộ phận', 'Nhân sự', 'Chức danh', 'Mã KPI', 'Tên KPI', 'Mục tiêu', 'Thực tế', 'Hệ số quan trọng', '% hoàn thành', '% x Hệ số', 'Lý do đạt/chưa đạt'],
+        total: 'TỔNG', why: '- Lý do đạt/chưa đạt theo từng chỉ tiêu: ghi chi tiết tại bảng 1. Tổng hợp kết quả KPI', next: '- Hành động tháng tới:',
+        high: '- Điểm nổi bật:', chal: '- Khó khăn:', supp: '- Hỗ trợ cần thiết:', none: 'Không có', kpi: 'KPI tháng', q: 'KPI lũy kế', nodata: 'chưa có số', att: 'Đính kèm: ' },
+  en: { title: 'MONTHLY KPI REPORT (MMHSOP_009-FM01)', s1: '1. KPI Results Summary', s2: '2. Analysis and Next Actions', s3: '3. Highlights and Challenges',
+        head: ['Dept.', 'Staff', 'Job Title', 'KPI Code', 'KPI Name', 'Target', 'Actual', 'Weight', '% Achieved', '% x Weight', 'Reason for achievement/non-achievement'],
+        total: 'TOTAL', why: '- Reasons for achievement/non-achievement by target: see details in table 1. KPI Results Summary', next: '- Actions for next month:',
+        high: '- Highlights:', chal: '- Challenges:', supp: '- Support needed:', none: 'None', kpi: 'Monthly KPI', q: 'KPI to date', nodata: 'no data yet', att: 'Attachment: ' }
+};
 function kscMailHtml_(d, f) {
-  var e = kscEsc_, mm = kscMon_(d.month), td = 'border:1px solid #808080;padding:3px 6px;font-size:10.5pt;';
+  var e = kscEsc_, mm = kscMon_(d.month), en = f.lang === 'en', W = KSC_FM01[en ? 'en' : 'vi'];
+  var td = 'border:1px solid #808080;padding:3px 6px;font-size:10pt;vertical-align:top;', tn = td + 'text-align:right;white-space:nowrap;';
   var pc = function (v) { return v == null ? '' : Math.round(v * 100) + '%'; }, num = function (v) { return v == null ? '' : kscFmtNum_(v); };
-  var bg = function (g) { var c = ''; KSC_MAIL.GROUP_BG.forEach(function (x) { if (!c && x[0].test(g)) c = x[1]; }); return c || '#EDEDED'; };
   var lines = function (t) { return String(t || '').split(/\n/).map(function (x) { return x.replace(/^\s*[-•*·]\s*/, '').trim(); }).filter(function (x) { return x; }); };
+  var obj = function (o) { if (!o) return {}; if (typeof o === 'string') { try { return JSON.parse(o) || {}; } catch (er) { return {}; } } return o; };
+  var why = obj(f.reasons), nm = obj(f.names);
   var color = d.total == null ? '#1A1A1A' : d.total >= 1 ? '#1E7B34' : d.total >= 0.9 ? '#B45309' : '#C00000';
-  var h = ['<div style="font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#1A1A1A">'];
+  var h = ['<div style="font-family:Aptos,Calibri,Arial,sans-serif;font-size:11pt;color:#1A1A1A;line-height:1.45">'];
   h.push('<div>' + e(f.greeting || '').replace(/\n/g, '<br>') + '</div>');
-  if (f.intro) h.push('<div>' + e(f.intro).replace(/\n/g, '<br>') + '</div>');
-  var en = f.lang === 'en';   /* nhóm Thái (CRM tiếng Anh) */
-  h.push('<div>KPI ' + (en ? '' : 'T') + mm + ' : <b style="color:' + color + '">' + (d.total == null ? (en ? 'no data yet' : 'chưa có số') : pc(d.total)) + '</b></div>');
-  if (f.showQ && d.qtotal != null) h.push('<div>KPI ' + e(d.q) + ' ' + e(d.fy) + (en ? ' (to ' : ' (đến T') + mm + ') : <b>' + pc(d.qtotal) + '</b></div>');
-  h.push('<div>' + (en ? 'Details:' : 'Chi tiết :') + '</div><div style="margin-top:6px"><b>1. Performance Summary KPI</b></div>');
-  var th = function (t, c, w) { return '<th style="' + td + 'background:' + c + ';font-weight:normal;text-align:center;vertical-align:bottom' + (w ? ';width:' + w : '') + '">' + t + '</th>'; };
-  h.push('<table style="border-collapse:collapse;margin:6px 0 10px 0"><tr>',
-    th('Link', '#D0D0D0'), th('Type', '#D0D0D0'), th('KPI', '#D0D0D0'), th('Weight<br>' + e(d.q), '#D0D0D0'), th('Unit', '#EAD1DC'),
-    th(d.month + '<br>Target', '#EAD1DC'), th(d.month + ' Actual', '#CFE2F3'), th('Unit', '#FFF2CC'), th(d.month + '<br>%', '#FFF2CC'), th(d.month + ' %<br>*Weight', '#FFF2CC'), '</tr>');
-  d.rows.forEach(function (r) {
-    h.push('<tr><td style="' + td + '">' + (r.url ? '<a href="' + e(r.url) + '" style="color:#1155CC">' + e(r.link || 'Link') + '</a>' : e(r.link)) + '</td>',
-      '<td style="' + td + 'background:' + bg(r.type) + '">' + e(r.type) + '</td><td style="' + td + '">' + e(r.kpi) + '</td>',
-      '<td style="' + td + '">' + pc(r.w) + '</td><td style="' + td + '">' + e(r.unit) + '</td>',
-      '<td style="' + td + '">' + (/%/.test(r.unit) ? pc(r.t) : num(r.t)) + '</td><td style="' + td + '">' + (/%/.test(r.unit) ? pc(r.a) : num(r.a)) + '</td>',
-      '<td style="' + td + '">' + e(r.unit) + '</td><td style="' + td + '">' + pc(r.p) + '</td><td style="' + td + '">' + pc(r.pw) + '</td></tr>');
+  if (f.intro) h.push('<div style="margin-top:6px">' + e(f.intro).replace(/\n/g, '<br>') + '</div>');
+  h.push('<div style="margin-top:10px"><b>' + W.title + ' – ' + (en ? '' : 'T') + mm + '</b></div>');
+  h.push('<div>' + W.kpi + ' ' + mm + ': <b style="color:' + color + '">' + (d.total == null ? W.nodata : pc(d.total)) + '</b>' +
+         (f.showQ && d.qtotal != null ? ' · ' + W.q + ' ' + e(d.q) + ' FY' + e(String(d.fy).replace(/^FY/i, '')) + ': <b>' + pc(d.qtotal) + '</b>' : '') + '</div>');
+  h.push('<div style="margin-top:8px"><b>' + W.s1 + '</b></div>');
+  var th = function (t, w) { return '<th style="' + td + 'background:#DCE6F1;font-weight:bold;text-align:center;vertical-align:middle' + (w ? ';width:' + w : '') + '">' + t + '</th>'; };
+  var ym = e(String(d.month)), H = W.head;
+  h.push('<table style="border-collapse:collapse;margin:6px 0 10px 0"><tr>', th(H[0]), th(H[1]), th(H[2]), th(H[3]), th(H[4], '220px'),
+    th(ym + '<br>' + H[5]), th(ym + '<br>' + H[6]), th(ym + '<br>' + H[7]), th(ym + '<br>' + H[8]), th(ym + '<br>' + H[9]), th(H[10], '260px'), '</tr>');
+  var n = d.rows.length, wsum = 0;
+  d.rows.forEach(function (r, i) {
+    wsum += Number(r.w) || 0;
+    var pctU = /%/.test(r.unit), name = nm[r.code] || r.kpi, code = r.url ? '<a href="' + e(r.url) + '" style="color:#1155CC">' + e(r.code) + '</a>' : e(r.code);
+    h.push('<tr>');
+    if (i === 0) h.push('<td style="' + td + '" rowspan="' + n + '">' + e(d.dept || '') + '</td><td style="' + td + '" rowspan="' + n + '">' + e(d.full || d.pic) + '</td><td style="' + td + '" rowspan="' + n + '">' + e(d.title || '') + '</td>');
+    h.push('<td style="' + td + 'white-space:nowrap">' + code + '</td><td style="' + td + '">' + e(name) + (r.unit && !pctU ? ' <span style="color:#666">(' + e(r.unit) + ')</span>' : '') + '</td>',
+      '<td style="' + tn + '">' + (pctU ? pc(r.t) : num(r.t)) + '</td><td style="' + tn + '">' + (pctU ? pc(r.a) : num(r.a)) + '</td>',
+      '<td style="' + tn + '">' + pc(r.w) + '</td><td style="' + tn + '">' + pc(r.p) + '</td><td style="' + tn + '">' + pc(r.pw) + '</td>',
+      '<td style="' + td + '">' + e(String(why[r.code] || '')).replace(/\n/g, '<br>') + '</td></tr>');
   });
-  h.push('<tr>' + new Array(10).join('<td style="' + td + '"></td>') + '<td style="' + td + '"><b>' + pc(d.total) + '</b></td></tr></table>');
-  [['2. Analysis & Next Actions KPI', f.analysis], ['3. Highlights & Challenges KPI', f.highlights]].forEach(function (s) {
-    var ls = lines(s[1]); if (!ls.length) return;
-    h.push('<div style="margin-top:8px"><b>' + s[0] + '</b></div><ul style="margin:4px 0 8px 0">' + ls.map(function (x) { return '<li>' + e(x) + '</li>'; }).join('') + '</ul>');
-  });
+  h.push('<tr><td style="' + td + 'font-weight:bold" colspan="5">' + W.total + ' – ' + e(d.full || d.pic) + (d.title ? ', ' + e(d.title) : '') + '</td>',
+    '<td style="' + td + '"></td><td style="' + td + '"></td><td style="' + tn + 'font-weight:bold">' + pc(wsum || d.wsum) + '</td><td style="' + td + '"></td>',
+    '<td style="' + tn + 'font-weight:bold;color:' + color + '">' + pc(d.total) + '</td><td style="' + td + '"></td></tr></table>');
+  var list = function (lab, t, def) {
+    var ls = lines(t); if (!ls.length && def) ls = [def];
+    h.push('<div>' + lab + '</div>' + (ls.length ? '<ul style="margin:2px 0 6px 0">' + ls.map(function (x) { return '<li>' + e(x) + '</li>'; }).join('') + '</ul>' : '<div style="height:6px"></div>'));
+  };
+  h.push('<div style="margin-top:8px"><b>' + W.s2 + '</b></div><div>' + W.why + '</div>');
+  list(W.next, f.next != null && f.next !== '' ? f.next : f.analysis);
+  h.push('<div style="margin-top:8px"><b>' + W.s3 + '</b></div>');
+  list(W.high, f.high != null && f.high !== '' ? f.high : f.highlights);
+  list(W.chal, f.chal);
+  list(W.supp, f.supp, W.none);
+  if (f.attName) h.push('<div style="margin-top:8px;color:#444">' + W.att + e(f.attName) + '</div>');
   if (f.sign) h.push('<div style="margin-top:10px">' + e(f.sign).replace(/\n/g, '<br>') + '</div>');
   h.push('</div>');
   return h.join('');
@@ -2601,9 +2644,19 @@ function kscMailSend(f) {
   var split = function (s) { return String(s || '').split(/[,;\s]+/).map(function (x) { return x.trim(); }).filter(function (x) { return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x); }); };
   var to = split(f.to), cc = split(f.cc);
   if (!to.length) return { ok: false, error: 'Chưa có người nhận (To).' };
-  var html = kscMailHtml_(d, f), subject = f.subject || ('KPI T' + kscMon_(d.month) + ' · ' + d.pic);
+  var att = [];
+  if (f.attB64) {                                                  /* ⭐ 02/11/2026: file Word Báo cáo KPI Tháng (FM01) do app dựng */
+    if (String(f.attB64).length > 7000000) return { ok: false, error: f.lang === 'en' ? 'The Word file is too large.' : 'File Word quá lớn.' };
+    var an = String(f.attName || ('KPI_' + d.month + '_' + d.pic + '.docx')).replace(/[\\\/:*?"<>|]+/g, '_');
+    att.push(Utilities.newBlob(Utilities.base64Decode(String(f.attB64)), 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', an));
+    f.attName = an;
+  }
+  var html = kscMailHtml_(d, f), subject = f.subject || ((f.lang === 'en' ? 'Monthly KPI Report ' : 'Báo cáo KPI tháng ') + kscMon_(d.month) + ' (MMHSOP_009-FM01) · ' + (d.full || d.pic));
   var plain = html.replace(/<br>/g, '\n').replace(/<\/(div|tr|li)>/g, '\n').replace(/<\/t[dh]>/g, '\t').replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
-  mmhMail_({ to: to.join(','), cc: cc.join(','), subject: subject, htmlBody: html, body: plain, name: d.full });
+  var mo = { to: to.join(','), cc: cc.join(','), subject: subject, htmlBody: html, body: plain, name: d.full };
+  if (att.length) mo.attachments = att;
+  if (f.replyTo) mo.replyTo = f.replyTo;
+  mmhMail_(mo);
   /* ⭐ 23/10/2026 — MMH_ReportLog.gs: ghi nhận báo cáo KPI tháng (bỏ bản thử [TEST]) */
   if (!/^\[TEST\]/i.test(subject) && typeof rplAdd_ === 'function') rplAdd_('kpi', d.pic, String(d.month), { by: f.by || '', opt: 'email', cal: f.lang === 'en' ? 'TH' : 'VN', note: to.join(', ') });
   var me = ''; try { me = Session.getActiveUser().getEmail(); } catch (e) {}
@@ -2628,7 +2681,7 @@ var KSC_MAIL_HTML = [
 '.btns{margin-top:10px;text-align:right}button{font-family:inherit;font-size:13px;padding:6px 12px;margin-left:6px;border-radius:6px;border:1px solid #3A5CAA;background:#fff;color:#3A5CAA;cursor:pointer}',
 'button.p{background:#3A5CAA;color:#fff}button:disabled{opacity:.5}',
 '#pv{margin-top:10px;border:1px solid #CFE2F3;border-radius:6px;padding:10px;max-height:300px;overflow:auto;display:none}</style></head><body>',
-'<h2>✉ Email KPI tháng</h2><div class="sub">Bảng KPI lấy đúng số của sheet 5. Member KPI Monthly. Lời chào và phần nhận xét anh / chị tự soạn.</div>',
+'<h2>✉ Báo cáo KPI tháng (MMHSOP_009-FM01)</h2><div class="sub">Bảng KPI lấy đúng số của sheet 5. Member KPI Monthly. Gửi Trưởng bộ phận + Tổng Giám đốc, CC Kế toán · hạn ngày 05 tháng sau.</div>',
 '<div class="grid">',
 ' <div><label>Tháng</label><select id="mon" onchange="load()"></select></div>',
 ' <div><label>Người báo cáo (PIC)</label><select id="pic" onchange="load()"></select></div>',
@@ -2640,8 +2693,10 @@ var KSC_MAIL_HTML = [
 ' <div><label>Câu mở đầu</label><textarea id="intro" style="min-height:40px"></textarea></div>',
 ' <div><label>Chữ ký</label><textarea id="sign" style="min-height:40px"></textarea></div>',
 ' <div class="full"><label><input type="checkbox" id="showq" checked style="width:auto"> Thêm dòng KPI quý đến tháng này</label></div>',
-' <div class="full"><label>2. Analysis & Next Actions KPI (mỗi dòng 1 ý)</label><textarea id="ana"></textarea></div>',
-' <div class="full"><label>3. Highlights & Challenges KPI (mỗi dòng 1 ý)</label><textarea id="hil"></textarea></div>',
+' <div class="full"><label>2. Hành động tháng tới (mỗi dòng 1 ý)</label><textarea id="ana"></textarea></div>',
+' <div class="full"><label>3. Điểm nổi bật (mỗi dòng 1 ý)</label><textarea id="hil"></textarea></div>',
+' <div><label>Khó khăn</label><textarea id="chal" style="min-height:40px"></textarea></div>',
+' <div><label>Hỗ trợ cần thiết</label><textarea id="supp" style="min-height:40px" placeholder="Không có"></textarea></div>',
 '</div>',
 '<div class="msg" id="msg">Đang tải…</div><div id="pv"></div>',
 '<div class="btns"><button onclick="prev()">Xem trước</button><button id="go" class="p" onclick="send()" disabled>Gửi email</button><button onclick="google.script.host.close()">Đóng</button></div>',
@@ -2656,7 +2711,7 @@ var KSC_MAIL_HTML = [
 'function err(e){$("msg").className="msg warn";$("msg").innerHTML="⚠ "+(e.message||e);$("go").disabled=false;}',
 'function load(){$("go").disabled=true;$("msg").className="msg";$("msg").innerHTML="Đang đọc số liệu KPI…";',
 ' google.script.run.withSuccessHandler(function(d){if(!d.ok){err(d.error);return;}D=d;var m=mlab(d.month);',
-'  $("to").value=d.to;$("cc").value=d.cc;$("subj").value="KPI T"+m+" · "+d.pic;',
+'  $("to").value=d.to;$("cc").value=d.cc;$("subj").value="Báo cáo KPI tháng "+m+" (MMHSOP_009-FM01) · "+(d.full||d.pic);',
 '  if(!$("greet").dataset.t){$("greet").value="Dear "+(d.toName||"")+" ,";}',
 '  if(!$("intro").dataset.t){$("intro").value="Em gửi lại KPI tháng "+m.replace("/"," ")+" của em ạ :";}',
 '  if(!$("sign").dataset.t){$("sign").value="Em "+d.pic;}',
@@ -2665,7 +2720,7 @@ var KSC_MAIL_HTML = [
 '  $("go").disabled=false;}).withFailureHandler(err).kscMailData($("pic").value,$("mon").value);}',
 '["greet","intro","sign"].forEach(function(i){$(i).addEventListener("input",function(){this.dataset.t="1";});});',
 'function addR(f){var e=$("book").value;if(!e)return;var v=$(f).value.trim();if(v.split(/[,;\\s]+/).indexOf(e)<0)$(f).value=v?v+", "+e:e;}',
-'function form(){return{pic:$("pic").value,month:$("mon").value,to:$("to").value,cc:$("cc").value,subject:$("subj").value,greeting:$("greet").value,intro:$("intro").value,sign:$("sign").value,showQ:$("showq").checked,analysis:$("ana").value,highlights:$("hil").value};}',
+'function form(){return{pic:$("pic").value,month:$("mon").value,to:$("to").value,cc:$("cc").value,subject:$("subj").value,greeting:$("greet").value,intro:$("intro").value,sign:$("sign").value,showQ:$("showq").checked,analysis:$("ana").value,highlights:$("hil").value,chal:$("chal").value,supp:$("supp").value};}',
 'function prev(){google.script.run.withSuccessHandler(function(r){if(!r.ok){err(r.error);return;}$("pv").style.display="block";$("pv").innerHTML=r.html;}).withFailureHandler(err).kscMailPreview(form());}',
 'function send(){if(!confirm("Gửi email tới: "+$("to").value+($("cc").value?"\\nCC: "+$("cc").value:"")+" ?"))return;$("go").disabled=true;$("msg").innerHTML="Đang gửi…";',
 ' google.script.run.withSuccessHandler(function(r){if(!r.ok){err(r.error);return;}$("msg").className="msg";$("msg").innerHTML="✓ "+r.msg;}).withFailureHandler(err).kscMailSend(form());}',
