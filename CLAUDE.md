@@ -280,3 +280,11 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   Lý do đạt/chưa đạt; 2. Hành động tháng tới; 3. Điểm nổi bật · Khó khăn · Hỗ trợ cần thiết; dữ liệu cũ `analysis` / `highlights` vẫn nhận); `kscMailSend` nhận file Word `attB64` / `attName` + `replyTo`. `RH_KpiView.gs` v1.4
   chuyển `reasons` / `names` / `next` / `high` / `chal` / `supp` / tệp đính kèm; `rhSeSend` tiêu đề mặc định "Báo cáo KPI Quý … (MMHSOP_009-FM02)". `MMH_ReportLog.gs` v1.1 (9 backend): hạn KPI tháng = 23:59 ngày 05 tháng sau,
   KPI quý = 23:59 ngày 05 tháng đầu quý kế tiếp. App: Report Hub v19.1 / CRM v34.7 (`kpisop/kpisop.js`).
+- **02/11/2026 — CRM Thailand Dental: rà soát của người dùng (`crm-thai-dental/TH_DentalFix.gs`, chạy 1 lần qua `cronTh` / hẹn nền ở ping, `THD_FIX = f1`)**:
+  ① đổi tên sheet **CUSTOMER VISITING → CUSTOMER TASK**, **ALL TASK → OTHERS TASK** (`CFG.SH_WK` / `SH_ALL`; `sh_` tự đổi tên sheet cũ lần đầu cần — `THD_OLDNAME`; `THD_NAME` / `thdFmlName_` của bước dựng cũng đổi;
+  KSC `KSC_CRMEV` nhận cả tên mới). ② **CODE MAP**: bước ② dựng bố cục (`TH_DentalLayout ▸ master`) ghi 3 danh sách liền B…G, nhưng công thức mã KH + `codeMap_` đọc B:C vùng · E:F tỉnh · H:I loại ⇒ mã "N??-OT0157";
+  `thdCodeMapFix_` ghi lại đúng cột + thêm mã cho tỉnh / loại / vùng đang dùng ở CUSTOMER CODE (Chiang Mai → CM, University → UN…). ③ Type action "Co-visiting with distributor" báo đỏ: dropdown chép từ file Surgical trỏ vùng
+  MASTER LIST cố định ⇒ `thdDvFix_` kéo mọi dropdown trỏ MASTER LIST / CODE MAP tới hết cột + `thdMasterAdd_`. ④ PRODUCT TEST cột L **Result link**. ⑤ ADP cột AG **Key account** (Yes/No) + AH **Profile completed**
+  = nhật ký ngày hồ sơ đủ cột (`adpStamp_`: sau lưu từ app, onEdit ADP, 10 phút / lần; đủ = account · PIC · ABCD · case info · analysis · objective · tactic · key action · target — `ADP_FULL`).
+  **KPI C2-02** (Yong) nay key `profiling` = số account khác nhau của PIC có ngày ở AH ≤ cuối tháng ÷ số khách khác nhau của PIC ở CUSTOMER CODE (cột H), cộng dồn (LAST); `K68_LAYOUT = 'k68v6d3'`.
+  Kiểm tra: ping `crm-thai-dental?action=thdFix&key=<8 ký tự cuối ID Sheet>` (`&op=run` chạy lại). Thử: harness Node giả lập SpreadsheetApp (không có trong repo).
