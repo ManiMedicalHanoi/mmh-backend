@@ -288,3 +288,5 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   = nhật ký ngày hồ sơ đủ cột (`adpStamp_`: sau lưu từ app, onEdit ADP, 10 phút / lần; đủ = account · PIC · ABCD · case info · analysis · objective · tactic · key action · target — `ADP_FULL`).
   **KPI C2-02** (Yong) nay key `profiling` = số account khác nhau của PIC có ngày ở AH ≤ cuối tháng ÷ số khách khác nhau của PIC ở CUSTOMER CODE (cột H), cộng dồn (LAST); `K68_LAYOUT = 'k68v6d3'`.
   Kiểm tra: ping `crm-thai-dental?action=thdFix&key=<8 ký tự cuối ID Sheet>` (`&op=run` chạy lại). Thử: harness Node giả lập SpreadsheetApp (không có trong repo).
+- **02/11/2026 — KPI P2-08 nhảy sai (T11 = 3 thay vì 2, `kpi/KpiBackOffice.gs` v1.2)**: nhóm Back office đã đổi sheet KPI FY68 sang TỰ lũy kế (Agg = LAST, công thức tháng sau "…+<ô tháng trước>"),
+  code vẫn cộng dồn (`KSC_BO.CUMUL`) ⇒ cộng 2 lần. `kscBoRead_` nay đánh dấu `selfCum` khi công thức tháng cộng ô tháng trước cùng dòng; mã CUMUL mà nguồn đã lũy kế (selfCum hoặc Agg = LAST) ⇒ lấy nguyên số.

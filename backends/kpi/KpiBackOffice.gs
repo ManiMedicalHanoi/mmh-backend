@@ -1,5 +1,6 @@
 /* ════════════════════════════════════════════════════════════════════
-   MMH KPI FY68  ·  KpiBackOffice.gs                           v1.1 (23/10/2026)
+   MMH KPI FY68  ·  KpiBackOffice.gs                           v1.2 (02/11/2026)
+   v1.2 — P2-08: sheet KPI FY68 của Back office đã tự lũy kế (Agg LAST / công thức + ô tháng trước) ⇒ không cộng dồn lần nữa (T11 ra 3 thay vì 2).
    v1.1 — theo review của nhóm Back office: P5-05 VAT chưa áp dụng quý 1 (KSC_BO.FROM), rule P1-00 / P2-07 / P5-01 viết lại.
    NGUỒN 8 · BACK OFFICE — file "Back Office KPI Tracking FY68" (backend của nhóm Back office)
    ────────────────────────────────────────────────────────────────────
@@ -101,11 +102,13 @@ function kscBoRead_(bss, fy) {
   var cName = col(/^detail kpi/), cUnit = col(/^unit/), cAgg = col(/^agg/), cNote = col(/^ghi chu/), cSrc = col(/^nguon/), rows = {};
   for (var r = hr + 1; r < lr; r++) {
     var code = String(V[r][cc] || '').trim(); if (!KSC_BO.CODE_RE.test(code) || rows[code]) continue;
-    var vals = {}, typed = {};
-    Object.keys(mCol).forEach(function (ym) { var c = mCol[ym]; vals[ym] = V[r][c]; typed[ym] = !F[r][c]; });
+    var vals = {}, typed = {}, selfCum = false;
+    Object.keys(mCol).forEach(function (ym) { var c = mCol[ym]; vals[ym] = V[r][c]; typed[ym] = !F[r][c];
+      /* ⭐ v1.2 — công thức tháng có cộng ô tháng trước cùng dòng (vd. "…+G14") ⇒ sheet đã tự LŨY KẾ */
+      if (c > 0 && F[r][c] && new RegExp('(^|[^A-Z$])\\$?' + kscColL_(c) + '\\$?' + (r + 1) + '(?!\\d)').test(String(F[r][c]).replace(/"[^"]*"/g, ''))) selfCum = true; });
     rows[code] = { row: r + 1, code: code, name: cName == null ? '' : String(V[r][cName] || '').replace(/\s+/g, ' ').trim(),
       unit: cUnit == null ? '' : String(V[r][cUnit] || '').trim(), agg: cAgg == null ? '' : String(V[r][cAgg] || '').trim(),
-      note: cNote == null ? '' : String(V[r][cNote] || '').trim(), src: cSrc == null ? '' : String(V[r][cSrc] || '').trim(), vals: vals, typed: typed };
+      note: cNote == null ? '' : String(V[r][cNote] || '').trim(), src: cSrc == null ? '' : String(V[r][cSrc] || '').trim(), vals: vals, typed: typed, selfCum: selfCum };
   }
   return { sheet: sh, rows: rows, months: Object.keys(mCol).map(Number).sort() };
 }
@@ -169,6 +172,10 @@ function kscBo_(ctx, why) {
   var un = kscBoUnspill_(ctx, codes), fyFix = [], notes = [], data = {};
   codes.forEach(function (code) {
     var x = B.rows[code], d = {}, run = 0, cum = !!KSC_BO.CUMUL[code];
+    /* ⭐ v1.2 (02/11/2026) — lỗi P2-08 T11 = 3 thay vì 2: sheet KPI FY68 của nhóm Back office nay TỰ cộng dồn (Agg = LAST, công thức "…+<ô tháng trước>")
+       mà code vẫn cộng thêm lần nữa (1 + 2 = 3). Số ở file Back Office đã lũy kế ⇒ lấy nguyên, không cộng. */
+    var srcCum = cum && (x.selfCum || /^(last|lũy kế|luy ke|cumulative)$/i.test(String(x.agg || '').trim()));
+    if (srcCum) cum = false;
     out.rules[code] = kscBoRule_(code);
     var srcSh = x.src ? bss.getSheetByName(x.src.trim()) : null;
     try { out.codeUrls[code] = kscUrl_(bss, srcSh || B.sheet); } catch (e0) {}
