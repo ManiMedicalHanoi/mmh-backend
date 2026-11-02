@@ -25,6 +25,7 @@
  *
  *  ĐIỂM MỚI v3.14
  *    - Việc được giao từ Report Hub (sheet RH_Assign): rhAssignList / Add / Seen / Done / Reply, rhDirectory.
+ *    - Hộp thông báo chung (sheet RH_Notify, app Sự kiện MKT ghi): rhNotifyList / rhNotifySeen.
  *      Hoàn thành ⇒ email báo người giao; trao đổi gắn vào việc. (File RH_Assign.gs)
  *
  *  ĐIỂM MỚI v3.13
@@ -170,7 +171,7 @@
 
 var HUB = {
 
-  VERSION: '3.37',   // ★ 29/10/2026 — v3.37 chuyển Completed không cần kết quả bài kiểm tra · v3.36 Admin học xong được cấp chứng chỉ (chỉ trainer của khoá không nhận) · v3.35 chọn video từ MMH Library (RH_Library.gs) + sửa luật hoàn thành học online · 28/10/2026 — v3.34 rhAuthLink: link đăng nhập trong email duyệt đơn CRM (RH_Auth.gs) · 21/10/2026 — v3.33 ảnh thương hiệu ⇒ GitHub (RH_Brand.gs) · 17/10/2026 — v3.32 rhTurnover: cầu nối đọc file Turnover cho CRM · 16/10/2026 — v3.31 bài kiểm tra bật lại (RH_Assess.gs) · v3.30 leaderboard: bảng xếp hạng học viên (RH_Leaderboard.gs)
+  VERSION: '3.38',   // ★ 02/11/2026 — v3.38 hộp thông báo chung RH_Notify (RH_Notify.gs: rhNotifyList / rhNotifySeen) · 29/10/2026 — v3.37 chuyển Completed không cần kết quả bài kiểm tra · v3.36 Admin học xong được cấp chứng chỉ (chỉ trainer của khoá không nhận) · v3.35 chọn video từ MMH Library (RH_Library.gs) + sửa luật hoàn thành học online · 28/10/2026 — v3.34 rhAuthLink: link đăng nhập trong email duyệt đơn CRM (RH_Auth.gs) · 21/10/2026 — v3.33 ảnh thương hiệu ⇒ GitHub (RH_Brand.gs) · 17/10/2026 — v3.32 rhTurnover: cầu nối đọc file Turnover cho CRM · 16/10/2026 — v3.31 bài kiểm tra bật lại (RH_Assess.gs) · v3.30 leaderboard: bảng xếp hạng học viên (RH_Leaderboard.gs)
                      // 3.29 — claimCert: nút Nhận chứng chỉ (tạo / gửi lại chứng chỉ qua email)
   /* v3.28 */   // ★ 16/10/2026 — asLearner cho cả trainer (nút Học thử như học viên)
   /* v3.27 */   // ★ 15/10/2026 — RH_Warm.gs v1.1: làm nóng đệm KHÔNG giữ khoá ghi (v3.26 làm thao tác ghi báo bận)
@@ -598,6 +599,9 @@ var HUB_ROUTES = {
   'rhAssignDone'    : {fn:'apiRhAssignDone',    auth:0},
   'rhAssignReply'   : {fn:'apiRhAssignReply',   auth:0},
   'rhDirectory'     : {fn:'apiRhDirectory',     auth:0},
+  // ★ v3.38 — hộp thông báo chung (file RH_Notify.gs; app Sự kiện MKT ghi, Report Hub / CRM đọc)
+  'rhNotifyList'    : {fn:'apiRhNotifyList',    auth:0},
+  'rhNotifySeen'    : {fn:'apiRhNotifySeen',    auth:0},
   'rhUpdMail'       : {fn:'apiRhUpdMail',       auth:0},  // ★ v3.15 — email thông báo cập nhật hệ thống (RH_UpdMail.gs)
   'rhUpdSign'       : {fn:'apiRhUpdSign',       auth:0},  // ★ v3.18 — chữ ký email cập nhật của người gửi (xem trước)
   // ★ 13/10/2026 — RH_CustTrain.gs: bằng chứng Coaching (PDF Review) + đào tạo khách hàng (T&E) từ CRM

@@ -20,7 +20,7 @@
  * v1.2: dữ liệu file MKT Offline (REPORT_EVENT, đếm CUSTOMER LIST) + file Digital (EVENT REPORT, ORDER REPORT) theo sự kiện — xem MKT_EventHubLink.gs.
  *************************************************************************************************/
 var EH = {
-  VER: '1.3',
+  VER: '1.4',
   ROOT: '1maHn2DD34aJBaNnH4q9Di0YH2wMurYuZ',     /* thư mục Drive "Event FY68" */
   BOOK_NAME: 'MMH · Event Hub FY68 (dữ liệu app Sự kiện MKT)',
   FILES_NAME: 'Event Hub · Tệp tải lên',
@@ -39,6 +39,7 @@ var EH = {
             'doneAt', 'updatedAt', 'updatedBy', 'createdBy', 'priority', 'sample'],
     FILES: ['id', 'eventId', 'taskId', 'kind', 'name', 'url', 'driveId', 'mime', 'size', 'by', 'at', 'note', 'thumb', 'sample'],
     COMMENTS: ['id', 'eventId', 'taskId', 'by', 'at', 'text', 'mentions', 'sample'],
+    MEETINGS: ['id', 'eventId', 'date', 'title', 'attendees', 'content', 'actions', 'by', 'at', 'updatedAt', 'updatedBy', 'sample'],   /* v1.4 — biên bản họp */
     NOTIFY: ['at', 'to', 'kind', 'eventId', 'taskId', 'subject', 'ok', 'by'],
     LOG: ['at', 'by', 'action', 'eventId', 'taskId', 'text'],
     TEMPLATE: ['kind', 'group', 'title', 'role', 'proof', 'offset', 'unit', 'apply', 'hint'],
@@ -129,7 +130,7 @@ function ehBook_(){
   return ss;
 }
 function ehEnsureTabs_(ss){
-  var plan = ehPlanTabs_(), want = [['EVENTS'], ['TASKS'], ['FILES'], ['COMMENTS'], ['TEMPLATE'], ['TEAM'], ['LOG'], ['NOTIFY'], ['PLAN_JSON'], [EH_SRC_TAB, 'SRC']];
+  var plan = ehPlanTabs_(), want = [['EVENTS'], ['TASKS'], ['FILES'], ['COMMENTS'], ['MEETINGS'], ['TEMPLATE'], ['TEAM'], ['LOG'], ['NOTIFY'], ['PLAN_JSON'], [EH_SRC_TAB, 'SRC']];
   plan.forEach(function(t){ want.push([t.name, null, t.cols]); });
   want.forEach(function(w){
     var name = w[0], cols = w[2] || EH.COLS[w[1] || name], sh = ss.getSheetByName(name);
@@ -596,7 +597,7 @@ function ehBoot_(p){
     var plan = {}; ehRead_(ss, 'PLAN_JSON').forEach(function(r){ try { plan[ehS_(r.eventId)] = JSON.parse(r.json); } catch(e){} });
     var tpl = ehRead_(ss, 'TEMPLATE').map(ehClean2_);
     base = { events: ehRead_(ss, 'EVENTS').map(ehClean2_), tasks: ehRead_(ss, 'TASKS').map(ehClean2_), files: ehRead_(ss, 'FILES').map(ehClean2_),
-             log: ehRead_(ss, 'LOG').slice(-400).map(ehClean2_), comments: ehRead_(ss, 'COMMENTS').slice(-800).map(ehClean2_),
+             log: ehRead_(ss, 'LOG').slice(-400).map(ehClean2_), comments: ehRead_(ss, 'COMMENTS').slice(-800).map(ehClean2_), meetings: ehRead_(ss, 'MEETINGS').map(ehClean2_),
              notify: ehRead_(ss, 'NOTIFY').slice(-150).map(ehClean2_), plan: plan, people: ehPeople_(), roles: EH.ROLES, status: EH.STATUS,
              groups: tpl.filter(function(t){ return /lớn/i.test(ehS_(t.kind)); }).map(function(t){ return { group: t.group, role: t.role }; }),
              book: ss.getUrl(), filesUrl: ehFilesRoot_().getUrl() };
