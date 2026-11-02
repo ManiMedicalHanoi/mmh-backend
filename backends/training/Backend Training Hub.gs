@@ -171,7 +171,7 @@
 
 var HUB = {
 
-  VERSION: '3.38',   // ★ 02/11/2026 — v3.38 hộp thông báo chung RH_Notify (RH_Notify.gs: rhNotifyList / rhNotifySeen) · 29/10/2026 — v3.37 chuyển Completed không cần kết quả bài kiểm tra · v3.36 Admin học xong được cấp chứng chỉ (chỉ trainer của khoá không nhận) · v3.35 chọn video từ MMH Library (RH_Library.gs) + sửa luật hoàn thành học online · 28/10/2026 — v3.34 rhAuthLink: link đăng nhập trong email duyệt đơn CRM (RH_Auth.gs) · 21/10/2026 — v3.33 ảnh thương hiệu ⇒ GitHub (RH_Brand.gs) · 17/10/2026 — v3.32 rhTurnover: cầu nối đọc file Turnover cho CRM · 16/10/2026 — v3.31 bài kiểm tra bật lại (RH_Assess.gs) · v3.30 leaderboard: bảng xếp hạng học viên (RH_Leaderboard.gs)
+  VERSION: '3.39',   // ★ 02/11/2026 — v3.39 docPublish: tài liệu ⇒ bản PDF xem trên app dạng trình chiếu (RH_Docs.gs) · v3.38 hộp thông báo chung RH_Notify (RH_Notify.gs: rhNotifyList / rhNotifySeen) · 29/10/2026 — v3.37 chuyển Completed không cần kết quả bài kiểm tra · v3.36 Admin học xong được cấp chứng chỉ (chỉ trainer của khoá không nhận) · v3.35 chọn video từ MMH Library (RH_Library.gs) + sửa luật hoàn thành học online · 28/10/2026 — v3.34 rhAuthLink: link đăng nhập trong email duyệt đơn CRM (RH_Auth.gs) · 21/10/2026 — v3.33 ảnh thương hiệu ⇒ GitHub (RH_Brand.gs) · 17/10/2026 — v3.32 rhTurnover: cầu nối đọc file Turnover cho CRM · 16/10/2026 — v3.31 bài kiểm tra bật lại (RH_Assess.gs) · v3.30 leaderboard: bảng xếp hạng học viên (RH_Leaderboard.gs)
                      // 3.29 — claimCert: nút Nhận chứng chỉ (tạo / gửi lại chứng chỉ qua email)
   /* v3.28 */   // ★ 16/10/2026 — asLearner cho cả trainer (nút Học thử như học viên)
   /* v3.27 */   // ★ 15/10/2026 — RH_Warm.gs v1.1: làm nóng đệm KHÔNG giữ khoá ghi (v3.26 làm thao tác ghi báo bận)
@@ -549,6 +549,7 @@ var HUB_ROUTES = {
   'claimCert'       : {fn:'apiClaimCert',       auth:1},   // ★ v3.29 — nút Nhận chứng chỉ (RH_ELearn.gs)
   'leaderboard'     : {fn:'apiLeaderboard',     auth:1},   // ★ v3.30 — bảng xếp hạng học viên (RH_Leaderboard.gs)
   'brandStatus'     : {fn:'apiBrandStatus',     auth:0},   // ★ v3.33 — ảnh thương hiệu cho giao diện (RH_Brand.gs)
+  'docPublish'      : {fn:'apiDocPublish',      auth:2},   // ★ v3.39 — tài liệu ⇒ bản PDF xem trên app (GitHub Pages, RH_Docs.gs)
   'videoPublish'    : {fn:'apiVideoPublish',    auth:2},   // ★ v3.25 — video tải từ app ⇒ GitHub Pages (RH_HubCourse.gs)
   'libList'         : {fn:'apiLibList',         auth:2},   // ★ v3.35 — chọn video từ MMH Library (RH_Library.gs)
   'libAttach'       : {fn:'apiLibAttach',       auth:2},
@@ -2407,7 +2408,7 @@ function hubFolderCrumb(folder) {
  *  Chỉ 1 lượt đọc Drive cho mỗi buổi tại một thời điểm; các lượt khác chờ kết quả. */
 /** ★ v3.20 — tài liệu Drive + video bài giảng (RH_ELearn.gs) */
 function hubMaterials(s, opt) {
-  return hubWithVideos_(s, hubMaterialsDrive_(s, opt));
+  return hubWithDocs_(s, hubWithVideos_(s, hubMaterialsDrive_(s, opt)));   // ★ v3.39 — gắn link bản xem trên app (RH_Docs.gs)
 }
 function hubMaterialsDrive_(s, opt) {
   opt = opt || {};
