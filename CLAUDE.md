@@ -272,3 +272,6 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   "Thông báo" ở Report Hub v18.9 / CRM v34.2; link `#t-<task>` · `#ev-<id>/talk` · `#ev-<id>/notes` mở đúng chỗ ở app Sự kiện.
 - **02/11/2026 — HDSD MMH CRM (VN + EN, khổ A4 ngang)**: `ifu/` đích `crmvi` / `crmen` (nội dung `ifu/guide-crm/<vi|en>/`, giao diện `theme/guide.css`, ảnh `ifu/shots/crmg*` do `capture/crm_guide.cjs` + `crm_ill.cjs` chụp với dữ liệu giả).
   Kịch bản chụp đổi đuôi `.cjs` (gói `ifu/` là ES module). CRM đổi giao diện / chức năng ⇒ sửa chương 2 ngôn ngữ + chụp lại cảnh liên quan, dựng lại, gửi PDF cho người dùng (không đưa PDF lên repo CRM công khai).
+- **Tài liệu xem trên app (02/11/2026, training `RH_Docs.gs`, HUB v3.39)**: action `docPublish` (trainer của khoá) — PDF / PowerPoint / Word / Google Slides–Docs ⇒ bản PDF (qua `apiFileConvert`, ≤ 2 bước / lượt, chưa xong trả `pending`)
+  ⇒ `hubGhPut_` lên kho CÔNG KHAI `Training-Hub/media/s/<sid>/docs/<fileId>.pdf` (người dùng chấp nhận công khai) ⇒ sheet **`HUB_Docs`**; `op=remove` bỏ đăng. `hubMaterials` gắn `gh` / `ghAt` / `ghOld` (`hubWithDocs_`).
+  App Training Hub v6.6 mở `gh` dạng trình chiếu, tính xong khi xem ≥ 70% số trang (app gửi `done=1`); Xem nhanh (Google) trong lộ trình không còn tự tính xong.
