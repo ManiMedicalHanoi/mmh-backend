@@ -30,7 +30,7 @@ var THD = {
   OLD: { cust: 'Customer list', cbc: ' CBC', week: 'WEEK', mon: 'MONTHLY REPORT', adp: 'YEAR - Account' },
   /* old sheets replaced by the CRM sheets ⇒ renamed "OLD · <name>" (step names, before the new sheets are made) and hidden */
   HIDE: ['Customer list', ' CBC', 'WEEK', 'MONTHLY REPORT', 'YEAR - Account', 'Master name', 'MONTH VIEW', 'Framework', 'SOP', 'Mani Products'],
-  ORDER: ['GUIDE', 'CUSTOMER CODE', 'CBC', 'MONTHLY REPORT', 'CUSTOMER VISITING', 'ALL TASK', 'PRODUCT PRESENTATION', 'ADP',
+  ORDER: ['GUIDE', 'CUSTOMER CODE', 'CBC', 'MONTHLY REPORT', 'CUSTOMER TASK', 'OTHERS TASK', 'PRODUCT PRESENTATION', 'ADP',
           'TARGET & KPI', 'MASTER LIST', 'CODE MAP', 'CUSTOMER ANALYSIS', 'YEARLY FUNCTION PLAN', 'JIZAI REPORT',
           'JIZAI MOU PROJECT', 'DDI JIZAI SALE', 'DDI SALE REPORT', 'FRAMEWORK', 'WEEKLY MEETING', 'TENDER TRACK',
           'TENDER PRICE LOG', 'NEW ACCOUNT & SKU', 'PRODUCT TEST', 'SALE ORDERS', 'OLD KPI (before FY68)'],
@@ -51,8 +51,9 @@ var THD = {
 function td_buildMenu(){}
 
 /* sheet names WITHOUT numbers: "6. CUSTOMER VISITING" → "CUSTOMER VISITING" (also inside formulas copied from the Surgical file) */
-function THD_NAME(n){ return String(n).replace(/^\d+\.\s+/, ''); }
-function thdFmlName_(f){ return String(f || '').replace(/'(\d+)\.\s+([^'!]+)'!/g, function(m, num, rest){ return "'" + rest + "'!"; }); }
+function THD_NAME(n){ var x = String(n).replace(/^\d+\.\s+/, ''); return THD_NEWNAME[x] || x; }   /* 02/11/2026: CUSTOMER VISITING → CUSTOMER TASK · ALL TASK → OTHERS TASK */
+function thdFmlName_(f){ return String(f || '').replace(/'(\d+)\.\s+([^'!]+)'!/g, function(m, num, rest){ return "'" + (THD_NEWNAME[rest] || rest) + "'!"; })
+  .replace(/'ALL TASK'!/g, "'OTHERS TASK'!"); }
 
 /* ── state ── */
 function thdDone_(){ try{ return JSON.parse(props_().getProperty('THD_DONE') || '{}'); }catch(e){ return {}; } }
@@ -453,19 +454,19 @@ var THD_STEP = {
       ['4. New KEY accounts (DSO / dental university / hospital) are recorded in the app ▸ New accounts & SKU (sheet NEW ACCOUNT & SKU) with the distributor confirmation (KPI C2-01).'],
       [''],
       ['B. SHEETS'],
-      ['CUSTOMER CODE · CBC · MONTHLY REPORT · CUSTOMER VISITING · ALL TASK (other tasks + visits mirrored) · PRODUCT PRESENTATION · ADP · TARGET & KPI · MASTER LIST · CODE MAP'],
+      ['CUSTOMER CODE · CBC · MONTHLY REPORT · CUSTOMER TASK · OTHERS TASK (other tasks + visits mirrored) · PRODUCT PRESENTATION · ADP · TARGET & KPI · MASTER LIST · CODE MAP'],
       ['CUSTOMER ANALYSIS · YEARLY FUNCTION PLAN · JIZAI REPORT · JIZAI MOU PROJECT · DDI JIZAI SALE · DDI SALE REPORT (kept from the old file) · FRAMEWORK · WEEKLY MEETING · TENDER TRACK · TENDER PRICE LOG · NEW ACCOUNT & SKU (written by the app)'],
       [''],
       ['C. DATA MOVED FROM THE OLD SHEETS (30/10/2026) — old sheets are renamed "OLD · …" and hidden at the end of the file, nothing was deleted'],
       ['Customer list → CUSTOMER CODE (accounts used in WEEK / CBC / YEAR - Account but missing from the list were added, Note = "Added from …") · CBC → CBC'],
-      ['WEEK → CUSTOMER VISITING (Task → Plan, Deadline / Assigner kept at the end of Plan, manager comment at the end of Task Result) · MONTHLY REPORT → 5 · YEAR - Account → ADP'],
+      ['WEEK → CUSTOMER TASK (Task → Plan, Deadline / Assigner kept at the end of Plan, manager comment at the end of Task Result) · MONTHLY REPORT → 5 · YEAR - Account → ADP'],
       ['Not moved: SALE ORDERS (kept as it is), Mani Products, MONTH VIEW, Master name (replaced by MASTER LIST).'],
       [''],
       ['D. KPI FY68 (TARGET & KPI ⇄ MMH KPI FY68 file, synced by the KPI Sync Center)'],
       ['Yong: F4-00 turnover (40%) · C2-01 new key accounts (20%) · C2-02 key account profiling % (10%) · C4-01 co-visits (20%)'],
       ['Man: F4-00 (25%) · C4-03 co-visiting days (15%) · C11-02 T&E events led by MMH (25%) · C11-03 product test pass rate (25%, sheet PRODUCT TEST)'],
       ['Sui: F4-00 (20%) · C14-00 T&E events KOL + MMH + exhibitions (20%) · C16-00 new product categories (30%) · C17-07 product content published (20%)'],
-      ['Targets come from the KPI file. Turnover and events come from the KPI file (Turnover report · 2. Thailand - Dental Event Report). C2-02 / C16-00 / C17-07: typed in the KPI file. C11-03 = sheet PRODUCT TEST (Pass ÷ tests).'],
+      ['Targets come from the KPI file. Turnover and events come from the KPI file (Turnover report · 2. Thailand - Dental Event Report). C16-00 / C17-07: typed in the KPI file. C11-03 = sheet PRODUCT TEST (Pass ÷ tests). C2-02 = sheet ADP (complete profiles ÷ customers of the PIC).'],
       [''],
       ['E. REPORTS'],
       ['Weekly / monthly report e-mails (English, PDF attached) from the app: To Shuhei · Cc Ha + Hoa. Weekly PDF also saved to the Sales teams folder ▸ "Thailand Dental".']

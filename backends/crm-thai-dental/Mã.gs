@@ -1,6 +1,6 @@
 /*************************************************************************************************
  * MMH CRM — THAILAND DENTAL backend  (v1.1 · 30/10/2026 · for the MMH CRM web app, team "thaid")
- * v1.1 (30/10/2026) — ALL TASK sync of the visits writes the formulas per COLUMN (one call), not per row: on the new file
+ * v1.1 (30/10/2026) — OTHERS TASK sync of the visits writes the formulas per COLUMN (one call), not per row: on the new file
  *        (no healthy formula row to copy) ~2,900 visits went over the 6-minute limit. atHealFormulas_ (step sync + cronTh)
  *        fills rows left without formulas by a killed run.
  * Built from the Thailand Surgical backend (crm-thai v1.19) — same sheets, same API, same app screens.
@@ -72,15 +72,15 @@
  * First time only: reload the sheet and run menu  MMH CRM (Thailand) ▸ ① Setup.
  *
  * Sheets (header row 3, data from row 4, first column B):
- *   CUSTOMER CODE · CBC · MONTHLY REPORT · CUSTOMER VISITING · PRODUCT PRESENTATION ·
+ *   CUSTOMER CODE · CBC · MONTHLY REPORT · CUSTOMER TASK · PRODUCT PRESENTATION ·
  *   ADP · TARGET & KPI · MASTER LIST · CODE MAP · _LOG
- *   ALL TASK  (header row 5, data from row 7 — same Key task ▸ Sub task layout as "WEEKYLY new" of Sales & Marketing)
+ *   OTHERS TASK  (header row 5, data from row 7 — same Key task ▸ Sub task layout as "WEEKYLY new" of Sales & Marketing)
  *
  * What is different from the Vietnam CRM backends:
  *   · no Sales order, no product code, no field photos (nothing is uploaded to Drive)
- *   · "Other tasks" of the Thailand team live in sheet ALL TASK of THIS file (the app reads/writes them here,
- *     not in the Report Hub); every customer visit in CUSTOMER VISITING is mirrored automatically into
- *     ALL TASK as key task "YYYYMM_Thailand Surgical Customer visiting" + one sub task per visit
+ *   · "Other tasks" of the Thailand team live in sheet OTHERS TASK of THIS file (the app reads/writes them here,
+ *     not in the Report Hub); every customer visit in CUSTOMER TASK is mirrored automatically into
+ *     OTHERS TASK as key task "YYYYMM_Thailand Surgical Customer visiting" + one sub task per visit
  *   · nothing is pushed to any other backend
  *   · report e-mails in English: Dao → To nt.ha, Cc vtt.hoa · Miew → To nt.ha, Cc Dao + vtt.hoa (v1.4)
  *   · v1.4: Dao is the team leader — she sees and can update the tasks of the whole team (Dao + Miew)
@@ -91,9 +91,9 @@ var CFG = {
   APP: 'MMH CRM · Thailand Dental',
   TEAM: 'Thailand Dental', KEY: 'thaid', SRC: 'crm-thai-dental',
   TEAM_LABEL: 'Thailand Dental Sales Team',
-  SH_CUST: 'CUSTOMER CODE', SH_CBC: 'CBC', SH_MON: 'MONTHLY REPORT', SH_WK: 'CUSTOMER VISITING',
+  SH_CUST: 'CUSTOMER CODE', SH_CBC: 'CBC', SH_MON: 'MONTHLY REPORT', SH_WK: 'CUSTOMER TASK',          /* 02/11/2026: was CUSTOMER TASK */
   SH_PRES: 'PRODUCT PRESENTATION', SH_ADP: 'ADP', SH_KPI: 'TARGET & KPI', SH_MASTER: 'MASTER LIST',
-  SH_CODE: 'CODE MAP', SH_LOG: '_LOG', SH_ALL: 'ALL TASK',
+  SH_CODE: 'CODE MAP', SH_LOG: '_LOG', SH_ALL: 'OTHERS TASK',                                   /* 02/11/2026: was OTHERS TASK */
   HDR: 3, DATA: 4, AT_HDR: 5, AT_DATA: 7,
   VS_TYPE: 'Sales-Thailand Dental', VS_SUFFIX: '_Thailand Dental Customer visiting', VS_KEY_PIC: 'Yong',
   CACHE_TTL: 21600
@@ -137,12 +137,13 @@ var TABS = {
         'plan','result','status','feedback','nextAction','stopReason','photo','gps'] },
   present: { sh: CFG.SH_PRES, w: 12, key: ['account'], dates: ['day'], formula: [], no: true,
     f: ['no','account','pic','province','area','fy','month','day','folder','review','target','actual'] },
-  adp: { sh: CFG.SH_ADP, w: 31, key: ['account'], dates: ['created', 'updated'], formula: [], no: true,
+  adp: { sh: CFG.SH_ADP, w: 33, key: ['account'], dates: ['created', 'updated', 'fullAt'], formula: [], no: true,
     f: ['no','account','pic','fy','abcd','caseInfo','analysis','objective','tactic','keyAction','targetAmt','actualAmt',
-        'm09','m10','m11','rQ1','m12','m01','m02','rQ2','m03','m04','m05','rQ3','m06','m07','m08','rQ4','rFY','created','updated'] }
+        'm09','m10','m11','rQ1','m12','m01','m02','rQ2','m03','m04','m05','rQ3','m06','m07','m08','rQ4','rFY','created','updated',
+        'keyAcc','fullAt'] }   /* 02/11/2026: AG Key account · AH Profile completed (auto time log, KPI C2-02) — TH_DentalFix.gs */
 };
-var TAB_LABEL = { weekly: 'CUSTOMER VISITING', cbc: 'CBC', customer: 'CUSTOMER CODE', monthly: 'MONTHLY REPORT',
-                  present: 'PRODUCT PRESENTATION', adp: 'ADP', kpi: 'TARGET & KPI', alltask: 'ALL TASK', report: 'Report',
+var TAB_LABEL = { weekly: 'CUSTOMER TASK', cbc: 'CBC', customer: 'CUSTOMER CODE', monthly: 'MONTHLY REPORT',
+                  present: 'PRODUCT PRESENTATION', adp: 'ADP', kpi: 'TARGET & KPI', alltask: 'OTHERS TASK', report: 'Report',
                   meet: 'WEEKLY MEETING', tender: 'TENDER TRACK' };
 /* sheet → version key (edits made directly in the sheet) */
 var SHEET_VER = {};
@@ -160,6 +161,8 @@ function sh_(name){
   var s = ss_().getSheetByName(name);
   /* Dental Thái: tên sheet không số — file còn tên có số ("10. MASTER LIST", layout dựng bằng bản cũ) thì vẫn nhận */
   if(!s){ var all = ss_().getSheets(); for(var i = 0; i < all.length && !s; i++) if(all[i].getName().replace(/^\d+\.\s+/, '') === name) s = all[i]; }
+  /* 02/11/2026 — renamed sheets (CUSTOMER TASK → CUSTOMER TASK · OTHERS TASK → OTHERS TASK): the old sheet is renamed the first time it is needed */
+  if(!s && THD_OLDNAME[name]) s = thdRenameOld_(name);
   if(!s) throw new Error('The CRM layout of this file is not built yet (sheet "' + name + '" not found in ' + ss_().getName() + '). ' +
     'Open the Google Sheet ▸ reload ▸ menu MMH CRM (Thailand Dental) ▸ ⓪ Build the CRM layout, then press Retry.');
   return (_SH[name] = s);
@@ -398,7 +401,7 @@ function bundle_(p){
 /* ══════════════ KPI (sheet TARGET & KPI) — ⭐ v1.2: per the MMH KPI FY68 file ══════════════
  * The sheet is built by menu "⑤ Rebuild the KPI tab from the KPI FY68 file" (module KPI FY68 at the end of this file):
  *   one row = one KPI code of one PIC (F1-00, C11-01a, C4-02…), monthly targets from the KPI FY68 file,
- *   actuals are formulas on CUSTOMER CODE · CUSTOMER VISITING · PRODUCT PRESENTATION.
+ *   actuals are formulas on CUSTOMER CODE · CUSTOMER TASK · PRODUCT PRESENTATION.
  * The app only READS the calculated sheet. */
 var MON_LB = ['Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug'];
 function kpi_(fy){
@@ -581,7 +584,7 @@ function checkRow_(k, row){
 }
 function canEdit_(user, pic){ return isMgr_(user.pic) || !str_(pic) || picEq_(pic, user.pic); }
 
-/* ── CUSTOMER VISITING ── */
+/* ── CUSTOMER TASK ── */
 function saveWeekly_(user, p){
   var d = p.data; if(typeof d === 'string') d = JSON.parse(d);
   var row = parseInt(d._row, 10) || 0, isNew = !row, out = {};
@@ -612,7 +615,7 @@ function saveWeekly_(user, p){
   bump_(['weekly']);
   log_(user.pic, isNew ? 'add' : 'update', 'weekly', parseAcc_(d.account || '').name || ('row ' + row), (d.typeAction || '') + (d.status ? ' · ' + d.status : ''), row);
   try{ out.sync = vsSync_(false); }catch(e){ out.syncError = e.message; }
-  out.ok = true; out.row = row; out.message = isNew ? 'Task added to sheet CUSTOMER VISITING' : 'Task updated';
+  out.ok = true; out.row = row; out.message = isNew ? 'Task added to sheet CUSTOMER TASK' : 'Task updated';
   return out;
 }
 function mondayIso_(isoStr){ var d = date_(isoStr); if(!d) return ''; var w = (d.getDay() + 6) % 7; d.setDate(d.getDate() - w); return iso_(d); }
@@ -737,6 +740,7 @@ function saveADP_(user, p){
     if(dup) throw new Error(parseAcc_(d.account).name + ' already has an ADP in ' + d.fy + ' (row ' + dup._row + ').');
   }
   var row = saveSimple_(user, 'adp', d, function(x, nw){ if(nw) x.created = todayIso_(); x.updated = todayIso_(); });
+  try{ adpStamp_(); }catch(eSt){}   /* 02/11/2026: time log "Profile completed" (KPI C2-02) */
   log_(user.pic, isNew ? 'add' : 'update', 'adp', parseAcc_(d.account).name, d.fy || '', row);
   return { ok: true, row: row, message: 'ADP saved to sheet ADP' };
 }
@@ -784,7 +788,7 @@ function account360_(p){
       daysSinceVisit: last ? Math.floor((date_(todayIso_()) - date_(last)) / 86400000) : -1 } };
 }
 
-/* ══════════════ ALL TASK (other tasks — Report-Hub compatible API) ══════════════
+/* ══════════════ OTHERS TASK (other tasks — Report-Hub compatible API) ══════════════
  *  B No (formula) · C FY · D Month · E Type · F Key Task · G Sub Task · H PIC · I Task result/Link ·
  *  J Start · K Planned Deadline · L Revised Deadline · M Leadtime · N Status · O % · P Actual finish ·
  *  Q Behavior · R Priority · S Priority mail at · T – · U Sync key · V Sync meta
@@ -857,7 +861,7 @@ function atStatusFix_(st, pg, curSt){
   return { status: st || undefined, progress: pg };
 }
 function atCanEdit_(user, t){
-  if(t.vSrc) throw new Error('This task is synced automatically from sheet CUSTOMER VISITING — edit the visit there.');
+  if(t.vSrc) throw new Error('This task is synced automatically from sheet CUSTOMER TASK — edit the visit there.');
   if(!canEdit_(user, t.pic)) throw new Error('Only ' + t.pic + ' (or a manager) can edit this task.');
 }
 function atResp_(msg, row){ _AT = null; bump_(['alltask']); var t = row ? atRead_().all.filter(function(x){ return x.row === row; })[0] : null;
@@ -915,7 +919,7 @@ function atAddKey_(user, p){
     try{ atRepair_(); }catch(e){}
   } finally { L.releaseLock(); }
   log_(user.pic, 'add', 'alltask', name, 'Key task', row);
-  return atResp_('Key task added to sheet ALL TASK', row);
+  return atResp_('Key task added to sheet OTHERS TASK', row);
 }
 function atAddSub_(user, p){
   var name = str_(p.name || p.subTask); if(!name) throw new Error('Sub task name is required');
@@ -923,7 +927,7 @@ function atAddSub_(user, p){
   try{
     var key = atFind_(p.parentNo);
     if(!key || !key.subs) throw new Error('Key task ' + p.parentNo + ' not found — reload and try again.');
-    if(key.vSrc) throw new Error('This key task is synced from CUSTOMER VISITING — add a visit there instead.');
+    if(key.vSrc) throw new Error('This key task is synced from CUSTOMER TASK — add a visit there instead.');
     if(!atFixedOf_(key.keyTask) && !atFree_(user)) throw new Error(atFixedErr_());
     var s = sh_(CFG.SH_ALL), after = atKeyEnd_(key);
     s.insertRowsAfter(after, 1); row = after + 1;
@@ -936,7 +940,7 @@ function atAddSub_(user, p){
     atRollup_(key.no);
   } finally { L.releaseLock(); }
   log_(user.pic, 'add', 'alltask', name, 'Sub task of key ' + p.parentNo, row);
-  return atResp_('Sub task added to sheet ALL TASK', row);
+  return atResp_('Sub task added to sheet OTHERS TASK', row);
 }
 function atUpdate_(user, p, isKey){
   var L = lock_(), t;
@@ -960,7 +964,7 @@ function atUpdate_(user, p, isKey){
     if(!t.subs && t.parentNo) atRollup_(t.parentNo);
   } finally { L.releaseLock(); }
   log_(user.pic, 'update', 'alltask', t.keyTask || t.subTask, (p.status || '') + (p.progress !== undefined ? ' · ' + p.progress + '%' : ''), t.row);
-  return atResp_('Task updated in sheet ALL TASK', t.row);
+  return atResp_('Task updated in sheet OTHERS TASK', t.row);
 }
 function atProgress_(user, p){ return atUpdate_(user, { no: p.no, status: p.status, progress: p.progress }, !!(atFind_(p.no) || {}).subs); }
 function atDelete_(user, p, isKey){
@@ -975,10 +979,10 @@ function atDelete_(user, p, isKey){
     SpreadsheetApp.flush();
   } finally { L.releaseLock(); }
   log_(user.pic, 'delete', 'alltask', t.keyTask || t.subTask, isKey ? 'Key task' : 'Sub task', t.row);
-  return atResp_('Deleted from sheet ALL TASK', 0);
+  return atResp_('Deleted from sheet OTHERS TASK', 0);
 }
 
-/* ══════════════ SYNC: CUSTOMER VISITING → ALL TASK ══════════════
+/* ══════════════ SYNC: CUSTOMER TASK → OTHERS TASK ══════════════
  *  one key task per month "YYYYMM_Thailand Surgical Customer visiting" (U = visitk|YYYYMM)
  *  one sub task per visit (U = visit|PIC|date|account|type action#n, V = JSON meta) — read-only in the app.
  *  Only blocks that really changed are rewritten.  vsBuild_() MUST stay identical to the Excel builder. */
@@ -1022,8 +1026,8 @@ function vsSync_(dry, wait){
   if(!L || !L.tryLock(wait || 3000)) return { changed: 0, added: 0, removed: 0, busy: true };
   try{ return vsSyncRun_(dry); } finally { L.releaseLock(); }
 }
-/* v1.1 Dental — rebuild the visit mirror of ALL TASK from scratch: every row written by the sync (column U "visit|…" /
-   "visitk|…") is deleted, then all months are written again + formulas. Other ALL TASK rows are kept. Under the same lock. */
+/* v1.1 Dental — rebuild the visit mirror of OTHERS TASK from scratch: every row written by the sync (column U "visit|…" /
+   "visitk|…") is deleted, then all months are written again + formulas. Other OTHERS TASK rows are kept. Under the same lock. */
 function vsRebuild_(wait){
   var L = LockService.getDocumentLock();
   if(!L || !L.tryLock(wait || 30000)) return { busy: true };
@@ -1119,7 +1123,7 @@ function atFillCol_(s, at, n, k){
   for(var j = 0; j < n; j++) out.push([fmlLoc_(atFormulas_(at + j)[k][1], semi)]);
   s.getRange(at, col, n, 1).setFormulas(out);
 }
-/* v1.1 Dental — rows of ALL TASK with a task (F or G) but no formula in column B (left by a run that was killed) ⇒ the formula
+/* v1.1 Dental — rows of OTHERS TASK with a task (F or G) but no formula in column B (left by a run that was killed) ⇒ the formula
    columns are rewritten from the FIRST such row to the last row, ONE call per column (missing rows can be scattered: per-row
    writes went over the 6-minute limit again). Cheap when nothing is missing (2 batch reads). Returns the number of rows fixed. */
 function atHealFormulas_(){
@@ -1133,7 +1137,7 @@ function atHealFormulas_(){
   SpreadsheetApp.flush(); _AT = null;
   return miss;
 }
-/* v1.1 Dental — ALL TASK summary for thdSample op=status */
+/* v1.1 Dental — OTHERS TASK summary for thdSample op=status */
 function atSummary_(){
   var s = sh_(CFG.SH_ALL), last = s.getLastRow(); if(last < CFG.AT_DATA) return { rows: 0 };
   var n = last - CFG.AT_DATA + 1, B = s.getRange(CFG.AT_DATA, 2, n, 1).getFormulas(), v = s.getRange(CFG.AT_DATA, 6, n, 16).getValues();
@@ -1368,11 +1372,13 @@ function route_(p){
   var pic = str_(p.actor) || str_(p.pic);
   var user = { pic: USERS[pic] ? pic : (pic || 'Dao') };
   if(/^(ping|boot)$/.test(a)){ try { dfMaybe_(); } catch(eD){} }        /* v1.19 — chuẩn hoá ngày (1 lần + mỗi đêm) */
+  if(/^(ping|boot)$/.test(a)){ try { thdFixTick_(); } catch(eF){} }    /* 02/11/2026 — TH_DentalFix.gs (once, in the background) */
   if(/^na[A-Z]/.test(a)) return naRoute_(a, user, p);                    /* v1.9 */
   if(/^kr[A-Z]/.test(a)) return krRoute_(a, user, p);                    /* v1.9 */
   if(/^trip(Master|Propose)2$/.test(a)) return tripRoute_(a, user, p);  /* v1.16 */
   switch(a){
-    case 'thdSample': return thdSampleApi_(p);                           /* 30/10/2026 — dữ liệu mẫu thử KPI (TH_DentalSample.gs) */
+    case 'thdSample': return thdSampleApi_(p);
+    case 'thdFix': return thdFixApi_(p);                                 /* 02/11/2026 — TH_DentalFix.gs */                           /* 30/10/2026 — dữ liệu mẫu thử KPI (TH_DentalSample.gs) */
     case 'rpLog': return rplApi_(p);                                      /* ⭐ 23/10/2026: thống kê gửi báo cáo (MMH_ReportLog.gs) */
     case 'kpiPush': return { ok: true, kpiPush: k68PushQuick_() };       /* v1.9 */
     case 'kpiLate': return kpiLate_(user, p);                            /* v1.12 */
@@ -1430,7 +1436,7 @@ function route_(p){
     case 'saveOrders': return { ok: false, error: 'Sales orders are not used by the Thailand CRM.' };
     case 'weeklyReport': return sendReport_(user, p, 'week');
     case 'monthlyReport': return sendReport_(user, p, 'month');
-    /* ALL TASK — same actions as the Report Hub */
+    /* OTHERS TASK — same actions as the Report Hub */
     case 'weekly': case 'boot': { var at = atRead_(); return { ok: true, keyTasks: at.keys, v: vers_().alltask, source: 'thai',
       picList: picList_(), statusOptions: ['To Do','In Progress','Completed','Cancelled'] }; }
     case 'addKey': return atAddKey_(user, p);
@@ -1440,7 +1446,7 @@ function route_(p){
     case 'updateProgress': case 'updateStatus': return atProgress_(user, p);
     case 'deleteKey': return atDelete_(user, p, true);
     case 'deleteSub': return atDelete_(user, p, false);
-    case 'syncVisiting': { var r = vsSync_(false); return { ok: true, message: 'Customer visiting synced to ALL TASK', result: r }; }
+    case 'syncVisiting': { var r = vsSync_(false); return { ok: true, message: 'Customer visiting synced to OTHERS TASK', result: r }; }
     case 'tripSync': case 'tripMaster': case 'tripInfo': return { ok: false, error: 'Business trips are not used by the Thailand CRM.' };
     /* ⭐ v1.1 — WEEKLY MEETING (same actions as the Vietnam CRM backend v8.7) */
     case 'mtList': return mtList_();
@@ -1464,14 +1470,14 @@ function onOpen(){
   /* old-layout file + Convert.gs present → offer the one-time conversion first */
   try{ menu.addItem(ss_().getSheetByName(CFG.SH_ALL) ? '⓪ Rebuild the CRM layout (steps not done yet)' : '⓪ Build the CRM layout (copy Thailand Surgical sheets + move the Dental data)', 'thdBuild').addSeparator(); }catch(e){}
   menu.addItem('① Setup (triggers — run once)', 'menuSetup')
-    .addItem('② Sync Customer visiting → ALL TASK now', 'menuSync')
+    .addItem('② Sync Customer visiting → OTHERS TASK now', 'menuSync')
     .addItem('③ Refresh app cache (after editing the sheet)', 'menuBump')
     .addItem('④ Check configuration', 'menuCheck')
     .addSeparator()
     .addItem('⑤ Rebuild the KPI tab from the KPI FY68 file', 'setupKpiFY68')
     .addItem('⑥ Sync with the master KPI file now (and register this file)', 'syncKpiFY68')
     .addSeparator()
-    .addItem('⑦ Repair broken formulas (#ERROR!) in ALL TASK and the CRM tabs', 'repairFormulas')
+    .addItem('⑦ Repair broken formulas (#ERROR!) in OTHERS TASK and the CRM tabs', 'repairFormulas')
     .addSeparator()
     .addItem('⑧ New accounts & SKU: create the sheet + grant Drive / Gmail', 'naSetup')
     .addItem('⑨ Rewrite closed months of C2-03 with the new rule', 'k68FixLockedV10')
@@ -1483,7 +1489,7 @@ function onOpen(){
 
 /* v1.4 — FORMULAS NEVER BREAK INTO #ERROR! ANY MORE
    A formula written as text with "," is read with the separator of the file's locale; in a file whose locale uses ";"
-   (for example Vietnamese) that gives #ERROR! (rows 12, 242, 243, 246, 247 of ALL TASK). Formulas of a new row are now
+   (for example Vietnamese) that gives #ERROR! (rows 12, 242, 243, 246, 247 of OTHERS TASK). Formulas of a new row are now
    COPIED from the nearest healthy row (copyTo · PASTE_FORMULA), which always matches the file's locale; the text formula
    is only a fallback, and is retried with ";" when the sheet still shows #ERROR!. */
 function fmlBadTxt_(d){ return /^#(ERROR|NAME|REF)/i.test(String(d || '')); }
@@ -1508,7 +1514,7 @@ function fmlPut_(s, col, row, first, f){
   if(f) cell.setFormula(fmlLoc_(f, fmlSemi_(s)));
   return false;
 }
-/* repair: every #ERROR! cell in the formula columns of ALL TASK and of the CRM tabs */
+/* repair: every #ERROR! cell in the formula columns of OTHERS TASK and of the CRM tabs */
 function atRepair_(){
   var s = sh_(CFG.SH_ALL), last = s.getLastRow(), fixed = 0;
   if(last < CFG.AT_DATA) return 0;
@@ -1531,7 +1537,7 @@ function repairFormulas(){
     });
   });
   _AT = null; bump_();
-  try{ SpreadsheetApp.getUi().alert((n + m) ? ('Fixed: ' + n + ' ALL TASK row(s) + ' + m + ' cell(s) in the CRM tabs.') : 'No broken formula found.'); }catch(e){}
+  try{ SpreadsheetApp.getUi().alert((n + m) ? ('Fixed: ' + n + ' OTHERS TASK row(s) + ' + m + ' cell(s) in the CRM tabs.') : 'No broken formula found.'); }catch(e){}
   return { ok: true, allTask: n, cells: m };
 }
 
@@ -1544,10 +1550,10 @@ function menuSetup(){
   ScriptApp.newTrigger('cronTh').timeBased().everyMinutes(10).create();
   bump_(); var r = vsSync_(false);
   SpreadsheetApp.getUi().alert('Setup done.\n\n· Edits made directly in the sheet now show in the app within ~15 seconds.\n' +
-    '· Customer visits are mirrored into ALL TASK every 10 minutes and right after every save from the app.\n\n' +
+    '· Customer visits are mirrored into OTHERS TASK every 10 minutes and right after every save from the app.\n\n' +
     'First sync: ' + r.added + ' month(s) added, ' + r.changed + ' changed, ' + r.removed + ' removed.');
 }
-function menuSync(){ var r = vsSync_(false); SpreadsheetApp.getUi().alert('ALL TASK synced: ' + r.added + ' month(s) added, ' + r.changed + ' changed, ' + r.removed + ' removed.'); }
+function menuSync(){ var r = vsSync_(false); SpreadsheetApp.getUi().alert('OTHERS TASK synced: ' + r.added + ' month(s) added, ' + r.changed + ' changed, ' + r.removed + ' removed.'); }
 function menuBump(){ bump_(); SpreadsheetApp.getUi().alert('App cache refreshed — reopen the app (or press ⟳).'); }
 function menuCheck(){
   var miss = [];
@@ -1555,13 +1561,13 @@ function menuCheck(){
     .forEach(function(n){ if(!ss_().getSheetByName(n)) miss.push(n); });
   var trig = ScriptApp.getProjectTriggers().map(function(t){ return t.getHandlerFunction(); });
   SpreadsheetApp.getUi().alert((miss.length ? '⚠️ Missing sheets: ' + miss.join(', ') : '✓ All sheets found') + '\n' +
-    'Customers: ' + customers_().length + ' · Contacts: ' + cbcRows_().length + ' · Visits: ' + weeklyRows_().length + ' · ALL TASK keys: ' + atRead_().keys.length + '\n' +
+    'Customers: ' + customers_().length + ' · Contacts: ' + cbcRows_().length + ' · Visits: ' + weeklyRows_().length + ' · OTHERS TASK keys: ' + atRead_().keys.length + '\n' +
     'Triggers: ' + (trig.length ? trig.join(', ') : 'none — run ① Setup'));
 }
 function onEditTh(e){ try{ var n = e && e.range ? e.range.getSheet().getName() : ''; var k = SHEET_VER[n]; bump_(k ? [k] : null);
-  if(n === CFG.SH_WK) vsSync_(false); }catch(x){} }
+  if(n === CFG.SH_WK) vsSync_(false); if(n === CFG.SH_ADP) adpStamp_(); }catch(x){} }
 function onChangeTh(e){ try{ if(e && e.changeType === 'EDIT') return; bump_(); }catch(x){} }
-function cronTh(){ try{ var r = vsSync_(false); if(!r.busy) atHealFormulas_(); }catch(x){} }
+function cronTh(){ try{ thdFixRun_(); }catch(xf){} try{ adpStamp_(); }catch(xa){} try{ var r = vsSync_(false); if(!r.busy) atHealFormulas_(); }catch(x){} }
 
 /* ══════════════ ⭐ v1.1 — WEEKLY MEETING (Họp tuần) · same app module as the Vietnam teams ══════════════
  *  Sheets created automatically on first use (header in ROW 1, managed by the script):
@@ -1884,7 +1890,7 @@ K68_SPEC.thaid = {"title":"THAILAND DENTAL SALES TEAM","lang":"en","pics":[
  {"pic":"Yong","role":"Thailand Dental - Commercial Lead","rows":[
   {"code":"F4-00","key":"turnover","name":"Turnover to distributors – Dental & MMG Thailand (team, cumulative)","unit":"USD","agg":"LAST","w":0.4,"t":null},
   {"code":"C2-01","key":"newacct_key","name":"New key accounts (DSO, dental university, hospital) – Dental Thailand","unit":"Accounts","agg":"SUM","w":0.2,"t":null},
-  {"code":"C2-02","key":"manual","name":"Key account profiling coverage – top 20% of the 3 distributors' accounts","unit":"%","agg":"LAST","w":0.1,"t":null},
+  {"code":"C2-02","key":"profiling","name":"Key account profiling coverage – top 20% of the 3 distributors' accounts","unit":"%","agg":"LAST","w":0.1,"t":null},
   {"code":"C4-01","key":"covisit","name":"Co-visits with distributor sales reps – commercial support","unit":"Times","agg":"SUM","w":0.2,"t":null}]},
  {"pic":"Man","role":"Thailand Dental - Training & Education Lead","rows":[
   {"code":"F4-00","key":"turnover","name":"Turnover to distributors – Dental & MMG Thailand (team, cumulative)","unit":"USD","agg":"LAST","w":0.25,"t":null},
@@ -1902,7 +1908,7 @@ var K68_N  = 20000;   /* số dòng quét ở tab viếng thăm / khách hàng *
 var K68_N2 = 6000;    /* số dòng quét ở tab thuyết trình / đơn hàng */
 var K68_SRC = {
   vi: { wk: '6. WEEKLY REPORT',     cu: 'CUSTOMER CODE', pr: 'PRODUCT PRESENTATION', od: '3. SALE ORDER' },
-  en: { wk: 'CUSTOMER VISITING', cu: 'CUSTOMER CODE', pr: 'PRODUCT PRESENTATION', od: '', na: 'NEW ACCOUNT & SKU', pt: 'PRODUCT TEST' }
+  en: { wk: 'CUSTOMER TASK', cu: 'CUSTOMER CODE', pr: 'PRODUCT PRESENTATION', od: '', na: 'NEW ACCOUNT & SKU', pt: 'PRODUCT TEST', adp: 'ADP' }
 };
 /* cột cố định của tab KPI */
 var K68 = { tag: 1, code: 2, pic: 3, name: 4, unit: 5, w: 6, agg: 7, tFY: 8, t0: 9, aFY: 21, a0: 22,
@@ -1911,7 +1917,7 @@ var K68 = { tag: 1, code: 2, pic: 3, name: 4, unit: 5, w: 6, agg: 7, tFY: 8, t0:
 var K68_SET = { fy: 'C4', rate: 'D5', photo: 'D6', comp1: 'D7', comp2: 'E7', jz1: 'D8', jz2: 'E8', link: 'D9', cur: 'D10', sync: 'D11' };
 var K68_MANUAL = { turnover: 1, manual: 1, event_hub: 1 };   /* v1.4 — event counts come from the KPI Hub (Marketing Offline file) */
 /* ⭐ phiên bản bố cục tab KPI — tab dựng bằng code cũ (khác nhãn này) sẽ TỰ dựng lại khi đồng bộ, giữ ô nhập tay */
-var K68_LAYOUT = 'k68v6d2';   /* Dental Thái 30/10/2026: C4-03 = số ngày có co-visit (không cần xác nhận ≥ 5 lượt) · C11-03 = sheet PRODUCT TEST ⇒ tab tự dựng lại 1 lần, giữ ô nhập tay */   /* v1.9 — C2-03 counts approved cases of sheet 23 ⇒ the tab rebuilds itself once, typed cells kept */   /* v1.4 — event codes now pulled from the KPI Hub: the tab rebuilds itself once, typed cells kept */
+var K68_LAYOUT = 'k68v6d3';   /* 02/11/2026: C2-02 = sheet ADP (profiles completed ÷ customers of the PIC) · sheet CUSTOMER TASK ⇒ tab rebuilds once */   /* was 'k68v6d2' —   /* Dental Thái 30/10/2026: C4-03 = số ngày có co-visit (không cần xác nhận ≥ 5 lượt) · C11-03 = sheet PRODUCT TEST ⇒ tab tự dựng lại 1 lần, giữ ô nhập tay */   /* v1.9 — C2-03 counts approved cases of sheet 23 ⇒ the tab rebuilds itself once, typed cells kept */   /* v1.4 — event codes now pulled from the KPI Hub: the tab rebuilds itself once, typed cells kept */
 
 var K68_TXT = {
   vi: {
@@ -1987,17 +1993,18 @@ var K68_TXT = {
     src: {
       turnover: 'MMH KPI FY68 file (MMH Turnover Report) — synced automatically, or type the amount of the month',
       manual: 'Synced from the KPI FY68 file or typed in',
-      visit_dealer: 'CUSTOMER VISITING · Sales PIC + Start date in month + Type action = Visiting + Task Status ≠ Not Started / Cancel + date ≤ today + Account type = Dealer',
-      visit_other: 'CUSTOMER VISITING · Sales PIC + Start date in month + Type action = Visiting + Task Status ≠ Not Started / Cancel + date ≤ today + Account type ≠ Dealer',
-      visit_all: 'CUSTOMER VISITING · Sales PIC + Start date in month + Type action = Visiting + Task Status ≠ Not Started / Cancel + date ≤ today',
+      visit_dealer: 'CUSTOMER TASK · Sales PIC + Start date in month + Type action = Visiting + Task Status ≠ Not Started / Cancel + date ≤ today + Account type = Dealer',
+      visit_other: 'CUSTOMER TASK · Sales PIC + Start date in month + Type action = Visiting + Task Status ≠ Not Started / Cancel + date ≤ today + Account type ≠ Dealer',
+      visit_all: 'CUSTOMER TASK · Sales PIC + Start date in month + Type action = Visiting + Task Status ≠ Not Started / Cancel + date ≤ today',
       newacct_dealer: 'NEW ACCOUNT & SKU · approved cases by PIC + Month (month of the first order) · Account type = Dealer',
       newacct_all: 'NEW ACCOUNT & SKU · approved cases by PIC + Month (month of the first order)',
       event_mmh: 'PRODUCT PRESENTATION · sessions by MMH sales PIC + Month',
       event_mmh_team: 'PRODUCT PRESENTATION · sessions of the whole team by Month',
       event_hub: 'Thailand Surgical Marketing Offline file (REPORT_EVENT) · counted by the KPI Hub by event type (sheet 4B)',
-      event_kol_team: 'CUSTOMER VISITING · Type action = Event + Task Status ≠ Not Started / Cancel + date ≤ today (KOL-led events & exhibitions, whole team) by Start date',
-      covisit: 'CUSTOMER VISITING · Sales PIC + Start date in month + Type action = Co-visiting with distributor + Task Status ≠ Not Started / Cancel + date ≤ today',
-      covisit_day: 'CUSTOMER VISITING · number of DAYS (Start date) in the month with a co-visit of the PIC (Type action = Co-visiting with distributor, not Cancel / Not Started) — no confirmation needed',
+      event_kol_team: 'CUSTOMER TASK · Type action = Event + Task Status ≠ Not Started / Cancel + date ≤ today (KOL-led events & exhibitions, whole team) by Start date',
+      profiling: 'ADP · different accounts of the PIC whose profile row is complete (account · PIC · ABCD focus · case info · analysis · objective · tactic · key action · target) — column AH "Profile completed" = date it became complete — up to the end of the month ÷ different customers of the PIC in CUSTOMER CODE · cumulative',
+      covisit: 'CUSTOMER TASK · Sales PIC + Start date in month + Type action = Co-visiting with distributor + Task Status ≠ Not Started / Cancel + date ≤ today',
+      covisit_day: 'CUSTOMER TASK · number of DAYS (Start date) in the month with a co-visit of the PIC (Type action = Co-visiting with distributor, not Cancel / Not Started) — no confirmation needed',
       test_rate: 'PRODUCT TEST · Result = Pass ÷ tests with a result (Sales PIC), from the start of the FY to the end of the month — cumulative',
       newacct_key: 'NEW ACCOUNT & SKU · approved cases by PIC + Month · Account type = DSO / University / Hospital (key accounts) · evidence = distributor confirmation',
       supp_amt: '3. SALE ORDER · Amount ÷ exchange rate (D5)', supp_comp: '3. SALE ORDER · Composite quantity', supp_jizai: '3. SALE ORDER · JIZAI quantity'
@@ -2051,7 +2058,7 @@ var K68_GROUPS = {
 };
 /* Dental: source text of the event codes / typed codes */
 K68_TXT.en.src.event_hub = '2. Thailand - Dental Event Report (REPORT_EVENT) · counted by the KPI Sync Center (by WHO leads: KOL / MMH member / exhibition — sheet 4B) · this row shows the number of the KPI file';
-K68_TXT.en.src.manual = 'Typed in the MMH KPI FY68 file (or here when the KPI file is still empty) — C2-02 profiling % · C16-00 first distributor orders · C17-07 content published';
+K68_TXT.en.src.manual = 'Typed in the MMH KPI FY68 file (or here when the KPI file is still empty) — C16-00 first distributor orders · C17-07 content published';
 
 /* ── tiện ích ── */
 function k68Col_(n){ var s = ''; while(n > 0){ var m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; }
@@ -2182,6 +2189,14 @@ function k68Build_(sh, team, keep){
       var fy0 = '$' + AC(0) + '$' + MD, TD = rg('pt', 'C'), TP = rg('pt', 'D'), TR = rg('pt', 'J');
       var base = TP + ',' + pic + ',' + TD + ',">="&' + fy0 + ',' + TD + ',"<"&EDATE(' + md + ',1),' + TD + ',"<="&TODAY()';
       return '=IF(' + md + '>TODAY(),"",IFERROR(COUNTIFS(' + base + ',' + TR + ',"Pass")/COUNTIFS(' + base + ',' + TR + ',"?*"),""))';
+    }
+    /* C2-02 (02/11/2026, user rule): key-account profiling coverage of the PIC = different accounts with a COMPLETE row in sheet ADP
+       (column AH "Profile completed" = time log written when every profile column is filled — TH_DentalFix.gs) up to the end of the month
+       ÷ different customers of the PIC in CUSTOMER CODE (column H = MMH sales PIC). Cumulative ⇒ agg LAST. */
+    if(key === 'profiling'){
+      var AA = rg('adp', 'C'), AP = rg('adp', 'D'), AT = rg('adp', 'AH'), CN = rg('cu', 'C'), CP = rg('cu', 'H');
+      return '=IF(' + md + '>TODAY(),"",IFERROR(IFERROR(COUNTUNIQUE(FILTER(' + AA + ',' + AP + '=' + pic + ',' + AT + '<>"",' + AT + '<EDATE(' + md + ',1),' + AA + '<>"")),0)/' +
+             'COUNTUNIQUE(FILTER(' + CN + ',' + CP + '=' + pic + ',' + CN + '<>"")),""))';
     }
     /* C2-01: approved new-account cases of KEY accounts (DSO · dental university · hospital) */
     if(key === 'newacct_key')
@@ -2424,6 +2439,7 @@ function k68Snapshot_(sh){
 function k68Setup_(ss, name, team){
   try{ naSheet_(); }catch(e){}        /* v1.9 — the C2-03 formula points to sheet 23 ⇒ it must exist first */
   try{ ptSheet_(); }catch(e){}        /* Dental Thái — C11-03 points to sheet PRODUCT TEST */
+  try{ thdAdpCols_(); }catch(e2){}     /* 02/11/2026 — C2-02 points to sheet ADP column AH */
   var T = K68_TXT[(K68_SPEC[team] || {}).lang || 'vi'];
   var sh = ss.getSheetByName(name), keep = null, idx = null;
   if(sh){
@@ -2524,7 +2540,7 @@ function k68LinksSheet_(ss){
 
 /* ⭐ v22 — CÔNG THỨC THEO DẤU PHÂN CÁCH CỦA FILE
    Script ghi công thức kiểu "=MID($C$4,3,2)" vào file đặt vùng dùng dấu ";" (vd Việt Nam) ⇒ Google Sheet báo #ERROR!
-   (đúng lỗi ở tab TARGET & KPI và ALL TASK). Nay thử 1 ô trước: "=SUM(1,2)" ra 3 thì giữ dấu ",", không thì đổi
+   (đúng lỗi ở tab TARGET & KPI và OTHERS TASK). Nay thử 1 ô trước: "=SUM(1,2)" ra 3 thì giữ dấu ",", không thì đổi
    "," ⇒ ";" và số thập phân "1.3" ⇒ "1,3" (bỏ qua phần trong ngoặc kép / tên sheet trong ngoặc đơn). */
 var _FSEMI = {};
 function fmlSemi_(sh){
@@ -2566,6 +2582,7 @@ function k68Sync_(sh, lang, source, opts){
   var broken = v.some(function(r){ var t = k68Str_(r[0]); return (t === 'months' || t === 'mstart') && /^#/.test(String(r[K68.t0 - 1])); });
   if((k68Str_(v[0][0]) !== K68_LAYOUT || broken) && source && K68_SPEC[source]){
     try{ ptSheet_(); }catch(ePt){}
+    try{ thdAdpCols_(); }catch(eAd){}
     /* tab KPI dựng bằng code cũ (vd còn #ERROR!) ⇒ dựng lại theo bố cục mới, giữ ô nhập tay */
     var nm = sh.getName(), ssx = sh.getParent();
     k68Setup_(ssx, nm, source); SpreadsheetApp.flush(); sh = ssx.getSheetByName(nm); rebuilt = true;
@@ -4105,11 +4122,11 @@ function tripRoute_(action, user, p){
 
 
 /* ════════════════════════════════════════════════════════════════════════════════════════════════
-   ⭐ v1.19 (13/10/2026) · DATES NORMALISED ON EVERY TAB — same module as crm-dental v10.12 (crmDateFix_); Thai tabs: CUSTOMER VISITING, 7, 1, ALL TASK
+   ⭐ v1.19 (13/10/2026) · DATES NORMALISED ON EVERY TAB — same module as crm-dental v10.12 (crmDateFix_); Thai tabs: CUSTOMER TASK, 7, 1, OTHERS TASK
    Kiểm 13/10 (bản xuất 4 file CRM): ① ngày bị ĐẢO ngày ↔ tháng khi gõ tay trên sheet đặt vùng Mỹ (gõ 10/09 ⇒ 9 tháng 10):
    Surgical 421 dòng tab 6 (cả dòng tháng 08 + 09/2026), Dental 446 dòng cũ + 127 đơn hàng cũ; ② ngày có GIỜ (10:00 / 12:00)
    ⇒ công thức đếm "≤ ngày cuối kỳ" bỏ sót; ③ ngày dạng chữ ("02/07/0205", "undefined/undefined/22/11/2025").
-   crmDateFix_: mọi ô ngày của tab 6 (Start / Finish), 3 (Day), 7 (Day), 1 (Ngày mở account), ALL TASK (Start / Planned / Revised / Actual finish)
+   crmDateFix_: mọi ô ngày của tab 6 (Start / Finish), 3 (Day), 7 (Day), 1 (Ngày mở account), OTHERS TASK (Start / Planned / Revised / Actual finish)
    ⇒ ngày thật 00:00, định dạng dd/MM/yyyy. Đảo ngày ↔ tháng chỉ sửa khi cột tháng cùng dòng (Start Month / Month) khớp sau khi đảo.
    File đặt vùng Mỹ (en_US) ⇒ đổi sang en_GB (gõ 10/09/2026 = 10 tháng 9, công thức vẫn dùng dấu phẩy) — người dùng đồng ý 13/10.
    Múi giờ file khác múi giờ script ⇒ đổi về múi giờ script và ghi lại ngày theo đúng ngày đang hiện.
@@ -4242,7 +4259,7 @@ function dfMaybe_(){
    Kết quả bài kiểm tra kiến thức sản phẩm của sales nhà phân phối (KPI C11-03, Man) — sales tự điền trên sheet.
    Header hàng 3, dữ liệu từ hàng 4, cột B…K. Tỉ lệ đạt = số dòng Result "Pass" ÷ số dòng có Result (tab TARGET & KPI, cộng dồn từ đầu FY). */
 var PT_SHEET = 'PRODUCT TEST';
-var PT_HDR = ['No.', 'Test date', 'MMH sales PIC', 'Distributor', 'Distributor sales rep', 'Product / topic', 'Score', 'Pass mark', 'Result', 'Note'];
+var PT_HDR = ['No.', 'Test date', 'MMH sales PIC', 'Distributor', 'Distributor sales rep', 'Product / topic', 'Score', 'Pass mark', 'Result', 'Note', 'Result link'];   /* 02/11/2026: L = link to the test result */
 function ptSheet_(){
   var book = ss_(), s = book.getSheetByName(PT_SHEET);
   if(s) return s;
@@ -4258,7 +4275,7 @@ function ptSheet_(){
   s.getRange(4, 4, n, 1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(TEAM_PICS.concat(['Dao']), true).setAllowInvalid(true).build());
   s.getRange(4, 5, n, 1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['DDI', 'Promptdent', 'VRP', 'Others'], true).setAllowInvalid(true).build());
   s.getRange(4, 10, n, 1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['Pass', 'Fail'], true).setAllowInvalid(false).build());
-  [50, 95, 110, 110, 180, 200, 70, 80, 80, 260].forEach(function(w, i){ s.setColumnWidth(i + 2, w); });
+  [50, 95, 110, 110, 180, 200, 70, 80, 80, 260, 260].forEach(function(w, i){ s.setColumnWidth(i + 2, w); });
   s.setColumnWidth(1, 20);
   try{ s.setTabColor('#3A5CAA'); }catch(e){}
   return s;

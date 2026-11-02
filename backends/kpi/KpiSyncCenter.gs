@@ -1783,10 +1783,10 @@ function kscKbi_(ctx, why) {
    · 7. PRODUCT PRESENTATION: C Account · D MMH sales PIC · H Month · I Day · M Actual participant
    · 1. CUSTOMER CODE: C Account name · D Account type · H MMH sales PIC · K Tháng mở (auto) */
 var KSC_CRMEV = {
-  WEEKLY  : ['6. WEEKLY REPORT', '6. CUSTOMER VISITING'],
+  WEEKLY  : ['6. WEEKLY REPORT', '6. CUSTOMER VISITING', 'CUSTOMER TASK', 'CUSTOMER VISITING'],   /* 02/11/2026: Thailand Dental (không số, đổi tên CUSTOMER TASK) */
   ORDER   : '3. SALE ORDER',
-  PRESENT : '7. PRODUCT PRESENTATION',
-  CUSTOMER: '1. CUSTOMER CODE',
+  PRESENT : ['7. PRODUCT PRESENTATION', 'PRODUCT PRESENTATION'],
+  CUSTOMER: ['1. CUSTOMER CODE', 'CUSTOMER CODE'],
   ROW0    : 4,
   WK: { start: 5, pic: 7, account: 8, atype: 9, action: 14, status: 18, photo: 22 },
   OD: { month: 6, day: 7, atype: 9, account: 10, pic: 17, detail: 18, ptype: 19, qty: 20, amount: 22, partner: 23 },
