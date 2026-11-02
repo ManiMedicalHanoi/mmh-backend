@@ -1,5 +1,5 @@
 /*************************************************************************************************
- * MMH — MKT_EventHubPlus.gs   (v1.1 · 31/10/2026) — phần mở rộng của MKT_EventHub.gs (app "Sự kiện MKT")
+ * MMH — MKT_EventHubPlus.gs   (v1.4 · 02/11/2026) — phần mở rộng của MKT_EventHub.gs (app "Sự kiện MKT")
  * ─────────────────────────────────────────────────────────────────────────────────────────────
  * ① Email thư thường (mmhMail_, 1 email / người / lượt ghi): giao việc · nộp "Chờ duyệt" (⇒ Owner) · Owner trả lại (⇒ người làm)
  *    · bình luận / nhắc tên @Tên · nhắc việc thủ công (task.remind / event.remind) · đội sự kiện mới (event.add).
@@ -8,6 +8,9 @@
  *    mỗi người 1 email: việc quá hạn + đến hạn trong cfg.before ngày; Owner thêm việc trễ / chưa giao của sự kiện mình điều phối;
  *    thứ Hai (cfg.weekly): bản tổng hợp các sự kiện 30 ngày tới cho TEAM ▸ Quản lý. Xem trước: action ehDaily (dry, mặc định).
  * ③ ehSave thêm op: event.add · event.delete · comment.add · comment.delete · task.remind · event.remind · cfg.save
+ *    v1.4: note.add · note.update · note.delete — BIÊN BẢN HỌP (tab MEETINGS: ngày họp, tiêu đề, người dự, nội dung, việc cần làm; @Tên trong biên bản ⇒ thông báo).
+ * ⑤ v1.4 — HỘP THÔNG BÁO CHUNG: mỗi thông báo (kể cả dữ liệu mẫu, kể cả khi tắt email) ghi 1 dòng vào sheet RH_Notify của Training Master
+ *    (TF.MASTER_ID, ghi thẳng bằng SpreadsheetApp) ⇒ Report Hub / CRM hiện ở nút chuông "Thông báo" (Training Hub rhNotifyList, RH_Notify.gs).
  * ④ Dữ liệu mẫu: action ehSample op=seed|clear|status (phiên Admin hoặc key = 8 ký tự cuối EH.ROOT). Mọi dòng có cột sample = x,
  *    tên sự kiện "(mẫu)", người phụ trách = nhân sự thật trong RH_Users ⇒ thử "Việc của tôi" được; KHÔNG email / nhắc việc cho dữ liệu mẫu,
  *    đồng bộ file kế hoạch không khớp vào sự kiện mẫu. Xoá: op=clear (hoặc app ▸ Cài đặt).
@@ -38,6 +41,32 @@ function ehSaveN_(p){
   EH_N = [];
   return out;
 }
+/* @Tên trong văn bản ⇒ danh sách PIC (tên dài khớp trước: "@Minh Trang" không bị hiểu là "@Trang") */
+function ehMentions_(text){
+  var names = ehPeople_().map(function(x){ return x.pic; }).sort(function(a, b){ return b.length - a.length; }), low = String(text || '').toLowerCase(), ment = [];
+  names.forEach(function(n){ var k = '@' + n.toLowerCase(); if (low.indexOf(k) >= 0 && ment.indexOf(n) < 0){ ment.push(n); low = low.split(k).join(' '); } });
+  return ment;
+}
+/* ⑤ hộp thông báo chung (Training Master ▸ RH_Notify) — Report Hub / CRM đọc qua Training Hub rhNotifyList */
+var EH_NOTIFY_HDR = ['Id', 'At', 'To', 'App', 'Kind', 'Title', 'Text', 'Url', 'By', 'EventId', 'TaskId', 'SeenAt'];
+function ehFeed_(rows){
+  if (!rows.length) return;
+  try {
+    var book = SpreadsheetApp.openById(TF.MASTER_ID), sh = book.getSheetByName('RH_Notify');
+    if (!sh){ sh = book.insertSheet('RH_Notify'); sh.getRange(1, 1, 1, EH_NOTIFY_HDR.length).setValues([EH_NOTIFY_HDR]).setFontWeight('bold'); sh.setFrozenRows(1); }
+    sh.getRange(sh.getLastRow() + 1, 1, rows.length, EH_NOTIFY_HDR.length).setValues(rows);
+  } catch(e){ Logger.log('ehFeed_: ' + (e && e.message || e)); }
+}
+function ehFeedRow_(pic, actor, items, subject){
+  var one = items.length === 1 ? items[0] : null, x0 = items[0], txt = '';
+  var withText = items.filter(function(x){ return x.text; })[0];
+  if (withText) txt = withText.text;
+  else txt = items.filter(function(x){ return x.task; }).map(function(x){ return '• ' + ehS_(x.task.title) + (ehS_(x.task.due) ? ' (hạn ' + ehD2_(x.task.due) + ')' : ''); }).join('\n');
+  var kinds = []; items.forEach(function(x){ var k = x.note ? 'note' : x.kind; if (kinds.indexOf(k) < 0) kinds.push(k); });
+  var url = EH.APP_URL + (one && one.task ? '#t-' + encodeURIComponent(ehS_(one.task.id)) : '#ev-' + encodeURIComponent(ehS_(x0.ev && x0.ev.id)) + (x0.note ? '/notes' : (x0.kind === 'mention' || x0.kind === 'comment') && !x0.task ? '/talk' : ''));
+  return ['N' + Utilities.getUuid().replace(/-/g, '').slice(0, 12), new Date(), pic, 'event', kinds.join(','), String(subject || '').replace(/^\[Sự kiện MKT\]\s*/, '').slice(0, 300),
+          String(txt || '').slice(0, 900), url, actor, x0.ev ? ehS_(x0.ev.id) : '', one && one.task ? ehS_(one.task.id) : '', ''];
+}
 function ehD2_(iso){ var d = ehDate_(iso); return d ? Utilities.formatDate(d, 'Asia/Ho_Chi_Minh', 'dd/MM') + ' (' + EH_DOW[d.getDay()] + ')' : 'chưa có hạn'; }
 function ehDays_(a, b){ var x = ehDate_(a), y = ehDate_(b); return (x && y) ? Math.round((y - x) / 864e5) : 0; }
 function ehH_(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){ return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]; }); }
@@ -48,10 +77,11 @@ var EH_PROOF_VI = { file: 'file ấn phẩm / tài liệu', image: 'ảnh', link
 function ehNotify_(ss, me, N, opt){
   opt = opt || {};
   var cfg = ehCfg_(), U = ehUsers_(), need = { assign:'mailAssign', team:'mailAssign', review:'mailReview', 'return':'mailReview', comment:'mailComment', mention:'mailComment' };
-  var by = {}, order = [], out = [];
+  var by = {}, order = [], out = [], fBy = {}, fOrder = [];
   N.forEach(function(n){
     if (!n.to) return;
     if (!opt.self && me && n.to === me.pic) return;
+    if (!opt.dry && n.kind !== 'daily'){ if (!fBy[n.to]){ fBy[n.to] = []; fOrder.push(n.to); } fBy[n.to].push(n); }
     if (n.ev && ehS_(n.ev.sample)){ if (!out.some(function(o){ return o.pic === n.to; })) out.push({ pic: n.to, ok: 'Dữ liệu mẫu — không gửi email thật' }); return; }
     if (need[n.kind] && !cfg[need[n.kind]]) return;
     if (!by[n.to]){ by[n.to] = []; order.push(n.to); }
@@ -76,6 +106,7 @@ function ehNotify_(ss, me, N, opt){
     logs.push(row); out.push({ pic: pic, ok: row.ok });
   });
   if (logs.length && !opt.dry){ try { ehAppend_(ss, 'NOTIFY', EH.COLS.NOTIFY, logs); } catch(e){} }
+  if (fOrder.length) ehFeed_(fOrder.map(function(pic){ return ehFeedRow_(pic, actor, fBy[pic], ehMailFor_(pic, actor, fBy[pic]).subject); }));
   return out;
 }
 function ehTaskLine_(t, ev, withEv){
@@ -117,8 +148,8 @@ function ehMailFor_(pic, actor, items){
                  text: actor + ' trả lại việc để chỉnh sửa' + (x.text ? ': "' + x.text + '"' : '.') + '\n' + l.text });
   });
   ['mention', 'comment'].forEach(function(k){ (K[k] || []).forEach(function(x){
-    var where = x.task ? 'việc “' + ehH_(x.task.title) + '”' : 'sự kiện';
-    var url = EH.APP_URL + (x.task ? '#t-' + encodeURIComponent(ehS_(x.task.id)) : '#ev-' + encodeURIComponent(ehS_(x.ev && x.ev.id)));
+    var where = x.note ? 'biên bản họp “' + ehH_(x.note.title) + '”' : x.task ? 'việc “' + ehH_(x.task.title) + '”' : 'sự kiện';
+    var url = EH.APP_URL + (x.task ? '#t-' + encodeURIComponent(ehS_(x.task.id)) : '#ev-' + encodeURIComponent(ehS_(x.ev && x.ev.id)) + (x.note ? '/notes' : '/talk'));
     paras.push({ html: '<p>' + ehH_(actor) + (k === 'mention' ? ' nhắc đến bạn' : ' bình luận') + ' ở ' + where + ' — ' + evTxt(x) + ':</p>' +
                        '<p style="margin:0 0 12px;padding:8px 12px;border-left:3px solid #C3CDD8;color:#333">' + ehH_(x.text).replace(/\n/g, '<br>') + '</p><p><a href="' + url + '">Trả lời trên app</a></p>',
                  text: actor + (k === 'mention' ? ' nhắc đến bạn' : ' bình luận') + ' ở ' + where.replace(/[“”]/g, '"') + ':\n"' + x.text + '"\n' + url });
@@ -133,6 +164,7 @@ function ehMailFor_(pic, actor, items){
   if (ks.length === 1 && K.assign) subj = one ? 'Việc mới: ' + ehS_(one.task.title) + ' · ' + ehS_(one.ev && one.ev.name) : 'Bạn được giao ' + items.length + ' việc' + (multiEv ? '' : ' · ' + evs[0]);
   else if (ks.length === 1 && K.review) subj = 'Chờ duyệt: ' + (one ? ehS_(one.task.title) : items.length + ' việc') + (multiEv ? '' : ' · ' + evs[0]);
   else if (ks.length === 1 && K['return']) subj = 'Cần chỉnh sửa: ' + ehS_(K['return'][0].task.title);
+  else if (ks.length === 1 && K.mention && one && one.note) subj = actor + ' nhắc đến bạn trong biên bản họp · ' + evs[0];
   else if (ks.length === 1 && (K.mention || K.comment)) subj = actor + (K.mention ? ' nhắc đến bạn' : ' bình luận') + ' · ' + (one && one.task ? ehS_(one.task.title) : evs[0] || '');
   else if (ks.length === 1 && K.remind) subj = 'Nhắc việc: ' + items.length + ' việc' + (multiEv ? '' : ' · ' + evs[0]);
   else if (ks.length === 1 && K.team) subj = 'Sự kiện mới: ' + evs[0];
@@ -196,8 +228,7 @@ function ehSave2_(ss, me, op, d, events, evBy, now){
     var ev2 = evBy[ehS_(d.eventId)]; if (!ev2) return { ok:false, error:'Không thấy sự kiện.' };
     var text = ehS_(d.text).slice(0, 2000); if (!text) return { ok:false, error:'Bình luận trống.' };
     var tk = d.taskId ? ehRead_(ss, 'TASKS').filter(function(t){ return ehS_(t.id) === ehS_(d.taskId); })[0] : null;
-    var names = ehPeople_().map(function(x){ return x.pic; }).sort(function(a, b){ return b.length - a.length; }), low = text.toLowerCase(), ment = [];
-    names.forEach(function(n){ var k = '@' + n.toLowerCase(); if (low.indexOf(k) >= 0 && ment.indexOf(n) < 0){ ment.push(n); low = low.split(k).join(' '); } });
+    var ment = ehMentions_(text);
     var c = { id: /^tmp-/.test(ehS_(d.id)) || !ehS_(d.id) ? ehId_('C') : ehS_(d.id), eventId: ev2.id, taskId: tk ? ehS_(tk.id) : '', by: me.pic, at: now, text: text, mentions: ment.join(', '), sample: ehS_(ev2.sample) ? 'x' : '' };
     if (/^tmp-/.test(c.id)) c.id = ehId_('C');
     ehAppend_(ss, 'COMMENTS', EH.COLS.COMMENTS, [c]);
@@ -206,6 +237,34 @@ function ehSave2_(ss, me, op, d, events, evBy, now){
     if (tk && ehS_(tk.pic) && !sent[tk.pic]){ sent[tk.pic] = 1; EH_N.push({ to: ehS_(tk.pic), kind: 'comment', ev: ev2, task: tk, text: text }); }
     if (ehS_(ev2.Owner) && !sent[ev2.Owner]) EH_N.push({ to: ehS_(ev2.Owner), kind: 'comment', ev: ev2, task: tk, text: text });
     return { ok:true, comment: c, tmp: ehS_(d.id) };
+  }
+  if (op === 'note.add' || op === 'note.update'){
+    var ev6 = evBy[ehS_(d.eventId)]; if (!ev6) return { ok:false, error:'Không thấy sự kiện.' };
+    var team6 = EH.ROLES.map(function(r){ return ehS_(ev6[r]); });
+    if (!ehCanEv_(me, ev6) && team6.indexOf(me.pic) < 0) return { ok:false, code:'PERM', error:'Chỉ người trong đội sự kiện được ghi biên bản họp.' };
+    var dt = ehS_(d.date); if (!/^\d{4}-\d{2}-\d{2}$/.test(dt)) return { ok:false, error:'Cần ngày họp.' };
+    var body = ehS_(d.content).slice(0, 20000), act6 = ehS_(d.actions).slice(0, 8000);
+    if (!body && !act6 && !ehS_(d.title)) return { ok:false, error:'Biên bản trống.' };
+    var M = ehRead_(ss, 'MEETINGS'), nt, old6 = '';
+    if (op === 'note.update'){
+      nt = M.filter(function(x){ return ehS_(x.id) === ehS_(d.id); })[0]; if (!nt) return { ok:false, error:'Không thấy biên bản (có thể đã bị xoá).' };
+      if (ehS_(nt.by) !== me.pic && !ehCanEv_(me, ev6)) return { ok:false, code:'PERM', error:'Chỉ người ghi, Owner hoặc quản lý được sửa biên bản.' };
+      old6 = ehS_(nt.content) + ' ' + ehS_(nt.actions);
+    } else nt = { id: /^tmp-/.test(ehS_(d.id)) || !ehS_(d.id) ? ehId_('M') : ehS_(d.id), eventId: ev6.id, by: me.pic, at: now, sample: ehS_(ev6.sample) ? 'x' : '' };
+    nt.date = dt; nt.title = ehS_(d.title).slice(0, 200) || 'Họp ' + dt.slice(8) + '/' + dt.slice(5, 7); nt.attendees = ehS_(d.attendees).slice(0, 500);
+    nt.content = body; nt.actions = act6; nt.updatedAt = now; nt.updatedBy = me.pic;
+    if (op === 'note.add') ehAppend_(ss, 'MEETINGS', EH.COLS.MEETINGS, [nt]); else ehPut_(ss, 'MEETINGS', EH.COLS.MEETINGS, nt);
+    ehLog_(ss, me, op === 'note.add' ? 'Thêm biên bản họp' : 'Sửa biên bản họp', ev6.id, '', nt.title + ' · ' + dt);
+    var txt6 = nt.title + ' (' + dt.slice(8) + '/' + dt.slice(5, 7) + '): ' + (body + (act6 ? '\nViệc cần làm: ' + act6 : '')).slice(0, 600);
+    ehMentions_(body + ' ' + act6 + ' ' + nt.attendees).forEach(function(n){ if (old6.indexOf('@' + n) < 0) EH_N.push({ to: n, kind: 'mention', ev: ev6, task: null, text: txt6, note: nt }); });
+    return { ok:true, note: ehClean2_(nt), tmp: ehS_(d.id) };
+  }
+  if (op === 'note.delete'){
+    var M2 = ehRead_(ss, 'MEETINGS'), nx = M2.filter(function(x){ return ehS_(x.id) === ehS_(d.id); })[0]; if (!nx) return { ok:true };
+    if (ehS_(nx.by) !== me.pic && !ehCanEv_(me, evBy[ehS_(nx.eventId)])) return { ok:false, code:'PERM', error:'Chỉ người ghi, Owner hoặc quản lý được xoá biên bản.' };
+    ss.getSheetByName('MEETINGS').deleteRow(nx._r);
+    ehLog_(ss, me, 'Xoá biên bản họp', nx.eventId, '', ehS_(nx.title) + ' · ' + ehS_(nx.date));
+    return { ok:true, deleted: nx.id };
   }
   if (op === 'comment.delete'){
     var cs = ehRead_(ss, 'COMMENTS'), cx = cs.filter(function(x){ return ehS_(x.id) === ehS_(d.id); })[0]; if (!cx) return { ok:true };
@@ -248,7 +307,7 @@ function ehSave2_(ss, me, op, d, events, evBy, now){
 function ehDropEvents_(ss, ids){
   var bad = {}; ids.forEach(function(i){ bad[i] = 1; });
   var n = 0;
-  [['EVENTS', 'id'], ['TASKS', 'eventId'], ['FILES', 'eventId'], ['COMMENTS', 'eventId'], ['LOG', 'eventId'], ['PLAN_JSON', 'eventId']].forEach(function(x){
+  [['EVENTS', 'id'], ['TASKS', 'eventId'], ['FILES', 'eventId'], ['COMMENTS', 'eventId'], ['MEETINGS', 'eventId'], ['LOG', 'eventId'], ['PLAN_JSON', 'eventId']].forEach(function(x){
     var rows = ehRead_(ss, x[0]), keep = rows.filter(function(r){ return !bad[ehS_(r[x[1]])] && !(x[0] !== 'LOG' && x[0] !== 'PLAN_JSON' && ehS_(r.sample) && ids.SAMPLE); });
     if (keep.length !== rows.length){ n += rows.length - keep.length; ehRewrite_(ss, x[0], EH.COLS[x[0]], keep); }
   });
@@ -342,7 +401,7 @@ function ehSample_(p){
   var op = String(p.op || 'status'), lock = LockService.getScriptLock();
   if (!lock.tryLock(25000)) return { ok:false, busy:true, error:'Hệ thống đang bận, thử lại sau.' };
   try {
-    var cnt = function(){ var o = {}; ['EVENTS', 'TASKS', 'FILES', 'COMMENTS'].forEach(function(t){ var R = ehRead_(ss, t); o[t] = { all: R.length, sample: R.filter(function(r){ return ehS_(r.sample); }).length }; }); return o; };
+    var cnt = function(){ var o = {}; ['EVENTS', 'TASKS', 'FILES', 'COMMENTS', 'MEETINGS'].forEach(function(t){ var R = ehRead_(ss, t); o[t] = { all: R.length, sample: R.filter(function(r){ return ehS_(r.sample); }).length }; }); return o; };
     var last = {}; try { last = JSON.parse(PropertiesService.getScriptProperties().getProperty('EH_LAST') || '{}'); } catch(e){}
     if (op === 'status') return { ok:true, ver: EH.VER, book: ss.getUrl(), counts: cnt(), sync: last, cfg: ehCfg_() };
     var ids = ehRead_(ss, 'EVENTS').filter(function(e){ return ehS_(e.sample); }).map(function(e){ return ehS_(e.id); });
@@ -384,7 +443,7 @@ function ehSampleSeed_(ss, me){
     { name: "Webinar Bleach'N Shine (mẫu)", s: -35, n: 0, type: 'Webinar', city: 'Online', venue: 'Zoom Webinar', products: "Bleach'N Shine", target: 100, actual: 96, budget: 6e6, spent: 5.2e6, cover: 'bleach-shine.png',
       purpose: 'Giới thiệu sản phẩm tẩy trắng', audience: 'Bác sĩ nha khoa thẩm mỹ', kpi: '100 người xem' }
   ];
-  var tpl = ehRead_(ss, 'TEMPLATE'), E = [], TK = [], F = [], C = [], LG = [], now = ehNow_();
+  var tpl = ehRead_(ss, 'TEMPLATE'), E = [], TK = [], F = [], C = [], LG = [], MT = [], now = ehNow_();
   var IMG = [[/key visual|poster/i, ['ws-comp-1.jpg', 'ws-jizai-1.jpg', 'ws-led-hn.jpg', 'ws-restorative.jpg', 'ws-led-vp.jpg', 'knife-hero.jpg', 'bleach-shine.png']],
              [/backdrop|vách/i, ['ws-jizai-2.jpg']], [/standee/i, ['standee.png']], [/flyer|brochure|ctkm/i, ['line-01.png', 'line-02.png', 'diabur-ipr.png', 'line-04.png']],
              [/thẻ đeo|bảng tên|check-in có/i, ['catalog-p3.png']], [/set ?up|gian hàng \(ảnh/i, ['ws-jizai-kit.jpg']], [/ảnh \/ video/i, ['ws-jizai-3.jpg', 'ws-comp-2.jpg', 'ws-comp-3.jpg']],
@@ -447,6 +506,16 @@ function ehSampleSeed_(ss, me){
       cm(null, e.Owner, (e.Trade ? '@' + e.Trade + ' chốt giúp phòng / gian hàng trước thứ Sáu. ' : '') + '@' + e.Sales + ' cập nhật số khách NPP đăng ký hộ vào nhóm Zalo.', 20 + i * 7);
       cm(null, e.Sales, 'NPP báo đã có ' + Math.round(x.target * .45) + ' khách đăng ký, em gửi danh sách trong nhóm Zalo rồi ạ.', 8 + i * 4);
     }
+    /* biên bản họp mẫu */
+    var mAt = function(d){ return ehIso_(new Date(today.getTime() + d * 864e5)); };
+    if (!past && i < 4){
+      MT.push({ id: 'MMAU-' + i + '-1', eventId: e.id, date: mAt(-9 - i), title: 'Họp khởi động', attendees: [e.Owner, e.Digital, e.Design, e.Trade, e.Sales].filter(String).join(', '),
+                content: '- Chốt chủ đề, KOL và địa điểm.\n- Mục tiêu ' + x.target + ' khách, ngân sách dự kiến ' + Math.round(x.budget / 1e6) + ' triệu.\n- NPP hỗ trợ mời khách khu vực.',
+                actions: (e.Design ? '@' + e.Design + ' gửi key visual bản 1 trước ' + ehD2_(mAt(-2 - i)) + '\n' : '') + '@' + e.Digital + ' mở form đăng ký + nhóm Zalo', by: e.Owner, at: mAt(-9 - i) + 'T15:00:00', sample: 'x' });
+      MT.push({ id: 'MMAU-' + i + '-2', eventId: e.id, date: mAt(-2), title: 'Họp với NPP', attendees: [e.Owner, e.Sales, 'NPP (mẫu)'].join(', '),
+                content: '- NPP xác nhận ' + Math.round(x.target * .45) + ' khách đăng ký.\n- Thống nhất chương trình khuyến mại tại sự kiện.\n- Chia ca trực bàn bán hàng.',
+                actions: '@' + e.Sales + ' gửi danh sách khách trước ' + ehD2_(mAt(1)) + (e.Trade ? '\n@' + e.Trade + ' chuẩn bị quà tạm ứng NPP' : ''), by: e.Owner, at: mAt(-2) + 'T10:30:00', sample: 'x' });
+    }
     if (past) cm(null, e.Owner, 'Tổng kết: ' + (x.actual || '') + ' khách tham dự / mục tiêu ' + x.target + '. Báo cáo đã gửi toàn MMH.', 24 * (ehDays_(e.end, ehIso_(today)) - 6));
   });
   C.forEach(function(c){ var m = []; all.forEach(function(n){ if (c.text.indexOf('@' + n) >= 0) m.push(n); }); c.mentions = m.join(', '); });
@@ -455,6 +524,8 @@ function ehSampleSeed_(ss, me){
   ehAppend_(ss, 'TASKS', EH.COLS.TASKS, TK);
   ehAppend_(ss, 'FILES', EH.COLS.FILES, F);
   ehAppend_(ss, 'COMMENTS', EH.COLS.COMMENTS, C);
+  MT.forEach(function(m){ m.updatedAt = m.at; m.updatedBy = m.by; });
+  ehAppend_(ss, 'MEETINGS', EH.COLS.MEETINGS, MT);
   ehAppend_(ss, 'LOG', EH.COLS.LOG, LG);
-  return { events: E.length, tasks: TK.length, files: F.length, comments: C.length, log: LG.length, owner: lead, team: { mkt: mkt.length, sales: sales.length } };
+  return { events: E.length, tasks: TK.length, files: F.length, comments: C.length, meetings: MT.length, log: LG.length, owner: lead, team: { mkt: mkt.length, sales: sales.length } };
 }
