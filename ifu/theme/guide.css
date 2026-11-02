@@ -1,0 +1,55 @@
+/* HDSD theo app — khổ A4 NGANG (02/11/2026): mỗi mục 2 cột, chữ trái · ảnh phải, hiện tối đa ảnh và chữ.
+   Kế thừa toàn bộ book.css rồi ghi đè khổ trang + bìa + mở chương + khối split. Dùng cho đích có "css":"guide.css". */
+/* (build.mjs ghép book.css — đã đổi khổ A4 ngang — với file này) */
+@page{ size:A4 landscape; margin:15mm 14mm 14mm 16mm; }
+@page :left{ margin-left:14mm; margin-right:16mm; }
+@page :right{ margin-left:16mm; margin-right:14mm; }
+html{ font-size:9.4pt; }
+h2{ margin:4mm 0 3mm; font-size:14pt; }
+h3{ margin:3mm 0 1.6mm; font-size:11pt; }
+/* bìa ngang */
+.cover{ height:210mm; width:297mm; }
+.cover .band{ width:150mm; height:210mm; }
+.cover .yel{ right:auto; left:96mm; top:150mm; width:54mm; height:36mm; transform:skewY(-12deg); }
+.cover .logo{ left:18mm; top:18mm; }
+.cover .k{ left:18mm; top:60mm; }
+.cover h1{ left:18mm; top:68mm; width:120mm; font-size:34pt; }
+.cover .sub{ left:166mm; top:30mm; width:112mm; font-size:12pt; }
+.cover .apps{ left:166mm; top:70mm; width:112mm; grid-template-columns:1fr; }
+.cover .meta{ left:166mm; bottom:18mm; width:112mm; }
+.cover .gl{ left:18mm; right:auto; bottom:18mm; }
+.cover .gl img{ background:#fff; border-radius:1.5mm; padding:1mm; }
+.cover .tl{ position:absolute; left:166mm; top:110mm; width:112mm; display:grid; grid-template-columns:1fr 1fr; gap:2.4mm; }
+.cover .tl span{ font-size:8.4pt; font-weight:700; border-radius:2mm; padding:2mm 2.6mm; background:var(--pale); color:var(--navy); }
+.cover .tl span small{ display:block; font-weight:400; color:var(--muted); font-size:7.4pt; }
+/* mục lục 2 cột */
+.toc{ break-before:page; }
+.toc ol{ columns:2; column-gap:12mm; }
+.toc .t1{ break-inside:avoid; break-after:avoid; }
+/* mở chương ngang: chữ trái · ảnh phải */
+.chapter{ break-before:page; }
+.opener{ height:166mm; display:grid; grid-template-columns:105mm 1fr; grid-template-rows:auto 1fr; column-gap:10mm; }
+.opener .no{ grid-column:1; font-size:70pt; margin-top:2mm; }
+.opener h1{ grid-column:1; font-size:26pt; }
+.opener .lead{ grid-column:1; width:auto; font-size:11pt; }
+.opener .hero{ grid-column:2; grid-row:1 / span 4; align-self:start; max-height:172mm; margin-top:4mm; }
+.opener .hero img{ max-height:172mm; }
+.opener .inch{ position:static; grid-column:1; grid-template-columns:1fr; border-top:1pt solid var(--navy); margin-top:4mm; }
+.opener .inch b{ grid-column:1; }
+/* khối split: chữ trái 37% · ảnh phải */
+.split{ display:grid; grid-template-columns:37% 1fr; column-gap:7mm; align-items:start; break-inside:avoid; margin:0 0 5mm; padding-top:2mm; border-top:0.6pt solid var(--line); }
+.split.wide{ grid-template-columns:30% 1fr; }
+.split.even{ grid-template-columns:48% 1fr; }
+.split > .txt > :first-child{ margin-top:0; }
+.split > .pic figure{ margin:0; }
+.split > .pic figure > .frame img{ max-height:150mm; }
+.split > .pic .figrow .frame img{ max-height:140mm; }
+.split > .pic .figrow.dm > .pm{ flex:0 0 25%; }
+.split > .pic .figrow.phone > div{ flex:0 0 32%; }
+.split > .pic .figrow.phone .frame img{ max-height:135mm; }
+.split .box{ font-size:8.6pt; }
+.split table{ font-size:8.4pt; }
+figure > .frame img{ max-height:150mm; }
+.figrow .frame img{ max-height:150mm; }
+.figrow.phone > div{ flex:0 0 24%; }
+.pb{ break-before:page; }

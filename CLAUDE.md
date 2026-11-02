@@ -265,4 +265,5 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   **v1.3 (31/10/2026, `MKT_EventHubTeam.gs`, người dùng xác nhận vai trò)**: Owner = Thuong (Marketing Team Leader) · Digital = Minh Trang · **Design (ấn phẩm) = Duc Anh** · **Trade (hậu cần: hàng thực hành, đồ MKT,
   quà NPP, gửi đồ, setup) = Trang** · Sales chọn theo sự kiện. `ehTeamFix_` (1 lần, `EH_TEAM_V`; chạy lại: `ehLink op=team`): điền tab TEAM + sự kiện thật còn trống vai trò + việc chưa có người (không email);
   Design / Trade (`EH_TEAM_FORCE`) thay cả người cũ tự điền. Dữ liệu mẫu (`ehSampleSeed_`) dùng đúng người theo vai trò; Sales mẫu lọc theo Title. App hiển thị vai trò: Truyền thông · Ấn phẩm · Hậu cần.
-
+- **02/11/2026 — HDSD MMH CRM (VN + EN, khổ A4 ngang)**: `ifu/` đích `crmvi` / `crmen` (nội dung `ifu/guide-crm/<vi|en>/`, giao diện `theme/guide.css`, ảnh `ifu/shots/crmg*` do `capture/crm_guide.cjs` + `crm_ill.cjs` chụp với dữ liệu giả).
+  Kịch bản chụp đổi đuôi `.cjs` (gói `ifu/` là ES module). CRM đổi giao diện / chức năng ⇒ sửa chương 2 ngôn ngữ + chụp lại cảnh liên quan, dựng lại, gửi PDF cho người dùng (không đưa PDF lên repo CRM công khai).

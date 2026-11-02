@@ -90,6 +90,108 @@
       "chapters": [
         "50-test-mode.md"
       ]
+    },
+    "crmvi": {
+      "out": "MMH_CRM_HDSD_VN.pdf",
+      "title": "MMH CRM",
+      "kicker": "HƯỚNG DẪN SỬ DỤNG",
+      "subtitle": "Hướng dẫn chi tiết cho Sales, Team Leader và quản lý: cài đặt, cách dùng từng phần và dữ liệu được lưu ở đâu",
+      "edition": "Ảnh chụp thật từ app (dữ liệu giả lập)",
+      "owner": "Product Team · MANI Medical Hanoi",
+      "header": "MMH CRM · Hướng dẫn sử dụng",
+      "apps": [
+        "crm"
+      ],
+      "lang": "vi",
+      "css": "guide.css",
+      "dir": "guide-crm/vi",
+      "teamsCover": [
+        [
+          "Dental VN",
+          "Nha khoa · tiếng Việt"
+        ],
+        [
+          "Surgical VN",
+          "Nhãn khoa · Ngoại khoa · tiếng Việt"
+        ],
+        [
+          "Eyeless VN",
+          "Kim liền chỉ · tiếng Việt"
+        ],
+        [
+          "Thailand Surgical",
+          "Tiếng Anh"
+        ],
+        [
+          "Thailand Dental",
+          "Tiếng Anh"
+        ]
+      ],
+      "front": [
+        "00-cach-doc.md"
+      ],
+      "chapters": [
+        "01-bat-dau.md",
+        "02-lich-di-dia-ban.md",
+        "03-cong-viec-cong-tac.md",
+        "04-khach-hang.md",
+        "05-don-hang.md",
+        "06-hoat-dong-khac.md",
+        "07-bao-cao-kpi.md",
+        "08-du-lieu.md",
+        "09-hoi-dap.md"
+      ]
+    },
+    "crmen": {
+      "out": "MMH_CRM_User_Guide_EN.pdf",
+      "title": "MMH CRM",
+      "kicker": "USER GUIDE",
+      "subtitle": "A step-by-step guide for Sales, Team Leaders and managers: installation, how to use each part, and where your data is saved",
+      "edition": "Real app screenshots (sample data)",
+      "owner": "Product Team · MANI Medical Hanoi",
+      "header": "MMH CRM · User Guide",
+      "apps": [
+        "crm"
+      ],
+      "lang": "en",
+      "css": "guide.css",
+      "dir": "guide-crm/en",
+      "teamsCover": [
+        [
+          "Dental VN",
+          "Dental · Vietnamese UI"
+        ],
+        [
+          "Surgical VN",
+          "Ophthalmic · Surgical · Vietnamese UI"
+        ],
+        [
+          "Eyeless VN",
+          "Eyeless needles · Vietnamese UI"
+        ],
+        [
+          "Thailand Surgical",
+          "English UI"
+        ],
+        [
+          "Thailand Dental",
+          "English UI"
+        ]
+      ],
+      "front": [
+        "00-how-to-read.md"
+      ],
+      "chapters": [
+        "01-getting-started.md",
+        "02-calendar-visits.md",
+        "03-other-tasks-trips.md",
+        "04-customers.md",
+        "05-orders.md",
+        "06-other-activities.md",
+        "07-reports-kpi.md",
+        "08-data.md",
+        "09-faq.md"
+      ]
     }
   }
 }
