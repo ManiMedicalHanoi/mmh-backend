@@ -200,3 +200,10 @@ table.kt td small{ color:var(--muted); font-size:7.4pt; } table.kt a{ color:var(
 .iss b{ color:var(--navy); font-size:9pt; } .iss p{ margin:1mm 0; } .iss small{ color:var(--blue); font-weight:700; }
 .next{ display:grid; grid-template-columns:repeat(3,1fr); gap:3mm; } .next div{ background:var(--pale); border-radius:2.5mm; padding:3mm; font-size:8.2pt; }
 .next b{ color:var(--navy); } .next ol{ margin:1.5mm 0 0; padding-left:4.5mm; }
+/* HDSD CRM (02/11/2026): liên kết Sheet trong bảng · bước đánh số · nhãn nhóm */
+a.sh{ white-space:nowrap; font-weight:600; }
+a.sh .ico{ width:3.6mm; height:3.6mm; vertical-align:-0.7mm; margin-right:1mm; }
+.team{ display:inline-block; padding:0.2mm 1.6mm; border-radius:1.2mm; font-size:7.6pt; font-weight:700; background:var(--soft); color:var(--navy); margin-right:0.8mm; white-space:nowrap; }
+.team.vn{ background:#E8F4EC; color:#1F6B45; } .team.th{ background:#FFF1D6; color:#8A5A00; } .team.all{ background:var(--pale); color:var(--blue); }
+td .team{ margin:0.3mm 0.6mm 0.3mm 0; }
+.yes{ color:var(--ok); font-weight:700; } .no{ color:#A9B3BE; }

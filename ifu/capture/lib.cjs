@@ -1,16 +1,18 @@
 /* Hạ tầng chụp ảnh MMH CRM: mở trang với phiên giả lập + backend giả lập (crm_mock.js) */
 const { chromium } = require('playwright');
 const path = require('path'), fs = require('fs');
-const MOCK = require('./crm_mock');
-const APP = 'file:///home/user/MMH-CRM/index.html';
-const OUT = '/home/claude/ifu/shots/crm';
+const MOCK = require('./crm_mock.cjs');
+const APP = process.env.CRM_APP || 'file:///home/user/MMH-CRM/index.html';
+const OUT = process.env.SHOT_OUT || (__dirname + '/../shots/crm');
 const LOCAL = { Viet:'mmh.hanoi', Vinh:'mmh.danang', Phuong:'mmh.saigon', Tuyen:'tt.tuyen', 'Nguyen Ha':'nt.ha', Giang:'mmh.product', Dao:'manithailand', Miew:'manithailand4' };
 
 async function newPage(browser, o){
   o = o || {};
   const mobile = !!o.mobile;
-  const ctx = await browser.newContext(mobile ? { viewport:{ width:390, height:844 }, deviceScaleFactor:2, isMobile:true, hasTouch:true, locale:'vi-VN', timezoneId:'Asia/Ho_Chi_Minh' }
-                                             : { viewport:{ width:1440, height:900 }, deviceScaleFactor:2, locale:'vi-VN', timezoneId:'Asia/Ho_Chi_Minh' });
+  const ctxo = mobile ? { viewport:{ width:390, height:844 }, deviceScaleFactor:2, isMobile:true, hasTouch:true, locale:o.locale || 'vi-VN', timezoneId:'Asia/Ho_Chi_Minh' }
+                     : { viewport:{ width:1440, height:900 }, deviceScaleFactor:2, locale:o.locale || 'vi-VN', timezoneId:'Asia/Ho_Chi_Minh' };
+  if (o.ua) ctxo.userAgent = o.ua;
+  const ctx = await browser.newContext(ctxo);
   const page = await ctx.newPage();
   page._errs = [];
   page.on('pageerror', e => page._errs.push(e.message));

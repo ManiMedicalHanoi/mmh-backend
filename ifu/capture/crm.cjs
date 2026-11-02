@@ -1,7 +1,7 @@
 /* Chụp ảnh HDSD MMH CRM với backend giả lập.
    Chạy: NODE_PATH=$(npm root -g) node crm.js [sceneId …]   (không tham số = tất cả)
    Ảnh: /home/claude/ifu/shots/crm/<id>.jpg (+ png/<id>.png). Dữ liệu giả hoàn toàn (crm_mock.js). */
-const { newPage, shot, chromium } = require('./lib');
+const { newPage, shot, chromium } = require('./lib.cjs');
 const W = ms => new Promise(r => setTimeout(r, ms));
 const ev = (p, fn, arg) => p.evaluate(fn, arg);
 async function myCal(p){ /* lịch: chỉ việc của tôi (Viet là Team Leader ⇒ mặc định thấy cả đội) */

@@ -5,26 +5,29 @@
     {
       "key": "crm",
       "name": "MMH CRM",
-      "short": "đội Sales 4 nhóm",
+      "short": "đội Sales 5 nhóm",
       "repo": "../../MMH-CRM",
       "verRe": "MMH CRM v([0-9.]+)",
       "notes": "updates/notes.js",
       "notesVar": "MMH_UPDATES",
       "url": "https://manimedicalhanoi.github.io/MMH-CRM/",
       "github": "ManiMedicalHanoi/MMH-CRM",
-      "users": "Sales Dental · Surgical · Eyeless (tiếng Việt), Thailand Surgical (tiếng Anh), Team Leader, quản lý",
+      "users": "Sales Dental · Surgical · Eyeless (tiếng Việt), Thailand Surgical · Thailand Dental (tiếng Anh), Team Leader, quản lý",
       "backends": [
         "crm-dental",
         "crm-surgical",
         "crm-eyeless",
         "crm-thai",
+        "crm-thai-dental",
         "cust-data",
         "turnover",
         "thai-mkt",
         "marketing",
         "kpi",
         "training"
-      ]
+      ],
+      "usersEn": "Sales Dental · Surgical · Eyeless (Vietnamese UI), Thailand Surgical · Thailand Dental (English UI), Team Leaders, managers",
+      "shortEn": "Sales, 5 teams"
     },
     {
       "key": "rh",

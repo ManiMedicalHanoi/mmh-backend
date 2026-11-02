@@ -7,7 +7,7 @@ const fs = require('fs'), path = require('path');
 const COL = {
   customer: ['code','name','type','address','province','area','pic','fy','openDate','openMonth','nCbc','nOrder','note'],
   cbc: ['code','cbcCode','type','name','address','province','area','pic','cbcNo','contact','phone','jobTitle','specialize','role','influence','trust','note','log'],
-  order: ['code','cbcCode','channel','fy','month','day','orderNo','type','name','address','province','area','contact','jobTitle','phone','pic','detail','ptype','qty','price','amount','partner','partnerType','zaloQty','source','note'],
+  order: ['code','cbcCode','channel','fy','month','day','orderNo','type','name','address','province','area','contact','jobTitle','phone','pic','detail','ptype','qty','price','amount','partner','partnerType','zaloQty','source','note','otype','docs','appr','apprBy','apprAt','apprNote','tender','kqtt'],
   npp: ['code','nppName','name'],
   monthly: ['no','typeTask','pic','area','fy','period','plan','result'],
   weekly: ['no','fy','month','start','finish','pic','account','type','province','area','product','typeTask','typeAction','process','plan','result','status','feedback','nextAction','stopReason','photo','gpsInfo'],
@@ -109,6 +109,16 @@ function buildVN(){
         detail: p[1], ptype: p[2], qty, price: p[3], amount: qty * p[3], partner: NPP_OF[c.pic], partnerType: 'Distributor', zaloQty: '', source: 'Sales', note: '' });
     }
     c.nOrder = D.order.filter(o => o.code === c.code).length;
+  });
+  /* v34 — loại đơn · chứng từ · trạng thái duyệt (đơn FY68) */
+  D.order.forEach((o, i) => {
+    if (o.month < '202609') return;
+    o.otype = ['3. Đơn từ tư vấn (khách lẻ)', '2. Đơn từ NPP / đại lý', '3. Đơn từ tư vấn (khách lẻ)', '1. Đơn từ trúng thầu'][i % 4];
+    o.docs = 'Phieu_dat_hang_' + o.orderNo + '.jpg | https://drive.google.com/file/d/FAKEDOC' + i + '/view';
+    if (o.month === '202609') { o.appr = i % 7 === 3 ? 'Từ chối' : 'Đã duyệt'; o.apprBy = 'Tuyen'; o.apprNote = ''; }
+    else { const k = i % 5; o.appr = k === 0 ? 'Đã duyệt' : 'Chờ duyệt'; o.apprBy = k === 0 ? 'Tuyen' : '';
+      o.apprNote = k === 1 ? 'Đã gửi xác nhận tới Tuyen · 06/10/2026 16:20' : k === 2 ? 'Cần bổ sung: chứng từ thiếu chữ ký khách · Tuyen · 06/10/2026 17:05' : '';
+      if (k === 3) { o.docs = ''; } }
   });
   D.npp = [{ _row:4, code:'NHN-DT0001', nppName:'Nam Dũng', name:'NPP Nam Dũng' },{ _row:5, code:'CDN-DT0001', nppName:'S.P.I', name:'NPP S.P.I' },{ _row:6, code:'SHC-DT0001', nppName:'Meci', name:'NPP Meci' },{ _row:7, code:'SHC-DT0002', nppName:'Việt Thái', name:'NPP Việt Thái' }];
 

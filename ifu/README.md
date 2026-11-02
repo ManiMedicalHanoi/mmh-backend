@@ -66,3 +66,15 @@ Số trang IFU đọc từ `ppt/ifu_pages.json` (ghi lại sau mỗi lần dựn
 - `tools/restructure.py` ⇒ `chapters/10-crm.md`, `chapters/20-report-hub.md` từ `tools/*.src.md` (sắp lại theo khung Dữ liệu → Chức năng).
   Sửa nội dung ở file `.src.md` / `.py`, không sửa thẳng file sinh ra.
 - Chương 6 `chapters/50-test-mode.md` (Chế độ TEST) — có cả file riêng `MMH_IFU_05_Che_do_TEST.pdf` (đích `test5`).
+
+## HDSD MMH CRM theo app — khổ A4 NGANG, 2 ngôn ngữ (02/11/2026)
+
+`node build.mjs crmvi` → `dist/MMH_CRM_HDSD_VN.pdf` · `node build.mjs crmen` → `dist/MMH_CRM_User_Guide_EN.pdf`.
+
+- Nội dung: `guide-crm/vi/*.md`, `guide-crm/en/*.md` (cùng cấu trúc 9 chương; sửa 1 bản ⇒ sửa bản kia).
+- Giao diện: `theme/guide.css` (build ghép `book.css` đổi sang A4 landscape + file này). Đích có `"css"`, `"lang"` (`en` ⇒ nhãn Figure / Contents…), `"dir"`, `"header"`, `"teamsCover"`.
+- Mã rút gọn mới: `:::split[.wide|.even] ảnh1, ảnh2 | chú thích` … `:::split-end` (chữ trái · ảnh phải); `[[sheet <backend> | tên]]` (biểu tượng Google Sheet bấm mở file);
+  `[[teams d s e ts td vn th all]]` (nhãn nhóm áp dụng).
+- Ảnh: `capture/crm_guide.cjs [vi|en] [cảnh…]` (CRM chạy qua http: `python3 -m http.server 8790` trong MMH-CRM, `CRM_APP=http://127.0.0.1:8790/index.html`) ⇒ `shots/crmg` (Dental VN, tiếng Việt)
+  và `shots/crmg_en` (Thailand Surgical, tiếng Anh); hình minh hoạ cài đặt (Chrome / Safari / màn hình chính): `capture/crm_ill.cjs` (chạy sau). Dữ liệu giả: `capture/crm_mock.cjs`.
+- Cần `config.local.json` có `"pagedjs"` trỏ tới `node_modules/pagedjs/dist/paged.polyfill.js` (gói pagedjs mới không cho `require.resolve` đường dẫn này).
