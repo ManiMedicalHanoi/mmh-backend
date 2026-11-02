@@ -12,7 +12,7 @@
    ════════════════════════════════════════════════════════════════════ */
 
 var RKV = {
-  VERSION: '1.3',
+  VERSION: '1.4',
   TRAINING_MASTER: '1byCL6NjhqBuEcd-K5pxYRrQj2XXs6GMIvR79x45mHRQ',
   SHEET: '5. Member KPI Monthly',
   STAFF: '0. Staff List',
@@ -221,9 +221,17 @@ function rkvMail_(p, mode) {
     if (!md.ok) return md;
     return {ok: true, data: md};
   }
+  /* ⭐ v1.4 (02/11/2026) — Biểu mẫu FM01 (MMHSOP_009): lý do đạt/chưa đạt từng KPI, hành động tháng tới, điểm nổi bật, khó khăn, hỗ trợ cần thiết + file Word đính kèm */
+  var clip = function(v, n){ return String(v == null ? '' : v).slice(0, n); };
+  var mapOf = function(v){ var o = v; if (typeof o === 'string') { try { o = JSON.parse(o); } catch (e) { o = {}; } } var out = {};
+    Object.keys(o || {}).slice(0, 60).forEach(function(k){ out[clip(k, 20)] = clip(o[k], 1500); }); return out; };
   var f = {pic: pic, month: month, greeting: String(p.greeting || ''), intro: String(p.intro || ''), showQ: String(p.showQ) !== '0',
            analysis: String(p.analysis || ''), highlights: String(p.highlights || ''), sign: String(p.sign || ''),
+           reasons: mapOf(p.reasons), names: mapOf(p.names), next: clip(p.next, 3000), high: clip(p.high, 3000), chal: clip(p.chal, 3000), supp: clip(p.supp, 2000),
            subject: String(p.subject || ''), to: String(p.to || ''), cc: String(p.cc || ''), lang: p.lang === 'en' ? 'en' : '', by: vw.u.pic || ''};
+  if (mode !== 'preview' && p.attB64) { f.attB64 = String(p.attB64); f.attName = clip(p.attName, 160); }
+  else if (p.attName) f.attName = clip(p.attName, 160);
+  if (mode !== 'preview' && vw.u.local) f.replyTo = vw.u.local + '@manimedicalhanoi.com';
   if (mode === 'preview') return kscMailPreview(f);
   var only = function(s){ return String(s || '').split(/[,;\s]+/).filter(function(e){ return e; }).every(function(e){ return /@(mani\.inc|manimedicalhanoi\.com)$/i.test(e); }); };
   if (!only(f.to) || !only(f.cc)) return {ok: false, error: 'Chỉ gửi tới email công ty (@mani.inc / @manimedicalhanoi.com).'};
@@ -332,6 +340,7 @@ function rkvTotal_(p) {
 }
 
 /* ════ 23/10/2026 — EMAIL TỰ ĐÁNH GIÁ QUÝ (Setting Expectation) ════
+   ⭐ 02/11/2026: = Báo cáo KPI Quý (Biểu mẫu MMHSOP_009-FM02). Hạn: ngày 05 tháng đầu quý kế tiếp; To Trưởng bộ phận + Tổng Giám đốc, CC Kế toán (rhKpiMail).
    POST rhSeSend { tk, pic, fy (68), q ('Q1'..'Q4'), to, cc, subject, body (chữ thường), name (tên file), b64 (file Word), test, lang }
    · Người gửi phải xem được KPI của pic (cùng phạm vi rhKpi). Chỉ gửi tới email công ty.
    · Gửi thật ⇒ ghi nhận "quarter" FYxx-Qn vào _MMH_REPORT_LOG (MMH_ReportLog.gs) để thống kê đúng hạn / muộn. Bản thử ([TEST]) không ghi. */
@@ -352,7 +361,7 @@ function rkvSeSend_(p) {
   var en = p.lang === 'en', per = 'FY' + fy + ' ' + q;
   var name = String(p.name || (pic.replace(/\s+/g, '_') + '-Setting_Expectation-Term_' + fy + '_' + q + '.docx')).replace(/[\\\/:*?"<>|]+/g, '_');
   var blob = Utilities.newBlob(Utilities.base64Decode(b64), 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', name);
-  var subject = String(p.subject || (en ? 'Setting Expectation & self-evaluation ' + per + ' · ' + pic : 'Setting Expectation & tự đánh giá ' + per + ' · ' + pic));
+  var subject = String(p.subject || (en ? 'Quarterly KPI Report ' + per + ' (MMHSOP_009-FM02) · ' + pic : 'Báo cáo KPI Quý ' + per + ' (MMHSOP_009-FM02) · ' + pic));
   if (test && !/^\[TEST\]/.test(subject)) subject = '[TEST] ' + subject;
   var esc = function(s){ return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); };
   var body = String(p.body || '');

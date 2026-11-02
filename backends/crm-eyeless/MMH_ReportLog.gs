@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
- * MMH_ReportLog.gs — v1.0 (23/10/2026)
+ * MMH_ReportLog.gs — v1.1 (02/11/2026 · hạn KPI theo MMHSOP_009)
  * GIỐNG HỆT NHAU ở marketing / backoffice / management / crm-dental / crm-surgical / crm-eyeless / crm-thai / kpi
  * (sửa 1 nơi ⇒ chép sang nơi khác).
  *
@@ -9,20 +9,21 @@
  *  · Hạn nộp:
  *      - Báo cáo tuần  = 23:59 NGÀY LÀM VIỆC CUỐI của tuần (T2 → T7, theo lịch MMH: thứ 7 đi làm / nghỉ, ngày lễ).
  *                        Tuần không có ngày làm việc (vd. nghỉ Tết) ⇒ không tính.
- *      - KPI tháng     = 16:00 ngày 02 tháng sau.
- *      - Tự đánh giá quý = 17:00 ngày 09 tháng đầu quý sau (quý FY: Q1 = T9–T11 ⇒ 09/12, Q2 ⇒ 09/03, Q3 ⇒ 09/06, Q4 ⇒ 09/09).
+ *      - Báo cáo KPI Tháng (FM01) = hết ngày 05 tháng sau (23:59).
+ *      - Báo cáo KPI Quý (FM02)   = hết ngày 05 tháng đầu quý kế tiếp (quý FY: Q1 = T9–T11 ⇒ 05/12, Q2 ⇒ 05/03, Q3 ⇒ 05/06, Q4 ⇒ 05/09).
+ *        (Quy trình quản lý KPI MMHSOP_009, hiệu lực 01/10/2026 · 4.2.1. Trước đây: 16:00 ngày 02 / 17:00 ngày 09.)
  *  · Thống kê (app ▸ Xuất thống kê) lấy LẦN GỬI GẦN NHẤT của mỗi PIC · loại · kỳ để xét đúng hạn / muộn.
  *  · Đọc: action rpLog (tk = phiên email; Admin / Director / HOD hoặc quyền "rps" trong RH_Users ▸ Perms).
  *  · Lịch làm việc: RPL_CAL — năm mới ⇒ thêm năm (thứ 7 đi làm + ngày nghỉ lễ trong tuần). Năm chưa khai báo ⇒ T7 nghỉ, không có lễ.
  *  Không dùng dịch vụ Google mới (chỉ SpreadsheetApp / CacheService / PropertiesService) ⇒ không phải cấp quyền lại.
  * ═══════════════════════════════════════════════════════════════════════ */
 var RPL = {
-  VER: '1.0',
+  VER: '1.1',
   SHEET: '_MMH_REPORT_LOG',
   TZ: 'Asia/Ho_Chi_Minh',                 /* VN và Thái Lan cùng GMT+7 */
   MASTER_ID: '1byCL6NjhqBuEcd-K5pxYRrQj2XXs6GMIvR79x45mHRQ',   /* Training Master (RH_Users ▸ Perms) */
   HEAD: ['Thời điểm gửi', 'Loại', 'PIC', 'Kỳ', 'Từ', 'Đến', 'Hạn nộp', 'Kết quả', 'Trễ (giờ)', 'Người gửi', 'Cách gửi', 'Lịch', 'Nguồn', 'Ghi chú'],
-  WEEK_CUT: '23:59', KPI_DAY: 2, KPI_CUT: '16:00', Q_DAY: 9, Q_CUT: '17:00',
+  WEEK_CUT: '23:59', KPI_DAY: 5, KPI_CUT: '23:59', Q_DAY: 5, Q_CUT: '23:59',
   MAX_ROWS: 6000
 };
 /* Lịch làm việc MMH 2026 (file "2026 MMH VIETNAM / THAILAND Calendar"): sat = thứ 7 ĐI LÀM · off = ngày nghỉ (lễ, nghỉ bù) rơi vào T2–T6 */

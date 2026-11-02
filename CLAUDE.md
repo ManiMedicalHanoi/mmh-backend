@@ -275,3 +275,8 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
 - **Tài liệu xem trên app (02/11/2026, training `RH_Docs.gs`, HUB v3.39)**: action `docPublish` (trainer của khoá) — PDF / PowerPoint / Word / Google Slides–Docs ⇒ bản PDF (qua `apiFileConvert`, ≤ 2 bước / lượt, chưa xong trả `pending`)
   ⇒ `hubGhPut_` lên kho CÔNG KHAI `Training-Hub/media/s/<sid>/docs/<fileId>.pdf` (người dùng chấp nhận công khai) ⇒ sheet **`HUB_Docs`**; `op=remove` bỏ đăng. `hubMaterials` gắn `gh` / `ghAt` / `ghOld` (`hubWithDocs_`).
   App Training Hub v6.6 mở `gh` dạng trình chiếu, tính xong khi xem ≥ 70% số trang (app gửi `done=1`); Xem nhanh (Google) trong lộ trình không còn tự tính xong.
+- **02/11/2026 — Báo cáo KPI theo Quy trình quản lý KPI MMHSOP_009 (hiệu lực 01/10/2026)**: `kpi/KpiSyncCenter.gs` — `kscRecipients_` To = Trưởng bộ phận (HOD cùng Department; không có ⇒ Team Leader) + Tổng Giám đốc,
+  CC = Kế toán (KPI EMAIL DIRECTORY ô C2, nhãn "Kế toán — CC luôn gửi"); `kscMailHtml_` theo biểu mẫu FM01 (`KSC_FM01` vi / en: bảng Bộ phận · Nhân sự · Chức danh · Mã KPI · Tên KPI · Mục tiêu · Thực tế · Hệ số · % · % x Hệ số ·
+  Lý do đạt/chưa đạt; 2. Hành động tháng tới; 3. Điểm nổi bật · Khó khăn · Hỗ trợ cần thiết; dữ liệu cũ `analysis` / `highlights` vẫn nhận); `kscMailSend` nhận file Word `attB64` / `attName` + `replyTo`. `RH_KpiView.gs` v1.4
+  chuyển `reasons` / `names` / `next` / `high` / `chal` / `supp` / tệp đính kèm; `rhSeSend` tiêu đề mặc định "Báo cáo KPI Quý … (MMHSOP_009-FM02)". `MMH_ReportLog.gs` v1.1 (9 backend): hạn KPI tháng = 23:59 ngày 05 tháng sau,
+  KPI quý = 23:59 ngày 05 tháng đầu quý kế tiếp. App: Report Hub v19.1 / CRM v34.7 (`kpisop/kpisop.js`).
