@@ -34,7 +34,16 @@ function svQuizSetup_(form, ss, spec, c, notes) {
   sh.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight('bold').setBackground('#F0F7FF').setFontColor('#003047');
   sh.setFrozenRows(1);
   (c.notify || []).forEach(function (m) { try { ss.addViewer(m); } catch (x) { notes.push('Chia sẻ Sheet cho ' + m + ': ' + x.message); } });
-  return SV.URL + '?q=' + svQuizCode_(form.getId());
+  return SV.PAGE + '?q=' + svQuizCode_(form.getId());
+}
+
+/* Thông tin bài cho trang làm bài (không có đáp án) — dùng chung cho trang Apps Script và trang GitHub Pages.
+ * Lý do có trang GitHub Pages (v2.5): trình duyệt đăng nhập nhiều tài khoản Google / trình duyệt trong app mở trang HtmlService ⇒ Google báo
+ * "Rất tiếc, không thể mở tệp tại thời điểm này" (lỗi đã biết của web app Apps Script). */
+function svQuizMeta_(formId) {
+  var cfg = svQuizCfg_(formId);
+  return { id: formId, title: cfg.title, intro: cfg.intro, minutes: cfg.countdown ? cfg.minutes : 0, total: cfg.total, pass: cfg.pass,
+    n: cfg.qs.length, info: cfg.info.map(function (i) { return { id: i.id, t: i.t, q: i.q, required: i.required, options: i.options }; }) };
 }
 
 /* Link làm bài: KHÔNG để mã file Drive trên URL web app (?t=<formId>) — trình duyệt đã đăng nhập Google bị cổng Google chặn
@@ -63,10 +72,7 @@ function svQuizPage_(formId) {
   var cfg = svQuizCfg_(formId);
   if (!cfg) return HtmlService.createHtmlOutput('<p style="font-family:sans-serif;padding:24px">Không tìm thấy bài kiểm tra này.</p>');
   var t = HtmlService.createTemplateFromFile('SurveyQuiz');
-  t.data = JSON.stringify({
-    id: formId, title: cfg.title, intro: cfg.intro, minutes: cfg.countdown ? cfg.minutes : 0, total: cfg.total, pass: cfg.pass,
-    n: cfg.qs.length, info: cfg.info.map(function (i) { return { id: i.id, t: i.t, q: i.q, required: i.required, options: i.options }; })
-  }).replace(/</g, '\\u003c');
+  t.data = JSON.stringify(svQuizMeta_(formId)).replace(/</g, '\\u003c');
   return t.evaluate().setTitle(cfg.title).addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }

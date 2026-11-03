@@ -26,7 +26,7 @@
  *       low, high, lowLabel, highLabel (scale), rows, cols (grid),
  *       correct (quiz: chỉ số đáp án đúng, từ 0), points, explanation }
  */
-var SV = { VER: '2.4', URL: 'https://script.google.com/macros/s/AKfycbx8l7u4j2tFDpfsg8IFsEcuXNrTbrLVRA_SoZ2Iisqprfm1ipL4z2NfDudVKuI1paFQPg/exec', KEY: 'mmh-sv-7Qk2pX9w', LOG_PROP: 'SV_LOG_ID', FOLDER_PROP: 'SV_FOLDER_ID', FOLDER: 'MMH Survey · Form tạo tự động' };
+var SV = { VER: '2.5', PAGE: 'https://manimedicalhanoi.github.io/Training-Hub/quiz/', URL: 'https://script.google.com/macros/s/AKfycbx8l7u4j2tFDpfsg8IFsEcuXNrTbrLVRA_SoZ2Iisqprfm1ipL4z2NfDudVKuI1paFQPg/exec', KEY: 'mmh-sv-7Qk2pX9w', LOG_PROP: 'SV_LOG_ID', FOLDER_PROP: 'SV_FOLDER_ID', FOLDER: 'MMH Survey · Form tạo tự động' };
 
 function doGet(e) {
   var p = e && e.parameter || {};
@@ -47,6 +47,14 @@ function svHandle_(p, body) {
   var a = (body && body.action) || p.action || 'ping';
   try {
     if (a === 'ping') return svOut_({ ok: true, v: SV.VER });
+    // Trang làm bài trên GitHub Pages (Training-Hub/quiz/) gọi 3 lệnh công khai này bằng fetch không kèm cookie — không cần khoá
+    if (a === 'qMeta' || a === 'qStart' || a === 'qSubmit') {
+      var b2 = body || p, fq = svQuizFromCode_(b2.q || '');
+      if (!fq) return svOut_({ ok: false, error: 'Link bài kiểm tra không đúng hoặc đã bị xoá.' });
+      if (a === 'qMeta') return svOut_({ ok: true, data: svQuizMeta_(fq) });
+      if (a === 'qStart') return svOut_(Object.assign({ ok: true }, svQuizStart(fq, b2.info || {})));
+      return svOut_(svQuizSubmit(fq, b2.token, b2.info || {}, b2.answers || {}, !!b2.auto));
+    }
     var key = (body && body.key) || p.key || '';
     var want = PropertiesService.getScriptProperties().getProperty('SV_KEY') || SV.KEY;
     if (key !== want) return svOut_({ ok: false, error: 'KEY' });
@@ -62,7 +70,7 @@ function svHandle_(p, body) {
       if (!svQuizCfg_(qf)) return svOut_({ ok: false, error: 'Không có bài kiểm tra ' + qf });
       var notes2 = [];
       if (Array.isArray(nt)) notes2 = svQuizNotify_(qf, nt);
-      return svOut_({ ok: true, quizUrl: SV.URL + '?q=' + svQuizCode_(qf), notify: svQuizCfg_(qf).notify, notes: notes2 });
+      return svOut_({ ok: true, quizUrl: SV.PAGE + '?q=' + svQuizCode_(qf), gasUrl: SV.URL + '?q=' + svQuizCode_(qf), notify: svQuizCfg_(qf).notify, notes: notes2 });
     }
     if (a === 'docText') return svOut_(svDocText_(p.fileId || (body || {}).fileId, Number(p.max || (body || {}).max || 150000)));
     if (a === 'create') {
