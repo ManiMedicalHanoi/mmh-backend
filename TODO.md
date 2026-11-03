@@ -40,4 +40,4 @@
     Người dùng đồng ý đưa bản sửa dở Marketing lên (10/10/2026) + Marketing dùng `mmhMail_`. Sales Team (Dental / Surgical) không còn đồng bộ
     chuyến công tác vào file MKT (`rhxInScope`); lịch CRM đọc `tfTrips` từ backend CRM.
 14. ⏳ **Thầu nhãn khoa NPP iCare / Hùng Vĩ (03/11/2026)**: đã lưu `tender-icare` (Sheet + Script ID) vào backends.json ⇒ workflow Kéo code về tự kéo code gốc.
-    Còn thiếu: link Sheet + Script ID file của **Hùng Vĩ** (xin người dùng). Chưa có yêu cầu tính năng (vd. đưa kết quả thầu vào CRM / Report Hub) — hỏi người dùng.
+    ✅ Hùng Vĩ = `tender-hungvi` (03/11/2026). Còn thiếu: URL web app (/exec) của 2 file để deploy cập nhật đúng link. Chưa có yêu cầu tính năng (vd. đưa kết quả thầu vào CRM / Report Hub) — hỏi người dùng.
