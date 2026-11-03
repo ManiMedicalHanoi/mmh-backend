@@ -196,6 +196,14 @@
     "scriptId": "1nlK89cMnaGQrhIJN_AibijS31nNESGHR67cF7FKSBKJkT0AlXklTnwS1",
     "sheetId": "1VfJVBJ4XTTOnjF2z3ZyZAq9PTIeIvB8Nf5a8fikT9Zs",
     "sheetUrl": "https://docs.google.com/spreadsheets/d/1VfJVBJ4XTTOnjF2z3ZyZAq9PTIeIvB8Nf5a8fikT9Zs/edit?gid=864862640#gid=864862640",
-    "note": "File NPP nhãn khoa iCare (miền Nam) cập nhật gói thầu tham dự + kết quả trúng thầu (sheet 'Tender FY65-67', header dòng 9). Script = web app 'MMH · NPP Tender Feed' (doGet trả JSON dòng dao nhãn khoa + frontend.html = Ophthalmic Knife Tender Market Dashboard; executeAs USER_DEPLOYING / ANYONE_ANONYMOUS). CHƯA có deploymentId ⇒ deploy chỉ đẩy code + lưu phiên bản, URL /exec chưa được cập nhật — cần người dùng gửi URL web app. Cùng code với NPP Hùng Vĩ (sheet 'Tender FY66', CONFIG NPP=HUNGVI) — chưa có link / Script ID."
+    "note": "File NPP nhãn khoa iCare (miền Nam) cập nhật gói thầu tham dự + kết quả trúng thầu (sheet 'Tender FY65-67', header dòng 9). Script = web app 'MMH · NPP Tender Feed' (doGet trả JSON dòng dao nhãn khoa + frontend.html = Ophthalmic Knife Tender Market Dashboard; executeAs USER_DEPLOYING / ANYONE_ANONYMOUS). CHƯA có deploymentId ⇒ deploy chỉ đẩy code + lưu phiên bản, URL /exec chưa được cập nhật — cần người dùng gửi URL web app. Cùng code với NPP Hùng Vĩ (sheet 'Tender FY66', CONFIG NPP=HUNGVI) = backend tender-hungvi."
+  },
+  "tender-hungvi": {
+    "name": "Thầu nhãn khoa – NPP Hùng Vĩ (gói thầu tham dự & kết quả trúng thầu)",
+    "apps": [],
+    "scriptId": "16H7H-GZbCCG3PLWDZAL55CD5fLoqyDbDZBQAYcd2-JuYMAKbhlZ1skgd",
+    "sheetId": "1N42yeU1hSOMZT9BgVPZ8x625BGaNI705u5REkc1Uzx8",
+    "sheetUrl": "https://docs.google.com/spreadsheets/d/1N42yeU1hSOMZT9BgVPZ8x625BGaNI705u5REkc1Uzx8/edit?gid=602792007#gid=602792007",
+    "note": "File NPP nhãn khoa Hùng Vĩ (miền Bắc) cập nhật gói thầu tham dự + kết quả trúng thầu (sheet 'Tender FY66', header dòng 7). Cùng code 'MMH · NPP Tender Feed' với tender-icare (CONFIG NPP=HUNGVI). CHƯA có deploymentId ⇒ deploy chỉ đẩy code + lưu phiên bản, URL /exec chưa được cập nhật — cần người dùng gửi URL web app."
   }
 }
