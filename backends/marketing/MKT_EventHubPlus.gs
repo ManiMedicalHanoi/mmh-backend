@@ -11,7 +11,7 @@
  *    v1.4: note.add · note.update · note.delete — BIÊN BẢN HỌP (tab MEETINGS: ngày họp, tiêu đề, người dự, nội dung, việc cần làm; @Tên trong biên bản ⇒ thông báo).
  * ⑤ v1.4 — HỘP THÔNG BÁO CHUNG: mỗi thông báo (kể cả dữ liệu mẫu, kể cả khi tắt email) ghi 1 dòng vào sheet RH_Notify của Training Master
  *    (TF.MASTER_ID, ghi thẳng bằng SpreadsheetApp) ⇒ Report Hub / CRM hiện ở nút chuông "Thông báo" (Training Hub rhNotifyList, RH_Notify.gs).
- * ⑥ v1.5 (03/11/2026): nhắc việc theo bậc (Chờ duyệt ⇒ Owner · Vướng ⇒ Owner · trễ ≥ escDays ⇒ quản lý mỗi ngày · thứ Sáu nhắc cập nhật tuần),
+ * ⑥ v1.5 (03/11/2026): nhắc việc theo bậc (Chờ duyệt ⇒ Owner · Pending ⇒ Owner · trễ ≥ escDays ⇒ quản lý mỗi ngày · thứ Sáu nhắc cập nhật tuần),
  *    email nhắc ghi thêm RH_Notify, biên bản họp ⇒ việc, email tuần có sự kiện chưa đóng + tình hình tuần — xem MKT_EventHubFlow.gs.
  * ④ Dữ liệu mẫu: action ehSample op=seed|clear|status (phiên Admin hoặc key = 8 ký tự cuối EH.ROOT). Mọi dòng có cột sample = x,
  *    tên sự kiện "(mẫu)", người phụ trách = nhân sự thật trong RH_Users ⇒ thử "Việc của tôi" được; KHÔNG email / nhắc việc cho dữ liệu mẫu,
@@ -156,7 +156,7 @@ function ehMailFor_(pic, actor, items){
                        '<p style="margin:0 0 12px;padding:8px 12px;border-left:3px solid #C3CDD8;color:#333">' + ehH_(x.text).replace(/\n/g, '<br>') + '</p><p><a href="' + url + '">Trả lời trên app</a></p>',
                  text: actor + (k === 'mention' ? ' nhắc đến bạn' : ' bình luận') + ' ở ' + where.replace(/[“”]/g, '"') + ':\n"' + x.text + '"\n' + url });
   }); });
-  ehFlowParas_(K, actor, paras);   /* v1.5: Vướng · cập nhật tuần (MKT_EventHubFlow.gs) */
+  ehFlowParas_(K, actor, paras);   /* v1.5: Pending · cập nhật tuần (MKT_EventHubFlow.gs) */
   if (K.remind){
     var msg = K.remind.filter(function(x){ return x.text; })[0];
     paras.push(ehList_(ehH_(actor) + ' nhắc bạn các việc sau' + (multiEv ? '' : ' của sự kiện ' + evTxt(K.remind[0])) + ':', K.remind, multiEv));
@@ -352,9 +352,9 @@ function ehDaily_(opt){
     live.push(t);
     var st = ehS_(t.status); if (/^(Xong|Bỏ qua)$/.test(st)) return;
     var due = ehS_(t.due), pic = ehS_(t.pic), ow = ehS_(e.Owner), x = { task: t, ev: e, late: !!due && due < today };
-    /* v1.5: đã nộp "Chờ duyệt" ⇒ đến lượt Owner, không nhắc người làm · "Vướng" ⇒ Owner hỗ trợ */
+    /* v1.5: đã nộp "Chờ duyệt" ⇒ đến lượt Owner, không nhắc người làm · "Pending" ⇒ Owner hỗ trợ */
     if (st === 'Chờ duyệt'){ if (cfg.ownerDigest && ow && ow !== pic) push(wait, ow, x); return; }
-    if (st === 'Vướng'){ if (ow && ow !== pic) push(blk, ow, x); if (cfg.escalate && ehDays_(ehS_(t.updatedAt).slice(0, 10) || today, today) >= 2) esc.push(x); return; }
+    if (st === 'Pending'){ if (ow && ow !== pic) push(blk, ow, x); if (cfg.escalate && ehDays_(ehS_(t.updatedAt).slice(0, 10) || today, today) >= 2) esc.push(x); return; }
     if (!due || due > lim) return;
     if (pic) push(per, pic, x);
     if (cfg.ownerDigest && ow && ow !== pic && (x.late || !pic)) push(own, ow, x);
@@ -375,20 +375,20 @@ function ehDaily_(opt){
   who.forEach(function(pic){
     var mine = (per[pic] || []).sort(byDue), mo = own[pic] || [], wt = (wait[pic] || []).sort(byDue), bk = blk[pic] || [], cks = ck[pic] || [], paras = [];
     var late = mine.filter(function(x){ return x.late; }), soon = mine.filter(function(x){ return !x.late; }), ex = mgrs.indexOf(pic) >= 0 ? esc.sort(byDue) : [];
-    if (late.length) paras.push(ehList_('<b>' + late.length + ' việc quá hạn</b> — hoàn thành, hoặc bấm “Vướng” trên app nếu cần Owner hỗ trợ:', late, true));
+    if (late.length) paras.push(ehList_('<b>' + late.length + ' việc quá hạn</b> — hoàn thành, hoặc chuyển “Pending” trên app nếu cần Owner hỗ trợ:', late, true));
     if (soon.length) paras.push(ehList_('<b>' + soon.length + ' việc đến hạn</b> ' + (cfg.before ? 'trong ' + cfg.before + ' ngày tới' : 'hôm nay') + ':', soon, true));
     if (wt.length) paras.push(ehList_('<b>' + wt.length + ' việc đã nộp, chờ bạn duyệt</b> (người làm không bị nhắc nữa — việc đang nằm ở bạn):', wt, true));
-    if (bk.length) paras.push(ehList_('<b>' + bk.length + ' việc đang vướng</b>, người làm cần bạn hỗ trợ:', bk.map(function(x){ var t = {}; for (var k in x.task) t[k] = x.task[k]; t.note = 'Vướng: ' + ehS_(x.task.block); return { task: t, ev: x.ev }; }), true));
+    if (bk.length) paras.push(ehList_('<b>' + bk.length + ' việc Pending</b>, người làm cần bạn hỗ trợ:', bk.map(function(x){ var t = {}; for (var k in x.task) t[k] = x.task[k]; t.note = 'Lý do Pending: ' + ehS_(x.task.block); return { task: t, ev: x.ev }; }), true));
     if (mo.length) paras.push(ehList_('Sự kiện bạn điều phối có <b>' + mo.filter(function(x){ return x.late; }).length + ' việc trễ</b> của người khác' +
                                       (mo.some(function(x){ return !ehS_(x.task.pic); }) ? ' và việc <b>chưa giao</b>' : '') + ':', mo.slice(0, 25), true));
-    if (cks.length) paras.push({ html: '<p><b>Cập nhật tình hình tuần</b> (1 phút / sự kiện: Xanh · Vàng · Đỏ, đã làm gì, vướng gì):</p><ul style="padding-left:20px;margin:0 0 12px">' +
+    if (cks.length) paras.push({ html: '<p><b>Cập nhật tình hình tuần</b> (1 phút / sự kiện: Xanh · Vàng · Đỏ, đã làm gì, vấn đề tồn đọng):</p><ul style="padding-left:20px;margin:0 0 12px">' +
                                        cks.map(function(e){ return '<li><a href="' + EH.APP_URL + '#ev-' + encodeURIComponent(e.id) + '/week">' + ehH_(ehEvLine_(e)) + '</a></li>'; }).join('') + '</ul>',
                                  text: 'Cập nhật tình hình tuần:\n' + cks.map(function(e){ return '- ' + ehEvLine_(e) + '\n  ' + EH.APP_URL + '#ev-' + e.id + '/week'; }).join('\n') });
-    if (ex.length) paras.push(ehList_('<b>' + ex.length + ' việc trễ từ ' + escD + ' ngày / vướng từ 2 ngày</b> ở các sự kiện (bạn nhận vì là quản lý):', ex.slice(0, 30).map(function(x){ var t = {}; for (var k in x.task) t[k] = x.task[k]; t.note = (ehS_(t.pic) ? 'Người làm: ' + t.pic : 'Chưa giao người') + (ehS_(t.block) ? ' · Vướng: ' + t.block : ''); return { task: t, ev: x.ev }; }), true));
+    if (ex.length) paras.push(ehList_('<b>' + ex.length + ' việc trễ từ ' + escD + ' ngày / Pending từ 2 ngày</b> ở các sự kiện (bạn nhận vì là quản lý):', ex.slice(0, 30).map(function(x){ var t = {}; for (var k in x.task) t[k] = x.task[k]; t.note = (ehS_(t.pic) ? 'Người làm: ' + t.pic : 'Chưa giao người') + (ehS_(t.block) ? ' · Lý do Pending: ' + t.block : ''); return { task: t, ev: x.ev }; }), true));
     if (weekly && mgrs.indexOf(pic) >= 0) paras.push(ehWeekly_(events, live, today, CK));
     if (!paras.length) return;
     var subj = '[Sự kiện MKT] Việc cần làm ' + Utilities.formatDate(now, 'Asia/Ho_Chi_Minh', 'dd/MM') + ': ' +
-               [late.length ? late.length + ' quá hạn' : '', soon.length ? soon.length + ' sắp đến hạn' : '', wt.length ? wt.length + ' chờ bạn duyệt' : '', bk.length ? bk.length + ' vướng' : '',
+               [late.length ? late.length + ' quá hạn' : '', soon.length ? soon.length + ' sắp đến hạn' : '', wt.length ? wt.length + ' chờ bạn duyệt' : '', bk.length ? bk.length + ' Pending' : '',
                 mo.length ? mo.length + ' cần theo dõi' : '', cks.length ? 'cập nhật tuần' : '', ex.length ? ex.length + ' trễ lâu' : '', weekly && mgrs.indexOf(pic) >= 0 ? 'tổng hợp tuần' : ''].filter(String).join(' · ');
     var L = ehLetter_(pic, paras), u = U[pic], row = { at: ehNow_(), to: pic, kind: 'daily', eventId: '', taskId: '', subject: subj, ok: '', by: 'Hệ thống' };
     if (!u || !u.email) row.ok = 'Không có email';
@@ -413,18 +413,18 @@ function ehWeekly_(events, live, today, CK){
     .sort(function(a, b){ return a.start < b.start ? -1 : 1; }).forEach(function(e){
       var ts = live.filter(function(t){ return ehS_(t.eventId) === e.id && ehS_(t.status) !== 'Bỏ qua'; }), done = ts.filter(function(t){ return ehS_(t.status) === 'Xong'; }).length;
       var late = ts.filter(function(t){ return ehS_(t.status) !== 'Xong' && ehS_(t.due) && ehS_(t.due) < today; }).length, none = ts.filter(function(t){ return !ehS_(t.pic) && ehS_(t.status) !== 'Xong'; }).length;
-      var blk = ts.filter(function(t){ return ehS_(t.status) === 'Vướng'; }).length, c = last[e.id], after = ehS_(e.end || e.start) < today;
+      var blk = ts.filter(function(t){ return ehS_(t.status) === 'Pending'; }).length, c = last[e.id], after = ehS_(e.end || e.start) < today;
       rows.push({ e: e, pct: ts.length ? Math.round(done / ts.length * 100) : 0, late: late, none: none, blk: blk, n: ts.length, c: c, after: after });
     });
   if (!rows.length) return { html: '<p>Tổng hợp tuần: không có sự kiện nào đang theo dõi.</p>', text: 'Tổng hợp tuần: không có sự kiện nào đang theo dõi.' };
   var td = 'padding:6px 10px;border-bottom:1px solid #E6EAEF;text-align:left;vertical-align:top', col = { 'Xanh': '#2E7D4F', 'Vàng': '#B26B00', 'Đỏ': '#B83A2E' };
-  var tw = ehWeekOf_(today), ckTxt = function(r){ var c = r.c; if (!c) return 'Chưa cập nhật'; return (ehS_(c.week) === tw ? '' : '(tuần ' + ehD2_(c.week).slice(0, 5) + ') ') + c.rag + (ehS_(c.block) ? ' · Vướng: ' + ehS_(c.block) : '') + (ehS_(c.help) ? ' · Cần hỗ trợ: ' + ehS_(c.help) : ''); };
-  return { html: '<p><b>Tổng hợp tuần — sự kiện đang theo dõi</b> (30 ngày tới + đã diễn ra chưa đóng)</p><table style="border-collapse:collapse;font-size:13.5px;margin:0 0 12px"><tr><th style="' + td + '">Sự kiện</th><th style="' + td + '">Ngày</th><th style="' + td + '">Xong</th><th style="' + td + '">Trễ</th><th style="' + td + '">Vướng</th><th style="' + td + '">Chưa giao</th><th style="' + td + '">Owner cập nhật tuần</th></tr>' +
+  var tw = ehWeekOf_(today), ckTxt = function(r){ var c = r.c; if (!c) return 'Chưa cập nhật'; return (ehS_(c.week) === tw ? '' : '(tuần ' + ehD2_(c.week).slice(0, 5) + ') ') + c.rag + (ehS_(c.block) ? ' · Tồn đọng: ' + ehS_(c.block) : '') + (ehS_(c.help) ? ' · Cần hỗ trợ: ' + ehS_(c.help) : ''); };
+  return { html: '<p><b>Tổng hợp tuần — sự kiện đang theo dõi</b> (30 ngày tới + đã diễn ra chưa đóng)</p><table style="border-collapse:collapse;font-size:13.5px;margin:0 0 12px"><tr><th style="' + td + '">Sự kiện</th><th style="' + td + '">Ngày</th><th style="' + td + '">Xong</th><th style="' + td + '">Trễ</th><th style="' + td + '">Pending</th><th style="' + td + '">Chưa giao</th><th style="' + td + '">Owner cập nhật tuần</th></tr>' +
                    rows.map(function(r){ var c = r.c;
                      return '<tr><td style="' + td + '"><a href="' + EH.APP_URL + '#ev-' + encodeURIComponent(r.e.id) + '">' + ehH_(r.e.name) + '</a>' + (r.after ? '<br><span style="color:#B26B00">Đã diễn ra · chưa đóng</span>' : '') + '</td><td style="' + td + '">' + ehD2_(r.e.start) + '</td><td style="' + td + '">' + r.pct +
                        '%</td><td style="' + td + (r.late ? ';color:#B83A2E;font-weight:600' : '') + '">' + r.late + '</td><td style="' + td + (r.blk ? ';color:#B26B00;font-weight:600' : '') + '">' + r.blk + '</td><td style="' + td + '">' + r.none +
                        '</td><td style="' + td + (c ? ';color:' + (col[c.rag] || '#333') : ';color:#888') + '">' + ehH_(ckTxt(r)) + '</td></tr>'; }).join('') + '</table>',
-           text: 'Tổng hợp tuần — sự kiện đang theo dõi:\n' + rows.map(function(r){ return '- ' + r.e.name + ' · ' + ehD2_(r.e.start) + (r.after ? ' · đã diễn ra, chưa đóng' : '') + ' · xong ' + r.pct + '% · trễ ' + r.late + ' · vướng ' + r.blk + ' · chưa giao ' + r.none + ' · ' + ckTxt(r); }).join('\n') };
+           text: 'Tổng hợp tuần — sự kiện đang theo dõi:\n' + rows.map(function(r){ return '- ' + r.e.name + ' · ' + ehD2_(r.e.start) + (r.after ? ' · đã diễn ra, chưa đóng' : '') + ' · xong ' + r.pct + '% · trễ ' + r.late + ' · Pending ' + r.blk + ' · chưa giao ' + r.none + ' · ' + ckTxt(r); }).join('\n') };
 }
 
 /* ══════════ ④ DỮ LIỆU MẪU ══════════ */
@@ -553,12 +553,12 @@ function ehSampleSeed_(ss, me){
                 actions: '@' + e.Sales + ' gửi danh sách khách trước ' + ehD2_(mAt(1)) + (e.Trade ? '\n@' + e.Trade + ' chuẩn bị quà tạm ứng NPP' : ''), by: e.Owner, at: mAt(-2) + 'T10:30:00', sample: 'x' });
     }
     if (past) cm(null, e.Owner, 'Tổng kết: ' + (x.actual || '') + ' khách tham dự / mục tiêu ' + x.target + '. Báo cáo đã gửi toàn MMH.', 24 * (ehDays_(e.end, ehIso_(today)) - 6));
-    /* v1.5: tình hình tuần · việc Vướng · số liệu follow-up · sự kiện đã đóng (mẫu) */
+    /* v1.5: tình hình tuần · việc Pending · số liệu follow-up · sự kiện đã đóng (mẫu) */
     if (!past && i < 3) CK.push({ id: 'KMAU-' + i, eventId: e.id, week: wk0, rag: ['Xanh', 'Vàng', 'Đỏ'][i], by: e.Owner, at: now, sample: 'x',
       done: ['Đã chốt KOL, mở form đăng ký, key visual đã duyệt.', 'Đã có 60 người đăng ký, bài teaser đã đăng.', 'Đã đặt gian hàng, NPP xác nhận tham gia.'][i],
       block: ['', 'Chưa chốt được link Zoom Webinar bản trả phí.', 'Backdrop chưa in kịp, nhà in báo trễ 3 ngày.'][i], help: i === 2 ? 'Cần duyệt thêm 5 triệu chi phí in gấp.' : '',
       next: ['Đăng bài giới thiệu KOL, chốt danh sách check-in.', 'Đăng bài đếm ngược, gửi nhắc lịch cho khách.', 'Gửi đồ đi Hải Phòng, chốt ca trực gian hàng.'][i] });
-    if (!past && i === 1){ var bt = leaf.filter(function(t){ return !/^(Xong|Chờ duyệt)$/.test(t.status) && t.due >= ehIso_(today); })[0]; if (bt){ bt.status = 'Vướng'; bt.block = 'Chờ NPP xác nhận số lượng — cần Owner gọi NPP giúp'; } }
+    if (!past && i === 1){ var bt = leaf.filter(function(t){ return !/^(Xong|Chờ duyệt)$/.test(t.status) && t.due >= ehIso_(today); })[0]; if (bt){ bt.status = 'Pending'; bt.block = 'Chờ NPP xác nhận số lượng — cần Owner gọi NPP giúp'; } }
     if (past) ts.forEach(function(t){ if (/liên hệ lần đầu/i.test(t.title)){ t.fuTotal = Math.round((x.actual || x.target) * .4); t.fuDone = Math.round((x.actual || x.target) * .25); } if (/chuyển đổi/i.test(t.title)){ t.fuTotal = Math.round((x.actual || x.target) * .4); t.fuOrder = Math.round((x.actual || x.target) * .07); } });
     if (past && i === EVS.length - 1){ ts.forEach(function(t){ if (t.parentId && t.status !== 'Xong'){ t.status = 'Xong'; t.doneAt = ehIso_(today) + 'T09:00:00'; } }); e.closedAt = add(-3) + 'T16:00:00'; e.closedBy = e.Owner; }
   });

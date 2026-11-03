@@ -18,7 +18,7 @@
  * v1.1: email giao việc / chờ duyệt / bình luận / nhắc việc hằng ngày, tạo sự kiện trên app, dữ liệu mẫu — xem MKT_EventHubPlus.gs.
  * v1.3: người mặc định theo vai trò (Duc Anh ấn phẩm · Trang hậu cần · Minh Trang digital · Thuong Owner) — MKT_EventHubTeam.gs.
  * v1.2: dữ liệu file MKT Offline (REPORT_EVENT, đếm CUSTOMER LIST) + file Digital (EVENT REPORT, ORDER REPORT) theo sự kiện — xem MKT_EventHubLink.gs.
- * v1.5 (03/11/2026): lập kế hoạch muộn = dồn hạn (không tự Bỏ qua) · đóng sự kiện · biên bản họp ⇒ việc · trạng thái Vướng · cập nhật tuần (CHECKINS) ·
+ * v1.5 (03/11/2026): lập kế hoạch muộn = dồn hạn (không tự Bỏ qua) · đóng sự kiện · biên bản họp ⇒ việc · trạng thái Pending · cập nhật tuần (CHECKINS) ·
  *       mốc quan trọng · số liệu follow-up khách · nhắc theo bậc · việc sự kiện ⇒ sub Report Hub — xem MKT_EventHubFlow.gs.
  *************************************************************************************************/
 var EH = {
@@ -31,7 +31,7 @@ var EH = {
   MAX_MB: 25,
   BUDGET: 150000,                 /* chạy chung lượt evsSyncTick (giới hạn 6 phút) */
   ROLES: ['Owner', 'Digital', 'Design', 'Trade', 'Sales'],
-  STATUS: ['Chưa làm', 'Đang làm', 'Vướng', 'Chờ duyệt', 'Xong', 'Bỏ qua'],
+  STATUS: ['Chưa làm', 'Đang làm', 'Pending', 'Chờ duyệt', 'Xong', 'Bỏ qua'],
   COLS: {
     EVENTS: ['id', 'name', 'start', 'end', 'type', 'city', 'venue', 'organizer', 'format', 'purpose', 'audience', 'scale', 'speakers', 'fee',
              'npp', 'sales', 'kpi', 'products', 'state', 'follow', 'Owner', 'Digital', 'Design', 'Trade', 'Sales', 'planFileId', 'planUrl',
@@ -683,9 +683,10 @@ function ehSave_(p){
     var bossKeys = ['title', 'pic', 'due', 'proof', 'role', 'priority', 'milestone'], anyKeys = ['status', 'note', 'block', 'fuTotal', 'fuDone', 'fuOrder'], ch2 = [], st0 = ehS_(tk.status);
     (boss ? bossKeys.concat(anyKeys) : anyKeys).forEach(function(k){ if (k in d && ehS_(d[k]) !== ehS_(tk[k])){ ch2.push(k); tk['_old_' + k] = tk[k]; tk[k] = ehS_(d[k]); } });
     if ('due' in d && ch2.indexOf('due') >= 0) tk.dueManual = 'x';
-    /* v1.5: "Vướng" phải có lý do; rời "Vướng" ⇒ xoá lý do */
-    if (ehS_(tk.status) === 'Vướng' && !ehS_(tk.block)) return { ok:false, code:'BLOCK', error:'Ghi rõ đang vướng gì (cần ai hỗ trợ) để Owner biết.' };
-    if (ehS_(tk.status) !== 'Vướng' && ehS_(tk.block)){ tk.block = ''; if (ch2.indexOf('block') < 0) ch2.push('block'); }
+    if (ehS_(tk.status) === 'Vướng') tk.status = 'Pending';   /* app bản cũ còn gửi "Vướng" */
+    /* v1.5: "Pending" phải có lý do; rời "Pending" ⇒ xoá lý do */
+    if (ehS_(tk.status) === 'Pending' && !ehS_(tk.block)) return { ok:false, code:'BLOCK', error:'Ghi rõ lý do Pending (cần ai hỗ trợ) để Owner biết.' };
+    if (ehS_(tk.status) !== 'Pending' && ehS_(tk.block)){ tk.block = ''; if (ch2.indexOf('block') < 0) ch2.push('block'); }
     ['fuTotal', 'fuDone', 'fuOrder'].forEach(function(k){ if (ch2.indexOf(k) >= 0 && tk[k] !== '' && !(+tk[k] >= 0)) tk[k] = ''; });
     if (ch2.indexOf('status') >= 0){
       if (tk.status === 'Xong'){
@@ -705,7 +706,7 @@ function ehSave_(p){
     /* v1.1: email — giao người mới · nộp chờ duyệt ⇒ Owner · Owner trả lại ⇒ người làm */
     if (ch2.indexOf('pic') >= 0 && keep.pic && d.notify !== false) EH_N.push({ to: keep.pic, kind: 'assign', ev: ev3, task: keep });
     if (ch2.indexOf('status') >= 0 && keep.status === 'Chờ duyệt' && ev3 && ehS_(ev3.Owner)) EH_N.push({ to: ehS_(ev3.Owner), kind: 'review', ev: ev3, task: keep });
-    if (keep.status === 'Vướng' && (ch2.indexOf('status') >= 0 || ch2.indexOf('block') >= 0) && ev3 && ehS_(ev3.Owner)) EH_N.push({ to: ehS_(ev3.Owner), kind: 'block', ev: ev3, task: keep, text: ehS_(keep.block) });
+    if (keep.status === 'Pending' && (ch2.indexOf('status') >= 0 || ch2.indexOf('block') >= 0) && ev3 && ehS_(ev3.Owner)) EH_N.push({ to: ehS_(ev3.Owner), kind: 'block', ev: ev3, task: keep, text: ehS_(keep.block) });
     if (ch2.indexOf('status') >= 0 && st0 === 'Chờ duyệt' && /^(Đang làm|Chưa làm)$/.test(keep.status) && keep.pic && keep.pic !== me.pic)
       EH_N.push({ to: keep.pic, kind: 'return', ev: ev3, task: keep, text: ehS_(d.reason || keep.note) });
     return { ok:true, task: ehClean2_(keep) };
