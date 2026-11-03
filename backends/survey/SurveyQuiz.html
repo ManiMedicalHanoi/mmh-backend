@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<style>
+  :root { --ink:#003047; --pri:#3A5CAA; --soft:#F0F7FF; --line:#E6EAEF; --fld:#C3CDD8; --mut:#5b6b7a; --ok:#1f7a4d; --bad:#b3261e; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:#F6F8FB; color:#1d2733; font:15px/1.5 Aptos, "Segoe UI", Roboto, Arial, sans-serif; }
+  .wrap { max-width:760px; margin:0 auto; padding:16px 16px 96px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:20px; margin:12px 0; }
+  h1 { font-size:22px; line-height:1.3; color:var(--ink); margin:0 0 8px; }
+  .intro { white-space:pre-line; color:var(--mut); margin:0; }
+  .meta { display:flex; flex-wrap:wrap; gap:8px 18px; margin-top:12px; color:var(--ink); font-size:14px; }
+  label.f { display:block; font-weight:600; margin:14px 0 6px; color:var(--ink); }
+  label.f i { color:var(--bad); font-style:normal; }
+  input[type=text], input[type=tel], select { width:100%; padding:10px 12px; border:1px solid var(--fld); border-radius:8px; font:inherit; background:#fff; }
+  input:focus, select:focus { outline:none; border-color:var(--pri); box-shadow:0 0 0 3px rgba(58,92,170,.15); }
+  .btn { display:inline-block; border:0; border-radius:8px; padding:11px 20px; font:inherit; font-weight:600; cursor:pointer; background:var(--pri); color:#fff; }
+  .btn.sec { background:#fff; color:var(--pri); border:1px solid var(--pri); }
+  .btn[disabled] { opacity:.55; cursor:default; }
+  .err { color:var(--bad); margin-top:10px; min-height:1.2em; }
+  .bar { position:sticky; top:0; z-index:5; background:#fff; border-bottom:1px solid var(--line); }
+  .bar .in { max-width:760px; margin:0 auto; padding:10px 16px; display:flex; align-items:center; gap:14px; }
+  .clock { font-variant-numeric:tabular-nums; font-size:20px; font-weight:700; color:var(--ink); min-width:72px; }
+  .clock.warn { color:var(--bad); }
+  .prog { flex:1; height:6px; background:var(--line); border-radius:3px; overflow:hidden; }
+  .prog b { display:block; height:100%; width:0; background:var(--pri); transition:width .2s; }
+  .cnt { color:var(--mut); font-size:13px; white-space:nowrap; }
+  .q h3 { font-size:16px; margin:0 0 4px; color:var(--ink); font-weight:600; }
+  .q .hp { color:var(--mut); font-size:13px; margin:0 0 8px; }
+  .q .pt { color:var(--mut); font-size:12px; margin-bottom:8px; }
+  .opt { display:flex; gap:10px; align-items:flex-start; padding:10px 12px; border:1px solid var(--line); border-radius:8px; margin:6px 0; cursor:pointer; }
+  .opt:hover { border-color:var(--fld); }
+  .opt input { margin-top:3px; accent-color:var(--pri); }
+  .opt.on { border-color:var(--pri); background:var(--soft); }
+  .foot { position:fixed; left:0; right:0; bottom:0; background:#fff; border-top:1px solid var(--line); }
+  .foot .in { max-width:760px; margin:0 auto; padding:10px 16px; display:flex; gap:10px; align-items:center; justify-content:flex-end; flex-wrap:wrap; }
+  .foot .msg { flex:1; color:var(--mut); font-size:14px; min-width:180px; }
+  .res { text-align:center; }
+  .big { font-size:40px; font-weight:700; color:var(--ink); }
+  .tag { display:inline-block; padding:4px 12px; border-radius:999px; font-weight:700; margin-top:6px; }
+  .tag.ok { background:#E6F4EC; color:var(--ok); } .tag.no { background:#FBEAEA; color:var(--bad); }
+  .wr { border-top:1px solid var(--line); padding:12px 0; }
+  .wr:first-child { border-top:0; }
+  .wr .a { font-size:14px; margin-top:4px; } .wr .a b.ok { color:var(--ok); } .wr .a b.no { color:var(--bad); }
+  .hide { display:none !important; }
+</style>
+</head>
+<body>
+<div class="bar hide" id="bar"><div class="in"><span class="clock" id="clock">--:--</span><div class="prog"><b id="pg"></b></div><span class="cnt" id="cnt"></span></div></div>
+<div class="wrap">
+  <div class="card" id="head">
+    <h1 id="ti"></h1>
+    <p class="intro" id="intro"></p>
+    <div class="meta" id="meta"></div>
+  </div>
+  <div class="card" id="start">
+    <div id="fields"></div>
+    <div class="err" id="err1"></div>
+    <div id="resume" class="hide" style="margin:10px 0;color:var(--ink)">Bạn đang có một lượt làm dở trên máy này. <button class="btn sec" id="rs">Tiếp tục bài đang làm</button></div>
+    <button class="btn" id="go">Bắt đầu làm bài</button>
+  </div>
+  <div id="qs"></div>
+  <div class="card res hide" id="res"></div>
+</div>
+<div class="foot hide" id="foot"><div class="in"><span class="msg" id="fmsg"></span>
+  <button class="btn sec hide" id="no">Làm tiếp</button><button class="btn" id="sub">Nộp bài</button></div></div>
+<script>
+var D = <?!= data ?>;
+var KEY = 'svq_' + D.id, S = null, timer = null, sending = false;
+function $(i) { return document.getElementById(i); }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+function ls(k, v) { try { if (v === undefined) return JSON.parse(localStorage.getItem(k) || 'null'); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch (e) { return null; } }
+
+$('ti').textContent = D.title; $('intro').textContent = D.intro || '';
+$('meta').innerHTML = '<span>' + D.n + ' câu · tổng ' + D.total + ' điểm</span><span>Mốc đạt: <b>' + D.pass + '/' + D.total + '</b></span>' +
+  (D.minutes ? '<span>Thời gian: <b>' + D.minutes + ' phút</b> (đồng hồ đếm ngược, hết giờ hệ thống tự nộp)</span>' : '');
+$('fields').innerHTML = D.info.map(function (f) {
+  var lab = '<label class="f" for="i' + f.id + '">' + esc(f.q) + (f.required ? ' <i>*</i>' : '') + '</label>';
+  if (f.t === 'list' || (f.options && f.options.length)) return lab + '<select id="i' + f.id + '"><option value="">— Chọn —</option>' + (f.options || []).map(function (o) { o = typeof o === 'string' ? o : o.v; return '<option>' + esc(o) + '</option>'; }).join('') + '</select>';
+  return lab + '<input id="i' + f.id + '" type="' + (f.t === 'phone' ? 'tel' : 'text') + '" autocomplete="' + (f.t === 'phone' ? 'tel' : 'name') + '">';
+}).join('');
+var saved = ls(KEY);
+if (saved && saved.token && !saved.done) $('resume').classList.remove('hide');
+
+function readInfo() {
+  var o = {}, miss = [];
+  D.info.forEach(function (f, i) {
+    var v = ($('i' + f.id).value || '').trim(); o[f.id] = v;
+    if (i === 0) o.name = v;
+    if (f.required && !v) miss.push(f.q);
+    if (v && f.t === 'phone' && !/^(0|\+84)[0-9 .]{8,13}$/.test(v)) miss.push(f.q + ' (chưa đúng định dạng)');
+  });
+  return { o: o, miss: miss };
+}
+
+$('go').onclick = function () {
+  var r = readInfo(); $('err1').textContent = '';
+  if (r.miss.length) { $('err1').textContent = 'Vui lòng điền: ' + r.miss.join(', '); return; }
+  $('go').disabled = true; $('go').textContent = 'Đang tải câu hỏi…';
+  google.script.run.withSuccessHandler(function (x) {
+    S = { token: x.token, info: r.o, qs: x.qs, minutes: x.minutes, start: Date.now() - 0, skew: Date.now() - x.now, ans: {} };
+    ls(KEY, S); begin();
+  }).withFailureHandler(function (e) { $('go').disabled = false; $('go').textContent = 'Bắt đầu làm bài'; $('err1').textContent = e.message || String(e); })
+    .svQuizStart(D.id, r.o);
+};
+$('rs').onclick = function () { S = saved; begin(); };
+
+function begin() {
+  $('start').classList.add('hide'); $('head').classList.add('hide');
+  $('bar').classList.remove('hide'); $('foot').classList.remove('hide');
+  $('qs').innerHTML = S.qs.map(function (q, i) {
+    var ty = q.kind === 'checkbox' ? 'checkbox' : 'radio';
+    return '<div class="card q" data-id="' + q.id + '"><h3>Câu ' + (i + 1) + '. ' + esc(q.q.replace(/^Câu \d+\.\s*/, '')) + '</h3>' +
+      (q.help ? '<p class="hp">' + esc(q.help) + '</p>' : '') + '<div class="pt">' + q.pts + ' điểm' + (ty === 'checkbox' ? ' · chọn tất cả đáp án đúng' : '') + '</div>' +
+      q.options.map(function (o, j) { return '<label class="opt"><input type="' + ty + '" name="q' + q.id + '" value="' + esc(o) + '"><span>' + esc(o) + '</span></label>'; }).join('') + '</div>';
+  }).join('');
+  Object.keys(S.ans || {}).forEach(function (id) {
+    [].concat(S.ans[id]).forEach(function (v) { document.querySelectorAll('input[name="q' + id + '"]').forEach(function (el) { if (el.value === v) el.checked = true; }); });
+  });
+  $('qs').addEventListener('change', function () { collect(); ls(KEY, S); paint(); });
+  paint(); tick(); if (S.minutes) timer = setInterval(tick, 500); else $('clock').textContent = '';
+  window.scrollTo(0, 0);
+}
+function collect() {
+  var a = {};
+  S.qs.forEach(function (q) {
+    var v = [].map.call(document.querySelectorAll('input[name="q' + q.id + '"]:checked'), function (el) { return el.value; });
+    if (v.length) a[q.id] = q.kind === 'checkbox' ? v : v[0];
+  });
+  S.ans = a;
+}
+function paint() {
+  var n = Object.keys(S.ans || {}).length;
+  $('pg').style.width = Math.round(n * 100 / S.qs.length) + '%';
+  $('cnt').textContent = 'Đã làm ' + n + '/' + S.qs.length;
+  document.querySelectorAll('.opt').forEach(function (l) { l.classList.toggle('on', l.querySelector('input').checked); });
+}
+function left() { return S.minutes ? Math.max(0, Math.round((S.start + S.minutes * 60000 - Date.now()) / 1000)) : 0; }
+function tick() {
+  if (!S.minutes) return;
+  var s = left(); $('clock').textContent = Math.floor(s / 60) + ':' + ('0' + s % 60).slice(-2);
+  $('clock').classList.toggle('warn', s <= 60);
+  if (s <= 0) { clearInterval(timer); submit(true); }
+}
+$('sub').onclick = function () {
+  collect();
+  var miss = S.qs.length - Object.keys(S.ans).length;
+  if (miss && $('no').classList.contains('hide')) {
+    $('fmsg').textContent = 'Còn ' + miss + ' câu chưa trả lời. Vẫn nộp bài?'; $('no').classList.remove('hide'); $('sub').textContent = 'Vẫn nộp'; return;
+  }
+  submit(false);
+};
+$('no').onclick = function () { $('no').classList.add('hide'); $('sub').textContent = 'Nộp bài'; $('fmsg').textContent = ''; };
+
+function submit(auto) {
+  if (sending) return; sending = true; collect();
+  $('sub').disabled = true; $('no').classList.add('hide');
+  $('fmsg').textContent = auto ? 'Hết giờ — đang nộp bài…' : 'Đang nộp bài…';
+  document.querySelectorAll('#qs input').forEach(function (el) { el.disabled = true; });
+  var tries = 0;
+  (function send() {
+    google.script.run.withSuccessHandler(done).withFailureHandler(function (e) {
+      if (++tries < 4) { $('fmsg').textContent = 'Mạng chậm, đang gửi lại (' + tries + ')…'; setTimeout(send, 2500 * tries); return; }
+      sending = false; $('sub').disabled = false; $('sub').textContent = 'Gửi lại';
+      $('fmsg').textContent = 'Chưa nộp được: ' + (e.message || e) + '. Bài làm vẫn được giữ trên máy, bấm Gửi lại.';
+    }).svQuizSubmit(D.id, S.token, S.info, S.ans, !!auto);
+  })();
+}
+function done(r) {
+  clearInterval(timer); S.done = true; ls(KEY, null);
+  $('bar').classList.add('hide'); $('foot').classList.add('hide'); $('qs').innerHTML = '';
+  var h = '<div class="big">' + r.score + '/' + r.total + '</div><div class="tag ' + (r.passed ? 'ok">Đạt' : 'no">Chưa đạt') + '</div>' +
+    '<p>Mốc đạt ' + r.pass + '/' + r.total + ' · Thời gian làm ' + r.used + (r.late ? ' · nộp quá giờ' : '') + '</p>' +
+    '<p style="color:var(--mut)">Cảm ơn bạn đã hoàn thành bài kiểm tra. Kết quả đã được ghi nhận.</p>';
+  if (r.rows && r.rows.length) {
+    h += '<div style="text-align:left;margin-top:16px"><h3 style="color:var(--ink);font-size:16px">Các câu chưa đúng</h3>' + r.rows.map(function (x) {
+      return '<div class="wr"><b>' + esc(x.q) + '</b><div class="a">Bạn chọn: <b class="no">' + esc(x.pick.join(' | ') || '(bỏ trống)') + '</b></div>' +
+        '<div class="a">Đáp án đúng: <b class="ok">' + esc(x.correct.join(' | ')) + '</b></div>' + (x.exp ? '<div class="a" style="color:var(--mut)">' + esc(x.exp) + '</div>' : '') + '</div>';
+    }).join('') + '</div>';
+  }
+  $('res').innerHTML = h; $('res').classList.remove('hide'); window.scrollTo(0, 0);
+}
+</script>
+</body>
+</html>

@@ -1,5 +1,5 @@
 /**
- * MMH Survey API v1.2 (03/11/2026; v1.2: người trả lời = ai có link (Drive reader + view published), action share; v1.1: câu sàng lọc — mọi lựa chọn đều gắn điều hướng, form lỗi giữa chừng tự vào Thùng rác) — tạo Google Form KHẢO SÁT / BÀI KIỂM TRA từ 1 bản mô tả JSON.
+ * MMH Survey API v2.0 (03/11/2026; v2.0: bài kiểm tra có trang làm bài đếm ngược + mốc đạt + email kết quả (MMH_SurveyQuiz.gs); v1.2: người trả lời = ai có link (Drive reader + view published), action share; v1.1: câu sàng lọc — mọi lựa chọn đều gắn điều hướng, form lỗi giữa chừng tự vào Thùng rác) — tạo Google Form KHẢO SÁT / BÀI KIỂM TRA từ 1 bản mô tả JSON.
  * Claude (phiên Claude Code) soạn câu hỏi theo yêu cầu + tài liệu ⇒ gọi web app này ⇒ trả link ngay trong chat.
  * Bộ mô tả + quy tắc soạn: kho mmh-library ▸ surveys/ (README.md, specs/*.json, tools/survey.py).
  *
@@ -13,7 +13,10 @@
  *   title, intro (lời mở đầu, xưng "Quý bác sĩ"), minutes (thời gian trả lời / làm bài),
  *   passPercent (quiz, mặc định 70), shuffle (quiz), confirmation,
  *   info: true | false | [{t,q,required}],   // mặc định: Họ và tên* · Số điện thoại* · Bệnh viện / phòng khám
- *   share: "edit" | "view" | "none",       // quyền cho mọi người có link với Form + Sheet (mặc định "edit" — người dùng yêu cầu 03/11/2026: mọi link ai có cũng mở được)
+ *   share: "view" | "edit" | "none",       // Form + Sheet cho mọi người có link (mặc định "view"); người TRẢ LỜI luôn = ai có link
+ *   audience: "doctor" | "staff",          // phần thông tin chung mặc định (survey = doctor, quiz = staff)
+ *   quiz: passScore (mốc đạt theo ĐIỂM, vd. 10 / 12 câu), minutes + countdown (trang làm bài đếm ngược, hết giờ tự nộp),
+ *         notify: ["email", …] (email mỗi lượt nộp, kèm link file tổng hợp), showAnswers (hiện giải thích câu sai sau khi nộp, mặc định có)
  *   sections: [{ id, title, help, questions: [ Q ] }]
  * }
  * Q = { t: "radio"|"checkbox"|"list"|"text"|"phone"|"paragraph"|"scale"|"grid"|"checkgrid"|"header",
@@ -22,9 +25,14 @@
  *       low, high, lowLabel, highLabel (scale), rows, cols (grid),
  *       correct (quiz: chỉ số đáp án đúng, từ 0), points, explanation }
  */
-var SV = { VER: '1.2', KEY: 'mmh-sv-7Qk2pX9w', LOG_PROP: 'SV_LOG_ID', FOLDER_PROP: 'SV_FOLDER_ID', FOLDER: 'MMH Survey · Form tạo tự động' };
+var SV = { VER: '2.0', URL: 'https://script.google.com/macros/s/AKfycbx8l7u4j2tFDpfsg8IFsEcuXNrTbrLVRA_SoZ2Iisqprfm1ipL4z2NfDudVKuI1paFQPg/exec', KEY: 'mmh-sv-7Qk2pX9w', LOG_PROP: 'SV_LOG_ID', FOLDER_PROP: 'SV_FOLDER_ID', FOLDER: 'MMH Survey · Form tạo tự động' };
 
-function doGet(e) { return svHandle_(e && e.parameter || {}, null); }
+function doGet(e) {
+  var p = e && e.parameter || {};
+  if (p.t) return svQuizPage_(p.t);           // trang làm bài (đếm ngược, chấm điểm, email kết quả) — MMH_SurveyQuiz.gs
+  if (p.b) return svBuilderPage_(p.k || '');  // trang tạo form từ link (dự phòng khi Claude không gọi được máy chủ)
+  return svHandle_(p, null);
+}
 function doPost(e) {
   var body = {};
   try { body = JSON.parse(e.postData && e.postData.contents || '{}'); } catch (x) { body = {}; }
@@ -49,6 +57,7 @@ function svHandle_(p, body) {
     if (a === 'create') {
       var spec = body && body.spec;
       if (!spec && p.p) spec = JSON.parse(Utilities.newBlob(Utilities.base64DecodeWebSafe(p.p)).getDataAsString());
+      if (!spec && p.pz) spec = svUnz_(p.pz);
       if (!spec || !spec.title) return svOut_({ ok: false, error: 'SPEC' });
       var lock = LockService.getScriptLock(); lock.waitLock(30000);
       try { return svOut_(svCreate_(spec)); } finally { lock.releaseLock(); svTrashPartial_(); }
@@ -60,6 +69,19 @@ function svHandle_(p, body) {
 }
 
 /* ---------- dựng form ---------- */
+var SV_INFO_DOCTOR = [
+  { t: 'text', q: 'Họ và tên', required: true },
+  { t: 'phone', q: 'Số điện thoại', required: true },
+  { t: 'text', q: 'Tên bệnh viện / phòng khám', required: false }
+];
+var SV_INFO_STAFF = [
+  { t: 'text', q: 'Họ và tên', required: true },
+  { t: 'list', q: 'Phòng ban / Team', required: true, options: ['Dental Sale Team', 'Surgical Sale Team', 'Product Team', 'Marketing Team',
+    'Back Office — Stock Team', 'Back Office — Accounting & Import-Export', 'Back Office — Purchasing & Sales Support',
+    'Thailand Dental Sales & Marketing', 'Thailand Surgical Sales & Marketing', 'BOD'] }
+];
+function svUnz_(z) { return JSON.parse(Utilities.ungzip(Utilities.newBlob(Utilities.base64DecodeWebSafe(z), 'application/x-gzip')).getDataAsString('UTF-8')); }
+
 var SV_PART = null;
 function svTrashPartial_() { if (SV_PART) { try { DriveApp.getFileById(SV_PART).setTrashed(true); } catch (x) {} SV_PART = null; } }
 
@@ -82,16 +104,13 @@ function svCreate_(spec) {
   form.setShowLinkToRespondAgain(false);
   try { form.setPublishingSummary(spec.publicSummary !== false); } catch (x) {}
 
-  // Thông tin chung (luôn có, trừ khi info:false)
-  var info = spec.info === false ? [] : (Array.isArray(spec.info) ? spec.info : [
-    { t: 'text', q: 'Họ và tên', required: true },
-    { t: 'phone', q: 'Số điện thoại', required: true },
-    { t: 'text', q: 'Tên bệnh viện / phòng khám', required: false }
-  ]);
-  var count = 0, pts = 0, nav = [], pages = {};
+  // Thông tin chung (luôn có, trừ khi info:false): bác sĩ = Họ tên* · SĐT* · Bệnh viện / phòng khám; nhân sự MMH (bài kiểm tra) = Họ tên* · Phòng ban*
+  var staff = spec.audience ? spec.audience !== 'doctor' : quiz;
+  var info = spec.info === false ? [] : (Array.isArray(spec.info) ? spec.info : (staff ? SV_INFO_STAFF : SV_INFO_DOCTOR));
+  var count = 0, pts = 0, nav = [], pages = {}, infoItems = [], qItems = [];
   if (info.length) {
     form.addSectionHeaderItem().setTitle(spec.infoTitle || 'THÔNG TIN CHUNG');
-    info.forEach(function (q) { svAdd_(form, q, false, nav); count++; });
+    info.forEach(function (q) { var r = svAdd_(form, q, false, nav); count++; if (r.it) infoItems.push({ id: r.it.getId(), t: q.t || 'text', q: q.q, required: q.required === undefined ? true : !!q.required, options: q.options || null }); });
   }
   var num = 0;
   (spec.sections || []).forEach(function (s, si) {
@@ -110,6 +129,7 @@ function svCreate_(spec) {
       var q2 = Object.assign({}, q, { q: numbered ? 'Câu ' + num + '. ' + q.q : q.q });
       var r = svAdd_(form, q2, quiz, nav);
       pts += r.pts; count++;
+      if (quiz && r.pts && r.it) qItems.push(r.it.getId());
     });
   });
 
@@ -126,9 +146,12 @@ function svCreate_(spec) {
   });
 
   var conf = spec.confirmation || 'MANI Medical Hanoi trân trọng cảm ơn Quý bác sĩ đã dành thời gian chia sẻ ý kiến!';
+  var passScore = 0;
   if (quiz && pts) {
-    var pass = spec.passPercent || 70;
-    conf += '\nTổng điểm tối đa: ' + pts + ' · Điểm đạt: ' + Math.round(pts * pass / 100) + '/' + pts + ' (' + pass + '%).';
+    passScore = spec.passScore ? Number(spec.passScore) : Math.ceil(pts * (spec.passPercent || 70) / 100);
+    if (passScore > pts) throw new Error('Mốc đạt ' + passScore + ' lớn hơn tổng điểm ' + pts);
+    if (!spec.confirmation) conf = 'Cảm ơn bạn đã hoàn thành bài kiểm tra!';
+    conf += '\nTổng điểm tối đa: ' + pts + ' · Mốc đạt: ' + passScore + '/' + pts + '.';
   }
   form.setConfirmationMessage(conf);
   try { form.setPublished(true); } catch (x) {}
@@ -138,7 +161,9 @@ function svCreate_(spec) {
 
   var folder = svFolder_();
   [form.getId(), ss.getId()].forEach(function (id) { try { DriveApp.getFileById(id).moveTo(folder); } catch (x) {} });
-  var share = spec.share || 'edit', shareNote = svShare_(form, ss.getId(), share);
+  var share = spec.share || 'view', shareNote = svShare_(form, ss.getId(), share);
+  var quizUrl = '';
+  if (quiz && qItems.length) quizUrl = svQuizSetup_(form, ss, spec, { info: infoItems, qs: qItems, total: pts, pass: passScore, notify: spec.notify || [] }, shareNote);
   (spec.editors || []).forEach(function (m) { try { form.addEditor(m); ss.addEditor(m); } catch (x) { shareNote.push(m + ': ' + x.message); } });
 
   var url = form.getPublishedUrl(), short = url;
@@ -147,7 +172,8 @@ function svCreate_(spec) {
     ok: true, v: SV.VER, title: spec.title, type: quiz ? 'quiz' : 'survey', items: count, points: pts,
     formUrl: url, shortUrl: short, editUrl: form.getEditUrl(), sheetUrl: ss.getUrl(),
     summaryUrl: url.replace('/viewform', '/viewanalytics'), formId: form.getId(), sheetId: ss.getId(),
-    folderUrl: folder.getUrl(), share: share, shareNote: shareNote
+    folderUrl: folder.getUrl(), share: share, shareNote: shareNote,
+    quizUrl: quizUrl, passScore: passScore, minutes: spec.minutes || 0, countdown: !!(quizUrl && spec.minutes && spec.countdown !== false), notify: spec.notify || []
   };
   svLog_(out, spec);
   SV_PART = null;
@@ -161,7 +187,7 @@ function svAdd_(form, q, quiz, nav) {
   var it, pts = 0, opts = svOpts_(q);
   switch (t) {
     case 'header':
-      it = form.addSectionHeaderItem().setTitle(q.q); if (q.help) it.setHelpText(q.help); return { pts: 0 };
+      it = form.addSectionHeaderItem().setTitle(q.q); if (q.help) it.setHelpText(q.help); return { pts: 0, it: null };
     case 'text':
       it = form.addTextItem(); break;
     case 'phone':
@@ -206,7 +232,7 @@ function svAdd_(form, q, quiz, nav) {
     }
   }
   it.setRequired(req);
-  return { pts: pts };
+  return { pts: pts, it: it };
 }
 
 /* ---------- quyền truy cập ----------
@@ -234,7 +260,7 @@ function svShareInfo_(form) {
   try { o.published = form.isPublished(); } catch (x) {}
   try { o.advanced = form.supportsAdvancedResponderPermissions(); } catch (x) {}
   try { o.requireLogin = form.requiresLogin(); } catch (x) {}
-  try { o.perms = (Drive.Permissions.list(form.getId(), { fields: 'permissions(type,role,view,domain)', supportsAllDrives: true }).permissions || []); } catch (x) { o.permErr = x.message; }
+  try { o.perms = (Drive.Permissions.list(form.getId(), { fields: 'permissions(type,role,view,domain)', supportsAllDrives: true, includePermissionsForView: 'published' }).permissions || []); } catch (x) { o.permErr = x.message; }
   return o;
 }
 

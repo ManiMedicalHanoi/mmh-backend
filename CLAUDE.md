@@ -290,3 +290,9 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   Kiểm tra: ping `crm-thai-dental?action=thdFix&key=<8 ký tự cuối ID Sheet>` (`&op=run` chạy lại). Thử: harness Node giả lập SpreadsheetApp (không có trong repo).
 - **02/11/2026 — KPI P2-08 nhảy sai (T11 = 3 thay vì 2, `kpi/KpiBackOffice.gs` v1.2)**: nhóm Back office đã đổi sheet KPI FY68 sang TỰ lũy kế (Agg = LAST, công thức tháng sau "…+<ô tháng trước>"),
   code vẫn cộng dồn (`KSC_BO.CUMUL`) ⇒ cộng 2 lần. `kscBoRead_` nay đánh dấu `selfCum` khi công thức tháng cộng ô tháng trước cùng dòng; mã CUMUL mà nguồn đã lũy kế (selfCum hoặc Agg = LAST) ⇒ lấy nguyên số.
+- **Khảo sát / bài kiểm tra Google Form — backend `survey` (03/11/2026, script do người dùng tạo, `MMH_SurveyAPI.gs` + `MMH_SurveyQuiz.gs`)**: web app nhận spec JSON (`action=create`, khoá `SV.KEY`)
+  ⇒ Google Form + Sheet kết quả trong thư mục Drive "MMH Survey · Form tạo tự động", nhật ký sheet "MMH Survey · Danh sách form đã tạo". Người TRẢ LỜI = ai có link (Drive `reader` + `view: published`,
+  dịch vụ nâng cao Drive v3 — thiếu quyền này người ngoài gặp "You need access"); `share` view | edit | none cho file Form + Sheet. Bài kiểm tra (`type: quiz`): trang làm bài `<exec>?t=<formId>`
+  (`SurveyQuiz.html`: đếm ngược `minutes`, hết giờ tự nộp, chấm trên máy chủ — đáp án không xuống trình duyệt, vé HMAC `SV_SECRET`), mốc đạt `passScore`, tab "Tổng hợp bài làm", email `notify[]` qua `mmhMail_`
+  (cấu hình bài: Script Property `Q_<formId>`). Trang dự phòng `<exec>?b=1&k=<khoá>#<spec gzip base64url>` (`SurveyBuilder.html`) khi Claude không gọi được máy chủ. `Mã.gs` = phiếu VOS 2026 cũ (giữ nguyên).
+  Phía Claude: skill `mmh-survey-quiz` + `mmh-library/surveys/`, `tools/survey.py`. `smoke: false` (backends.json) — đổi phạm vi quyền ⇒ chủ script chạy `svCapQuyen` trong trình soạn.
