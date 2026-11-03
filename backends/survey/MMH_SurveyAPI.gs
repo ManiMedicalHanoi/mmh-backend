@@ -1,0 +1,236 @@
+/**
+ * MMH Survey API v1.0 (03/11/2026) — tạo Google Form KHẢO SÁT / BÀI KIỂM TRA từ 1 bản mô tả JSON.
+ * Claude (phiên Claude Code) soạn câu hỏi theo yêu cầu + tài liệu ⇒ gọi web app này ⇒ trả link ngay trong chat.
+ * Bộ mô tả + quy tắc soạn: kho mmh-library ▸ surveys/ (README.md, specs/*.json, tools/survey.py).
+ *
+ *   GET  ?action=ping                                  ⇒ {ok, v}
+ *   POST {action:"create", key, spec}  (hoặc GET ?action=create&key=…&p=<base64url JSON spec>)
+ *        ⇒ {ok, formUrl, shortUrl, editUrl, sheetUrl, summaryUrl, formId, sheetId, items}
+ *   GET  ?action=list&key=…                            ⇒ danh sách form đã tạo (sheet nhật ký)
+ *
+ * spec = {
+ *   type: "survey" | "quiz",              // quiz = chấm điểm tự động
+ *   title, intro (lời mở đầu, xưng "Quý bác sĩ"), minutes (thời gian trả lời / làm bài),
+ *   passPercent (quiz, mặc định 70), shuffle (quiz), confirmation,
+ *   info: true | false | [{t,q,required}],   // mặc định: Họ và tên* · Số điện thoại* · Bệnh viện / phòng khám
+ *   share: "edit" | "view" | "none",       // quyền cho mọi người có link với Form + Sheet (mặc định "edit" như phiếu VOS 2026)
+ *   sections: [{ id, title, help, questions: [ Q ] }]
+ * }
+ * Q = { t: "radio"|"checkbox"|"list"|"text"|"phone"|"paragraph"|"scale"|"grid"|"checkgrid"|"header",
+ *       q, help, options:[ "…" | {v:"…", go:"<id phần>"|"next"|"submit", correct:true} ], other:true,
+ *       required (mặc định true, paragraph mặc định false), max (checkbox: chọn tối đa n),
+ *       low, high, lowLabel, highLabel (scale), rows, cols (grid),
+ *       correct (quiz: chỉ số đáp án đúng, từ 0), points, explanation }
+ */
+var SV = { VER: '1.0', KEY: 'mmh-sv-7Qk2pX9w', LOG_PROP: 'SV_LOG_ID', FOLDER_PROP: 'SV_FOLDER_ID', FOLDER: 'MMH Survey · Form tạo tự động' };
+
+function doGet(e) { return svHandle_(e && e.parameter || {}, null); }
+function doPost(e) {
+  var body = {};
+  try { body = JSON.parse(e.postData && e.postData.contents || '{}'); } catch (x) { body = {}; }
+  return svHandle_(e && e.parameter || {}, body);
+}
+
+function svOut_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
+
+function svHandle_(p, body) {
+  var a = (body && body.action) || p.action || 'ping';
+  try {
+    if (a === 'ping') return svOut_({ ok: true, v: SV.VER });
+    var key = (body && body.key) || p.key || '';
+    var want = PropertiesService.getScriptProperties().getProperty('SV_KEY') || SV.KEY;
+    if (key !== want) return svOut_({ ok: false, error: 'KEY' });
+    if (a === 'list') return svOut_({ ok: true, items: svList_() });
+    if (a === 'create') {
+      var spec = body && body.spec;
+      if (!spec && p.p) spec = JSON.parse(Utilities.newBlob(Utilities.base64DecodeWebSafe(p.p)).getDataAsString());
+      if (!spec || !spec.title) return svOut_({ ok: false, error: 'SPEC' });
+      var lock = LockService.getScriptLock(); lock.waitLock(30000);
+      try { return svOut_(svCreate_(spec)); } finally { lock.releaseLock(); }
+    }
+    return svOut_({ ok: false, error: 'ACTION' });
+  } catch (err) {
+    return svOut_({ ok: false, error: String(err && err.message || err), stack: String(err && err.stack || '').slice(0, 600) });
+  }
+}
+
+/* ---------- dựng form ---------- */
+function svCreate_(spec) {
+  var quiz = spec.type === 'quiz';
+  var form = FormApp.create(spec.title);
+  form.setTitle(spec.title);
+  var desc = [];
+  if (spec.intro) desc.push(spec.intro);
+  if (spec.minutes) desc.push((quiz ? 'Thời gian làm bài: ' : 'Thời gian trả lời: khoảng ') + spec.minutes + ' phút');
+  if (spec.note) desc.push(spec.note);
+  form.setDescription(desc.join('\n\n'));
+  form.setIsQuiz(quiz);
+  form.setCollectEmail(!!spec.collectEmail);
+  form.setLimitOneResponsePerUser(false);
+  form.setAllowResponseEdits(false);
+  form.setShuffleQuestions(quiz && spec.shuffle !== false);
+  form.setProgressBar(true);
+  form.setShowLinkToRespondAgain(false);
+  try { form.setPublishingSummary(spec.publicSummary !== false); } catch (x) {}
+
+  // Thông tin chung (luôn có, trừ khi info:false)
+  var info = spec.info === false ? [] : (Array.isArray(spec.info) ? spec.info : [
+    { t: 'text', q: 'Họ và tên', required: true },
+    { t: 'phone', q: 'Số điện thoại', required: true },
+    { t: 'text', q: 'Tên bệnh viện / phòng khám', required: false }
+  ]);
+  var count = 0, pts = 0, nav = [], pages = {};
+  if (info.length) {
+    form.addSectionHeaderItem().setTitle(spec.infoTitle || 'THÔNG TIN CHUNG');
+    info.forEach(function (q) { svAdd_(form, q, false, nav); count++; });
+  }
+  var num = 0;
+  (spec.sections || []).forEach(function (s, si) {
+    var first = si === 0 && !info.length;
+    if (!first) {
+      var pb = form.addPageBreakItem().setTitle(s.title || '');
+      if (s.help) pb.setHelpText(s.help);
+      pages[s.id || ('s' + si)] = pb;
+    } else {
+      var h = form.addSectionHeaderItem().setTitle(s.title || '');
+      if (s.help) h.setHelpText(s.help);
+    }
+    (s.questions || []).forEach(function (q) {
+      var numbered = q.t !== 'header' && spec.number !== false;
+      if (numbered) num++;
+      var q2 = Object.assign({}, q, { q: numbered ? 'Câu ' + num + '. ' + q.q : q.q });
+      var r = svAdd_(form, q2, quiz, nav);
+      pts += r.pts; count++;
+    });
+  });
+
+  // Điều hướng câu sàng lọc (go: id phần / submit / next)
+  nav.forEach(function (n) {
+    var it = n.item;
+    it.setChoices(n.opts.map(function (o) {
+      if (!o.go) return it.createChoice(o.v);
+      if (o.go === 'submit') return it.createChoice(o.v, FormApp.PageNavigationType.SUBMIT);
+      if (o.go === 'next') return it.createChoice(o.v, FormApp.PageNavigationType.CONTINUE);
+      if (pages[o.go]) return it.createChoice(o.v, pages[o.go]);
+      return it.createChoice(o.v);
+    }));
+  });
+
+  var conf = spec.confirmation || 'MANI Medical Hanoi trân trọng cảm ơn Quý bác sĩ đã dành thời gian chia sẻ ý kiến!';
+  if (quiz && pts) {
+    var pass = spec.passPercent || 70;
+    conf += '\nTổng điểm tối đa: ' + pts + ' · Điểm đạt: ' + Math.round(pts * pass / 100) + '/' + pts + ' (' + pass + '%).';
+  }
+  form.setConfirmationMessage(conf);
+  try { form.setPublished(true); } catch (x) {}
+
+  var ss = SpreadsheetApp.create(spec.title + ' (Kết quả)');
+  form.setDestination(FormApp.DestinationType.SPREADSHEET, ss.getId());
+
+  var folder = svFolder_();
+  [form.getId(), ss.getId()].forEach(function (id) { try { DriveApp.getFileById(id).moveTo(folder); } catch (x) {} });
+  var share = spec.share || 'edit', shareNote = [];
+  if (share !== 'none') [[ss.getId(), 'Sheet'], [form.getId(), 'Form']].forEach(function (f) {
+    try {
+      DriveApp.getFileById(f[0]).setSharing(DriveApp.Access.ANYONE_WITH_LINK, share === 'view' ? DriveApp.Permission.VIEW : DriveApp.Permission.EDIT);
+    } catch (x) { shareNote.push(f[1] + ': ' + x.message); }
+  });
+  (spec.editors || []).forEach(function (m) { try { form.addEditor(m); ss.addEditor(m); } catch (x) { shareNote.push(m + ': ' + x.message); } });
+
+  var url = form.getPublishedUrl(), short = url;
+  try { short = form.shortenFormUrl(url); } catch (x) {}
+  var out = {
+    ok: true, v: SV.VER, title: spec.title, type: quiz ? 'quiz' : 'survey', items: count, points: pts,
+    formUrl: url, shortUrl: short, editUrl: form.getEditUrl(), sheetUrl: ss.getUrl(),
+    summaryUrl: url.replace('/viewform', '/viewanalytics'), formId: form.getId(), sheetId: ss.getId(),
+    folderUrl: folder.getUrl(), share: share, shareNote: shareNote
+  };
+  svLog_(out, spec);
+  return out;
+}
+
+function svOpts_(q) { return (q.options || []).map(function (o) { return typeof o === 'string' ? { v: o } : o; }); }
+
+function svAdd_(form, q, quiz, nav) {
+  var t = q.t || 'radio', req = q.required === undefined ? !(t === 'paragraph' || t === 'header') : !!q.required;
+  var it, pts = 0, opts = svOpts_(q);
+  switch (t) {
+    case 'header':
+      it = form.addSectionHeaderItem().setTitle(q.q); if (q.help) it.setHelpText(q.help); return { pts: 0 };
+    case 'text':
+      it = form.addTextItem(); break;
+    case 'phone':
+      it = form.addTextItem().setValidation(FormApp.createTextValidation()
+        .setHelpText('Vui lòng nhập số điện thoại hợp lệ, ví dụ 0912 345 678.')
+        .requireTextMatchesPattern('^(0|\\+84)[0-9 .]{8,13}$').build());
+      break;
+    case 'paragraph':
+      it = form.addParagraphTextItem(); break;
+    case 'scale':
+      it = form.addScaleItem().setBounds(q.low || 1, q.high || 5);
+      if (q.lowLabel || q.highLabel) it.setLabels(q.lowLabel || '', q.highLabel || '');
+      break;
+    case 'grid': case 'checkgrid':
+      it = t === 'grid' ? form.addGridItem() : form.addCheckboxGridItem();
+      it.setRows(q.rows || []).setColumns(q.cols || []); break;
+    case 'checkbox':
+      it = form.addCheckboxItem(); break;
+    case 'list':
+      it = form.addListItem(); break;
+    default:
+      it = form.addMultipleChoiceItem();
+  }
+  it.setTitle(q.q);
+  if (q.help) it.setHelpText(q.help);
+  if (/^(radio|checkbox|list)$/.test(t) || !q.t) {
+    var correctIdx = q.correct;
+    it.setChoices(opts.map(function (o, i) {
+      var ok = quiz && (o.correct || i === correctIdx || (Array.isArray(correctIdx) && correctIdx.indexOf(i) >= 0));
+      return quiz ? it.createChoice(o.v, !!ok) : it.createChoice(o.v);
+    }));
+    if (q.other && t !== 'list') it.showOtherOption(true);
+    if (t === 'checkbox' && q.max) it.setValidation(FormApp.createCheckboxValidation()
+      .setHelpText('Xin chọn tối đa ' + q.max + ' ý.').requireSelectAtMost(q.max).build());
+    if (!quiz && opts.some(function (o) { return o.go; }) && t !== 'checkbox') nav.push({ item: it, opts: opts });
+    if (quiz && t !== 'list') {
+      pts = q.points || 1; it.setPoints(pts);
+      if (q.explanation) {
+        it.setFeedbackForCorrect(FormApp.createFeedback().setText('Chính xác! ' + q.explanation).build());
+        it.setFeedbackForIncorrect(FormApp.createFeedback().setText('Chưa đúng. ' + q.explanation).build());
+      }
+    }
+  }
+  it.setRequired(req);
+  return { pts: pts };
+}
+
+/* ---------- thư mục + nhật ký ---------- */
+function svFolder_() {
+  var P = PropertiesService.getScriptProperties(), id = P.getProperty(SV.FOLDER_PROP);
+  if (id) { try { var f = DriveApp.getFolderById(id); if (!f.isTrashed()) return f; } catch (x) {} }
+  var f2 = DriveApp.createFolder(SV.FOLDER); P.setProperty(SV.FOLDER_PROP, f2.getId()); return f2;
+}
+
+function svLogSheet_() {
+  var P = PropertiesService.getScriptProperties(), id = P.getProperty(SV.LOG_PROP), ss = null;
+  if (id) { try { ss = SpreadsheetApp.openById(id); } catch (x) { ss = null; } }
+  if (!ss) {
+    ss = SpreadsheetApp.create('MMH Survey · Danh sách form đã tạo');
+    ss.getSheets()[0].setName('LOG').appendRow(['Thời gian', 'Loại', 'Tiêu đề', 'Số mục', 'Link trả lời', 'Link kết quả (Sheet)', 'Link sửa form', 'Thống kê', 'Form ID', 'Sheet ID']);
+    P.setProperty(SV.LOG_PROP, ss.getId());
+    try { DriveApp.getFileById(ss.getId()).moveTo(svFolder_()); } catch (x) {}
+  }
+  return ss.getSheetByName('LOG') || ss.getSheets()[0];
+}
+
+function svLog_(o) {
+  try {
+    svLogSheet_().appendRow([Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'dd/MM/yyyy HH:mm'), o.type, o.title, o.items,
+      o.shortUrl, o.sheetUrl, o.editUrl, o.summaryUrl, o.formId, o.sheetId]);
+  } catch (x) {}
+}
+
+function svList_() {
+  var sh = svLogSheet_(), v = sh.getDataRange().getValues(), h = v.shift();
+  return v.slice(-50).map(function (r) { var o = {}; h.forEach(function (k, i) { o[k] = r[i]; }); return o; });
+}
