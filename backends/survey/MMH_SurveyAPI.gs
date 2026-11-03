@@ -26,7 +26,7 @@
  *       low, high, lowLabel, highLabel (scale), rows, cols (grid),
  *       correct (quiz: chỉ số đáp án đúng, từ 0), points, explanation }
  */
-var SV = { VER: '2.1', URL: 'https://script.google.com/macros/s/AKfycbx8l7u4j2tFDpfsg8IFsEcuXNrTbrLVRA_SoZ2Iisqprfm1ipL4z2NfDudVKuI1paFQPg/exec', KEY: 'mmh-sv-7Qk2pX9w', LOG_PROP: 'SV_LOG_ID', FOLDER_PROP: 'SV_FOLDER_ID', FOLDER: 'MMH Survey · Form tạo tự động' };
+var SV = { VER: '2.2', URL: 'https://script.google.com/macros/s/AKfycbx8l7u4j2tFDpfsg8IFsEcuXNrTbrLVRA_SoZ2Iisqprfm1ipL4z2NfDudVKuI1paFQPg/exec', KEY: 'mmh-sv-7Qk2pX9w', LOG_PROP: 'SV_LOG_ID', FOLDER_PROP: 'SV_FOLDER_ID', FOLDER: 'MMH Survey · Form tạo tự động' };
 
 function doGet(e) {
   var p = e && e.parameter || {};
@@ -240,6 +240,7 @@ function svAdd_(form, q, quiz, nav) {
 /* ---------- đọc chữ trong tài liệu Drive (để Claude soạn câu hỏi từ tài liệu Training Hub) ----------
  * PPTX / PPT ⇒ bản sao tạm Google Slides, DOCX / DOC / PDF ⇒ bản sao tạm Google Docs (PDF: OCR) ⇒ export text/plain ⇒ xoá bản sao.
  * Google Slides / Docs gốc ⇒ export thẳng. Chỉ dùng phạm vi drive (đã cấp). */
+var svDocNote_ = '';
 function svDocText_(id, max) {
   if (!id) return { ok: false, error: 'fileId' };
   var f = Drive.Files.get(id, { fields: 'id,name,mimeType,size,modifiedTime', supportsAllDrives: true }), mt = f.mimeType, tmp = null, src = id, gmt;
@@ -255,15 +256,21 @@ function svDocText_(id, max) {
       src = tmp.id;
     }
     var exp = gmt === G.sheets ? 'text/csv' : 'text/plain';
-    var txt = '', tries = [function () { return Drive.Files.export(src, exp); }, function () { return Drive.Files.export(src, exp, { alt: 'media' }); }], errs = [];
+    var r, txt = '', tries = [function () { return Drive.Files.export(src, exp); }, function () { return Drive.Files.export(src, exp, { alt: 'media' }); }], errs = [];
     for (var i = 0; i < tries.length && !txt; i++) {
       try {
-        var r = tries[i]();
+        r = tries[i]();
         txt = (typeof r === 'string') ? r : (r && r.getDataAsString ? r.getDataAsString('UTF-8') : (r && r.length ? Utilities.newBlob(r).getDataAsString('UTF-8') : ''));
-      } catch (x) { errs.push(x.message); }
+      } catch (x) {
+        var m = String(x.message || x), k = m.indexOf('Message: ');
+        // Dịch vụ nâng cao báo lỗi "Export requires alt=media" nhưng mã 200 + nội dung nằm trong lỗi ⇒ lấy phần sau "Message: " (chỉ khi lỗi đủ dài)
+        if (/alt=media/.test(m) && /Response Code: 200/.test(m) && k > 0 && m.length - k > 2000) { txt = m.slice(k + 9); svDocNote_ = 'from-error'; }
+        errs.push(m.slice(0, 200));
+      }
+      if (!txt) errs.push('try' + i + ' → ' + (r === null ? 'null' : typeof r) + (r && r.constructor ? ' ' + r.constructor.name : '') + (r && r.length !== undefined ? ' len ' + r.length : ''));
     }
     if (!txt && errs.length) return { ok: false, error: 'export: ' + errs.join(' | '), name: f.name };
-    return { ok: true, name: f.name, mimeType: mt, size: f.size, modified: f.modifiedTime, chars: txt.length, truncated: txt.length > max, text: txt.slice(0, max) };
+    return { ok: true, via: svDocNote_ || 'export', name: f.name, mimeType: mt, size: f.size, modified: f.modifiedTime, chars: txt.length, truncated: txt.length > max, text: txt.slice(0, max) };
   } finally {
     if (tmp) { try { Drive.Files.remove(tmp.id, { supportsAllDrives: true }); } catch (x) { try { DriveApp.getFileById(tmp.id).setTrashed(true); } catch (y) {} } }
   }
