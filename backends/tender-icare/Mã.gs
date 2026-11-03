@@ -81,6 +81,7 @@ var LOG_SHEET = 'FC_LOG';   // sheet ẩn lưu chỉnh sửa của user (theo NP
 function doGet(e) {
   var payload;
   try {
+    if (e && e.parameter && e.parameter.action === 'winMap') return jsonOut_(e, wmPayload_(e.parameter));   // MMH_WinMap.gs — Bản đồ trúng thầu
     payload = buildPayload();
     payload.log = readLog_();          // kèm luôn LOG để FE khôi phục chỉnh sửa
   } catch (err) {

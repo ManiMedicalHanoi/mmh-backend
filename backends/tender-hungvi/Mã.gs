@@ -93,6 +93,7 @@ var MASTER_HEADER_ROW = 4;
 function doGet(e) {
   var payload;
   try {
+    if (e && e.parameter && e.parameter.action === 'winMap') return jsonOut_(e, wmPayload_(e.parameter));   // MMH_WinMap.gs — Bản đồ trúng thầu
     var action = (e && e.parameter && e.parameter.action) || '';
     if (action === 'ping')         return jsonOut_(e, { ok:true, ts:new Date().toISOString(), npp:CONFIG.NPP });
     if (action === 'acctPlan')     return jsonOut_(e, { ok:true, plan: readAcctPlan_(e && e.parameter && e.parameter.fy) });
