@@ -9,17 +9,17 @@
  * ③ Biên bản họp: mỗi dòng "Việc cần làm sau họp" ⇒ 1 việc thật trong hạng mục "Việc sau họp" (cột TASKS.noteId = id biên bản):
  *    @Tên = người làm (không có ⇒ Owner), hạn đọc từ chữ (dd/mm · thứ 2…7 / chủ nhật · T2…T7 · ngày mai · tuần sau), không có ⇒ ngày họp + 3 ngày làm việc.
  *    Sửa biên bản: dòng mới ⇒ việc mới, dòng bị xoá ⇒ việc chưa xong thành "Bỏ qua".
- * ④ Trạng thái "Vướng" (TASKS.block = lý do, bắt buộc; email + thông báo Owner) · cập nhật tuần (tab CHECKINS: Xanh / Vàng / Đỏ,
- *    đã làm · vướng / cần hỗ trợ · tuần tới; Đỏ hoặc cần hỗ trợ ⇒ báo TEAM ▸ Quản lý) · mốc quan trọng (TASKS.milestone: x = mốc,
+ * ④ Trạng thái "Pending" (TASKS.block = lý do, bắt buộc; email + thông báo Owner) · cập nhật tuần (tab CHECKINS: Xanh / Vàng / Đỏ,
+ *    đã làm · vấn đề tồn đọng / cần hỗ trợ · tuần tới; Đỏ hoặc cần hỗ trợ ⇒ báo TEAM ▸ Quản lý) · mốc quan trọng (TASKS.milestone: x = mốc,
  *    - = không phải mốc, trống = theo tên việc EH_MS_RE) · số liệu follow-up khách (fuTotal · fuDone · fuOrder, người phụ trách nhập).
- * ⑤ Nhắc việc hằng ngày (MKT_EventHubPlus.gs ▸ ehDaily_): việc "Chờ duyệt" nhắc Owner (không nhắc người làm), "Vướng" ⇒ Owner,
+ * ⑤ Nhắc việc hằng ngày (MKT_EventHubPlus.gs ▸ ehDaily_): việc "Chờ duyệt" nhắc Owner (không nhắc người làm), "Pending" ⇒ Owner,
  *    trễ ≥ cfg.escDays ngày ⇒ TEAM ▸ Quản lý mỗi ngày, thứ Sáu nhắc Owner cập nhật tuần, mỗi email nhắc ghi thêm 1 dòng RH_Notify
  *    (nút "Nhắc tôi" của Report Hub / CRM — Sales thấy việc follow-up ngay trên CRM).
  * ⑥ Report Hub: việc của sự kiện (trừ Sales) ⇒ sub-task CHỈ ĐỌC "H:<id việc>" dưới Key task có TÊN TRÙNG tên sự kiện
  *    (Event_Sync.gs ▸ evsSync gọi ehHubSubs_) ⇒ báo cáo tuần Report Hub tự có tiến độ sự kiện, không phải nhập 2 lần.
  * Không dùng dịch vụ mới (SpreadsheetApp / Properties / Cache / Lock / mmhMail_) ⇒ không phải cấp quyền lại.
  *************************************************************************************************/
-var EH_FLOW_VER = '1';
+var EH_FLOW_VER = '2';   /* 2: trạng thái "Vướng" (bản đầu) ⇒ "Pending" */
 var EH_MS_RE = /duyet ke hoach|hop dong kol|form dang ky|key visual|set up hoan thien|bao cao su kien|chuyen doi/;
 var EH_AFTER_DAYS = 60;      /* sự kiện đã diễn ra ≤ 60 ngày mà chưa đóng ⇒ vẫn theo dõi */
 
@@ -65,6 +65,7 @@ function ehFlowMigrate_(){
       var e = by[ehS_(t.eventId)]; if (!e || ehS_(e.state) === 'Huỷ' || ehS_(e.end || e.start) < today) return;
       t.status = 'Chưa làm'; (G[e.id] = G[e.id] || []).push(t);
     });
+    T.forEach(function(t){ if (ehS_(t.status) === 'Vướng'){ t.status = 'Pending'; ehPut_(ss, 'TASKS', EH.COLS.TASKS, t); n++; } });   /* v1.5.1: người dùng yêu cầu dùng từ formal "Pending" */
     Object.keys(G).forEach(function(id){
       var e = by[id], left = ehCompress_(e, G[id], today);
       G[id].forEach(function(t){ if (!ehS_(t.dueManual)) t.dueManual = 'nén'; t.updatedAt = ehNow_(); t.updatedBy = 'Hệ thống'; ehPut_(ss, 'TASKS', EH.COLS.TASKS, t); n++; });
@@ -178,9 +179,9 @@ function ehSave3_(ss, me, op, d, events, evBy, now){
     var old = isNew ? {} : { rag: ehS_(c.rag), help: ehS_(c.help) };
     c.rag = rag; c.done = ehS_(d.done).slice(0, 1500); c.block = ehS_(d.block).slice(0, 1500); c.help = ehS_(d.help).slice(0, 1000); c.next = ehS_(d.next).slice(0, 1500); c.by = me.pic; c.at = now;
     if (isNew) ehAppend_(ss, 'CHECKINS', EH.COLS.CHECKINS, [c]); else ehPut_(ss, 'CHECKINS', EH.COLS.CHECKINS, c);
-    ehLog_(ss, me, 'Cập nhật tuần', e.id, '', rag + (c.done ? ' · ' + c.done.slice(0, 160) : '') + (c.block ? ' · Vướng: ' + c.block.slice(0, 160) : ''));
+    ehLog_(ss, me, 'Cập nhật tuần', e.id, '', rag + (c.done ? ' · ' + c.done.slice(0, 160) : '') + (c.block ? ' · Tồn đọng: ' + c.block.slice(0, 160) : ''));
     if ((rag === 'Đỏ' && old.rag !== 'Đỏ') || (c.help && c.help !== old.help)){
-      var txt = 'Tình hình: ' + rag + (c.done ? '\nTuần này: ' + c.done : '') + (c.block ? '\nVướng: ' + c.block : '') + (c.help ? '\nCần hỗ trợ: ' + c.help : '') + (c.next ? '\nTuần tới: ' + c.next : '');
+      var txt = 'Tình hình: ' + rag + (c.done ? '\nTuần này: ' + c.done : '') + (c.block ? '\nVấn đề tồn đọng: ' + c.block : '') + (c.help ? '\nCần hỗ trợ: ' + c.help : '') + (c.next ? '\nTuần tới: ' + c.next : '');
       ehMgrs_(ss).forEach(function(m){ EH_N.push({ to: m, kind: 'checkin', ev: e, task: null, text: txt, rag: rag }); });
     }
     return { ok:true, checkin: ehClean2_(c) };
@@ -192,8 +193,8 @@ function ehSave3_(ss, me, op, d, events, evBy, now){
 function ehFlowParas_(K, actor, paras){
   (K.block || []).forEach(function(x){
     var l = ehTaskLine_(x.task, x.ev, true);
-    paras.push({ html: '<p>' + ehH_(actor) + ' báo <b>đang vướng</b> ở việc dưới đây' + (x.text ? ': “' + ehH_(x.text) + '”' : '.') + ' Bạn là Owner — hỗ trợ hoặc đổi hạn / đổi người giúp nhé.</p><ul style="padding-left:20px;margin:0 0 12px">' + l.html + '</ul>',
-                 text: actor + ' báo đang vướng' + (x.text ? ': "' + x.text + '"' : '') + '\n' + l.text });
+    paras.push({ html: '<p>' + ehH_(actor) + ' chuyển việc dưới đây sang <b>Pending</b>' + (x.text ? ': “' + ehH_(x.text) + '”' : '.') + ' Bạn là Owner — hỗ trợ hoặc đổi hạn / đổi người giúp nhé.</p><ul style="padding-left:20px;margin:0 0 12px">' + l.html + '</ul>',
+                 text: actor + ' chuyển Pending' + (x.text ? ': "' + x.text + '"' : '') + '\n' + l.text });
   });
   (K.checkin || []).forEach(function(x){
     var url = EH.APP_URL + '#ev-' + encodeURIComponent(ehS_(x.ev && x.ev.id));
@@ -203,7 +204,7 @@ function ehFlowParas_(K, actor, paras){
 }
 function ehFlowSubj_(K, items, evs){
   var ks = Object.keys(K);
-  if (ks.length === 1 && K.block) return 'Vướng: ' + ehS_(K.block[0].task.title) + ' · ' + (evs[0] || '');
+  if (ks.length === 1 && K.block) return 'Pending: ' + ehS_(K.block[0].task.title) + ' · ' + (evs[0] || '');
   if (ks.length === 1 && K.checkin) return 'Cập nhật tuần: ' + (evs[0] || '') + ' · ' + K.checkin[0].rag + (/Cần hỗ trợ/.test(K.checkin[0].text) ? ' · cần hỗ trợ' : '');
   return '';
 }
@@ -216,7 +217,7 @@ function ehHubSubs_(idx){
   var E = ehRead_(ss, 'EVENTS'), T = ehRead_(ss, 'TASKS');
   T.forEach(function(t){ if (ehS_(t.parentId)) par[t.parentId] = 1; });
   ehRead_(ss, 'FILES').forEach(function(f){ var k = ehS_(f.taskId); if (k) (files[k] = files[k] || []).push(ehS_(f.name)); });
-  var MAP = { 'Xong': ['Completed', 100], 'Bỏ qua': ['Cancelled', 0], 'Chờ duyệt': ['In Progress', 90], 'Vướng': ['In Progress', 30], 'Đang làm': ['In Progress', 50] };
+  var MAP = { 'Xong': ['Completed', 100], 'Bỏ qua': ['Cancelled', 0], 'Chờ duyệt': ['In Progress', 90], 'Pending': ['In Progress', 30], 'Đang làm': ['In Progress', 50] };
   E.forEach(function(e){
     if (ehS_(e.sample) || ehS_(e.state) === 'Huỷ' || ehS_(e.follow) === 'Không' || !ehS_(e.start)) return;
     var dd = ehDays_(today, ehS_(e.start)); if (dd > 200 || ehDays_(ehS_(e.end || e.start), today) > 90) return;
@@ -227,7 +228,7 @@ function ehHubSubs_(idx){
       var st = ehS_(t.status) || 'Chưa làm', m = MAP[st] || ['To Do', 0], nm = ehS_(t.title).slice(0, 200), base = nm, n = 1;
       while (used[nm]) nm = base + ' (' + (++n) + ')'; used[nm] = 1;
       var R = ['App Sự kiện MKT · ' + ehS_(t.group).replace(/^\d+\.\s*/, '') + ' · ' + st];
-      if (st === 'Vướng' && ehS_(t.block)) R.push('Vướng: ' + ehS_(t.block));
+      if (st === 'Pending' && ehS_(t.block)) R.push('Lý do Pending: ' + ehS_(t.block));
       if (ehS_(t.note) && !/^Lập kế hoạch muộn/.test(ehS_(t.note))) R.push('Ghi chú: ' + ehS_(t.note).slice(0, 300));
       if (files[t.id]) R.push('Đã nộp: ' + files[t.id].slice(0, 4).join(', ') + (files[t.id].length > 4 ? '…' : ''));
       R.push(EH.APP_URL + '#t-' + encodeURIComponent(t.id));
