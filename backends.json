@@ -192,18 +192,26 @@
   },
   "tender-icare": {
     "name": "Thầu nhãn khoa – NPP iCare (gói thầu tham dự & kết quả trúng thầu)",
-    "apps": [],
+    "apps": [
+      "ManiMedicalHanoi/Tender-Result"
+    ],
     "scriptId": "1nlK89cMnaGQrhIJN_AibijS31nNESGHR67cF7FKSBKJkT0AlXklTnwS1",
+    "deploymentId": "AKfycbx8xuGaBOVgLxb8JtaH25t1pcisacigDecTMLKOVaBucuDWZ7hw2W_W4IngA1nSODg4",
     "sheetId": "1VfJVBJ4XTTOnjF2z3ZyZAq9PTIeIvB8Nf5a8fikT9Zs",
     "sheetUrl": "https://docs.google.com/spreadsheets/d/1VfJVBJ4XTTOnjF2z3ZyZAq9PTIeIvB8Nf5a8fikT9Zs/edit?gid=864862640#gid=864862640",
-    "note": "File NPP nhãn khoa iCare (miền Nam) cập nhật gói thầu tham dự + kết quả trúng thầu (sheet 'Tender FY65-67', header dòng 9). Script = web app 'MMH · NPP Tender Feed' (doGet trả JSON dòng dao nhãn khoa + frontend.html = Ophthalmic Knife Tender Market Dashboard; executeAs USER_DEPLOYING / ANYONE_ANONYMOUS). CHƯA có deploymentId ⇒ deploy chỉ đẩy code + lưu phiên bản, URL /exec chưa được cập nhật — cần người dùng gửi URL web app. Bản code cũ hơn tender-hungvi (v7). Cấu trúc: docs/tender-npp.md."
+    "note": "File NPP nhãn khoa iCare (miền Nam) cập nhật gói thầu tham dự + kết quả trúng thầu (sheet 'Tender FY65-67', header dòng 9). Script = web app 'MMH · NPP Tender Feed' (doGet trả JSON dòng dao nhãn khoa + frontend.html = Ophthalmic Knife Tender Market Dashboard; executeAs USER_DEPLOYING / ANYONE_ANONYMOUS). URL /exec lấy từ Tender-Result/index.html (NPP_URL) — dashboard dao nhãn khoa đang gọi. Bản code cũ hơn tender-hungvi (v7). Cấu trúc: docs/tender-npp.md.",
+    "url": "https://script.google.com/macros/s/AKfycbx8xuGaBOVgLxb8JtaH25t1pcisacigDecTMLKOVaBucuDWZ7hw2W_W4IngA1nSODg4/exec"
   },
   "tender-hungvi": {
     "name": "Thầu nhãn khoa – NPP Hùng Vĩ (gói thầu tham dự & kết quả trúng thầu)",
-    "apps": [],
+    "apps": [
+      "ManiMedicalHanoi/Tender-Result"
+    ],
     "scriptId": "16H7H-GZbCCG3PLWDZAL55CD5fLoqyDbDZBQAYcd2-JuYMAKbhlZ1skgd",
+    "deploymentId": "AKfycbyL5FRVXl0Zr35ndE1PGJMGXzHOYzHjdsyQK7vHwIYhqe5owjSg3o1QtH-i8qGNBKJ-",
     "sheetId": "1N42yeU1hSOMZT9BgVPZ8x625BGaNI705u5REkc1Uzx8",
     "sheetUrl": "https://docs.google.com/spreadsheets/d/1N42yeU1hSOMZT9BgVPZ8x625BGaNI705u5REkc1Uzx8/edit?gid=602792007#gid=602792007",
-    "note": "File NPP nhãn khoa Hùng Vĩ (miền Bắc) cập nhật gói thầu tham dự + kết quả trúng thầu (sheet 'Tender FY66', header dòng 7). Script 'HÙNG VĨ TENDER FEED v7 FULL' (feed + FC_LOG + ACCT_PLAN + syncTender sang file tender tổng 1lI1s1nE… ▸ 'Data xử lý'). CHƯA có deploymentId ⇒ deploy chỉ đẩy code + lưu phiên bản, URL /exec chưa được cập nhật — cần người dùng gửi URL web app. Cấu trúc: docs/tender-npp.md."
+    "note": "File NPP nhãn khoa Hùng Vĩ (miền Bắc) cập nhật gói thầu tham dự + kết quả trúng thầu (sheet 'Tender FY66', header dòng 7). Script 'HÙNG VĨ TENDER FEED v7 FULL' (feed + FC_LOG + ACCT_PLAN + syncTender sang file tender tổng 1lI1s1nE… ▸ 'Data xử lý'). URL /exec lấy từ Tender-Result/index.html (NPP_URL) — dashboard dao nhãn khoa đang gọi. Cấu trúc: docs/tender-npp.md.",
+    "url": "https://script.google.com/macros/s/AKfycbyL5FRVXl0Zr35ndE1PGJMGXzHOYzHjdsyQK7vHwIYhqe5owjSg3o1QtH-i8qGNBKJ-/exec"
   }
 }
