@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<style>
+  body { margin:0; background:#F6F8FB; color:#1d2733; font:15px/1.5 Aptos, "Segoe UI", Roboto, Arial, sans-serif; }
+  .card { max-width:640px; margin:24px auto; background:#fff; border:1px solid #E6EAEF; border-radius:12px; padding:22px; }
+  h1 { font-size:20px; color:#003047; margin:0 0 10px; }
+  .btn { border:0; border-radius:8px; padding:11px 20px; font:inherit; font-weight:600; cursor:pointer; background:#3A5CAA; color:#fff; }
+  .btn[disabled] { opacity:.55; }
+  .mut { color:#5b6b7a; } .err { color:#b3261e; }
+  a { color:#3A5CAA; word-break:break-all; }
+  dl { margin:14px 0 0; } dt { font-weight:600; color:#003047; margin-top:10px; } dd { margin:2px 0 0; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Tạo Google Form từ bản soạn của Claude</h1>
+  <div id="sum" class="mut">Đang đọc bản soạn…</div>
+  <p><button class="btn hide" id="go" disabled>Tạo form</button></p>
+  <div id="out"></div>
+</div>
+<script>
+var K = <?!= k ?>, Z = '';
+function $(i) { return document.getElementById(i); }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+google.script.url.getLocation(function (loc) {
+  Z = (loc.hash || '').replace(/^#/, '');
+  if (!Z) { $('sum').innerHTML = '<span class="err">Link thiếu bản soạn (phần sau dấu #).</span>'; return; }
+  google.script.run.withSuccessHandler(function (s) {
+    $('sum').innerHTML = '<b>' + esc(s.title) + '</b><br>' + (s.type === 'quiz' ? 'Bài kiểm tra' : 'Khảo sát') + ' · ' + s.n + ' câu · ' + s.sections + ' phần';
+    $('go').disabled = false;
+  }).withFailureHandler(function (e) { $('sum').innerHTML = '<span class="err">Bản soạn lỗi: ' + esc(e.message) + '</span>'; }).svBuilderPeek(Z);
+});
+$('go').onclick = function () {
+  $('go').disabled = true; $('go').textContent = 'Đang tạo (khoảng 30 giây)…';
+  google.script.run.withSuccessHandler(function (r) {
+    $('go').textContent = 'Đã tạo';
+    var L = [[r.quizUrl ? 'Link làm bài (đếm giờ, chấm điểm, email)' : 'Link trả lời', r.quizUrl || r.shortUrl], r.quizUrl ? ['Link Google Form (dự phòng)', r.shortUrl] : null,
+      ['Kết quả (Google Sheet)', r.sheetUrl], ['Sửa form', r.editUrl], ['Thống kê', r.summaryUrl]].filter(Boolean);
+    $('out').innerHTML = '<dl>' + L.map(function (x) { return '<dt>' + x[0] + '</dt><dd><a href="' + esc(x[1]) + '" target="_blank">' + esc(x[1]) + '</a></dd>'; }).join('') + '</dl>';
+  }).withFailureHandler(function (e) { $('go').disabled = false; $('go').textContent = 'Tạo form'; $('out').innerHTML = '<p class="err">' + esc(e.message) + '</p>'; })
+    .svBuilderCreate(K, Z);
+};
+$('go').classList.remove('hide');
+</script>
+</body>
+</html>

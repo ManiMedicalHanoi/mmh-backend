@@ -185,6 +185,8 @@
     ],
     "scriptId": "1xpW73AuqCsaJvWfbHiDYgLn181aMEwGGYaA_DmWVnin7VPvusYbvCEQn",
     "deploymentId": "AKfycbx8l7u4j2tFDpfsg8IFsEcuXNrTbrLVRA_SoZ2Iisqprfm1ipL4z2NfDudVKuI1paFQPg",
-    "url": "https://script.google.com/macros/s/AKfycbx8l7u4j2tFDpfsg8IFsEcuXNrTbrLVRA_SoZ2Iisqprfm1ipL4z2NfDudVKuI1paFQPg/exec"
+    "url": "https://script.google.com/macros/s/AKfycbx8l7u4j2tFDpfsg8IFsEcuXNrTbrLVRA_SoZ2Iisqprfm1ipL4z2NfDudVKuI1paFQPg/exec",
+    "smoke": false,
+    "note": "Phạm vi gửi email (script.send_mail) mới thêm ở v2.0 ⇒ chủ script (tài khoản deploy) chạy svCapQuyen 1 lần trong trình soạn. smoke=false để deploy không tự quay lại khi chưa cấp quyền."
   }
 }
