@@ -3,7 +3,8 @@
     "name": "Report Hub – Marketing",
     "apps": [
       "ManiMedicalHanoi/MMH-Report",
-      "ManiMedicalHanoi/MMH-CRM"
+      "ManiMedicalHanoi/MMH-CRM",
+      "ManiMedicalHanoi/MMH-Event-MKTOnline"
     ],
     "deploymentId": "AKfycbzn-5chMgO7lQPKmot8P7UkP9C40MdCPtiTTa4H1gcKepVsnr1IYfcB7sSdK1_jrZYY",
     "scriptId": "1gUrhu4gDj2jzrisZGCx0A8uL0BCNOcPmM3BuXtyD0wSYW2giZcacETbC",

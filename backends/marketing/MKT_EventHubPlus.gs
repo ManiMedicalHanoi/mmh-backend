@@ -11,12 +11,14 @@
  *    v1.4: note.add · note.update · note.delete — BIÊN BẢN HỌP (tab MEETINGS: ngày họp, tiêu đề, người dự, nội dung, việc cần làm; @Tên trong biên bản ⇒ thông báo).
  * ⑤ v1.4 — HỘP THÔNG BÁO CHUNG: mỗi thông báo (kể cả dữ liệu mẫu, kể cả khi tắt email) ghi 1 dòng vào sheet RH_Notify của Training Master
  *    (TF.MASTER_ID, ghi thẳng bằng SpreadsheetApp) ⇒ Report Hub / CRM hiện ở nút chuông "Thông báo" (Training Hub rhNotifyList, RH_Notify.gs).
+ * ⑥ v1.5 (03/11/2026): nhắc việc theo bậc (Chờ duyệt ⇒ Owner · Vướng ⇒ Owner · trễ ≥ escDays ⇒ quản lý mỗi ngày · thứ Sáu nhắc cập nhật tuần),
+ *    email nhắc ghi thêm RH_Notify, biên bản họp ⇒ việc, email tuần có sự kiện chưa đóng + tình hình tuần — xem MKT_EventHubFlow.gs.
  * ④ Dữ liệu mẫu: action ehSample op=seed|clear|status (phiên Admin hoặc key = 8 ký tự cuối EH.ROOT). Mọi dòng có cột sample = x,
  *    tên sự kiện "(mẫu)", người phụ trách = nhân sự thật trong RH_Users ⇒ thử "Việc của tôi" được; KHÔNG email / nhắc việc cho dữ liệu mẫu,
  *    đồng bộ file kế hoạch không khớp vào sự kiện mẫu. Xoá: op=clear (hoặc app ▸ Cài đặt).
  *************************************************************************************************/
 var EH_N = [];   /* email của lượt ghi hiện tại — ehSave_ đẩy vào, ehSaveN_ gửi */
-var EH_CFG_DEF = { mailAssign: true, mailReview: true, mailComment: true, remind: true, remindHour: 8, before: 2, ownerDigest: true, weekly: true };
+var EH_CFG_DEF = { mailAssign: true, mailReview: true, mailComment: true, remind: true, remindHour: 8, before: 2, ownerDigest: true, weekly: true, escalate: true, escDays: 3, checkin: true };
 var EH_IMG = 'https://manimedicalhanoi.github.io/Training-Hub/media/brand/';
 var EH_DOW = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 
@@ -76,7 +78,7 @@ var EH_PROOF_VI = { file: 'file ấn phẩm / tài liệu', image: 'ảnh', link
 /* N = [{to, kind, ev, task, text, role, count}] ⇒ gộp theo người nhận ⇒ 1 email; trả [{pic, ok}] */
 function ehNotify_(ss, me, N, opt){
   opt = opt || {};
-  var cfg = ehCfg_(), U = ehUsers_(), need = { assign:'mailAssign', team:'mailAssign', review:'mailReview', 'return':'mailReview', comment:'mailComment', mention:'mailComment' };
+  var cfg = ehCfg_(), U = ehUsers_(), need = { assign:'mailAssign', team:'mailAssign', review:'mailReview', 'return':'mailReview', comment:'mailComment', mention:'mailComment', block:'mailReview', checkin:'mailReview' };
   var by = {}, order = [], out = [], fBy = {}, fOrder = [];
   N.forEach(function(n){
     if (!n.to) return;
@@ -154,6 +156,7 @@ function ehMailFor_(pic, actor, items){
                        '<p style="margin:0 0 12px;padding:8px 12px;border-left:3px solid #C3CDD8;color:#333">' + ehH_(x.text).replace(/\n/g, '<br>') + '</p><p><a href="' + url + '">Trả lời trên app</a></p>',
                  text: actor + (k === 'mention' ? ' nhắc đến bạn' : ' bình luận') + ' ở ' + where.replace(/[“”]/g, '"') + ':\n"' + x.text + '"\n' + url });
   }); });
+  ehFlowParas_(K, actor, paras);   /* v1.5: Vướng · cập nhật tuần (MKT_EventHubFlow.gs) */
   if (K.remind){
     var msg = K.remind.filter(function(x){ return x.text; })[0];
     paras.push(ehList_(ehH_(actor) + ' nhắc bạn các việc sau' + (multiEv ? '' : ' của sự kiện ' + evTxt(K.remind[0])) + ':', K.remind, multiEv));
@@ -168,6 +171,7 @@ function ehMailFor_(pic, actor, items){
   else if (ks.length === 1 && (K.mention || K.comment)) subj = actor + (K.mention ? ' nhắc đến bạn' : ' bình luận') + ' · ' + (one && one.task ? ehS_(one.task.title) : evs[0] || '');
   else if (ks.length === 1 && K.remind) subj = 'Nhắc việc: ' + items.length + ' việc' + (multiEv ? '' : ' · ' + evs[0]);
   else if (ks.length === 1 && K.team) subj = 'Sự kiện mới: ' + evs[0];
+  else if (ehFlowSubj_(K, items, evs)) subj = ehFlowSubj_(K, items, evs);
   else subj = items.length + ' cập nhật mới cho bạn' + (multiEv ? '' : ' · ' + evs[0]);
   var L = ehLetter_(pic, paras);
   return { subject: '[Sự kiện MKT] ' + subj, html: L.html, text: L.text };
@@ -178,7 +182,8 @@ function ehSave2_(ss, me, op, d, events, evBy, now){
   if (op === 'cfg.save'){
     if (!me.manager) return { ok:false, code:'PERM', error:'Chỉ quản lý được đổi cài đặt.' };
     var c = ehCfg_(), h0 = c.remindHour;
-    ['mailAssign', 'mailReview', 'mailComment', 'remind', 'ownerDigest', 'weekly'].forEach(function(k){ if (k in d) c[k] = d[k] === true || d[k] === 'true' || d[k] === 1 || d[k] === '1'; });
+    ['mailAssign', 'mailReview', 'mailComment', 'remind', 'ownerDigest', 'weekly', 'escalate', 'checkin'].forEach(function(k){ if (k in d) c[k] = d[k] === true || d[k] === 'true' || d[k] === 1 || d[k] === '1'; });
+    if ('escDays' in d) c.escDays = Math.max(1, Math.min(14, parseInt(d.escDays, 10) || 3));
     if ('remindHour' in d) c.remindHour = Math.max(5, Math.min(20, parseInt(d.remindHour, 10) || 8));
     if ('before' in d) c.before = Math.max(0, Math.min(7, parseInt(d.before, 10) || 0));
     PropertiesService.getScriptProperties().setProperty('EH_CFG', JSON.stringify(c));
@@ -197,13 +202,11 @@ function ehSave2_(ss, me, op, d, events, evBy, now){
               scale: ehS_(d.scale), products: ehS_(d.products), kpi: ehS_(d.kpi), note: ehS_(d.note), cover: ehS_(d.cover), target: ehS_(d.target), budgetPlan: ehS_(d.budgetPlan),
               state: ehS_(d.state), follow: 'Có', src: 'APP', updatedAt: now, updatedBy: me.pic };
     EH.ROLES.forEach(function(r){ e[r] = (r in d) ? ehS_(d[r]) : ehTeamDefault_(ss, r); });
-    ehAppend_(ss, 'EVENTS', EH.COLS.EVENTS, [e]);
-    var tasks = d.template === false || d.template === '0' ? [] : ehTasksFor_(e, ehRead_(ss, 'TEMPLATE'));
+    var tasks = d.template === false || d.template === '0' ? [] : ehTasksFor_(e, ehRead_(ss, 'TEMPLATE'));   /* v1.5: hạn mẫu đã qua ⇒ dồn hạn (ehCompress_) */
     var today = ehIso_(new Date());
-    tasks.forEach(function(t){   /* hạn gốc đã qua lúc tạo ⇒ hạn = hôm nay (Owner xem lại), không bỏ qua */
-      if (t.status === 'Bỏ qua'){ t.status = 'Chưa làm'; t.note = 'Hạn theo mẫu ' + ehD2_(t.due) + ' đã qua lúc tạo sự kiện'; t.due = today; t.dueManual = 'x'; }
-      t.createdBy = me.pic;
-    });
+    if (tasks.late) e.latePlan = String(tasks.late);
+    tasks.forEach(function(t){ t.createdBy = me.pic; });
+    ehAppend_(ss, 'EVENTS', EH.COLS.EVENTS, [e]);
     if (tasks.length) ehAppend_(ss, 'TASKS', EH.COLS.TASKS, tasks);
     var pr = PropertiesService.getScriptProperties(), gen = {}; try { gen = JSON.parse(pr.getProperty('EH_GEN') || '{}'); } catch(x){} gen[e.id] = today; pr.setProperty('EH_GEN', JSON.stringify(gen));
     ehLog_(ss, me, 'Tạo sự kiện', e.id, '', e.name + ' · ' + e.start + ' · ' + tasks.length + ' việc theo mẫu');
@@ -257,7 +260,8 @@ function ehSave2_(ss, me, op, d, events, evBy, now){
     ehLog_(ss, me, op === 'note.add' ? 'Thêm biên bản họp' : 'Sửa biên bản họp', ev6.id, '', nt.title + ' · ' + dt);
     var txt6 = nt.title + ' (' + dt.slice(8) + '/' + dt.slice(5, 7) + '): ' + (body + (act6 ? '\nViệc cần làm: ' + act6 : '')).slice(0, 600);
     ehMentions_(body + ' ' + act6 + ' ' + nt.attendees).forEach(function(n){ if (old6.indexOf('@' + n) < 0) EH_N.push({ to: n, kind: 'mention', ev: ev6, task: null, text: txt6, note: nt }); });
-    return { ok:true, note: ehClean2_(nt), tmp: ehS_(d.id) };
+    var nTasks = ehNoteTasks_(ss, me, ev6, nt, now);   /* v1.5: mỗi dòng "Việc cần làm sau họp" ⇒ 1 việc (MKT_EventHubFlow.gs) */
+    return { ok:true, note: ehClean2_(nt), tmp: ehS_(d.id), tasks: nTasks };
   }
   if (op === 'note.delete'){
     var M2 = ehRead_(ss, 'MEETINGS'), nx = M2.filter(function(x){ return ehS_(x.id) === ehS_(d.id); })[0]; if (!nx) return { ok:true };
@@ -307,7 +311,7 @@ function ehSave2_(ss, me, op, d, events, evBy, now){
 function ehDropEvents_(ss, ids){
   var bad = {}; ids.forEach(function(i){ bad[i] = 1; });
   var n = 0;
-  [['EVENTS', 'id'], ['TASKS', 'eventId'], ['FILES', 'eventId'], ['COMMENTS', 'eventId'], ['MEETINGS', 'eventId'], ['LOG', 'eventId'], ['PLAN_JSON', 'eventId']].forEach(function(x){
+  [['EVENTS', 'id'], ['TASKS', 'eventId'], ['FILES', 'eventId'], ['COMMENTS', 'eventId'], ['MEETINGS', 'eventId'], ['CHECKINS', 'eventId'], ['LOG', 'eventId'], ['PLAN_JSON', 'eventId']].forEach(function(x){
     var rows = ehRead_(ss, x[0]), keep = rows.filter(function(r){ return !bad[ehS_(r[x[1]])] && !(x[0] !== 'LOG' && x[0] !== 'PLAN_JSON' && ehS_(r.sample) && ids.SAMPLE); });
     if (keep.length !== rows.length){ n += rows.length - keep.length; ehRewrite_(ss, x[0], EH.COLS[x[0]], keep); }
   });
@@ -325,7 +329,7 @@ function ehDailyApi_(p){
     var ss = ehBook_(), me = ehMe_(p, ss); if (me.err) return { ok:false, code:'AUTH', error:me.err };
     if (!me.manager) return { ok:false, code:'PERM', error:'Chỉ quản lý được xem trước / gửi nhắc việc.' };
   }
-  return ehDaily_({ force: true, dry: String(p.send || '') !== '1', pic: ehS_(p.pic), weekly: String(p.weekly || '') === '1' });
+  return ehDaily_({ force: true, dry: String(p.send || '') !== '1', pic: ehS_(p.pic), weekly: String(p.weekly || '') === '1', checkin: String(p.checkin || '') === '1' });
 }
 function ehDaily_(opt){
   opt = opt || {};
@@ -339,56 +343,88 @@ function ehDaily_(opt){
   var ss = ehBook_(), events = ehRead_(ss, 'EVENTS'), evBy = {}, T = ehRead_(ss, 'TASKS'), par = {};
   events.forEach(function(e){ evBy[ehS_(e.id)] = e; });
   T.forEach(function(t){ if (ehS_(t.parentId)) par[t.parentId] = 1; });
-  var lim = ehIso_(new Date(now.getTime() + (+cfg.before || 0) * 864e5)), per = {}, own = {}, live = [];
+  var lim = ehIso_(new Date(now.getTime() + (+cfg.before || 0) * 864e5)), escD = Math.max(1, +cfg.escDays || 3);
+  var per = {}, own = {}, wait = {}, blk = {}, esc = [], live = [];
+  var push = function(m, k, x){ (m[k] = m[k] || []).push(x); };
   T.forEach(function(t){
-    var e = evBy[ehS_(t.eventId)]; if (!e || ehS_(e.sample) || ehS_(e.state) === 'Huỷ' || ehS_(e.follow) === 'Không') return;
+    var e = evBy[ehS_(t.eventId)]; if (!e || ehS_(e.sample) || ehS_(e.state) === 'Huỷ' || ehS_(e.follow) === 'Không' || ehS_(e.closedAt)) return;   /* v1.5: sự kiện đã đóng ⇒ thôi nhắc */
     if (!ehS_(t.parentId) && par[t.id]) return;
     live.push(t);
-    if (/^(Xong|Bỏ qua)$/.test(ehS_(t.status))) return;
-    var due = ehS_(t.due); if (!due || due > lim) return;
-    var x = { task: t, ev: e, late: due < today };
-    if (ehS_(t.pic)) (per[t.pic] = per[t.pic] || []).push(x);
-    var ow = ehS_(e.Owner);
-    if (cfg.ownerDigest && ow && ow !== ehS_(t.pic) && (x.late || !ehS_(t.pic))) (own[ow] = own[ow] || []).push(x);
+    var st = ehS_(t.status); if (/^(Xong|Bỏ qua)$/.test(st)) return;
+    var due = ehS_(t.due), pic = ehS_(t.pic), ow = ehS_(e.Owner), x = { task: t, ev: e, late: !!due && due < today };
+    /* v1.5: đã nộp "Chờ duyệt" ⇒ đến lượt Owner, không nhắc người làm · "Vướng" ⇒ Owner hỗ trợ */
+    if (st === 'Chờ duyệt'){ if (cfg.ownerDigest && ow && ow !== pic) push(wait, ow, x); return; }
+    if (st === 'Vướng'){ if (ow && ow !== pic) push(blk, ow, x); if (cfg.escalate && ehDays_(ehS_(t.updatedAt).slice(0, 10) || today, today) >= 2) esc.push(x); return; }
+    if (!due || due > lim) return;
+    if (pic) push(per, pic, x);
+    if (cfg.ownerDigest && ow && ow !== pic && (x.late || !pic)) push(own, ow, x);
+    if (cfg.escalate && x.late && ehDays_(due, today) >= escD) esc.push(x);
   });
-  var weekly = (opt.weekly || (now.getDay() === 1 && cfg.weekly)), mgrs = [];
-  if (weekly) ehRead_(ss, 'TEAM').forEach(function(r){ if (ehS_(r.role) === 'Quản lý') ehS_(r.people).split(',').forEach(function(x){ x = x.trim(); if (x && mgrs.indexOf(x) < 0) mgrs.push(x); }); });
-  var who = Object.keys(per).concat(Object.keys(own)).concat(mgrs).filter(function(x, i, a){ return a.indexOf(x) === i; });
+  var mgrs = ehMgrs_(ss), weekly = (opt.weekly || (now.getDay() === 1 && cfg.weekly));
+  /* thứ Sáu: Owner chưa cập nhật tình hình tuần cho sự kiện đang theo dõi */
+  var ck = {}, wk = ehWeekOf_(today), CK = ehRead_(ss, 'CHECKINS'), hasCk = {};
+  CK.forEach(function(c){ if (ehS_(c.week) === wk) hasCk[ehS_(c.eventId)] = 1; });
+  if (cfg.checkin && (now.getDay() === 5 || opt.checkin)) events.forEach(function(e){
+    if (!ehActive_(e, today) || hasCk[e.id] || !ehS_(e.Owner) || ehDays_(today, ehS_(e.start)) > 60) return;
+    push(ck, ehS_(e.Owner), e);
+  });
+  var who = [].concat(Object.keys(per), Object.keys(own), Object.keys(wait), Object.keys(blk), Object.keys(ck), esc.length ? mgrs : [], weekly ? mgrs : []).filter(function(x, i, a){ return a.indexOf(x) === i; });
   if (opt.pic) who = who.filter(function(x){ return x === opt.pic; });
-  var U = ehUsers_(), logs = [], preview = [];
+  var U = ehUsers_(), logs = [], preview = [], feed = [];
+  var byDue = function(a, b){ return ehS_(a.task.due) < ehS_(b.task.due) ? -1 : 1; };
   who.forEach(function(pic){
-    var mine = (per[pic] || []).sort(function(a, b){ return ehS_(a.task.due) < ehS_(b.task.due) ? -1 : 1; }), mo = own[pic] || [], paras = [];
-    var late = mine.filter(function(x){ return x.late; }), soon = mine.filter(function(x){ return !x.late; });
-    if (late.length) paras.push(ehList_('<b>' + late.length + ' việc quá hạn</b> — hoàn thành hoặc báo Owner để đổi hạn:', late, true));
+    var mine = (per[pic] || []).sort(byDue), mo = own[pic] || [], wt = (wait[pic] || []).sort(byDue), bk = blk[pic] || [], cks = ck[pic] || [], paras = [];
+    var late = mine.filter(function(x){ return x.late; }), soon = mine.filter(function(x){ return !x.late; }), ex = mgrs.indexOf(pic) >= 0 ? esc.sort(byDue) : [];
+    if (late.length) paras.push(ehList_('<b>' + late.length + ' việc quá hạn</b> — hoàn thành, hoặc bấm “Vướng” trên app nếu cần Owner hỗ trợ:', late, true));
     if (soon.length) paras.push(ehList_('<b>' + soon.length + ' việc đến hạn</b> ' + (cfg.before ? 'trong ' + cfg.before + ' ngày tới' : 'hôm nay') + ':', soon, true));
+    if (wt.length) paras.push(ehList_('<b>' + wt.length + ' việc đã nộp, chờ bạn duyệt</b> (người làm không bị nhắc nữa — việc đang nằm ở bạn):', wt, true));
+    if (bk.length) paras.push(ehList_('<b>' + bk.length + ' việc đang vướng</b>, người làm cần bạn hỗ trợ:', bk.map(function(x){ var t = {}; for (var k in x.task) t[k] = x.task[k]; t.note = 'Vướng: ' + ehS_(x.task.block); return { task: t, ev: x.ev }; }), true));
     if (mo.length) paras.push(ehList_('Sự kiện bạn điều phối có <b>' + mo.filter(function(x){ return x.late; }).length + ' việc trễ</b> của người khác' +
                                       (mo.some(function(x){ return !ehS_(x.task.pic); }) ? ' và việc <b>chưa giao</b>' : '') + ':', mo.slice(0, 25), true));
-    if (mgrs.indexOf(pic) >= 0) paras.push(ehWeekly_(events, live, today));
+    if (cks.length) paras.push({ html: '<p><b>Cập nhật tình hình tuần</b> (1 phút / sự kiện: Xanh · Vàng · Đỏ, đã làm gì, vướng gì):</p><ul style="padding-left:20px;margin:0 0 12px">' +
+                                       cks.map(function(e){ return '<li><a href="' + EH.APP_URL + '#ev-' + encodeURIComponent(e.id) + '/week">' + ehH_(ehEvLine_(e)) + '</a></li>'; }).join('') + '</ul>',
+                                 text: 'Cập nhật tình hình tuần:\n' + cks.map(function(e){ return '- ' + ehEvLine_(e) + '\n  ' + EH.APP_URL + '#ev-' + e.id + '/week'; }).join('\n') });
+    if (ex.length) paras.push(ehList_('<b>' + ex.length + ' việc trễ từ ' + escD + ' ngày / vướng từ 2 ngày</b> ở các sự kiện (bạn nhận vì là quản lý):', ex.slice(0, 30).map(function(x){ var t = {}; for (var k in x.task) t[k] = x.task[k]; t.note = (ehS_(t.pic) ? 'Người làm: ' + t.pic : 'Chưa giao người') + (ehS_(t.block) ? ' · Vướng: ' + t.block : ''); return { task: t, ev: x.ev }; }), true));
+    if (weekly && mgrs.indexOf(pic) >= 0) paras.push(ehWeekly_(events, live, today, CK));
     if (!paras.length) return;
     var subj = '[Sự kiện MKT] Việc cần làm ' + Utilities.formatDate(now, 'Asia/Ho_Chi_Minh', 'dd/MM') + ': ' +
-               [late.length ? late.length + ' quá hạn' : '', soon.length ? soon.length + ' sắp đến hạn' : '', mo.length ? mo.length + ' cần theo dõi' : '', mgrs.indexOf(pic) >= 0 ? 'tổng hợp tuần' : ''].filter(String).join(' · ');
+               [late.length ? late.length + ' quá hạn' : '', soon.length ? soon.length + ' sắp đến hạn' : '', wt.length ? wt.length + ' chờ bạn duyệt' : '', bk.length ? bk.length + ' vướng' : '',
+                mo.length ? mo.length + ' cần theo dõi' : '', cks.length ? 'cập nhật tuần' : '', ex.length ? ex.length + ' trễ lâu' : '', weekly && mgrs.indexOf(pic) >= 0 ? 'tổng hợp tuần' : ''].filter(String).join(' · ');
     var L = ehLetter_(pic, paras), u = U[pic], row = { at: ehNow_(), to: pic, kind: 'daily', eventId: '', taskId: '', subject: subj, ok: '', by: 'Hệ thống' };
     if (!u || !u.email) row.ok = 'Không có email';
     else if (opt.dry) row.ok = 'Xem trước';
     else { try { mmhMail_({ to: u.email, subject: subj, body: L.text, htmlBody: L.html, name: 'Sự kiện MKT · MMH' }); row.ok = 'Đã gửi'; } catch(e){ row.ok = 'Lỗi: ' + String(e && e.message || e).slice(0, 140); } }
-    logs.push(row); preview.push({ to: pic, subject: subj, late: late.length, soon: soon.length, owner: mo.length, ok: row.ok, html: opt.dry && opt.pic ? L.html : undefined });
+    logs.push(row); preview.push({ to: pic, subject: subj, late: late.length, soon: soon.length, wait: wt.length, block: bk.length, owner: mo.length, esc: ex.length, ok: row.ok, html: opt.dry && opt.pic ? L.html : undefined });
+    /* v1.5: hộp thông báo chung (Report Hub / CRM ▸ Nhắc tôi) — 1 dòng / người / ngày */
+    var lines = [].concat(late, soon, wt, bk).slice(0, 8).map(function(x){ return '• ' + ehS_(x.task.title) + ' — ' + ehS_(x.ev.name) + (ehS_(x.task.due) ? ' (hạn ' + ehD2_(x.task.due) + ')' : ''); });
+    if (cks.length) lines.push('• Cập nhật tình hình tuần: ' + cks.map(function(e){ return ehS_(e.name); }).join(', '));
+    feed.push(['N' + Utilities.getUuid().replace(/-/g, '').slice(0, 12), new Date(), pic, 'event', 'daily', subj.replace(/^\[Sự kiện MKT\]\s*/, '').slice(0, 300), lines.join('\n').slice(0, 900),
+               EH.APP_URL + (cks.length && !mine.length ? '#ev-' + encodeURIComponent(cks[0].id) + '/week' : '#mine'), 'Hệ thống', '', '', '']);
   });
   if (logs.length && !opt.dry){ try { ehAppend_(ss, 'NOTIFY', EH.COLS.NOTIFY, logs); } catch(e){} }
+  if (feed.length && !opt.dry) ehFeed_(feed);
   return { ok:true, dry: !!opt.dry, date: today, people: preview.length, items: preview };
 }
-function ehWeekly_(events, live, today){
-  var lim = ehIso_(new Date(ehDate_(today).getTime() + 30 * 864e5)), rows = [];
-  events.filter(function(e){ return !ehS_(e.sample) && ehS_(e.state) !== 'Huỷ' && ehS_(e.start) >= today && ehS_(e.start) <= lim; })
+/* tổng hợp tuần cho quản lý: sự kiện 30 ngày tới + sự kiện đã diễn ra chưa đóng · tình hình tuần gần nhất (Owner cập nhật) */
+function ehWeekly_(events, live, today, CK){
+  var lim = ehIso_(new Date(ehDate_(today).getTime() + 30 * 864e5)), rows = [], last = {};
+  (CK || []).forEach(function(c){ var k = ehS_(c.eventId); if (!last[k] || ehS_(c.week) + ehS_(c.at) > ehS_(last[k].week) + ehS_(last[k].at)) last[k] = c; });
+  events.filter(function(e){ return ehActive_(e, today) && ehS_(e.start) <= lim; })
     .sort(function(a, b){ return a.start < b.start ? -1 : 1; }).forEach(function(e){
       var ts = live.filter(function(t){ return ehS_(t.eventId) === e.id && ehS_(t.status) !== 'Bỏ qua'; }), done = ts.filter(function(t){ return ehS_(t.status) === 'Xong'; }).length;
       var late = ts.filter(function(t){ return ehS_(t.status) !== 'Xong' && ehS_(t.due) && ehS_(t.due) < today; }).length, none = ts.filter(function(t){ return !ehS_(t.pic) && ehS_(t.status) !== 'Xong'; }).length;
-      rows.push({ e: e, pct: ts.length ? Math.round(done / ts.length * 100) : 0, late: late, none: none, n: ts.length });
+      var blk = ts.filter(function(t){ return ehS_(t.status) === 'Vướng'; }).length, c = last[e.id], after = ehS_(e.end || e.start) < today;
+      rows.push({ e: e, pct: ts.length ? Math.round(done / ts.length * 100) : 0, late: late, none: none, blk: blk, n: ts.length, c: c, after: after });
     });
-  if (!rows.length) return { html: '<p>Tổng hợp tuần: không có sự kiện trong 30 ngày tới.</p>', text: 'Tổng hợp tuần: không có sự kiện trong 30 ngày tới.' };
-  var td = 'padding:6px 10px;border-bottom:1px solid #E6EAEF;text-align:left';
-  return { html: '<p><b>Tổng hợp tuần — sự kiện 30 ngày tới</b></p><table style="border-collapse:collapse;font-size:13.5px;margin:0 0 12px"><tr><th style="' + td + '">Sự kiện</th><th style="' + td + '">Ngày</th><th style="' + td + '">Xong</th><th style="' + td + '">Trễ</th><th style="' + td + '">Chưa giao</th><th style="' + td + '">Owner</th></tr>' +
-                   rows.map(function(r){ return '<tr><td style="' + td + '"><a href="' + EH.APP_URL + '#ev-' + encodeURIComponent(r.e.id) + '">' + ehH_(r.e.name) + '</a></td><td style="' + td + '">' + ehD2_(r.e.start) + '</td><td style="' + td + '">' + r.pct + '%</td><td style="' + td + (r.late ? ';color:#B83A2E;font-weight:600' : '') + '">' + r.late + '</td><td style="' + td + '">' + r.none + '</td><td style="' + td + '">' + ehH_(r.e.Owner || '—') + '</td></tr>'; }).join('') + '</table>',
-           text: 'Tổng hợp tuần — sự kiện 30 ngày tới:\n' + rows.map(function(r){ return '- ' + r.e.name + ' · ' + ehD2_(r.e.start) + ' · xong ' + r.pct + '% · trễ ' + r.late + ' · chưa giao ' + r.none; }).join('\n') };
+  if (!rows.length) return { html: '<p>Tổng hợp tuần: không có sự kiện nào đang theo dõi.</p>', text: 'Tổng hợp tuần: không có sự kiện nào đang theo dõi.' };
+  var td = 'padding:6px 10px;border-bottom:1px solid #E6EAEF;text-align:left;vertical-align:top', col = { 'Xanh': '#2E7D4F', 'Vàng': '#B26B00', 'Đỏ': '#B83A2E' };
+  var tw = ehWeekOf_(today), ckTxt = function(r){ var c = r.c; if (!c) return 'Chưa cập nhật'; return (ehS_(c.week) === tw ? '' : '(tuần ' + ehD2_(c.week).slice(0, 5) + ') ') + c.rag + (ehS_(c.block) ? ' · Vướng: ' + ehS_(c.block) : '') + (ehS_(c.help) ? ' · Cần hỗ trợ: ' + ehS_(c.help) : ''); };
+  return { html: '<p><b>Tổng hợp tuần — sự kiện đang theo dõi</b> (30 ngày tới + đã diễn ra chưa đóng)</p><table style="border-collapse:collapse;font-size:13.5px;margin:0 0 12px"><tr><th style="' + td + '">Sự kiện</th><th style="' + td + '">Ngày</th><th style="' + td + '">Xong</th><th style="' + td + '">Trễ</th><th style="' + td + '">Vướng</th><th style="' + td + '">Chưa giao</th><th style="' + td + '">Owner cập nhật tuần</th></tr>' +
+                   rows.map(function(r){ var c = r.c;
+                     return '<tr><td style="' + td + '"><a href="' + EH.APP_URL + '#ev-' + encodeURIComponent(r.e.id) + '">' + ehH_(r.e.name) + '</a>' + (r.after ? '<br><span style="color:#B26B00">Đã diễn ra · chưa đóng</span>' : '') + '</td><td style="' + td + '">' + ehD2_(r.e.start) + '</td><td style="' + td + '">' + r.pct +
+                       '%</td><td style="' + td + (r.late ? ';color:#B83A2E;font-weight:600' : '') + '">' + r.late + '</td><td style="' + td + (r.blk ? ';color:#B26B00;font-weight:600' : '') + '">' + r.blk + '</td><td style="' + td + '">' + r.none +
+                       '</td><td style="' + td + (c ? ';color:' + (col[c.rag] || '#333') : ';color:#888') + '">' + ehH_(ckTxt(r)) + '</td></tr>'; }).join('') + '</table>',
+           text: 'Tổng hợp tuần — sự kiện đang theo dõi:\n' + rows.map(function(r){ return '- ' + r.e.name + ' · ' + ehD2_(r.e.start) + (r.after ? ' · đã diễn ra, chưa đóng' : '') + ' · xong ' + r.pct + '% · trễ ' + r.late + ' · vướng ' + r.blk + ' · chưa giao ' + r.none + ' · ' + ckTxt(r); }).join('\n') };
 }
 
 /* ══════════ ④ DỮ LIỆU MẪU ══════════ */
@@ -401,7 +437,7 @@ function ehSample_(p){
   var op = String(p.op || 'status'), lock = LockService.getScriptLock();
   if (!lock.tryLock(25000)) return { ok:false, busy:true, error:'Hệ thống đang bận, thử lại sau.' };
   try {
-    var cnt = function(){ var o = {}; ['EVENTS', 'TASKS', 'FILES', 'COMMENTS', 'MEETINGS'].forEach(function(t){ var R = ehRead_(ss, t); o[t] = { all: R.length, sample: R.filter(function(r){ return ehS_(r.sample); }).length }; }); return o; };
+    var cnt = function(){ var o = {}; ['EVENTS', 'TASKS', 'FILES', 'COMMENTS', 'MEETINGS', 'CHECKINS'].forEach(function(t){ var R = ehRead_(ss, t); o[t] = { all: R.length, sample: R.filter(function(r){ return ehS_(r.sample); }).length }; }); return o; };
     var last = {}; try { last = JSON.parse(PropertiesService.getScriptProperties().getProperty('EH_LAST') || '{}'); } catch(e){}
     if (op === 'status') return { ok:true, ver: EH.VER, book: ss.getUrl(), counts: cnt(), sync: last, cfg: ehCfg_() };
     var ids = ehRead_(ss, 'EVENTS').filter(function(e){ return ehS_(e.sample); }).map(function(e){ return ehS_(e.id); });
@@ -443,7 +479,7 @@ function ehSampleSeed_(ss, me){
     { name: "Webinar Bleach'N Shine (mẫu)", s: -35, n: 0, type: 'Webinar', city: 'Online', venue: 'Zoom Webinar', products: "Bleach'N Shine", target: 100, actual: 96, budget: 6e6, spent: 5.2e6, cover: 'bleach-shine.png',
       purpose: 'Giới thiệu sản phẩm tẩy trắng', audience: 'Bác sĩ nha khoa thẩm mỹ', kpi: '100 người xem' }
   ];
-  var tpl = ehRead_(ss, 'TEMPLATE'), E = [], TK = [], F = [], C = [], LG = [], MT = [], now = ehNow_();
+  var tpl = ehRead_(ss, 'TEMPLATE'), E = [], TK = [], F = [], C = [], LG = [], MT = [], CK = [], now = ehNow_(), wk0 = ehWeekOf_(ehIso_(today));
   var IMG = [[/key visual|poster/i, ['ws-comp-1.jpg', 'ws-jizai-1.jpg', 'ws-led-hn.jpg', 'ws-restorative.jpg', 'ws-led-vp.jpg', 'knife-hero.jpg', 'bleach-shine.png']],
              [/backdrop|vách/i, ['ws-jizai-2.jpg']], [/standee/i, ['standee.png']], [/flyer|brochure|ctkm/i, ['line-01.png', 'line-02.png', 'diabur-ipr.png', 'line-04.png']],
              [/thẻ đeo|bảng tên|check-in có/i, ['catalog-p3.png']], [/set ?up|gian hàng \(ảnh/i, ['ws-jizai-kit.jpg']], [/ảnh \/ video/i, ['ws-jizai-3.jpg', 'ws-comp-2.jpg', 'ws-comp-3.jpg']],
@@ -457,7 +493,7 @@ function ehSampleSeed_(ss, me){
     /* v1.3: đúng vai trò (MKT_EventHubTeam.gs) — Owner Thuong · Digital Minh Trang · Design Duc Anh · Trade (hậu cần) Trang */
     e.Owner = DEF.Owner || lead; e.Digital = DEF.Digital || pick(mkt, i + 1); e.Design = i === 3 ? '' : (DEF.Design || pick(mkt, i + 2)); e.Trade = x.type === 'Webinar' ? '' : (DEF.Trade || pick(mkt, i + 3)); e.Sales = pick(sales, i);
     E.push(e);
-    var ts = ehTasksFor_(e, tpl), kids = {}, endIso = e.end, past = endIso < ehIso_(today);
+    var ts = ehTasksFor_(e, tpl, { keep: true }), kids = {}, endIso = e.end, past = endIso < ehIso_(today);
     ts.forEach(function(t){ if (t.parentId) kids[t.parentId] = 1; });
     ts.forEach(function(t, j){
       t.sample = 'x'; t.note = ''; t.status = 'Chưa làm'; t.createdBy = 'Hệ thống';
@@ -517,6 +553,14 @@ function ehSampleSeed_(ss, me){
                 actions: '@' + e.Sales + ' gửi danh sách khách trước ' + ehD2_(mAt(1)) + (e.Trade ? '\n@' + e.Trade + ' chuẩn bị quà tạm ứng NPP' : ''), by: e.Owner, at: mAt(-2) + 'T10:30:00', sample: 'x' });
     }
     if (past) cm(null, e.Owner, 'Tổng kết: ' + (x.actual || '') + ' khách tham dự / mục tiêu ' + x.target + '. Báo cáo đã gửi toàn MMH.', 24 * (ehDays_(e.end, ehIso_(today)) - 6));
+    /* v1.5: tình hình tuần · việc Vướng · số liệu follow-up · sự kiện đã đóng (mẫu) */
+    if (!past && i < 3) CK.push({ id: 'KMAU-' + i, eventId: e.id, week: wk0, rag: ['Xanh', 'Vàng', 'Đỏ'][i], by: e.Owner, at: now, sample: 'x',
+      done: ['Đã chốt KOL, mở form đăng ký, key visual đã duyệt.', 'Đã có 60 người đăng ký, bài teaser đã đăng.', 'Đã đặt gian hàng, NPP xác nhận tham gia.'][i],
+      block: ['', 'Chưa chốt được link Zoom Webinar bản trả phí.', 'Backdrop chưa in kịp, nhà in báo trễ 3 ngày.'][i], help: i === 2 ? 'Cần duyệt thêm 5 triệu chi phí in gấp.' : '',
+      next: ['Đăng bài giới thiệu KOL, chốt danh sách check-in.', 'Đăng bài đếm ngược, gửi nhắc lịch cho khách.', 'Gửi đồ đi Hải Phòng, chốt ca trực gian hàng.'][i] });
+    if (!past && i === 1){ var bt = leaf.filter(function(t){ return !/^(Xong|Chờ duyệt)$/.test(t.status) && t.due >= ehIso_(today); })[0]; if (bt){ bt.status = 'Vướng'; bt.block = 'Chờ NPP xác nhận số lượng — cần Owner gọi NPP giúp'; } }
+    if (past) ts.forEach(function(t){ if (/liên hệ lần đầu/i.test(t.title)){ t.fuTotal = Math.round((x.actual || x.target) * .4); t.fuDone = Math.round((x.actual || x.target) * .25); } if (/chuyển đổi/i.test(t.title)){ t.fuTotal = Math.round((x.actual || x.target) * .4); t.fuOrder = Math.round((x.actual || x.target) * .07); } });
+    if (past && i === EVS.length - 1){ ts.forEach(function(t){ if (t.parentId && t.status !== 'Xong'){ t.status = 'Xong'; t.doneAt = ehIso_(today) + 'T09:00:00'; } }); e.closedAt = add(-3) + 'T16:00:00'; e.closedBy = e.Owner; }
   });
   C.forEach(function(c){ var m = []; all.forEach(function(n){ if (c.text.indexOf('@' + n) >= 0) m.push(n); }); c.mentions = m.join(', '); });
   LG.sort(function(a, b){ return a.at < b.at ? -1 : 1; });
@@ -526,6 +570,9 @@ function ehSampleSeed_(ss, me){
   ehAppend_(ss, 'COMMENTS', EH.COLS.COMMENTS, C);
   MT.forEach(function(m){ m.updatedAt = m.at; m.updatedBy = m.by; });
   ehAppend_(ss, 'MEETINGS', EH.COLS.MEETINGS, MT);
+  ehAppend_(ss, 'CHECKINS', EH.COLS.CHECKINS, CK);
+  MT.forEach(function(m){ var ev = E.filter(function(x){ return x.id === m.eventId; })[0]; try { ehNoteTasks_(ss, { pic: m.by }, ev, m, m.at); } catch(x){} });   /* v1.5: việc từ biên bản họp mẫu */
+  EH_N = [];
   ehAppend_(ss, 'LOG', EH.COLS.LOG, LG);
-  return { events: E.length, tasks: TK.length, files: F.length, comments: C.length, meetings: MT.length, log: LG.length, owner: lead, team: { mkt: mkt.length, sales: sales.length } };
+  return { events: E.length, tasks: TK.length, files: F.length, comments: C.length, meetings: MT.length, checkins: CK.length, log: LG.length, owner: lead, team: { mkt: mkt.length, sales: sales.length } };
 }
