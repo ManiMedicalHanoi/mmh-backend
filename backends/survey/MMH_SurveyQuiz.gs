@@ -34,7 +34,28 @@ function svQuizSetup_(form, ss, spec, c, notes) {
   sh.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight('bold').setBackground('#F0F7FF').setFontColor('#003047');
   sh.setFrozenRows(1);
   (c.notify || []).forEach(function (m) { try { ss.addViewer(m); } catch (x) { notes.push('Chia sẻ Sheet cho ' + m + ': ' + x.message); } });
-  return SV.URL + '?t=' + form.getId();
+  return SV.URL + '?q=' + svQuizCode_(form.getId());
+}
+
+/* Link làm bài: KHÔNG để mã file Drive trên URL web app (?t=<formId>) — trình duyệt đã đăng nhập Google bị cổng Google chặn
+ * ("Rất tiếc, không thể mở tệp tại thời điểm này", giống lỗi fileId của Training Hub v3.24) ⇒ mã ngắn ?q=<8 ký tự> (Script Property QC_<mã> = formId). */
+function svQuizCode_(formId) {
+  var P = PropertiesService.getScriptProperties(), cfg = svQuizCfg_(formId);
+  if (cfg && cfg.code) return cfg.code;
+  var abc = 'abcdefghijkmnpqrstuvwxyz23456789', code;
+  do { code = ''; for (var i = 0; i < 8; i++) code += abc.charAt(Math.floor(Math.random() * abc.length)); } while (P.getProperty('QC_' + code));
+  P.setProperty('QC_' + code, formId);
+  if (cfg) { cfg.code = code; P.setProperty('Q_' + formId, JSON.stringify(cfg)); }
+  return code;
+}
+function svQuizFromCode_(code) { return PropertiesService.getScriptProperties().getProperty('QC_' + String(code || '').replace(/[^a-z0-9]/g, '')) || ''; }
+
+function svQuizNotify_(formId, list) {
+  var P = PropertiesService.getScriptProperties(), cfg = svQuizCfg_(formId), notes = [];
+  cfg.notify = list.filter(function (m) { return /@/.test(m); });
+  P.setProperty('Q_' + formId, JSON.stringify(cfg));
+  try { var ss = SpreadsheetApp.openById(cfg.sheetId); cfg.notify.forEach(function (m) { try { ss.addViewer(m); } catch (x) { notes.push(m + ': ' + x.message); } }); } catch (x) { notes.push(x.message); }
+  return notes;
 }
 
 /* ---- trang ---- */
