@@ -1,5 +1,5 @@
 /**
- * MMH Survey API v1.1 (03/11/2026; v1.1: câu sàng lọc — mọi lựa chọn đều gắn điều hướng, form lỗi giữa chừng tự vào Thùng rác) — tạo Google Form KHẢO SÁT / BÀI KIỂM TRA từ 1 bản mô tả JSON.
+ * MMH Survey API v1.2 (03/11/2026; v1.2: người trả lời = ai có link (Drive reader + view published), action share; v1.1: câu sàng lọc — mọi lựa chọn đều gắn điều hướng, form lỗi giữa chừng tự vào Thùng rác) — tạo Google Form KHẢO SÁT / BÀI KIỂM TRA từ 1 bản mô tả JSON.
  * Claude (phiên Claude Code) soạn câu hỏi theo yêu cầu + tài liệu ⇒ gọi web app này ⇒ trả link ngay trong chat.
  * Bộ mô tả + quy tắc soạn: kho mmh-library ▸ surveys/ (README.md, specs/*.json, tools/survey.py).
  *
@@ -13,7 +13,7 @@
  *   title, intro (lời mở đầu, xưng "Quý bác sĩ"), minutes (thời gian trả lời / làm bài),
  *   passPercent (quiz, mặc định 70), shuffle (quiz), confirmation,
  *   info: true | false | [{t,q,required}],   // mặc định: Họ và tên* · Số điện thoại* · Bệnh viện / phòng khám
- *   share: "edit" | "view" | "none",       // quyền cho mọi người có link với Form + Sheet (mặc định "none": Form vẫn trả lời được bằng link, Sheet chỉ chủ script xem — Sheet có SĐT)
+ *   share: "edit" | "view" | "none",       // quyền cho mọi người có link với Form + Sheet (mặc định "edit" — người dùng yêu cầu 03/11/2026: mọi link ai có cũng mở được)
  *   sections: [{ id, title, help, questions: [ Q ] }]
  * }
  * Q = { t: "radio"|"checkbox"|"list"|"text"|"phone"|"paragraph"|"scale"|"grid"|"checkgrid"|"header",
@@ -22,7 +22,7 @@
  *       low, high, lowLabel, highLabel (scale), rows, cols (grid),
  *       correct (quiz: chỉ số đáp án đúng, từ 0), points, explanation }
  */
-var SV = { VER: '1.1', KEY: 'mmh-sv-7Qk2pX9w', LOG_PROP: 'SV_LOG_ID', FOLDER_PROP: 'SV_FOLDER_ID', FOLDER: 'MMH Survey · Form tạo tự động' };
+var SV = { VER: '1.2', KEY: 'mmh-sv-7Qk2pX9w', LOG_PROP: 'SV_LOG_ID', FOLDER_PROP: 'SV_FOLDER_ID', FOLDER: 'MMH Survey · Form tạo tự động' };
 
 function doGet(e) { return svHandle_(e && e.parameter || {}, null); }
 function doPost(e) {
@@ -41,6 +41,11 @@ function svHandle_(p, body) {
     var want = PropertiesService.getScriptProperties().getProperty('SV_KEY') || SV.KEY;
     if (key !== want) return svOut_({ ok: false, error: 'KEY' });
     if (a === 'list') return svOut_({ ok: true, items: svList_() });
+    if (a === 'share') {  // áp lại quyền cho form đã tạo: formId, sheetId, mode
+      var fm = FormApp.openById(p.formId || (body || {}).formId);
+      var notes = svShare_(fm, p.sheetId || (body || {}).sheetId || '', p.mode || (body || {}).mode || 'edit');
+      return svOut_({ ok: true, notes: notes, info: svShareInfo_(fm) });
+    }
     if (a === 'create') {
       var spec = body && body.spec;
       if (!spec && p.p) spec = JSON.parse(Utilities.newBlob(Utilities.base64DecodeWebSafe(p.p)).getDataAsString());
@@ -133,12 +138,7 @@ function svCreate_(spec) {
 
   var folder = svFolder_();
   [form.getId(), ss.getId()].forEach(function (id) { try { DriveApp.getFileById(id).moveTo(folder); } catch (x) {} });
-  var share = spec.share || 'none', shareNote = [];
-  if (share !== 'none') [[ss.getId(), 'Sheet'], [form.getId(), 'Form']].forEach(function (f) {
-    try {
-      DriveApp.getFileById(f[0]).setSharing(DriveApp.Access.ANYONE_WITH_LINK, share === 'view' ? DriveApp.Permission.VIEW : DriveApp.Permission.EDIT);
-    } catch (x) { shareNote.push(f[1] + ': ' + x.message); }
-  });
+  var share = spec.share || 'edit', shareNote = svShare_(form, ss.getId(), share);
   (spec.editors || []).forEach(function (m) { try { form.addEditor(m); ss.addEditor(m); } catch (x) { shareNote.push(m + ': ' + x.message); } });
 
   var url = form.getPublishedUrl(), short = url;
@@ -207,6 +207,35 @@ function svAdd_(form, q, quiz, nav) {
   }
   it.setRequired(req);
   return { pts: pts };
+}
+
+/* ---------- quyền truy cập ----------
+ * Google Forms mới: NGƯỜI TRẢ LỜI = quyền Drive "reader" + view "published" (không phải quyền xem file thường) ⇒ phải tạo riêng,
+ * nếu không người ngoài mở link gặp "You need access". Quyền sửa / xem Sheet: DriveApp.setSharing ai có link. */
+function svShare_(form, ssId, mode) {
+  var notes = [], id = form.getId();
+  try { form.setPublished(true); } catch (x) {}
+  try { form.setAcceptingResponses(true); } catch (x) {}
+  try { form.setRequireLogin(false); } catch (x) {}  // Workspace: bỏ giới hạn "chỉ người trong tổ chức"
+  try { Drive.Permissions.create({ type: 'anyone', role: 'reader', view: 'published', allowFileDiscovery: false }, id, { supportsAllDrives: true }); }
+  catch (x) { notes.push('Người trả lời (ai có link): ' + x.message); }
+  if (mode && mode !== 'none') {
+    var perm = mode === 'view' ? DriveApp.Permission.VIEW : DriveApp.Permission.EDIT;
+    [[id, 'Form'], [ssId, 'Sheet']].forEach(function (f) {
+      if (!f[0]) return;
+      try { DriveApp.getFileById(f[0]).setSharing(DriveApp.Access.ANYONE_WITH_LINK, perm); } catch (x) { notes.push(f[1] + ': ' + x.message); }
+    });
+  }
+  return notes;
+}
+
+function svShareInfo_(form) {
+  var o = {};
+  try { o.published = form.isPublished(); } catch (x) {}
+  try { o.advanced = form.supportsAdvancedResponderPermissions(); } catch (x) {}
+  try { o.requireLogin = form.requiresLogin(); } catch (x) {}
+  try { o.perms = (Drive.Permissions.list(form.getId(), { fields: 'permissions(type,role,view,domain)', supportsAllDrives: true }).permissions || []); } catch (x) { o.permErr = x.message; }
+  return o;
 }
 
 /* ---------- thư mục + nhật ký ---------- */
