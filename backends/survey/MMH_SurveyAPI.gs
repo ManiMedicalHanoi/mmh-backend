@@ -26,10 +26,11 @@
  *       low, high, lowLabel, highLabel (scale), rows, cols (grid),
  *       correct (quiz: chỉ số đáp án đúng, từ 0), points, explanation }
  */
-var SV = { VER: '2.3', URL: 'https://script.google.com/macros/s/AKfycbx8l7u4j2tFDpfsg8IFsEcuXNrTbrLVRA_SoZ2Iisqprfm1ipL4z2NfDudVKuI1paFQPg/exec', KEY: 'mmh-sv-7Qk2pX9w', LOG_PROP: 'SV_LOG_ID', FOLDER_PROP: 'SV_FOLDER_ID', FOLDER: 'MMH Survey · Form tạo tự động' };
+var SV = { VER: '2.4', URL: 'https://script.google.com/macros/s/AKfycbx8l7u4j2tFDpfsg8IFsEcuXNrTbrLVRA_SoZ2Iisqprfm1ipL4z2NfDudVKuI1paFQPg/exec', KEY: 'mmh-sv-7Qk2pX9w', LOG_PROP: 'SV_LOG_ID', FOLDER_PROP: 'SV_FOLDER_ID', FOLDER: 'MMH Survey · Form tạo tự động' };
 
 function doGet(e) {
   var p = e && e.parameter || {};
+  if (p.q) { var fq = svQuizFromCode_(p.q); return fq ? svQuizPage_(fq) : HtmlService.createHtmlOutput('<p style="font-family:sans-serif;padding:24px">Link bài kiểm tra không đúng hoặc đã bị xoá.</p>'); }
   if (p.t) return svQuizPage_(p.t);           // trang làm bài (đếm ngược, chấm điểm, email kết quả) — MMH_SurveyQuiz.gs
   if (p.b) return svBuilderPage_(p.k || '');  // trang tạo form từ link (dự phòng khi Claude không gọi được máy chủ)
   return svHandle_(p, null);
@@ -56,6 +57,13 @@ function svHandle_(p, body) {
       return svOut_({ ok: true, notes: notes, info: svShareInfo_(fm) });
     }
     if (a === 'scopes') return svOut_(svScopes_());
+    if (a === 'quizLink') {  // link làm bài dạng mã ngắn cho bài đã tạo (+ đổi danh sách email nhận kết quả nếu gửi notify)
+      var qf = p.formId || (body || {}).formId, nt = (body || {}).notify;
+      if (!svQuizCfg_(qf)) return svOut_({ ok: false, error: 'Không có bài kiểm tra ' + qf });
+      var notes2 = [];
+      if (Array.isArray(nt)) notes2 = svQuizNotify_(qf, nt);
+      return svOut_({ ok: true, quizUrl: SV.URL + '?q=' + svQuizCode_(qf), notify: svQuizCfg_(qf).notify, notes: notes2 });
+    }
     if (a === 'docText') return svOut_(svDocText_(p.fileId || (body || {}).fileId, Number(p.max || (body || {}).max || 150000)));
     if (a === 'create') {
       var spec = body && body.spec;
