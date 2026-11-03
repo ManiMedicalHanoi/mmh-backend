@@ -1,5 +1,5 @@
 /**
- * MMH Survey API v2.0 (03/11/2026; v2.0: bài kiểm tra có trang làm bài đếm ngược + mốc đạt + email kết quả (MMH_SurveyQuiz.gs); v1.2: người trả lời = ai có link (Drive reader + view published), action share; v1.1: câu sàng lọc — mọi lựa chọn đều gắn điều hướng, form lỗi giữa chừng tự vào Thùng rác) — tạo Google Form KHẢO SÁT / BÀI KIỂM TRA từ 1 bản mô tả JSON.
+ * MMH Survey API v2.1 (03/11/2026; v2.1: action docText (đọc chữ tài liệu Drive cho Claude); v2.0: bài kiểm tra có trang làm bài đếm ngược + mốc đạt + email kết quả (MMH_SurveyQuiz.gs); v1.2: người trả lời = ai có link (Drive reader + view published), action share; v1.1: câu sàng lọc — mọi lựa chọn đều gắn điều hướng, form lỗi giữa chừng tự vào Thùng rác) — tạo Google Form KHẢO SÁT / BÀI KIỂM TRA từ 1 bản mô tả JSON.
  * Claude (phiên Claude Code) soạn câu hỏi theo yêu cầu + tài liệu ⇒ gọi web app này ⇒ trả link ngay trong chat.
  * Bộ mô tả + quy tắc soạn: kho mmh-library ▸ surveys/ (README.md, specs/*.json, tools/survey.py).
  *
@@ -7,6 +7,7 @@
  *   POST {action:"create", key, spec}  (hoặc GET ?action=create&key=…&p=<base64url JSON spec>)
  *        ⇒ {ok, formUrl, shortUrl, editUrl, sheetUrl, summaryUrl, formId, sheetId, items}
  *   GET  ?action=list&key=…                            ⇒ danh sách form đã tạo (sheet nhật ký)
+ *   GET  ?action=docText&key=…&fileId=…[&max=]         ⇒ {name, mimeType, text} — chữ trong PPTX / DOCX / PDF / Google Slides–Docs–Sheets
  *
  * spec = {
  *   type: "survey" | "quiz",              // quiz = chấm điểm tự động
@@ -25,7 +26,7 @@
  *       low, high, lowLabel, highLabel (scale), rows, cols (grid),
  *       correct (quiz: chỉ số đáp án đúng, từ 0), points, explanation }
  */
-var SV = { VER: '2.0', URL: 'https://script.google.com/macros/s/AKfycbx8l7u4j2tFDpfsg8IFsEcuXNrTbrLVRA_SoZ2Iisqprfm1ipL4z2NfDudVKuI1paFQPg/exec', KEY: 'mmh-sv-7Qk2pX9w', LOG_PROP: 'SV_LOG_ID', FOLDER_PROP: 'SV_FOLDER_ID', FOLDER: 'MMH Survey · Form tạo tự động' };
+var SV = { VER: '2.1', URL: 'https://script.google.com/macros/s/AKfycbx8l7u4j2tFDpfsg8IFsEcuXNrTbrLVRA_SoZ2Iisqprfm1ipL4z2NfDudVKuI1paFQPg/exec', KEY: 'mmh-sv-7Qk2pX9w', LOG_PROP: 'SV_LOG_ID', FOLDER_PROP: 'SV_FOLDER_ID', FOLDER: 'MMH Survey · Form tạo tự động' };
 
 function doGet(e) {
   var p = e && e.parameter || {};
@@ -54,6 +55,7 @@ function svHandle_(p, body) {
       var notes = svShare_(fm, p.sheetId || (body || {}).sheetId || '', p.mode || (body || {}).mode || 'edit');
       return svOut_({ ok: true, notes: notes, info: svShareInfo_(fm) });
     }
+    if (a === 'docText') return svOut_(svDocText_(p.fileId || (body || {}).fileId, Number(p.max || (body || {}).max || 150000)));
     if (a === 'create') {
       var spec = body && body.spec;
       if (!spec && p.p) spec = JSON.parse(Utilities.newBlob(Utilities.base64DecodeWebSafe(p.p)).getDataAsString());
@@ -233,6 +235,38 @@ function svAdd_(form, q, quiz, nav) {
   }
   it.setRequired(req);
   return { pts: pts, it: it };
+}
+
+/* ---------- đọc chữ trong tài liệu Drive (để Claude soạn câu hỏi từ tài liệu Training Hub) ----------
+ * PPTX / PPT ⇒ bản sao tạm Google Slides, DOCX / DOC / PDF ⇒ bản sao tạm Google Docs (PDF: OCR) ⇒ export text/plain ⇒ xoá bản sao.
+ * Google Slides / Docs gốc ⇒ export thẳng. Chỉ dùng phạm vi drive (đã cấp). */
+function svDocText_(id, max) {
+  if (!id) return { ok: false, error: 'fileId' };
+  var f = Drive.Files.get(id, { fields: 'id,name,mimeType,size,modifiedTime', supportsAllDrives: true }), mt = f.mimeType, tmp = null, src = id, gmt;
+  var G = { slides: 'application/vnd.google-apps.presentation', docs: 'application/vnd.google-apps.document', sheets: 'application/vnd.google-apps.spreadsheet' };
+  if (mt === G.slides || mt === G.docs) gmt = mt;
+  else if (mt === G.sheets) gmt = mt;
+  else if (/presentation|powerpoint/.test(mt)) gmt = G.slides;
+  else if (/wordprocessing|msword|pdf|text\/|rtf/.test(mt)) gmt = G.docs;
+  else return { ok: false, error: 'Không đọc được loại file ' + mt, name: f.name };
+  try {
+    if (mt !== gmt) {
+      tmp = Drive.Files.copy({ name: '[tạm] ' + f.name, mimeType: gmt, parents: [svFolder_().getId()] }, id, { supportsAllDrives: true, ocrLanguage: 'vi' });
+      src = tmp.id;
+    }
+    var exp = gmt === G.sheets ? 'text/csv' : 'text/plain';
+    var txt = '', tries = [function () { return Drive.Files.export(src, exp); }, function () { return Drive.Files.export(src, exp, { alt: 'media' }); }], errs = [];
+    for (var i = 0; i < tries.length && !txt; i++) {
+      try {
+        var r = tries[i]();
+        txt = (typeof r === 'string') ? r : (r && r.getDataAsString ? r.getDataAsString('UTF-8') : (r && r.length ? Utilities.newBlob(r).getDataAsString('UTF-8') : ''));
+      } catch (x) { errs.push(x.message); }
+    }
+    if (!txt && errs.length) return { ok: false, error: 'export: ' + errs.join(' | '), name: f.name };
+    return { ok: true, name: f.name, mimeType: mt, size: f.size, modified: f.modifiedTime, chars: txt.length, truncated: txt.length > max, text: txt.slice(0, max) };
+  } finally {
+    if (tmp) { try { Drive.Files.remove(tmp.id, { supportsAllDrives: true }); } catch (x) { try { DriveApp.getFileById(tmp.id).setTrashed(true); } catch (y) {} } }
+  }
 }
 
 /* ---------- quyền truy cập ----------
