@@ -306,4 +306,5 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   Thử: harness Node giả lập Sheet (dựa `docs/event-hub/test_harness.js`, không cần plans.json).
 
 - **Thầu nhãn khoa của NPP (03/11/2026, người dùng gửi)**: 2 NPP nhãn khoa **iCare** và **Hùng Vĩ** tự cập nhật các gói thầu tham dự + kết quả trúng thầu vào file Google Sheet riêng.
-  iCare = backend `tender-icare` (backends.json: Sheet `1VfJVBJ4…`, tab gid 864862640, Script ID `1nlK89cM…`, script gắn Sheet — chưa có web app). Hùng Vĩ: chưa có link / Script ID ⇒ xin người dùng rồi thêm `tender-hungvi` cùng mẫu.
+  iCare = backend `tender-icare` (Sheet `1VfJVBJ4…` tab "Tender FY65-67", Script ID `1nlK89cM…`): web app **NPP Tender Feed** (`doGet` ⇒ JSON dòng DAO — code bắt đầu "M", gộp nhóm Slit / Stab / MCU, chuẩn hoá TBMT / ngày / Win-Fail-Cancel-Pending; `frontend.html` = Ophthalmic Knife Tender Market Dashboard).
+  Chưa có `deploymentId` ⇒ deploy chỉ đẩy code + lưu phiên bản (URL /exec KHÔNG đổi) — xin người dùng URL web app. Hùng Vĩ = cùng code, `CONFIG` NPP=HUNGVI · sheet "Tender FY66" · header dòng 7 ⇒ chưa có link / Script ID, xin người dùng rồi thêm `tender-hungvi`.
