@@ -1,5 +1,5 @@
 /**
- * MMH Survey API v1.0 (03/11/2026) — tạo Google Form KHẢO SÁT / BÀI KIỂM TRA từ 1 bản mô tả JSON.
+ * MMH Survey API v1.1 (03/11/2026; v1.1: câu sàng lọc — mọi lựa chọn đều gắn điều hướng, form lỗi giữa chừng tự vào Thùng rác) — tạo Google Form KHẢO SÁT / BÀI KIỂM TRA từ 1 bản mô tả JSON.
  * Claude (phiên Claude Code) soạn câu hỏi theo yêu cầu + tài liệu ⇒ gọi web app này ⇒ trả link ngay trong chat.
  * Bộ mô tả + quy tắc soạn: kho mmh-library ▸ surveys/ (README.md, specs/*.json, tools/survey.py).
  *
@@ -13,7 +13,7 @@
  *   title, intro (lời mở đầu, xưng "Quý bác sĩ"), minutes (thời gian trả lời / làm bài),
  *   passPercent (quiz, mặc định 70), shuffle (quiz), confirmation,
  *   info: true | false | [{t,q,required}],   // mặc định: Họ và tên* · Số điện thoại* · Bệnh viện / phòng khám
- *   share: "edit" | "view" | "none",       // quyền cho mọi người có link với Form + Sheet (mặc định "edit" như phiếu VOS 2026)
+ *   share: "edit" | "view" | "none",       // quyền cho mọi người có link với Form + Sheet (mặc định "none": Form vẫn trả lời được bằng link, Sheet chỉ chủ script xem — Sheet có SĐT)
  *   sections: [{ id, title, help, questions: [ Q ] }]
  * }
  * Q = { t: "radio"|"checkbox"|"list"|"text"|"phone"|"paragraph"|"scale"|"grid"|"checkgrid"|"header",
@@ -22,7 +22,7 @@
  *       low, high, lowLabel, highLabel (scale), rows, cols (grid),
  *       correct (quiz: chỉ số đáp án đúng, từ 0), points, explanation }
  */
-var SV = { VER: '1.0', KEY: 'mmh-sv-7Qk2pX9w', LOG_PROP: 'SV_LOG_ID', FOLDER_PROP: 'SV_FOLDER_ID', FOLDER: 'MMH Survey · Form tạo tự động' };
+var SV = { VER: '1.1', KEY: 'mmh-sv-7Qk2pX9w', LOG_PROP: 'SV_LOG_ID', FOLDER_PROP: 'SV_FOLDER_ID', FOLDER: 'MMH Survey · Form tạo tự động' };
 
 function doGet(e) { return svHandle_(e && e.parameter || {}, null); }
 function doPost(e) {
@@ -46,7 +46,7 @@ function svHandle_(p, body) {
       if (!spec && p.p) spec = JSON.parse(Utilities.newBlob(Utilities.base64DecodeWebSafe(p.p)).getDataAsString());
       if (!spec || !spec.title) return svOut_({ ok: false, error: 'SPEC' });
       var lock = LockService.getScriptLock(); lock.waitLock(30000);
-      try { return svOut_(svCreate_(spec)); } finally { lock.releaseLock(); }
+      try { return svOut_(svCreate_(spec)); } finally { lock.releaseLock(); svTrashPartial_(); }
     }
     return svOut_({ ok: false, error: 'ACTION' });
   } catch (err) {
@@ -55,9 +55,13 @@ function svHandle_(p, body) {
 }
 
 /* ---------- dựng form ---------- */
+var SV_PART = null;
+function svTrashPartial_() { if (SV_PART) { try { DriveApp.getFileById(SV_PART).setTrashed(true); } catch (x) {} SV_PART = null; } }
+
 function svCreate_(spec) {
   var quiz = spec.type === 'quiz';
   var form = FormApp.create(spec.title);
+  SV_PART = form.getId();  // lỗi giữa chừng ⇒ bỏ form dở vào Thùng rác
   form.setTitle(spec.title);
   var desc = [];
   if (spec.intro) desc.push(spec.intro);
@@ -108,11 +112,11 @@ function svCreate_(spec) {
   nav.forEach(function (n) {
     var it = n.item;
     it.setChoices(n.opts.map(function (o) {
-      if (!o.go) return it.createChoice(o.v);
+      if (!o.go || o.go === 'next') return it.createChoice(o.v, FormApp.PageNavigationType.CONTINUE);
       if (o.go === 'submit') return it.createChoice(o.v, FormApp.PageNavigationType.SUBMIT);
       if (o.go === 'next') return it.createChoice(o.v, FormApp.PageNavigationType.CONTINUE);
       if (pages[o.go]) return it.createChoice(o.v, pages[o.go]);
-      return it.createChoice(o.v);
+      return it.createChoice(o.v, FormApp.PageNavigationType.CONTINUE);  // mọi lựa chọn phải cùng có điều hướng
     }));
   });
 
@@ -129,7 +133,7 @@ function svCreate_(spec) {
 
   var folder = svFolder_();
   [form.getId(), ss.getId()].forEach(function (id) { try { DriveApp.getFileById(id).moveTo(folder); } catch (x) {} });
-  var share = spec.share || 'edit', shareNote = [];
+  var share = spec.share || 'none', shareNote = [];
   if (share !== 'none') [[ss.getId(), 'Sheet'], [form.getId(), 'Form']].forEach(function (f) {
     try {
       DriveApp.getFileById(f[0]).setSharing(DriveApp.Access.ANYONE_WITH_LINK, share === 'view' ? DriveApp.Permission.VIEW : DriveApp.Permission.EDIT);
@@ -146,6 +150,7 @@ function svCreate_(spec) {
     folderUrl: folder.getUrl(), share: share, shareNote: shareNote
   };
   svLog_(out, spec);
+  SV_PART = null;
   return out;
 }
 
