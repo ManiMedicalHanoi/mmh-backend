@@ -177,5 +177,13 @@
     "apps": [],
     "scriptId": "1R1tJ85Pze-v35DNodoHdeMW611cH8yGheMQtgz71Qlfa3ixa56H-84AL",
     "sheetId": "1lhc4c0-sSlLRRgJ5e8hzkZslzsyl3ZBXiPJ5BslfSX4"
+  },
+  "survey": {
+    "name": "MMH Survey / Quiz Builder (tạo Google Form khảo sát & bài kiểm tra)",
+    "apps": [
+      "ManiMedicalHanoi/mmh-library"
+    ],
+    "scriptId": "1xpW73AuqCsaJvWfbHiDYgLn181aMEwGGYaA_DmWVnin7VPvusYbvCEQn",
+    "newWebapp": true
   }
 }
