@@ -1,5 +1,5 @@
 /*************************************************************************************************
- * MMH REPORT HUB — Event_Sync.gs   (v2.1 · 15/10/2026 · v2.1: dọn dòng sub lỗi do v1 chèn lặp, ghi lỗi thì xoá dòng vừa chèn)
+ * MMH REPORT HUB — Event_Sync.gs   (v2.2 · 03/11/2026 · việc app Sự kiện MKT ⇒ sub H: · v2.1: dọn dòng sub lỗi do v1 chèn lặp, ghi lỗi thì xoá dòng vừa chèn)
  * ─────────────────────────────────────────────────────────────────────────────────────────────
  * v2.0 (người dùng yêu cầu 15/10/2026) — BỎ việc tự tạo Key task từ file MKT Offline:
  *  ① Dọn 1 lần (Script Property EVS_CLEAN_V2): xoá các key "Marketing-Event" do hệ thống tự tạo (cột U "EK:…") cùng
@@ -13,6 +13,8 @@
  *        tên    = Type of content _ Format _ Pillar      (vd. "Tuyển sinh_Design post_Before event")
  *        Start = Deadline = On-air dự kiến · Result = Status + Note + Nội dung + link · trạng thái theo cột Status
  *     Đổi tên key khác tên sự kiện ⇒ sub bài đăng tự gỡ; đặt lại đúng tên ⇒ tự gắn lại.
+ * v2.2 (03/11/2026): thêm sub CHỈ ĐỌC "H:<id việc>" = việc của app Sự kiện MKT (MKT_EventHubFlow.gs ▸ ehHubSubs_, trừ việc của Sales)
+ *     dưới Key task trùng tên sự kiện ⇒ báo cáo tuần Report Hub tự có tiến độ sự kiện (tên việc · người làm · hạn · trạng thái · tệp đã nộp).
  * Chạy: trigger onChange 2 file MKT (tự cài) + 10 phút/lần + action=eventSync (app gọi sau khi thêm / sửa key).
  *************************************************************************************************/
 
@@ -255,7 +257,7 @@ function evsScan_(sh){
     }
     if (cur && has){
       idx.blockEnd[cur.row] = row;
-      if (u.indexOf('E:') === 0) idx.subs[u] = { row:row, parentNk:cur.nk, parentRow:cur.row, hash:meta.h || '' };
+      if (u.indexOf('E:') === 0 || u.indexOf('H:') === 0) idx.subs[u] = { row:row, parentNk:cur.nk, parentRow:cur.row, hash:meta.h || '' };   /* H: = việc app Sự kiện MKT (v2.2) */
       else if (g) idx.manual[cur.row]++;
     }
   }
@@ -416,10 +418,15 @@ function evsSync(opt){
     var idx = evsScan_(sh), keyNk = {};
     Object.keys(idx.byNk).forEach(function(nk){ if (posts[nk]) keyNk[nk] = idx.byNk[nk]; });
     var W = evsBuildSubs_(posts, keyNk);
+    /* v2.2: việc app Sự kiện MKT ⇒ sub "H:" (lỗi đọc ⇒ không xoá / không sửa sub H: cũ) */
+    var hubOk = typeof ehHubSubs_ === 'function';
+    if (hubOk){ try { var HB = ehHubSubs_(idx); Object.keys(HB.subs).forEach(function(k){ W[k] = HB.subs[k]; }); Object.keys(HB.keyNk).forEach(function(nk){ keyNk[nk] = idx.byNk[nk]; }); rep.hub = Object.keys(HB.subs).length; }
+                catch(e){ hubOk = false; rep.errors.push('App Sự kiện MKT: ' + (e.message || e)); } }
 
-    /* ① xoá sub bài đăng không còn / key đổi tên / nằm sai key */
+    /* ① xoá sub bài đăng / việc không còn / key đổi tên / nằm sai key */
     var dels = [];
-    if (postsOk) Object.keys(idx.subs).forEach(function(sk){
+    Object.keys(idx.subs).forEach(function(sk){
+      if (sk.indexOf('H:') === 0 ? !hubOk : !postsOk) return;
       var cur = idx.subs[sk], w = W[sk], k = keyNk[cur.parentNk];
       if (!w || w.parent !== cur.parentNk || !k || k.row !== cur.parentRow) dels.push(cur.row);
     });
@@ -473,7 +480,7 @@ function evsSync(opt){
     }
     rep.keys = Object.keys(keyNk).length; rep.posts = Object.keys(W).length;
     rep.seconds = Math.round((Date.now() - T0) / 1000);
-    rep.message = 'Bài đăng sự kiện — ' + rep.keys + ' key sự kiện · ' + rep.posts + ' bài đăng · sub mới ' + rep.subsNew +
+    rep.message = 'Bài đăng sự kiện — ' + rep.keys + ' key sự kiện · ' + rep.posts + ' bài đăng + việc app Sự kiện (' + (rep.hub || 0) + ') · sub mới ' + rep.subsNew +
       ' · sửa ' + rep.subsUpd + ' · xoá ' + rep.subsDel + ' · ' + rep.seconds + 's' + (rep.clean ? ' · ' + rep.clean : '') + (rep.junk ? ' · dọn ' + rep.junk + ' dòng lỗi' : '') +
       (rep.errors.length ? ' · ' + rep.errors.slice(0, 4).join(' | ') : '');
     try { PropertiesService.getScriptProperties().setProperty('EVS_LAST', JSON.stringify({ at:Date.now(), msg:rep.message })); } catch(e){}

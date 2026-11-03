@@ -18,9 +18,11 @@
  * v1.1: email giao việc / chờ duyệt / bình luận / nhắc việc hằng ngày, tạo sự kiện trên app, dữ liệu mẫu — xem MKT_EventHubPlus.gs.
  * v1.3: người mặc định theo vai trò (Duc Anh ấn phẩm · Trang hậu cần · Minh Trang digital · Thuong Owner) — MKT_EventHubTeam.gs.
  * v1.2: dữ liệu file MKT Offline (REPORT_EVENT, đếm CUSTOMER LIST) + file Digital (EVENT REPORT, ORDER REPORT) theo sự kiện — xem MKT_EventHubLink.gs.
+ * v1.5 (03/11/2026): lập kế hoạch muộn = dồn hạn (không tự Bỏ qua) · đóng sự kiện · biên bản họp ⇒ việc · trạng thái Vướng · cập nhật tuần (CHECKINS) ·
+ *       mốc quan trọng · số liệu follow-up khách · nhắc theo bậc · việc sự kiện ⇒ sub Report Hub — xem MKT_EventHubFlow.gs.
  *************************************************************************************************/
 var EH = {
-  VER: '1.4',
+  VER: '1.5',
   ROOT: '1maHn2DD34aJBaNnH4q9Di0YH2wMurYuZ',     /* thư mục Drive "Event FY68" */
   BOOK_NAME: 'MMH · Event Hub FY68 (dữ liệu app Sự kiện MKT)',
   FILES_NAME: 'Event Hub · Tệp tải lên',
@@ -29,20 +31,21 @@ var EH = {
   MAX_MB: 25,
   BUDGET: 150000,                 /* chạy chung lượt evsSyncTick (giới hạn 6 phút) */
   ROLES: ['Owner', 'Digital', 'Design', 'Trade', 'Sales'],
-  STATUS: ['Chưa làm', 'Đang làm', 'Chờ duyệt', 'Xong', 'Bỏ qua'],
+  STATUS: ['Chưa làm', 'Đang làm', 'Vướng', 'Chờ duyệt', 'Xong', 'Bỏ qua'],
   COLS: {
     EVENTS: ['id', 'name', 'start', 'end', 'type', 'city', 'venue', 'organizer', 'format', 'purpose', 'audience', 'scale', 'speakers', 'fee',
              'npp', 'sales', 'kpi', 'products', 'state', 'follow', 'Owner', 'Digital', 'Design', 'Trade', 'Sales', 'planFileId', 'planUrl',
              'folderId', 'folderUrl', 'src', 'offlineName', 'dateWarn', 'note', 'updatedAt', 'updatedBy',
-             'cover', 'target', 'actual', 'budgetPlan', 'budgetActual', 'sample'],
+             'cover', 'target', 'actual', 'budgetPlan', 'budgetActual', 'sample', 'closedAt', 'closedBy', 'closeNote', 'latePlan'],   /* v1.5: đóng sự kiện, lập kế hoạch muộn */
     TASKS: ['id', 'eventId', 'parentId', 'group', 'title', 'role', 'pic', 'due', 'offset', 'unit', 'dueManual', 'status', 'proof', 'hint', 'note', 'order',
-            'doneAt', 'updatedAt', 'updatedBy', 'createdBy', 'priority', 'sample'],
+            'doneAt', 'updatedAt', 'updatedBy', 'createdBy', 'priority', 'sample', 'block', 'milestone', 'noteId', 'fuTotal', 'fuDone', 'fuOrder'],   /* v1.5 */
     FILES: ['id', 'eventId', 'taskId', 'kind', 'name', 'url', 'driveId', 'mime', 'size', 'by', 'at', 'note', 'thumb', 'sample'],
     COMMENTS: ['id', 'eventId', 'taskId', 'by', 'at', 'text', 'mentions', 'sample'],
     MEETINGS: ['id', 'eventId', 'date', 'title', 'attendees', 'content', 'actions', 'by', 'at', 'updatedAt', 'updatedBy', 'sample'],   /* v1.4 — biên bản họp */
     NOTIFY: ['at', 'to', 'kind', 'eventId', 'taskId', 'subject', 'ok', 'by'],
     LOG: ['at', 'by', 'action', 'eventId', 'taskId', 'text'],
-    TEMPLATE: ['kind', 'group', 'title', 'role', 'proof', 'offset', 'unit', 'apply', 'hint'],
+    TEMPLATE: ['kind', 'group', 'title', 'role', 'proof', 'offset', 'unit', 'apply', 'hint', 'milestone'],
+    CHECKINS: ['id', 'eventId', 'week', 'rag', 'done', 'block', 'help', 'next', 'by', 'at', 'sample'],   /* v1.5 — cập nhật tình hình tuần */
     TEAM: ['role', 'people', 'note'],
     PLAN_JSON: ['eventId', 'fileId', 'readAt', 'json'],
     SRC: ['fileId', 'name', 'url', 'updated', 'parsed', 'readAt', 'eventId', 'found', 'issue']
@@ -130,7 +133,7 @@ function ehBook_(){
   return ss;
 }
 function ehEnsureTabs_(ss){
-  var plan = ehPlanTabs_(), want = [['EVENTS'], ['TASKS'], ['FILES'], ['COMMENTS'], ['MEETINGS'], ['TEMPLATE'], ['TEAM'], ['LOG'], ['NOTIFY'], ['PLAN_JSON'], [EH_SRC_TAB, 'SRC']];
+  var plan = ehPlanTabs_(), want = [['EVENTS'], ['TASKS'], ['FILES'], ['COMMENTS'], ['MEETINGS'], ['CHECKINS'], ['TEMPLATE'], ['TEAM'], ['LOG'], ['NOTIFY'], ['PLAN_JSON'], [EH_SRC_TAB, 'SRC']];
   plan.forEach(function(t){ want.push([t.name, null, t.cols]); });
   want.forEach(function(w){
     var name = w[0], cols = w[2] || EH.COLS[w[1] || name], sh = ss.getSheetByName(name);
@@ -138,7 +141,7 @@ function ehEnsureTabs_(ss){
       sh = ss.insertSheet(name);
       sh.getRange(1, 1, 1, cols.length).setValues([cols]).setFontWeight('bold').setBackground('#003047').setFontColor('#FFFFFF');
       sh.setFrozenRows(1);
-      if (name === 'TEMPLATE') sh.getRange(2, 1, EH_TPL.length, cols.length).setValues(EH_TPL);
+      if (name === 'TEMPLATE') sh.getRange(2, 1, EH_TPL.length, cols.length).setValues(EH_TPL.map(function(r){ var x = r.slice(0, cols.length); while (x.length < cols.length) x.push(''); return x; }));
       if (name === 'TEAM') sh.getRange(2, 1, EH_TEAM.length, cols.length).setValues(EH_TEAM);
       if (name === 'PLAN_JSON') sh.hideSheet();
     } else if (!w[2] && sh.getLastColumn() < cols.length){   /* v1.1: tab cũ thiếu cột mới ⇒ ghi lại dòng tiêu đề (cột mới luôn thêm ở cuối) */
@@ -358,7 +361,7 @@ function ehPlanFiles_(){
 }
 
 /* ══════════════ ĐỒNG BỘ ══════════════ */
-function ehSyncTick_(){ var c = CacheService.getScriptCache(); if (c.get('eh_tick')) return; c.put('eh_tick', '1', 240); try { ehTeamFix_(); } catch(e){} try { ehSync_({}); } catch(e){} try { ehTrig_(); } catch(e){} try { ehLinkTick_(); } catch(e){} }   /* v1.2: + file MKT Offline / Digital (MKT_EventHubLink.gs) */
+function ehSyncTick_(){ var c = CacheService.getScriptCache(); if (c.get('eh_tick')) return; c.put('eh_tick', '1', 240); try { ehTeamFix_(); } catch(e){} try { ehFlowMigrate_(); } catch(e){} try { ehSync_({}); } catch(e){} try { ehTrig_(); } catch(e){} try { ehLinkTick_(); } catch(e){} }   /* v1.2: + file MKT Offline / Digital (MKT_EventHubLink.gs) */
 function ehSync_(opt){
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) return { ok:false, error:'Đang có tiến trình ghi khác, thử lại sau.' };
@@ -450,7 +453,8 @@ function ehSync_(opt){
     var add = [];
     events.forEach(function(e){
       if (gen[e.id] || has[e.id] || ehS_(e.follow) !== 'Có' || !ehS_(e.start) || ehS_(e.start) < today || e.state === 'Huỷ') return;
-      add = add.concat(ehTasksFor_(e, tpl)); gen[e.id] = today;
+      var nt = ehTasksFor_(e, tpl); add = add.concat(nt); gen[e.id] = today;
+      if (nt.late && e._r){ e.latePlan = String(nt.late); ehPut_(ss, 'EVENTS', EH.COLS.EVENTS, e); }
     });
     if (add.length){ ehAppend_(ss, 'TASKS', EH.COLS.TASKS, add); rep.tasksNew = add.length; }
     pr.setProperty('EH_GEN', JSON.stringify(gen));
@@ -482,7 +486,7 @@ function ehTeamDefault_(ss, role){
   if (!ehTeamDefault_.m){ ehTeamDefault_.m = {}; ehRead_(ss, 'TEAM').forEach(function(r){ ehTeamDefault_.m[ehS_(r.role)] = ehS_(r.people).split(',')[0].trim(); }); }
   return ehTeamDefault_.m[role] || '';
 }
-function ehTasksFor_(e, tpl){
+function ehTasksFor_(e, tpl, opt){
   var out = [], parents = {}, order = 0, n = ehNorm_(e.city + ' ' + e.venue), live = e.type !== 'Webinar';
   tpl.forEach(function(t){
     var ap = ehS_(t.apply) || 'Tất cả';
@@ -494,13 +498,13 @@ function ehTasksFor_(e, tpl){
     var big = /lớn/i.test(ehS_(t.kind)), role = ehS_(t.role), id = ehId_('T');
     var o = { id: id, eventId: e.id, parentId: big ? '' : (parents[ehS_(t.group)] || ''), group: ehS_(t.group), title: ehS_(t.title), role: role,
               pic: e[role] || '', due: big ? '' : ehDue_(e, t.offset, ehS_(t.unit)), offset: big ? '' : t.offset, unit: ehS_(t.unit), dueManual: '',
-              status: 'Chưa làm', proof: ehS_(t.proof), hint: ehS_(t.hint), note: '', order: ++order, doneAt: '', updatedAt: ehNow_(), updatedBy: 'Hệ thống', createdBy: 'Hệ thống' };
+              status: 'Chưa làm', proof: ehS_(t.proof), hint: ehS_(t.hint), note: '', order: ++order, doneAt: '', updatedAt: ehNow_(), updatedBy: 'Hệ thống', createdBy: 'Hệ thống',
+              milestone: big ? '' : ehS_(t.milestone) };
     if (big) parents[o.group] = id;
     out.push(o);
   });
-  /* việc có hạn đã qua lúc tạo ⇒ Bỏ qua (Owner xem lại) */
-  var t0 = ehIso_(new Date());
-  out.forEach(function(o){ if (o.due && o.due < t0){ o.status = 'Bỏ qua'; o.note = 'Tạo khi đã qua hạn — Owner xem lại'; } });
+  /* v1.5: việc có hạn mẫu đã qua lúc tạo ⇒ DỒN HẠN (MKT_EventHubFlow.gs ▸ ehCompress_), không tự Bỏ qua nữa — việc bị bỏ qua lặng lẽ là nguồn rơi việc */
+  out.late = opt && opt.keep ? 0 : ehCompress_(e, out, ehIso_(new Date()));   /* keep: dữ liệu mẫu giữ hạn gốc */
   return out;
 }
 var EH_PLAN_TABS = null;
@@ -597,7 +601,7 @@ function ehBoot_(p){
     var plan = {}; ehRead_(ss, 'PLAN_JSON').forEach(function(r){ try { plan[ehS_(r.eventId)] = JSON.parse(r.json); } catch(e){} });
     var tpl = ehRead_(ss, 'TEMPLATE').map(ehClean2_);
     base = { events: ehRead_(ss, 'EVENTS').map(ehClean2_), tasks: ehRead_(ss, 'TASKS').map(ehClean2_), files: ehRead_(ss, 'FILES').map(ehClean2_),
-             log: ehRead_(ss, 'LOG').slice(-400).map(ehClean2_), comments: ehRead_(ss, 'COMMENTS').slice(-800).map(ehClean2_), meetings: ehRead_(ss, 'MEETINGS').map(ehClean2_),
+             log: ehRead_(ss, 'LOG').slice(-400).map(ehClean2_), comments: ehRead_(ss, 'COMMENTS').slice(-800).map(ehClean2_), meetings: ehRead_(ss, 'MEETINGS').map(ehClean2_), checkins: ehRead_(ss, 'CHECKINS').slice(-400).map(ehClean2_),
              notify: ehRead_(ss, 'NOTIFY').slice(-150).map(ehClean2_), plan: plan, people: ehPeople_(), roles: EH.ROLES, status: EH.STATUS,
              groups: tpl.filter(function(t){ return /lớn/i.test(ehS_(t.kind)); }).map(function(t){ return { group: t.group, role: t.role }; }),
              book: ss.getUrl(), filesUrl: ehFilesRoot_().getUrl() };
@@ -609,13 +613,14 @@ function ehBoot_(p){
   if (!me.manager) base.notify = (base.notify || []).filter(function(n){ return n.to === me.pic || n.by === me.pic; });
   return base;
 }
-/* ehSave: op = task.add | task.update | task.delete | event.update | link.add | file.delete */
+/* ehSave: op = task.add | task.update | task.delete | event.update | link.add | file.delete (+ MKT_EventHubPlus.gs ▸ ehSave2_, MKT_EventHubFlow.gs ▸ ehSave3_) */
 function ehSave_(p){
   var ss = ehBook_(), me = ehMe_(p, ss); if (me.err) return { ok:false, code:'AUTH', error:me.err };
   var op = String(p.op || ''), d = p.data || {}; if (typeof d === 'string'){ try { d = JSON.parse(d); } catch(e){ d = {}; } }
   var events = ehRead_(ss, 'EVENTS'), evBy = {}; events.forEach(function(e){ evBy[ehS_(e.id)] = e; });
   var now = ehNow_();
   var x2 = ehSave2_(ss, me, op, d, events, evBy, now); if (x2) return x2;   /* v1.1 — MKT_EventHubPlus.gs */
+  var x3 = ehSave3_(ss, me, op, d, events, evBy, now); if (x3) return x3;   /* v1.5 — MKT_EventHubFlow.gs: event.close / event.reopen / checkin.save */
   if (op === 'event.update'){
     var ev = evBy[ehS_(d.id)]; if (!ev) return { ok:false, error:'Không thấy sự kiện.' };
     if (!ehCanEv_(me, ev)) return { ok:false, code:'PERM', error:'Chỉ quản lý hoặc Owner của sự kiện được sửa.' };
@@ -675,9 +680,13 @@ function ehSave_(p){
       return { ok:true, deleted: tasks2.filter(function(t){ return t.id === tk.id || ehS_(t.parentId) === tk.id; }).map(function(t){ return t.id; }) };
     }
     if (!boss && !mine) return { ok:false, code:'PERM', error:'Bạn không phụ trách việc này.' };
-    var bossKeys = ['title', 'pic', 'due', 'proof', 'role', 'priority'], anyKeys = ['status', 'note'], ch2 = [], st0 = ehS_(tk.status);
+    var bossKeys = ['title', 'pic', 'due', 'proof', 'role', 'priority', 'milestone'], anyKeys = ['status', 'note', 'block', 'fuTotal', 'fuDone', 'fuOrder'], ch2 = [], st0 = ehS_(tk.status);
     (boss ? bossKeys.concat(anyKeys) : anyKeys).forEach(function(k){ if (k in d && ehS_(d[k]) !== ehS_(tk[k])){ ch2.push(k); tk['_old_' + k] = tk[k]; tk[k] = ehS_(d[k]); } });
     if ('due' in d && ch2.indexOf('due') >= 0) tk.dueManual = 'x';
+    /* v1.5: "Vướng" phải có lý do; rời "Vướng" ⇒ xoá lý do */
+    if (ehS_(tk.status) === 'Vướng' && !ehS_(tk.block)) return { ok:false, code:'BLOCK', error:'Ghi rõ đang vướng gì (cần ai hỗ trợ) để Owner biết.' };
+    if (ehS_(tk.status) !== 'Vướng' && ehS_(tk.block)){ tk.block = ''; if (ch2.indexOf('block') < 0) ch2.push('block'); }
+    ['fuTotal', 'fuDone', 'fuOrder'].forEach(function(k){ if (ch2.indexOf(k) >= 0 && tk[k] !== '' && !(+tk[k] >= 0)) tk[k] = ''; });
     if (ch2.indexOf('status') >= 0){
       if (tk.status === 'Xong'){
         var need = ehS_(tk.proof);
@@ -696,6 +705,7 @@ function ehSave_(p){
     /* v1.1: email — giao người mới · nộp chờ duyệt ⇒ Owner · Owner trả lại ⇒ người làm */
     if (ch2.indexOf('pic') >= 0 && keep.pic && d.notify !== false) EH_N.push({ to: keep.pic, kind: 'assign', ev: ev3, task: keep });
     if (ch2.indexOf('status') >= 0 && keep.status === 'Chờ duyệt' && ev3 && ehS_(ev3.Owner)) EH_N.push({ to: ehS_(ev3.Owner), kind: 'review', ev: ev3, task: keep });
+    if (keep.status === 'Vướng' && (ch2.indexOf('status') >= 0 || ch2.indexOf('block') >= 0) && ev3 && ehS_(ev3.Owner)) EH_N.push({ to: ehS_(ev3.Owner), kind: 'block', ev: ev3, task: keep, text: ehS_(keep.block) });
     if (ch2.indexOf('status') >= 0 && st0 === 'Chờ duyệt' && /^(Đang làm|Chưa làm)$/.test(keep.status) && keep.pic && keep.pic !== me.pic)
       EH_N.push({ to: keep.pic, kind: 'return', ev: ev3, task: keep, text: ehS_(d.reason || keep.note) });
     return { ok:true, task: ehClean2_(keep) };

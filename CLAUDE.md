@@ -296,3 +296,12 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   (`SurveyQuiz.html`: đếm ngược `minutes`, hết giờ tự nộp, chấm trên máy chủ — đáp án không xuống trình duyệt, vé HMAC `SV_SECRET`), mốc đạt `passScore`, tab "Tổng hợp bài làm", email `notify[]` qua `mmhMail_`
   (cấu hình bài: Script Property `Q_<formId>`). Trang dự phòng `<exec>?b=1&k=<khoá>#<spec gzip base64url>` (`SurveyBuilder.html`) khi Claude không gọi được máy chủ. `Mã.gs` = phiếu VOS 2026 cũ (giữ nguyên).
   Phía Claude: skill `mmh-survey-quiz` + `mmh-library/surveys/`, `tools/survey.py`. `smoke: false` (backends.json) — đổi phạm vi quyền ⇒ chủ script chạy `svCapQuyen` trong trình soạn.
+- **03/11/2026 — App Sự kiện MKT v2.4 / Event Hub v1.5 (`marketing/MKT_EventHubFlow.gs`, người dùng: việc lập kế hoạch / follow-up / báo cáo tiến độ sự kiện bị miss)**:
+  ① lập kế hoạch muộn: `ehTasksFor_` không tự "Bỏ qua" việc có hạn mẫu đã qua nữa ⇒ `ehCompress_` dồn hạn (dueManual `nén`, EVENTS.latePlan); dữ liệu cũ chuyển 1 lần (`ehFlowMigrate_`, `EH_FLOW_V`).
+  ② `event.close` / `event.reopen` (EVENTS.closedAt / closedBy / closeNote; còn việc ⇒ cần lý do, việc còn lại "Bỏ qua", mở lại trả về). Sự kiện đã đóng ⇒ thôi nhắc.
+  ③ biên bản họp ⇒ việc (`ehNoteTasks_`, TASKS.noteId, hạng mục "Việc sau họp", hạn đọc từ chữ `ehParseDue_`). ④ trạng thái **Vướng** (TASKS.block, bắt buộc, email Owner kind `block`) ·
+  tab **CHECKINS** (`checkin.save`, Đỏ / cần hỗ trợ ⇒ TEAM ▸ Quản lý kind `checkin`) · TASKS.milestone (x / - / trống = theo tên `EH_MS_RE`) · fuTotal / fuDone / fuOrder.
+  ⑤ `ehDaily_` viết lại: Chờ duyệt ⇒ Owner (không nhắc người làm), Vướng ⇒ Owner, trễ ≥ `cfg.escDays` / vướng ≥ 2 ngày ⇒ quản lý mỗi ngày (`cfg.escalate`), thứ Sáu nhắc cập nhật tuần (`cfg.checkin`),
+  mỗi email nhắc ghi thêm 1 dòng RH_Notify (kind `daily`); email thứ Hai có sự kiện đã diễn ra chưa đóng + tình hình tuần. ⑥ `Event_Sync.gs` v2.2: việc app (trừ Sales) ⇒ sub CHỈ ĐỌC `H:<id>` dưới Key task trùng tên sự kiện (`ehHubSubs_`).
+  Thử: harness Node giả lập Sheet (dựa `docs/event-hub/test_harness.js`, không cần plans.json).
+
