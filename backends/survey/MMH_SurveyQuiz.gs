@@ -11,6 +11,7 @@ var SVQ = { TAB: 'Tổng hợp bài làm', GRACE: 90 };
 function svCapQuyen() {  // chạy 1 lần trong trình soạn để cấp quyền gửi email (và Forms / Drive / Sheets)
   Logger.log('Email còn gửi được hôm nay: ' + MailApp.getRemainingDailyQuota());
   Logger.log('Drive: ' + DriveApp.getRootFolder().getName() + ' · Forms OK: ' + (typeof FormApp.create === 'function'));
+  Logger.log('UrlFetch: ' + UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/about?fields=kind', { headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true }).getResponseCode());
 }
 
 function svQuizCfg_(formId) {
