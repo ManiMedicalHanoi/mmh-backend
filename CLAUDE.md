@@ -305,3 +305,5 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   mỗi email nhắc ghi thêm 1 dòng RH_Notify (kind `daily`); email thứ Hai có sự kiện đã diễn ra chưa đóng + tình hình tuần. ⑥ `Event_Sync.gs` v2.2: việc app (trừ Sales) ⇒ sub CHỈ ĐỌC `H:<id>` dưới Key task trùng tên sự kiện (`ehHubSubs_`).
   Thử: harness Node giả lập Sheet (dựa `docs/event-hub/test_harness.js`, không cần plans.json).
 
+- **Thầu nhãn khoa của NPP (03/11/2026, người dùng gửi)**: 2 NPP nhãn khoa **iCare** và **Hùng Vĩ** tự cập nhật các gói thầu tham dự + kết quả trúng thầu vào file Google Sheet riêng.
+  iCare = backend `tender-icare` (backends.json: Sheet `1VfJVBJ4…`, tab gid 864862640, Script ID `1nlK89cM…`, script gắn Sheet — chưa có web app). Hùng Vĩ: chưa có link / Script ID ⇒ xin người dùng rồi thêm `tender-hungvi` cùng mẫu.

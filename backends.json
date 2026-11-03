@@ -189,5 +189,13 @@
     "url": "https://script.google.com/macros/s/AKfycbx8l7u4j2tFDpfsg8IFsEcuXNrTbrLVRA_SoZ2Iisqprfm1ipL4z2NfDudVKuI1paFQPg/exec",
     "smoke": false,
     "note": "Phạm vi gửi email (script.send_mail) mới thêm ở v2.0 ⇒ chủ script (tài khoản deploy) chạy svCapQuyen 1 lần trong trình soạn. smoke=false để deploy không tự quay lại khi chưa cấp quyền."
+  },
+  "tender-icare": {
+    "name": "Thầu nhãn khoa – NPP iCare (gói thầu tham dự & kết quả trúng thầu)",
+    "apps": [],
+    "scriptId": "1nlK89cMnaGQrhIJN_AibijS31nNESGHR67cF7FKSBKJkT0AlXklTnwS1",
+    "sheetId": "1VfJVBJ4XTTOnjF2z3ZyZAq9PTIeIvB8Nf5a8fikT9Zs",
+    "sheetUrl": "https://docs.google.com/spreadsheets/d/1VfJVBJ4XTTOnjF2z3ZyZAq9PTIeIvB8Nf5a8fikT9Zs/edit?gid=864862640#gid=864862640",
+    "note": "File NPP nhãn khoa iCare cập nhật các gói thầu tham dự + kết quả trúng thầu. Script gắn Sheet, chưa có web app (chỉ menu / trigger). Cặp với NPP Hùng Vĩ (chưa có link / Script ID)."
   }
 }
