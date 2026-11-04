@@ -52,6 +52,17 @@ async function main() {
     val.typeTask = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0] || (master.typeTask || [])[0] || '';
   }
 
+  if (MODE === 'check') {                               /* chỉ đọc: chi tiết dòng tháng 09/2026 + tải ảnh đã có để so với ảnh Zalo */
+    const sep = mine.filter(r => /^2026-09/.test(String(r.start))).sort((a, b) => String(a.start).localeCompare(String(b.start)));
+    for (const r of sep) say(`\n[dòng ${r._row}] No ${r.no} · ${r.start}→${r.finish} · ${r.account} · ${r.typeAction} · ${r.status} · tt=${r.typeTask} · sp=${r.product} · proc=${r.process} · fb=${r.feedback} · next=${r.nextAction}\n  plan=${JSON.stringify(r.plan || '')}\n  result=${JSON.stringify(r.result || '')}\n  photo=${r.photo || ''} · gps=${JSON.stringify(r.gpsInfo || '')}`);
+    const ids = []; sep.forEach(r => { const m = /\/d\/([-\w]{20,})/.exec(String(r.photo || '')); if (m) ids.push([r._row, m[1]]); });
+    fs.mkdirSync('/tmp/drive', { recursive: true });
+    for (let i = 0; i < ids.length; i += 3) {
+      const part = ids.slice(i, i + 3), j = await call({ action: 'photoB64', ids: part.map(x => x[1]).join(',') });
+      for (const [row, id] of part) { const o = (j.photos || {})[id]; if (o && o.b64) { fs.writeFileSync(`/tmp/drive/${row}.jpg`, Buffer.from(o.b64, 'base64')); say(`ảnh dòng ${row}: tải ${o.at}`); } else say(`ảnh dòng ${row}: ✗ ${JSON.stringify(o)}`); }
+    }
+    return;
+  }
   if (MODE !== 'apply') {
     say('\n## Danh mục (master)');
     for (const k of ['typeTask', 'typeAction', 'process', 'status', 'feedback', 'product', 'nextAction', 'area', 'accountType']) say(`- ${k}: ${JSON.stringify(master[k] || [])}`);

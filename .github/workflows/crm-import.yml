@@ -15,3 +15,6 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
       - run: node tools/crm-import/run.mjs
+      - if: hashFiles('tools/crm-import/MODE') != ''
+        run: |
+          if [ -d /tmp/drive ] && ls /tmp/drive/*.jpg >/dev/null 2>&1; then pip install -q pillow && python3 tools/crm-import/cmp.py tools/crm-import/khang-202609; fi
