@@ -27,11 +27,14 @@
    v1.4 (05/11/2026): bản đồ hoạt động Sales — fuVisits / fuVisitLog / fuLocSave ở MMH_VisitMap.gs; fuCrm nhận fid (cơ sở đã gắn mã KH trên Tender Map), trả 30 lượt gần nhất kèm bước tiếp theo.
    v1.5 (05/11/2026, người dùng yêu cầu): cơ sở TƯ NHÂN theo dõi mua sắm theo giai đoạn riêng 11 Giới thiệu · 12 Demo · 13 Đề xuất từ chuyên môn · 14 Ký hợp đồng ·
      15 Sử dụng hàng (· 18 Không thành công · 19 Dừng) — cùng sheet FOLLOW UP TENDER, chỉ khác số giai đoạn; nhắc việc / email coi 11–14 là đang theo dõi.
+   v1.6 (05/11/2026, người dùng yêu cầu): ĐỊA BÀN PHỤ TRÁCH — Viet Ha = miền Bắc → hết Đà Nẵng, Khang = Quảng Ngãi → miền Nam (FU.TERR, theo tỉnh của cơ sở,
+     tên tỉnh mới hoặc cũ). Nhắc việc RH_Notify + email thứ Hai gửi PIC phụ trách địa bàn (fuOwner_), không còn gửi người cập nhật cuối.
+     Giai đoạn 14 (tư nhân) = "Ký hợp đồng mua sắm" (cơ sở tư nhân mua theo hợp đồng mua sắm, không qua thầu).
    · fuCrm — chi tiết cơ sở trên Tender Map hiện dữ liệu CRM Surgical: mã / PIC địa bàn, lượt gặp 12 tháng, người liên hệ (CBC, không SĐT), đơn hàng 12 tháng.
      Cần phiên email công ty như fuList.
    ════════════════════════════════════════════════════════════════════════════════════════ */
 var FU = {
-  VER: '1.5',
+  VER: '1.6',
   MAP_URL: 'https://manimedicalhanoi.github.io/Tender-Result/map/',
   SOON_DAYS: 3, STALE_DAYS: 30, TRIG_V: 'fu1',
   DOMAINS: /@(manimedicalhanoi\.com|mani\.inc)$/i,
@@ -44,9 +47,22 @@ var FU = {
   STAGES: ['', 'Giới thiệu sản phẩm', 'Lên danh mục', 'Chốt cấu hình', 'Ra báo giá', 'Ra HSMT', 'Đang chấm thầu',
            'Đã trúng thầu', 'Đã trượt thầu', 'Huỷ / dừng theo dõi',
            /* v1.5 — cơ sở TƯ NHÂN (mua sắm, không qua thầu): 11–15 đang tiến hành → thành công, 18 không thành công, 19 dừng */
-           '', 'Giới thiệu', 'Demo', 'Đề xuất từ chuyên môn', 'Ký hợp đồng', 'Sử dụng hàng', '', '', 'Không thành công', 'Dừng theo dõi'],
-  MAX_ITEMS: 40
+           '', 'Giới thiệu', 'Demo', 'Đề xuất từ chuyên môn', 'Ký hợp đồng mua sắm', 'Sử dụng hàng', '', '', 'Không thành công', 'Dừng theo dõi'],
+  MAX_ITEMS: 40,
+  /* v1.6 — địa bàn phụ trách theo tỉnh (34 tỉnh mới + tên cũ); tỉnh không thuộc danh sách Viet Ha ⇒ Khang */
+  TERR_N: 'Viet Ha', TERR_S: 'Khang',
+  TERR_N_PROV: ['Hà Nội', 'Bắc Ninh', 'Bắc Giang', 'Quảng Ninh', 'Hải Phòng', 'Hải Dương', 'Hưng Yên', 'Thái Bình', 'Ninh Bình', 'Nam Định', 'Hà Nam',
+    'Cao Bằng', 'Tuyên Quang', 'Hà Giang', 'Lào Cai', 'Yên Bái', 'Thái Nguyên', 'Bắc Kạn', 'Lạng Sơn', 'Phú Thọ', 'Vĩnh Phúc', 'Hòa Bình', 'Hoà Bình',
+    'Điện Biên', 'Lai Châu', 'Sơn La', 'Thanh Hóa', 'Thanh Hoá', 'Nghệ An', 'Hà Tĩnh', 'Quảng Trị', 'Quảng Bình', 'Huế', 'Thừa Thiên Huế', 'Đà Nẵng', 'Quảng Nam']
 };
+/* PIC phụ trách địa bàn của 1 tỉnh ('' nếu không rõ tỉnh) */
+function fuTerrOf_(prov){
+  var k = fuPk_(prov); if(!k) return '';
+  if(!FU._tn){ FU._tn = {}; FU.TERR_N_PROV.forEach(function(x){ FU._tn[fuPk_(x)] = 1; }); }
+  return FU._tn[k] ? FU.TERR_N : FU.TERR_S;
+}
+/* người nhận nhắc việc của 1 gói = PIC phụ trách địa bàn; không rõ tỉnh ⇒ người cập nhật cuối */
+function fuOwner_(c){ return fuTerrOf_(c.prov) || c.pic; }
 
 function fuRoute_(action, p){
   try{
@@ -203,17 +219,17 @@ function fuPlan_(today){
   var t = today || fuToday_(), soon = fuAddDays_(t, FU.SOON_DAYS), log = fuLogGet_(), out = [], mg = fuMgrs_();
   fuCases_().forEach(function(c){
     if(!fuOpen_(c.stage) || /^TEST/i.test(c.pic)) return;
-    var at = String(c.at).slice(0, 10), age = fuDays_(at, t), what = c.stageName + ' · ' + (c.pkg || c.id);
+    var at = String(c.at).slice(0, 10), age = fuDays_(at, t), what = c.stageName + ' · ' + (c.pkg || c.id), own = fuOwner_(c);
     if(c.due && c.due <= soon && c.due >= at){                                     /* mốc sắp tới / đã qua mà chưa cập nhật sau mốc */
       var k = c.id + '|due|' + c.due;
-      if(!log[k]) out.push({ key:k, to:c.pic, c:c, title:(c.due < t ? 'Quá mốc dự kiến ' : 'Sắp tới mốc ') + fuD2_(c.due) + ' · ' + c.hosp,
+      if(!log[k]) out.push({ key:k, to:own, c:c, title:(c.due < t ? 'Quá mốc dự kiến ' : 'Sắp tới mốc ') + fuD2_(c.due) + ' · ' + c.hosp,
         text:what + (c.note ? ' — ' + c.note.slice(0, 220) : '') + '\nCập nhật giai đoạn trên Tender Map ▸ Theo dõi thầu.' });
     }
     if(age >= FU.STALE_DAYS){                                                       /* lâu chưa cập nhật: nhắc lại mỗi 7 ngày */
       var k2 = c.id + '|stale|' + Math.floor(age / 7);
       if(!log[k2]){
-        out.push({ key:k2, to:c.pic, c:c, title:age + ' ngày chưa cập nhật gói theo dõi · ' + c.hosp, text:what + '\nLần cập nhật cuối ' + fuD2_(at) + ' — ghi tình hình mới hoặc chuyển "Huỷ / dừng theo dõi".' });
-        mg.forEach(function(m){ if(String(m).toLowerCase() !== String(c.pic).toLowerCase()) out.push({ key:k2 + '|' + m, to:m, c:c, title:'Gói theo dõi ' + age + ' ngày chưa cập nhật · ' + c.hosp, text:'PIC ' + c.pic + ' · ' + what + ' · cập nhật cuối ' + fuD2_(at) }); });
+        out.push({ key:k2, to:own, c:c, title:age + ' ngày chưa cập nhật gói theo dõi · ' + c.hosp, text:what + '\nLần cập nhật cuối ' + fuD2_(at) + ' — ghi tình hình mới hoặc chuyển "Huỷ / dừng theo dõi".' });
+        mg.forEach(function(m){ if(String(m).toLowerCase() !== String(own).toLowerCase()) out.push({ key:k2 + '|' + m, to:m, c:c, title:'Gói theo dõi ' + age + ' ngày chưa cập nhật · ' + c.hosp, text:'PIC ' + own + ' · ' + what + ' · cập nhật cuối ' + fuD2_(at) }); });
       }
     }
   });
@@ -246,7 +262,7 @@ function fuWeekly_(dry){
   var t = fuToday_(), open = fuCases_().filter(function(c){ return fuOpen_(c.stage) && !/^TEST/i.test(c.pic); });
   if(!open.length) return { sent:0, pics:0 };
   var M = fuMailOf_(), by = {}, sent = 0, miss = [];
-  open.forEach(function(c){ (by[c.pic] = by[c.pic] || []).push(c); });
+  open.forEach(function(c){ var o = fuOwner_(c); (by[o] = by[o] || []).push(c); });          /* v1.6: theo PIC phụ trách địa bàn */
   function row(c){ var at = String(c.at).slice(0, 10), age = fuDays_(at, t);
     return '<tr><td style="padding:4px 8px;border-top:1px solid #E6EAEF"><a href="' + fuH_(fuLink_(c)) + '">' + fuH_(c.hosp) + '</a><br><span style="color:#55667D">' + fuH_(c.pkg || c.id) + '</span></td>' +
       '<td style="padding:4px 8px;border-top:1px solid #E6EAEF">' + fuH_(c.stageName) + '</td><td style="padding:4px 8px;border-top:1px solid #E6EAEF">' + (c.due ? fuD2_(c.due) : '—') + '</td>' +
