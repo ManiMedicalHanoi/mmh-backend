@@ -26,7 +26,7 @@
  *       low, high, lowLabel, highLabel (scale), rows, cols (grid),
  *       correct (quiz: chỉ số đáp án đúng, từ 0), points, explanation }
  */
-var SV = { VER: '2.6', PAGE: 'https://manimedicalhanoi.github.io/Training-Hub/quiz/', URL: 'https://script.google.com/macros/s/AKfycbx8l7u4j2tFDpfsg8IFsEcuXNrTbrLVRA_SoZ2Iisqprfm1ipL4z2NfDudVKuI1paFQPg/exec', KEY: 'mmh-sv-7Qk2pX9w', LOG_PROP: 'SV_LOG_ID', FOLDER_PROP: 'SV_FOLDER_ID', FOLDER: 'MMH Survey · Form tạo tự động' };
+var SV = { VER: '2.7', PAGE: 'https://manimedicalhanoi.github.io/Training-Hub/quiz/', URL: 'https://script.google.com/macros/s/AKfycbx8l7u4j2tFDpfsg8IFsEcuXNrTbrLVRA_SoZ2Iisqprfm1ipL4z2NfDudVKuI1paFQPg/exec', KEY: 'mmh-sv-7Qk2pX9w', LOG_PROP: 'SV_LOG_ID', FOLDER_PROP: 'SV_FOLDER_ID', FOLDER: 'MMH Survey · Form tạo tự động' };
 
 function doGet(e) {
   var p = e && e.parameter || {};
@@ -65,6 +65,7 @@ function svHandle_(p, body) {
       return svOut_({ ok: true, notes: notes, info: svShareInfo_(fm) });
     }
     if (a === 'scopes') return svOut_(svScopes_());
+    if (a === 'trainerSessions') return svOut_(svTmSessions_(p.email || (body || {}).email, Number(p.back || (body || {}).back || 120), Number(p.ahead || (body || {}).ahead || 60)));
     if (a === 'quizLink') {  // link làm bài dạng mã ngắn cho bài đã tạo (+ đổi danh sách email nhận kết quả nếu gửi notify)
       var qf = p.formId || (body || {}).formId, nt = (body || {}).notify;
       if (!svQuizCfg_(qf)) return svOut_({ ok: false, error: 'Không có bài kiểm tra ' + qf });
@@ -187,12 +188,14 @@ function svCreate_(spec) {
 
   var url = form.getPublishedUrl(), short = url;
   try { short = form.shortenFormUrl(url); } catch (x) {}
+  var tmNote = '';
+  if (spec.sid) { try { tmNote = svTmAttach_(spec.sid, quizUrl || short, ss.getUrl(), spec.title) || 'ok'; } catch (x) { tmNote = 'Training Master: ' + x.message; } }
   var out = {
     ok: true, v: SV.VER, title: spec.title, type: quiz ? 'quiz' : 'survey', items: count, points: pts,
     formUrl: url, shortUrl: short, editUrl: form.getEditUrl(), sheetUrl: ss.getUrl(),
     summaryUrl: url.replace('/viewform', '/viewanalytics'), formId: form.getId(), sheetId: ss.getId(),
     folderUrl: folder.getUrl(), share: share, shareNote: shareNote,
-    quizUrl: quizUrl, passScore: passScore, minutes: spec.minutes || 0, countdown: !!(quizUrl && spec.minutes && spec.countdown !== false), notify: spec.notify || []
+    quizUrl: quizUrl, sid: spec.sid || '', trainingMaster: tmNote, passScore: passScore, minutes: spec.minutes || 0, countdown: !!(quizUrl && spec.minutes && spec.countdown !== false), notify: spec.notify || []
   };
   svLog_(out, spec);
   SV_PART = null;

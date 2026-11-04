@@ -24,7 +24,7 @@ function svQuizSetup_(form, ss, spec, c, notes) {
   var cfg = {
     title: spec.title, intro: spec.intro || '', minutes: Number(spec.minutes || 0), countdown: spec.countdown !== false,
     total: c.total, pass: c.pass, notify: c.notify, sheetId: ss.getId(), info: c.info, qs: c.qs,
-    shuffle: spec.shuffle !== false, showAnswers: spec.showAnswers !== false, created: new Date().toISOString()
+    shuffle: spec.shuffle !== false, showAnswers: spec.showAnswers !== false, created: new Date().toISOString(), sid: spec.sid || ''
   };
   PropertiesService.getScriptProperties().setProperty('Q_' + form.getId(), JSON.stringify(cfg));
   var sh = ss.insertSheet(SVQ.TAB, 0);
@@ -173,6 +173,7 @@ function svQuizSubmit(formId, token, info, answers, auto) {
     var res = { ok: true, score: score, total: cfg.total, pass: cfg.pass, passed: pass, used: mmss, late: !!late, wrong: wrong,
       rows: cfg.showAnswers ? rows.filter(function (r) { return !r.ok; }) : [] };
     svQuizMail_(cfg, ss, infoVals, res, stamp, auto);
+    svTmUpdate_(cfg, ss);  // cột Q dòng buổi đào tạo (Training Master)
     cache.put(ck, JSON.stringify(res), 21600);
     return res;
   } finally { lock.releaseLock(); }

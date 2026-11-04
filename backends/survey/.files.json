@@ -4,6 +4,7 @@
   "MMH_MailDomain.gs",
   "MMH_SurveyAPI.gs",
   "MMH_SurveyQuiz.gs",
+  "MMH_SurveyTM.gs",
   "SurveyQuiz.html",
   "SurveyBuilder.html"
 ]
