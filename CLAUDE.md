@@ -326,6 +326,8 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   hoặc ≥ 30 ngày chưa cập nhật (nhắc lại mỗi tuần, kèm trưởng nhóm `ORDER_APPROVERS.surgical`) ⇒ dòng sheet **RH_Notify** (Training Master, App = "Theo dõi thầu", Kind `remind`, Url = Tender Map `?v=fu#<Tỉnh>/<Cơ sở>`)
   ⇒ hiện ở nút "Nhắc tôi" của Report Hub / CRM; đã nhắc ghi `FU_REMIND_LOG`. Thứ Hai: email (`mmhMail_`) danh sách gói đang theo dõi cho từng PIC + email tổng cho trưởng nhóm (`FU_WEEK`).
   Thử: workflow **Kiểm tra** ▸ ping `crm-surgical?action=fuRemind&op=dry&key=<8 ký tự cuối ID Sheet>&full=1` (`op=run` ghi thông báo, `op=week&mail=0` thử email, `op=tick` cài lại trigger).
+  **v1.3.1 (05/11/2026)**: v1.2 từ chối nhầm MỌI phiên — phiên Training Hub chỉ ghi phần trước @ (`e = u.local`, vd. "mmh.product") nên không khớp mẫu miền ⇒ đăng nhập xong Tender Map lại hiện ô nhập email.
+  Nay chỉ từ chối khi phiên ghi đủ email khác miền công ty (miền đã được Training Hub kiểm lúc cấp mã). ⚠️ Muốn biết email của phiên: chỉ có phần trước @.
   `fuCrm` (phiên công ty): cơ sở trên Tender Map ⇒ địa bàn CRM Surgical khớp tên (`fuNk_`: bỏ dấu, mở BV / BVĐK / TTYT) + tỉnh mới / cũ ⇒ mã, PIC, lượt gặp 12 tháng (5 lượt gần nhất), CBC (không SĐT), đơn hàng 12 tháng; đệm 10 phút.
 - **04/11/2026 — CRM v10.24: PIC xoá đơn hàng (`MMH_OrderDelete.gs` GIỐNG HỆT ở crm-dental / surgical / eyeless)**: lỗi — `deleteRow` chặn tab `order` với sales ⇒ nút "Xoá đơn" của PIC luôn báo lỗi.
   Action **`deleteOrder`** (`rows` = [{_row, _no, _nm}]): trong 1 khoá kiểm từng dòng (Order No. + account), số dòng dời ⇒ tìm lại theo Order No. + account; đơn chưa có số mà dòng lệch ⇒ `STALE`;
