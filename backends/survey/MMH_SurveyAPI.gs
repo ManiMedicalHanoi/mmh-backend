@@ -26,7 +26,7 @@
  *       low, high, lowLabel, highLabel (scale), rows, cols (grid),
  *       correct (quiz: chỉ số đáp án đúng, từ 0), points, explanation }
  */
-var SV = { VER: '2.5', PAGE: 'https://manimedicalhanoi.github.io/Training-Hub/quiz/', URL: 'https://script.google.com/macros/s/AKfycbx8l7u4j2tFDpfsg8IFsEcuXNrTbrLVRA_SoZ2Iisqprfm1ipL4z2NfDudVKuI1paFQPg/exec', KEY: 'mmh-sv-7Qk2pX9w', LOG_PROP: 'SV_LOG_ID', FOLDER_PROP: 'SV_FOLDER_ID', FOLDER: 'MMH Survey · Form tạo tự động' };
+var SV = { VER: '2.6', PAGE: 'https://manimedicalhanoi.github.io/Training-Hub/quiz/', URL: 'https://script.google.com/macros/s/AKfycbx8l7u4j2tFDpfsg8IFsEcuXNrTbrLVRA_SoZ2Iisqprfm1ipL4z2NfDudVKuI1paFQPg/exec', KEY: 'mmh-sv-7Qk2pX9w', LOG_PROP: 'SV_LOG_ID', FOLDER_PROP: 'SV_FOLDER_ID', FOLDER: 'MMH Survey · Form tạo tự động' };
 
 function doGet(e) {
   var p = e && e.parameter || {};
@@ -76,7 +76,7 @@ function svHandle_(p, body) {
     if (a === 'create') {
       var spec = body && body.spec;
       if (!spec && p.p) spec = JSON.parse(Utilities.newBlob(Utilities.base64DecodeWebSafe(p.p)).getDataAsString());
-      if (!spec && p.pz) spec = svUnz_(p.pz);
+      if (!spec && (p.pz || (body && body.pz))) spec = svUnz_(p.pz || body.pz);  // trang tạo form GitHub Pages gửi pz trong thân POST
       if (!spec || !spec.title) return svOut_({ ok: false, error: 'SPEC' });
       var lock = LockService.getScriptLock(); lock.waitLock(30000);
       try { return svOut_(svCreate_(spec)); } finally { lock.releaseLock(); svTrashPartial_(); }
