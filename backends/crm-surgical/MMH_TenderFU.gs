@@ -6,16 +6,17 @@
    ⇒ giữ đủ lịch sử từng bước: Giới thiệu → Lên danh mục → Chốt cấu hình → Ra báo giá → Ra HSMT → Đang chấm thầu
    → Đã trúng / Đã trượt (hoặc Huỷ / dừng). Trạng thái hiện tại = dòng mới nhất của mã đó.
 
-   Xác thực: phiên đăng nhập email công ty (tk do Training Hub ký, như Report Hub / CRM) — tfWho_ (MMH_TripFlow.gs).
-   Không dùng dịch vụ Google mới (chỉ Spreadsheet đã có) ⇒ không phải cấp quyền lại.
+   v1.1 (04/11/2026, người dùng yêu cầu "mở ra để ai cũng dùng được"): KHÔNG bắt đăng nhập. Người cập nhật = tên gõ / chọn trên app (`pic`);
+   có phiên email hợp lệ (tk, tfWho_ ở MMH_TripFlow.gs) thì lấy tên + email trong phiên. fuList trả thêm `people` (tên nhân sự đang hoạt động trong RH_Users,
+   không có email) cho ô chọn tên. Không dùng dịch vụ Google mới (chỉ Spreadsheet đã có) ⇒ không phải cấp quyền lại.
 
-     GET/POST action=fuMeta                    → { ok, v, stages }                       (không cần đăng nhập)
-     GET/POST action=fuList  tk                → { ok, v, me, stages, cols, rows:[[…]] }  (mọi dòng, cũ → mới)
-     POST     action=fuSave  tk rid case? fid hosp prov addr pkg tbmt ptype items[] value stage due note ll
+     GET/POST action=fuMeta                    → { ok, v, stages }
+     GET/POST action=fuList  [tk]              → { ok, v, me, people, stages, cols, rows:[[…]] }  (mọi dòng, cũ → mới)
+     POST     action=fuSave  pic|tk rid case? fid hosp prov addr pkg tbmt ptype items[] value stage due note ll
                                                → { ok, rec:[…], cols }
    ════════════════════════════════════════════════════════════════════════════════════════ */
 var FU = {
-  VER: '1.0',
+  VER: '1.1',
   TAB: 'FOLLOW UP TENDER',
   HDR: ['Thời gian cập nhật', 'Mã theo dõi', 'Lần', 'PIC', 'Email', 'Mã cơ sở', 'Cơ sở y tế', 'Tỉnh / thành', 'Địa chỉ',
         'Tên gói thầu', 'Số TBMT', 'Loại sản phẩm', 'Sản phẩm · SL ước tính', 'Tổng SL', 'Giá trị ước tính (VND)',
@@ -36,11 +37,32 @@ function fuRoute_(action, p){
   }catch(e){ return { ok:false, error:String(e && e.message || e) }; }
 }
 
+/* danh tính người cập nhật: phiên email hợp lệ ⇒ tên + email trong phiên; không có / hết hạn ⇒ tên app gửi (pic) */
 function fuMe_(p){
-  if(!tfS_(p && p.tk)) return { err:'Cần đăng nhập bằng email công ty.' };
-  var me = tfWho_(p);
-  if(me && me.err && /duyệt công tác/.test(me.err)) me.err = 'Cần đăng nhập bằng email công ty.';
-  return me;
+  var nm = tfS_(p && p.pic).replace(/[\r\n\t]+/g, ' ').slice(0, 60);
+  if(tfS_(p && p.tk)){
+    var me = null; try{ me = tfWho_(p); }catch(e){ me = null; }
+    if(me && !me.err && me.pic) return { pic:me.pic, local:me.local || '', level:me.level || '', admin:!!me.admin, tk:true };
+  }
+  return { pic:nm, local:'', level:'', admin:false, tk:false };
+}
+/* tên nhân sự đang hoạt động (RH_Users của Training Master) — chỉ tên, không email; đệm 1 giờ */
+function fuPeople_(){
+  var c = CacheService.getScriptCache(), hit = null;
+  try{ hit = c.get('fu_people'); if(hit) return JSON.parse(hit); }catch(e){}
+  var out = [];
+  try{
+    var us = SpreadsheetApp.openById(TF.MASTER_ID).getSheetByName('RH_Users');
+    if(us && us.getLastRow() > 1){
+      us.getRange(2, 1, us.getLastRow() - 1, 5).getValues().forEach(function(r){
+        var n = tfS_(r[1]), active = r[4] === '' || r[4] === true || /^(true|1|x|yes)$/i.test(tfS_(r[4]));
+        if(n && active && !/^TEST/i.test(n) && out.indexOf(n) < 0) out.push(n);
+      });
+    }
+    out.sort(function(a, b){ return a.localeCompare(b); });
+    c.put('fu_people', JSON.stringify(out), 3600);
+  }catch(e){}
+  return out;
 }
 
 function fuSheet_(){
@@ -68,12 +90,11 @@ function fuRowOut_(r){
 
 function fuList_(p){
   var me = fuMe_(p);
-  if(me.err) return { ok:false, code:'AUTH', error:me.err };
   var sh = fuSheet_(), last = sh.getLastRow(), rows = [];
   if(last >= 2){
     sh.getRange(2, 1, last - 1, FU.HDR.length).getValues().forEach(function(r){ if(tfS_(r[1])) rows.push(fuRowOut_(r)); });
   }
-  return { ok:true, v:FU.VER, me:{ pic:me.pic, local:me.local, level:me.level, admin:!!me.admin }, stages:FU.STAGES, cols:FU.COLS, rows:rows };
+  return { ok:true, v:FU.VER, me:{ pic:me.pic, local:me.local, level:me.level, admin:!!me.admin, tk:me.tk }, people:fuPeople_(), stages:FU.STAGES, cols:FU.COLS, rows:rows };
 }
 
 /* chuỗi bắt đầu bằng = + - @ ⇒ thêm ' để Sheet không hiểu thành công thức */
@@ -82,7 +103,7 @@ function fuNum_(v){ var n = Number(String(v == null ? '' : v).replace(/[^\d.\-]/
 
 function fuSave_(p){
   var me = fuMe_(p);
-  if(me.err) return { ok:false, code:'AUTH', error:me.err };
+  if(!me.pic) return { ok:false, code:'NAME', error:'Nhập tên người cập nhật.' };
   var hosp = tfS_(p.hosp), stage = parseInt(p.stage, 10) || 0;
   if(!hosp) return { ok:false, error:'Chưa chọn cơ sở y tế.' };
   if(!(stage >= 1 && stage < FU.STAGES.length)) return { ok:false, error:'Chưa chọn giai đoạn của gói thầu.' };
@@ -107,7 +128,7 @@ function fuSave_(p){
     if(!id) id = 'FU' + Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyMMdd') + '-' + Math.random().toString(36).slice(2, 6).toUpperCase();
     var qty = items.reduce(function(a, it){ return a + it.qty; }, 0);
     var txt = items.map(function(it){ return it.code + ' × ' + (it.qty || '?'); }).join('; ');
-    var row = [new Date(), id, rev, me.pic, me.local, fuTxt_(p.fid, 40), fuTxt_(hosp, 200), fuTxt_(p.prov, 60), fuTxt_(p.addr, 300),
+    var row = [new Date(), id, rev, fuTxt_(me.pic, 60), me.local, fuTxt_(p.fid, 40), fuTxt_(hosp, 200), fuTxt_(p.prov, 60), fuTxt_(p.addr, 300),
       fuTxt_(p.pkg, 300), fuTxt_(p.tbmt, 60), fuTxt_(p.ptype, 40), fuTxt_(txt, 2000), qty, fuNum_(p.value), stage, FU.STAGES[stage],
       due, fuTxt_(p.note, 3000), JSON.stringify(items), rid, fuTxt_(p.src || 'Tender Map', 40), fuTxt_(p.ll, 40)];
     sh.getRange(sh.getLastRow() + 1, 1, 1, row.length).setValues([row]);

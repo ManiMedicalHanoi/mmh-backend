@@ -318,3 +318,5 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   **Theo dõi thầu** (`crm-surgical/MMH_TenderFU.gs`, action `fuMeta` / `fuList` / `fuSave`, phiên `tk` qua `tfWho_`): sheet ẨN **FOLLOW UP TENDER** trong file CRM Surgical,
   GHI NỐI TIẾP (mỗi lần cập nhật 1 dòng, cùng "Mã theo dõi", "Lần" + 1; không sửa / xoá dòng cũ), giai đoạn `FU.STAGES` 1–9 (Giới thiệu → Lên danh mục → Chốt cấu hình →
   Ra báo giá → Ra HSMT → Đang chấm thầu → Đã trúng / Đã trượt / Huỷ), sản phẩm `items` JSON (mã dao / chỉ khâu MANI + SL ước tính), chống gửi trùng theo `rid`.
+  **v1.1 (04/11/2026, người dùng yêu cầu "mở ra để ai cũng dùng được")**: KHÔNG bắt đăng nhập — ai có link Tender Map cũng xem / ghi được; người cập nhật = tên app gửi (`pic`, bắt buộc,
+  thiếu ⇒ `code:'NAME'`), có phiên email hợp lệ thì lấy tên + email trong phiên. `fuList` trả `people` = tên nhân sự đang hoạt động trong RH_Users (không email, đệm 1 giờ) cho ô chọn tên.
