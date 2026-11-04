@@ -16,7 +16,7 @@ var VM = {
   TAB: 'TENDER MAP · VỊ TRÍ ĐỊA BÀN',
   HDR: ['Thời gian', 'Mã KH', 'Tên khách hàng', 'Tỉnh / thành', 'Vĩ độ', 'Kinh độ', 'Mã cơ sở (Tender Map)', 'Tên cơ sở (Tender Map)', 'Nguồn', 'Người cập nhật', 'Ghi chú', 'Tên chuẩn'],
   FROM: '2025-09-01',                      /* FY67 */
-  ACC_COLS: ['code', 'name', 'type', 'province', 'area', 'pic', 'address', 'gps', 'loc', 'std'],
+  ACC_COLS: ['code', 'name', 'type', 'province', 'area', 'pic', 'address', 'gps', 'loc', 'std', 'kind'],
   ROW_COLS: ['d', 'pic', 'acc', 'act', 'st', 'lat', 'lng', 'photo', 'task']
 };
 
@@ -99,7 +99,8 @@ function fuVisits_(p){
   if(me.err) return { ok:false, code:'AUTH', error:me.err };
   var from = tfIso_(p.from) || VM.FROM, core = vmCore_(from), L = vmLocs_();
   var STD = (typeof VM_STD !== 'undefined') ? VM_STD : {};
-  var acc = core.acc.map(function(a){ var o = a.slice(); o[8] = (a[0] && L[a[0]]) || null; o[9] = (o[8] && o[8][7]) || (a[0] && STD[a[0]]) || ''; return o; });
+  var acc = core.acc.map(function(a){ var o = a.slice(), sd = a[0] && STD[a[0]]; o[8] = (a[0] && L[a[0]]) || null;
+    o[9] = (o[8] && o[8][7]) || (sd && (typeof sd === 'string' ? sd : sd[0])) || ''; o[10] = (sd && typeof sd !== 'string' && sd[1]) || ''; return o; });
   return { ok:true, v:VM.VER, from:from, to:core.to, today:fuToday_(), accCols:VM.ACC_COLS, acc:acc, pics:core.pics, acts:core.acts, sts:core.sts, tasks:core.tasks, cols:VM.ROW_COLS, rows:core.rows };
 }
 /* nhật ký đầy đủ của 1 khách hàng (mọi thời gian) */
