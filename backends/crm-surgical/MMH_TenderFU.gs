@@ -6,17 +6,19 @@
    ⇒ giữ đủ lịch sử từng bước: Giới thiệu → Lên danh mục → Chốt cấu hình → Ra báo giá → Ra HSMT → Đang chấm thầu
    → Đã trúng / Đã trượt (hoặc Huỷ / dừng). Trạng thái hiện tại = dòng mới nhất của mã đó.
 
-   v1.1 (04/11/2026, người dùng yêu cầu "mở ra để ai cũng dùng được"): KHÔNG bắt đăng nhập. Người cập nhật = tên gõ / chọn trên app (`pic`);
-   có phiên email hợp lệ (tk, tfWho_ ở MMH_TripFlow.gs) thì lấy tên + email trong phiên. fuList trả thêm `people` (tên nhân sự đang hoạt động trong RH_Users,
-   không có email) cho ô chọn tên. Không dùng dịch vụ Google mới (chỉ Spreadsheet đã có) ⇒ không phải cấp quyền lại.
+   v1.1 (04/11/2026): bỏ bắt đăng nhập (người cập nhật = tên gõ trên app).
+   v1.2 (04/11/2026, người dùng yêu cầu): CHỈ tài khoản email công ty **@manimedicalhanoi.com / @mani.inc** mới XEM và GHI được (fuList / fuSave cần phiên `tk`
+   hợp lệ — tfWho_ ở MMH_TripFlow.gs, ký bằng RH_Secret của Training Master, tài khoản đang hoạt động trong RH_Users). Người cập nhật = tên + email trong phiên
+   (không còn ô gõ tên). Không phiên / sai miền ⇒ { ok:false, code:'AUTH' }. Không dùng dịch vụ Google mới ⇒ không phải cấp quyền lại.
 
      GET/POST action=fuMeta                    → { ok, v, stages }
-     GET/POST action=fuList  [tk]              → { ok, v, me, people, stages, cols, rows:[[…]] }  (mọi dòng, cũ → mới)
-     POST     action=fuSave  pic|tk rid case? fid hosp prov addr pkg tbmt ptype items[] value stage due note ll
+     GET/POST action=fuList  tk                → { ok, v, me, people, stages, cols, rows:[[…]] }  (mọi dòng, cũ → mới)
+     POST     action=fuSave  tk rid case? fid hosp prov addr pkg tbmt ptype items[] value stage due note ll
                                                → { ok, rec:[…], cols }
    ════════════════════════════════════════════════════════════════════════════════════════ */
 var FU = {
-  VER: '1.1',
+  VER: '1.2',
+  DOMAINS: /@(manimedicalhanoi\.com|mani\.inc)$/i,
   TAB: 'FOLLOW UP TENDER',
   HDR: ['Thời gian cập nhật', 'Mã theo dõi', 'Lần', 'PIC', 'Email', 'Mã cơ sở', 'Cơ sở y tế', 'Tỉnh / thành', 'Địa chỉ',
         'Tên gói thầu', 'Số TBMT', 'Loại sản phẩm', 'Sản phẩm · SL ước tính', 'Tổng SL', 'Giá trị ước tính (VND)',
@@ -37,14 +39,18 @@ function fuRoute_(action, p){
   }catch(e){ return { ok:false, error:String(e && e.message || e) }; }
 }
 
-/* danh tính người cập nhật: phiên email hợp lệ ⇒ tên + email trong phiên; không có / hết hạn ⇒ tên app gửi (pic) */
+/* danh tính: CHỈ phiên email công ty hợp lệ (v1.2). Lỗi ⇒ { err } */
+function fuMail_(tk){   /* email trong phiên (phần dữ liệu của tk; chữ ký đã được tfWho_ kiểm) */
+  try{ var d = tfS_(tk), dot = d.indexOf('.'); return tfS_(JSON.parse(Utilities.newBlob(Utilities.base64DecodeWebSafe(d.substring(0, dot))).getDataAsString()).e).toLowerCase(); }catch(e){ return ''; }
+}
 function fuMe_(p){
-  var nm = tfS_(p && p.pic).replace(/[\r\n\t]+/g, ' ').slice(0, 60);
-  if(tfS_(p && p.tk)){
-    var me = null; try{ me = tfWho_(p); }catch(e){ me = null; }
-    if(me && !me.err && me.pic) return { pic:me.pic, local:me.local || '', level:me.level || '', admin:!!me.admin, tk:true };
-  }
-  return { pic:nm, local:'', level:'', admin:false, tk:false };
+  var AUTH = 'Theo dõi thầu chỉ dành cho tài khoản email công ty (@manimedicalhanoi.com hoặc @mani.inc) — đăng nhập để xem.';
+  if(!tfS_(p && p.tk)) return { err:AUTH };
+  var me = null; try{ me = tfWho_(p); }catch(e){ me = { err:String(e && e.message || e) }; }
+  if(!me || me.err || !me.pic) return { err:(me && me.err) || AUTH };
+  var mail = fuMail_(p.tk);
+  if(mail && !FU.DOMAINS.test(mail)) return { err:AUTH };
+  return { pic:me.pic, local:me.local || '', level:me.level || '', admin:!!me.admin, tk:true, mail:mail };
 }
 /* tên nhân sự đang hoạt động (RH_Users của Training Master) — chỉ tên, không email; đệm 1 giờ */
 function fuPeople_(){
@@ -90,6 +96,7 @@ function fuRowOut_(r){
 
 function fuList_(p){
   var me = fuMe_(p);
+  if(me.err) return { ok:false, code:'AUTH', v:FU.VER, error:me.err, stages:FU.STAGES };
   var sh = fuSheet_(), last = sh.getLastRow(), rows = [];
   if(last >= 2){
     sh.getRange(2, 1, last - 1, FU.HDR.length).getValues().forEach(function(r){ if(tfS_(r[1])) rows.push(fuRowOut_(r)); });
@@ -103,7 +110,7 @@ function fuNum_(v){ var n = Number(String(v == null ? '' : v).replace(/[^\d.\-]/
 
 function fuSave_(p){
   var me = fuMe_(p);
-  if(!me.pic) return { ok:false, code:'NAME', error:'Nhập tên người cập nhật.' };
+  if(me.err) return { ok:false, code:'AUTH', error:me.err };
   var hosp = tfS_(p.hosp), stage = parseInt(p.stage, 10) || 0;
   if(!hosp) return { ok:false, error:'Chưa chọn cơ sở y tế.' };
   if(!(stage >= 1 && stage < FU.STAGES.length)) return { ok:false, error:'Chưa chọn giai đoạn của gói thầu.' };
