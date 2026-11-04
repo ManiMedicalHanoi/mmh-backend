@@ -1,0 +1,23 @@
+{
+  "note": "Nhập bù lượt đi địa bàn tháng 09/2026 của Khang (CRM Surgical) — ảnh Khang gửi qua Zalo, người dùng yêu cầu 04/11/2026",
+  "pic": "Khang",
+  "plan": "Viếng thăm khoa Mắt — giới thiệu dao phẫu thuật nhãn khoa MANI",
+  "values": { "typeAction": "Visiting", "status": "Completed",
+              "product": "ophthalmic.*knife|dao.*nhan", "process": "engage", "feedback": "^good|^tot",
+              "nextAction": "take care|cham soc|tiep tuc", "typeTask": "" },
+  "tasks": [
+    { "id": "01", "date": "2026-09-13", "label": "BV Mắt TP HCM",             "find": "mat (tp\\.? ?(hcm|ho chi minh)|thanh pho ho chi minh)", "prov": "chi minh|hcm" },
+    { "id": "02", "date": "2026-09-06", "label": "BV ĐKKV Thủ Đức",           "find": "thu duc", "prov": "" },
+    { "id": "03", "date": "2026-09-06", "label": "BV Quân Dân Y Miền Đông",   "find": "quan dan y", "prov": "" },
+    { "id": "04", "date": "2026-09-06", "label": "BV Lê Văn Việt",            "find": "le van viet", "prov": "" },
+    { "id": "05", "date": "2026-09-09", "label": "TT Mắt Sunshine",           "find": "sunshine", "prov": "" },
+    { "id": "06", "date": "2026-09-09", "label": "BV Nguyễn Trãi",            "find": "nguyen trai", "prov": "" },
+    { "id": "07", "date": "2026-09-07", "label": "BV Quận Gò Vấp",            "find": "go vap", "prov": "" },
+    { "id": "08", "date": "2026-09-08", "label": "BV MSG Vĩnh Long",          "find": "(msg|mat sai gon|sai gon).*vinh long", "prov": "" },
+    { "id": "09", "date": "2026-09-08", "label": "BV Chuyên khoa Mắt Vĩnh Long", "find": "(chuyen khoa mat|ck mat|chuyen mat|mat).*vinh long", "prov": "" },
+    { "id": "10", "date": "2026-09-08", "label": "BV Quân Y 121",             "find": "quan y 121|121", "prov": "" },
+    { "id": "11", "date": "2026-09-08", "label": "BV MSG Cần Thơ",            "find": "(msg|mat sai gon|sai gon).*can tho", "prov": "" },
+    { "id": "12", "date": "2026-09-13", "label": "BV ĐHYD TP HCM",            "find": "(dhyd|dai hoc y duoc|y duoc).*(hcm|ho chi minh)|^dhyd|dai hoc y duoc tp", "prov": "" },
+    { "id": "13", "date": "2026-09-09", "label": "Thẩm mỹ Sobee",             "find": "sobee", "prov": "" }
+  ]
+}
