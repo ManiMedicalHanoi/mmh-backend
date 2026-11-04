@@ -23,11 +23,12 @@
      có mốc dự kiến trong 3 ngày tới / đã quá mốc mà chưa cập nhật ⇒ 1 dòng sheet RH_Notify (Training Master) cho PIC — hiện ở nút "Nhắc tôi" của
      Report Hub / CRM, bấm mở Tender Map đúng cơ sở; gói ≥ 30 ngày chưa cập nhật ⇒ nhắc PIC + trưởng nhóm (ORDER_APPROVERS.surgical), nhắc lại mỗi tuần.
      Đã nhắc ghi ở Script Property FU_REMIND_LOG (không nhắc trùng). Thứ Hai: email tóm tắt (mmhMail_) cho từng PIC có gói đang theo dõi + 1 email tổng cho trưởng nhóm.
+   v1.3.1 (05/11/2026): sửa v1.2 từ chối nhầm MỌI phiên (phiên chỉ có phần trước @ ⇒ không khớp mẫu miền) ⇒ đăng nhập xong vẫn quay lại ô nhập email.
    · fuCrm — chi tiết cơ sở trên Tender Map hiện dữ liệu CRM Surgical: mã / PIC địa bàn, lượt gặp 12 tháng, người liên hệ (CBC, không SĐT), đơn hàng 12 tháng.
      Cần phiên email công ty như fuList.
    ════════════════════════════════════════════════════════════════════════════════════════ */
 var FU = {
-  VER: '1.3',
+  VER: '1.3.1',
   MAP_URL: 'https://manimedicalhanoi.github.io/Tender-Result/map/',
   SOON_DAYS: 3, STALE_DAYS: 30, TRIG_V: 'fu1',
   DOMAINS: /@(manimedicalhanoi\.com|mani\.inc)$/i,
@@ -54,7 +55,7 @@ function fuRoute_(action, p){
 }
 
 /* danh tính: CHỈ phiên email công ty hợp lệ (v1.2). Lỗi ⇒ { err } */
-function fuMail_(tk){   /* email trong phiên (phần dữ liệu của tk; chữ ký đã được tfWho_ kiểm) */
+function fuMail_(tk){   /* email trong phiên (phần dữ liệu của tk; chữ ký đã được tfWho_ kiểm) — Training Hub ghi phần trước @ (vd. "mmh.product") */
   try{ var d = tfS_(tk), dot = d.indexOf('.'); return tfS_(JSON.parse(Utilities.newBlob(Utilities.base64DecodeWebSafe(d.substring(0, dot))).getDataAsString()).e).toLowerCase(); }catch(e){ return ''; }
 }
 function fuMe_(p){
@@ -62,8 +63,10 @@ function fuMe_(p){
   if(!tfS_(p && p.tk)) return { err:AUTH };
   var me = null; try{ me = tfWho_(p); }catch(e){ me = { err:String(e && e.message || e) }; }
   if(!me || me.err || !me.pic) return { err:(me && me.err) || AUTH };
+  /* v1.3.1 — phiên của Training Hub chỉ ghi PHẦN TRƯỚC @ (rhaToken_: e = u.local) và chỉ cấp cho email công ty (rhAuthStart / rhAuthVerify kiểm HUB.DOMAINS)
+     ⇒ chỉ từ chối khi phiên có ghi đủ email mà khác miền công ty (v1.2 từ chối nhầm mọi phiên vì "mmh.product" không có @…) */
   var mail = fuMail_(p.tk);
-  if(mail && !FU.DOMAINS.test(mail)) return { err:AUTH };
+  if(mail.indexOf('@') >= 0 && !FU.DOMAINS.test(mail)) return { err:AUTH };
   return { pic:me.pic, local:me.local || '', level:me.level || '', admin:!!me.admin, tk:true, mail:mail };
 }
 /* tên nhân sự đang hoạt động (RH_Users của Training Master) — chỉ tên, không email; đệm 1 giờ */
