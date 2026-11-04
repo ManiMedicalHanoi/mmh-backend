@@ -328,6 +328,11 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   Thử: workflow **Kiểm tra** ▸ ping `crm-surgical?action=fuRemind&op=dry&key=<8 ký tự cuối ID Sheet>&full=1` (`op=run` ghi thông báo, `op=week&mail=0` thử email, `op=tick` cài lại trigger).
   **v1.3.1 (05/11/2026)**: v1.2 từ chối nhầm MỌI phiên — phiên Training Hub chỉ ghi phần trước @ (`e = u.local`, vd. "mmh.product") nên không khớp mẫu miền ⇒ đăng nhập xong Tender Map lại hiện ô nhập email.
   Nay chỉ từ chối khi phiên ghi đủ email khác miền công ty (miền đã được Training Hub kiểm lúc cấp mã). ⚠️ Muốn biết email của phiên: chỉ có phần trước @.
+  **Bản đồ hoạt động Sales (05/11/2026, `crm-surgical/MMH_VisitMap.gs`, MMH_TenderFU v1.4, người dùng yêu cầu)**: Tender Map ▸ chế độ **Hoạt động** — mọi phiên email công ty xem dữ liệu của cả nhóm (Viet Ha, Khang).
+  `fuVisits` (`from`, mặc định 2025-09-01) = 1. CUSTOMER CODE (mã · tên · loại · tỉnh · vùng · PIC · địa chỉ · cụm GPS · vị trí đã ghim) + MỌI dòng 6. WEEKLY REPORT dạng gọn
+  `[ngày, PIC, KH, loại hoạt động, trạng thái, lat, lng, ảnh, loại việc]` (chỉ số, không chữ dài; đệm `cachedFor_` theo 2 tab); khách chưa có trong CUSTOMER CODE ⇒ dòng mã trống; bỏ TBD.
+  Cụm GPS = trung vị toạ độ ảnh các lượt **Visiting** (cột W, mọi thời gian) + số điểm trong 1,5 km. `fuVisitLog` (code | name + prov) = mọi lượt của 1 khách (kết quả, phản hồi, bước tiếp theo, ảnh, GPS), mới trước, ≤ 300.
+  `fuLocSave` (ghi nối tiếp, có trong `WRITE_ACTIONS`) ⇒ sheet ẨN **TENDER MAP · VỊ TRÍ ĐỊA BÀN** (mã KH ⇄ toạ độ ghim tay / cơ sở danh mục `fid` của Tender Map; `op=clear` bỏ ghim); `fuCrm` nhận `fid` ⇒ ưu tiên mã KH đã gắn.
   `fuCrm` (phiên công ty): cơ sở trên Tender Map ⇒ địa bàn CRM Surgical khớp tên (`fuNk_`: bỏ dấu, mở BV / BVĐK / TTYT) + tỉnh mới / cũ ⇒ mã, PIC, lượt gặp 12 tháng (5 lượt gần nhất), CBC (không SĐT), đơn hàng 12 tháng; đệm 10 phút.
 - **04/11/2026 — CRM v10.24: PIC xoá đơn hàng (`MMH_OrderDelete.gs` GIỐNG HỆT ở crm-dental / surgical / eyeless)**: lỗi — `deleteRow` chặn tab `order` với sales ⇒ nút "Xoá đơn" của PIC luôn báo lỗi.
   Action **`deleteOrder`** (`rows` = [{_row, _no, _nm}]): trong 1 khoá kiểm từng dòng (Order No. + account), số dòng dời ⇒ tìm lại theo Order No. + account; đơn chưa có số mà dòng lệch ⇒ `STALE`;
