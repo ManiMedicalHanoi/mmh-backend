@@ -95,16 +95,24 @@ async function main() {
     if (t.skip) { say(`- [${t.id}] ${t.label}: bỏ qua — ${t.skip}`); skipN++; continue; }
     const img = fs.readFileSync(path.join(DIR, 'khang-202609', t.id + '.jpg')).toString('base64');
     let data, rid;
-    if (t.row) {                                       /* CẬP NHẬT dòng Khang đã có: chuyển Completed + ảnh, giữ kết quả đã viết */
+    if (t.row) {                                       /* dòng Khang đã có */
       const ex = mine.find(r => r._row === t.row);
       if (!ex || String(ex.start).slice(0, 10) !== t.date || nm(ex.account) !== nm(t.acc)) { say(`- [${t.id}] ${t.label}: ✗ dòng ${t.row} không còn khớp (${ex ? ex.start + ' · ' + ex.account : 'không thấy'}) — không ghi`); errN++; continue; }
       if (ex.photo) { say(`- [${t.id}] ${t.label}: bỏ qua — dòng ${t.row} đã có ảnh`); skipN++; continue; }
-      say(`- [${t.id}] trước khi sửa dòng ${ex._row}: ${JSON.stringify({ status: ex.status, typeTask: ex.typeTask, product: ex.product, process: ex.process, feedback: ex.feedback, nextAction: ex.nextAction, result: ex.result })}`);
-      data = { _row: ex._row, _no: ex.no, _acc: ex.account, _pic: ex.pic, _start: String(ex.start).slice(0, 10),
-               account: ex.account, start: String(ex.start).slice(0, 10), finish: String(ex.finish || ex.start).slice(0, 10),
-               status: val.status, product: val.product, process: val.process, feedback: val.feedback, nextAction: val.nextAction, stopReason: '' };
+      const hint = { _no: ex.no, _acc: ex.account, _pic: ex.pic, _start: String(ex.start).slice(0, 10) };
+      say(`- [${t.id}] trước khi sửa dòng ${ex._row}: ${JSON.stringify({ status: ex.status, typeTask: ex.typeTask, product: ex.product, process: ex.process, feedback: ex.feedback, nextAction: ex.nextAction, plan: ex.plan, result: ex.result })}`);
+      if (t.mode === 'photo') {                        /* đã Completed ⇒ CHỈ thêm ảnh, giữ nguyên nội dung Khang đã ghi */
+        if (!/complet/i.test(ex.status)) { say(`- [${t.id}] ✗ dòng ${t.row} không phải Completed`); errN++; continue; }
+        const r = await call(null, Object.assign({ action: 'uploadPhoto', pic: SPEC.pic, rid: `imp-khang-p${ex._row}-${t.date}`, b64: 'data:image/jpeg;base64,' + img, mime: 'image/jpeg',
+                                                  row: ex._row, account: ex.account, date: hint._start, replace: 1 }, hint));
+        if (r && r.ok) { okN++; say(`- [${t.id}] ${t.label} ${t.date}: ✓ thêm ảnh vào dòng ${ex._row} · ${r.name} · ${r.url}`); }
+        else { errN++; say(`- [${t.id}] ${t.label} ${t.date}: ✗ ${JSON.stringify(r).slice(0, 400)}`); }
+        continue;
+      }
+      data = Object.assign({ _row: ex._row, account: ex.account, start: hint._start, finish: String(ex.finish || ex.start).slice(0, 10),
+               status: val.status, product: val.product, process: val.process, feedback: val.feedback, nextAction: val.nextAction, stopReason: '' }, hint);
       if (!String(ex.typeTask || '').trim()) data.typeTask = val.typeTask;
-      if (!String(ex.result || '').trim()) data.result = SPEC.result;
+      if (!String(ex.result || '').trim()) data.result = t.result || SPEC.result;
       rid = `imp-khang-u${ex._row}-${t.date}`;
     } else {                                           /* TẠO MỚI */
       const c = cust.find(x => x.code === t.code);
