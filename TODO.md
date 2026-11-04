@@ -41,3 +41,7 @@
     chuyến công tác vào file MKT (`rhxInScope`); lịch CRM đọc `tfTrips` từ backend CRM.
 14. ⏳ **Thầu nhãn khoa NPP iCare / Hùng Vĩ (03/11/2026)**: đã lưu `tender-icare` (Sheet + Script ID) vào backends.json ⇒ workflow Kéo code về tự kéo code gốc.
     ✅ Hùng Vĩ = `tender-hungvi` (03/11/2026). URL web app lấy từ Tender-Result/index.html (NPP_URL). Chưa có yêu cầu tính năng (vd. đưa kết quả thầu vào CRM / Report Hub) — hỏi người dùng.
+15. ⏳ **Tender Map — KQTT toàn quốc + theo dõi gói thầu (04/11/2026)**: `tender-kqtt` (script file tender tổng) đã vào backends.json ⇒ Kéo code về tự kéo code gốc.
+    Web đọc KQTT qua `tender-hungvi ?action=kqttMap`; theo dõi thầu ghi sheet ẩn FOLLOW UP TENDER của crm-surgical (`fu*`).
+    Còn chờ người dùng: danh sách cơ sở y tế đầy đủ có số giường / hạng (Sở Y tế / BHXH) để thay bản dựng từ OpenStreetMap + KQTT.
+

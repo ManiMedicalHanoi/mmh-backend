@@ -213,5 +213,15 @@
     "sheetUrl": "https://docs.google.com/spreadsheets/d/1N42yeU1hSOMZT9BgVPZ8x625BGaNI705u5REkc1Uzx8/edit?gid=602792007#gid=602792007",
     "note": "File NPP nhãn khoa Hùng Vĩ (miền Bắc) cập nhật gói thầu tham dự + kết quả trúng thầu (sheet 'Tender FY66', header dòng 7). Script 'HÙNG VĨ TENDER FEED v7 FULL' (feed + FC_LOG + ACCT_PLAN + syncTender sang file tender tổng 1lI1s1nE… ▸ 'Data xử lý'). URL /exec lấy từ Tender-Result/index.html (NPP_URL) — dashboard dao nhãn khoa đang gọi. Cấu trúc: docs/tender-npp.md.",
     "url": "https://script.google.com/macros/s/AKfycbyL5FRVXl0Zr35ndE1PGJMGXzHOYzHjdsyQK7vHwIYhqe5owjSg3o1QtH-i8qGNBKJ-/exec"
+  },
+  "tender-kqtt": {
+    "name": "KQTT dao nhãn khoa toàn quốc (file tender tổng — Data xử lý)",
+    "apps": [
+      "ManiMedicalHanoi/Tender-Result"
+    ],
+    "scriptId": "1e77ssN30NvoVbsGOIOyyFJ-FZEI5e8xNbCsgyOw0mOb94OARRt948_P-",
+    "sheetId": "1lI1s1nEyRtSluQiCJu2sdkgZdP38A35qYFdzOvVXE7I",
+    "sheetUrl": "https://docs.google.com/spreadsheets/d/1lI1s1nEyRtSluQiCJu2sdkgZdP38A35qYFdzOvVXE7I/edit?gid=1603394577#gid=1603394577",
+    "note": "File KQTT dao các năm trên bệnh viện công lập (sheet 'Data xử lý', gid 1603394577, tiêu đề dòng 2; cập nhật thường xuyên — Hùng Vĩ syncTender cũng ghi thêm dòng Win). Script gắn Sheet, chưa có web app ⇒ deploy chỉ đẩy code + lưu phiên bản. Web Tender Map đọc dữ liệu qua tender-hungvi ?action=kqttMap (MMH_KqttMap.gs, đã có quyền mở file này)."
   }
 }

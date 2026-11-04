@@ -311,3 +311,10 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   + `syncTender` (dao Win MSL / MST / MCU có TBMT ⇒ thêm vào file tender tổng `1lI1s1nE…` ▸ "Data xử lý" theo cột KQTT Code, tô vàng). iCare là bản cũ hơn — muốn 2 file giống nhau thì hỏi người dùng.
   **Cấu trúc 2 file (cột, dropdown, công thức, sheet phụ): `docs/tender-npp.md`.**
   **`MMH_WinMap.gs` (GIỐNG HỆT ở 2 backend, 03/11/2026)**: `?action=winMap[&from=202509]` (JSON / `callback`) = MỌI dòng thầu (dao + chỉ khâu) có mốc ≥ from, cột dò theo tên tiêu đề, dòng gộp ô lấy thông tin gói từ dòng trên ⇒ web **Bản đồ trúng thầu** `Tender-Result/map/` (FY67 = 09/2025–08/2026; kỳ = tháng phê duyệt, chưa có thì Month / ngày ký; hợp đồng = phê duyệt + thời gian thực hiện). Feed mặc định (dashboard dao) giữ nguyên.
+- **04/11/2026 — Tender Map: KQTT toàn quốc + theo dõi gói thầu (người dùng yêu cầu)**: backend mới **`tender-kqtt`** = script gắn file tender tổng
+  `1lI1s1nE…` (sheet "Data xử lý", gid 1603394577, tiêu đề dòng 2 — KQTT dao nhãn khoa mọi hãng trên bệnh viện công lập, cập nhật thường xuyên; Hùng Vĩ `syncTender`
+  cũng ghi vào đây). Chưa có web app ⇒ deploy chỉ đẩy code. Web **đọc qua `tender-hungvi ?action=kqttMap`** (`MMH_KqttMap.gs`: cột dò theo tên, kỳ = cột Month mm/yyyy,
+  ngày quyết định bị đảo ngày ↔ tháng thì đọc theo Month; trả `cols` + `rows` mảng) — script Hùng Vĩ vốn đã mở được file này ⇒ không cần cấp quyền mới.
+  **Theo dõi thầu** (`crm-surgical/MMH_TenderFU.gs`, action `fuMeta` / `fuList` / `fuSave`, phiên `tk` qua `tfWho_`): sheet ẨN **FOLLOW UP TENDER** trong file CRM Surgical,
+  GHI NỐI TIẾP (mỗi lần cập nhật 1 dòng, cùng "Mã theo dõi", "Lần" + 1; không sửa / xoá dòng cũ), giai đoạn `FU.STAGES` 1–9 (Giới thiệu → Lên danh mục → Chốt cấu hình →
+  Ra báo giá → Ra HSMT → Đang chấm thầu → Đã trúng / Đã trượt / Huỷ), sản phẩm `items` JSON (mã dao / chỉ khâu MANI + SL ước tính), chống gửi trùng theo `rid`.

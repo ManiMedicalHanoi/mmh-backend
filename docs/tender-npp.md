@@ -55,3 +55,20 @@ Code dò cột theo tên tiêu đề (`COL_ALIASES`), cột trùng tên (Product
 
 Đích: Spreadsheet `1lI1s1nEyRtSluQiCJu2sdkgZdP38A35qYFdzOvVXE7I`, sheet **Data xử lý** (gid 1603394577, tiêu đề dòng 2).
 Lấy dòng Win + mã dao MSL / MST / MCU + có TBMT; TBMT chưa có ở cột "KQTT Code" ⇒ thêm dòng, tô vàng. `?action=syncPreview` (thử) / `syncTender`.
+
+## File tender tổng — KQTT dao toàn quốc (backend `tender-kqtt`, 04/11/2026)
+
+Spreadsheet `1lI1s1nEyRtSluQiCJu2sdkgZdP38A35qYFdzOvVXE7I` ▸ **Data xử lý** (gid 1603394577). Dòng 1 = "Thời gian xuất dữ liệu: …", dòng 2 = tiêu đề, dữ liệu từ dòng 3
+(~1.000 dòng 01/2023 – 05/2026, mọi hãng dao). Sheet phụ: **Master_Dao** (Hãng · Xuất xứ · Loại dao · Mã sản phẩm · Phân khúc giá), `_Calc` (ẩn, số tổng).
+
+| Tiêu đề | Ghi chú |
+|---|---|
+| No. · Product Name · Unit · Quantity · Country of Origin · HS Code · Product Code · Brand Label · Manufacturer · Model | thông tin hàng trúng (mọi hãng) |
+| Registration / Import License Number · Year of Manufacture · Technical Specification | dài, web không đọc Technical Specification |
+| Awarded Unit Price (VND) | đơn giá trúng |
+| **KQTT Code** | số TBMT (IB…) — web dùng để bỏ trùng với file NPP iCare / Hùng Vĩ |
+| Buyer (Hospital / Health Facility) · Procurement Method · Award Publication Date · Decision Number · Decision Issue Date · Number of Bidders · Location | ngày lẫn kiểu Date / chuỗi dd/MM/yyyy |
+| Year · **Month** (mm/yyyy) · Manufacturer_Norm · Region · Price_Tier · Province_Clean · Region_by_Distributor · Knife Type (Slit / Stab / Cresent / MVR) | cột đã chuẩn hoá |
+| Contract Duration (Month) · Expiration date · check · count | `check` = khoá chống trùng (TBMT + tên + SL + mã) |
+
+Đọc: `tender-hungvi ?action=kqttMap[&from=202209]` (`MMH_KqttMap.gs`). Thử: workflow **Kiểm tra** ▸ ping `tender-hungvi?action=kqttMap`.

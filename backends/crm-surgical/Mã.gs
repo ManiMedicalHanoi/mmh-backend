@@ -465,6 +465,12 @@ function handle(e, method){
       var _hit = idemBegin_(_rid);
       if (_hit) return reply(_hit, callback);
     }
+    /* ⭐ 04/11/2026 — MMH_TenderFU.gs: theo dõi gói thầu dao / chỉ khâu (web Tender Map) — sheet ẩn FOLLOW UP TENDER, ghi nối tiếp */
+    if (/^fu[A-Z]/.test(String(action)) && typeof fuRoute_ === 'function'){
+      out = fuRoute_(String(action), p);
+      if (_rid && WRITE_ACTIONS[action]) idemEnd_(_rid, out);
+      return reply(out, callback);
+    }
     /* ⭐ v10.0 — module Mở mới & SKU mới · Báo cáo KPI · đẩy KPI ở nền */
     if (/^na[A-Z]/.test(String(action))){
       out = naRoute_(String(action), user, p);
@@ -589,7 +595,7 @@ function whoAmI(p){
 function isManager(user){ return user && user.role === 'manager'; }
 
 /* ⭐ v10.0 — các action GHI dữ liệu (dùng cho chống ghi trùng theo rid) */
-var WRITE_ACTIONS = { weeklyReport:1, monthlyReport:1, tripPropose2:1, tfDecide:1, addKey:1, addSub:1, atImport:1, saveOrders:1, saveOrder:1, saveCustomer:1, saveCBC:1, saveCustomerCbc:1, cbcEnsure:1, saveWeekly:1, saveMonthly:1,
+var WRITE_ACTIONS = { fuSave:1, weeklyReport:1, monthlyReport:1, tripPropose2:1, tfDecide:1, addKey:1, addSub:1, atImport:1, saveOrders:1, saveOrder:1, saveCustomer:1, saveCBC:1, saveCustomerCbc:1, cbcEnsure:1, saveWeekly:1, saveMonthly:1,
                       savePresentation:1, saveADP:1, deleteRow:1, deleteAccount:1, uploadPhoto:1,
                       naSave:1, naSubmit:1, naDecide:1, naDelete:1, orderDoc:1, orderDecide:1, orderRequest:1,
                       updateKey:1, updateSub:1, updateProgress:1, updateStatus:1, deleteKey:1, deleteSub:1, deletePhoto:1 };   /* ⭐ v10.11 — ALL TASK + xoá ảnh cũng chống trùng theo rid */
