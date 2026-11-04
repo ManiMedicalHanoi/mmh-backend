@@ -25,11 +25,13 @@
      Đã nhắc ghi ở Script Property FU_REMIND_LOG (không nhắc trùng). Thứ Hai: email tóm tắt (mmhMail_) cho từng PIC có gói đang theo dõi + 1 email tổng cho trưởng nhóm.
    v1.3.1 (05/11/2026): sửa v1.2 từ chối nhầm MỌI phiên (phiên chỉ có phần trước @ ⇒ không khớp mẫu miền) ⇒ đăng nhập xong vẫn quay lại ô nhập email.
    v1.4 (05/11/2026): bản đồ hoạt động Sales — fuVisits / fuVisitLog / fuLocSave ở MMH_VisitMap.gs; fuCrm nhận fid (cơ sở đã gắn mã KH trên Tender Map), trả 30 lượt gần nhất kèm bước tiếp theo.
+   v1.5 (05/11/2026, người dùng yêu cầu): cơ sở TƯ NHÂN theo dõi mua sắm theo giai đoạn riêng 11 Giới thiệu · 12 Demo · 13 Đề xuất từ chuyên môn · 14 Ký hợp đồng ·
+     15 Sử dụng hàng (· 18 Không thành công · 19 Dừng) — cùng sheet FOLLOW UP TENDER, chỉ khác số giai đoạn; nhắc việc / email coi 11–14 là đang theo dõi.
    · fuCrm — chi tiết cơ sở trên Tender Map hiện dữ liệu CRM Surgical: mã / PIC địa bàn, lượt gặp 12 tháng, người liên hệ (CBC, không SĐT), đơn hàng 12 tháng.
      Cần phiên email công ty như fuList.
    ════════════════════════════════════════════════════════════════════════════════════════ */
 var FU = {
-  VER: '1.4',
+  VER: '1.5',
   MAP_URL: 'https://manimedicalhanoi.github.io/Tender-Result/map/',
   SOON_DAYS: 3, STALE_DAYS: 30, TRIG_V: 'fu1',
   DOMAINS: /@(manimedicalhanoi\.com|mani\.inc)$/i,
@@ -40,7 +42,9 @@ var FU = {
   COLS: ['at', 'id', 'rev', 'pic', 'mail', 'fid', 'hosp', 'prov', 'addr', 'pkg', 'tbmt', 'ptype', 'itemsTxt', 'qty', 'value',
          'stage', 'stageName', 'due', 'note', 'items', 'rid', 'src', 'll'],
   STAGES: ['', 'Giới thiệu sản phẩm', 'Lên danh mục', 'Chốt cấu hình', 'Ra báo giá', 'Ra HSMT', 'Đang chấm thầu',
-           'Đã trúng thầu', 'Đã trượt thầu', 'Huỷ / dừng theo dõi'],
+           'Đã trúng thầu', 'Đã trượt thầu', 'Huỷ / dừng theo dõi',
+           /* v1.5 — cơ sở TƯ NHÂN (mua sắm, không qua thầu): 11–15 đang tiến hành → thành công, 18 không thành công, 19 dừng */
+           '', 'Giới thiệu', 'Demo', 'Đề xuất từ chuyên môn', 'Ký hợp đồng', 'Sử dụng hàng', '', '', 'Không thành công', 'Dừng theo dõi'],
   MAX_ITEMS: 40
 };
 
@@ -54,6 +58,7 @@ function fuRoute_(action, p){
     if(action === 'fuVisits') return fuVisits_(p);                /* MMH_VisitMap.gs — bản đồ hoạt động Sales */
     if(action === 'fuVisitLog') return fuVisitLog_(p);
     if(action === 'fuLocSave') return fuLocSave_(p);
+    if(action === 'fuAccDiag') return fuAccDiag_(p);
     return { ok:false, error:'Unknown action: ' + action };
   }catch(e){ return { ok:false, error:String(e && e.message || e) }; }
 }
@@ -135,7 +140,7 @@ function fuSave_(p){
   if(me.err) return { ok:false, code:'AUTH', error:me.err };
   var hosp = tfS_(p.hosp), stage = parseInt(p.stage, 10) || 0;
   if(!hosp) return { ok:false, error:'Chưa chọn cơ sở y tế.' };
-  if(!(stage >= 1 && stage < FU.STAGES.length)) return { ok:false, error:'Chưa chọn giai đoạn của gói thầu.' };
+  if(!(stage >= 1 && stage < FU.STAGES.length && FU.STAGES[stage])) return { ok:false, error:'Chưa chọn giai đoạn của gói thầu.' };
   var items = p.items;
   if(typeof items === 'string'){ try{ items = JSON.parse(items); }catch(e){ items = []; } }
   items = (Array.isArray(items) ? items : []).slice(0, FU.MAX_ITEMS).map(function(it){
@@ -166,6 +171,8 @@ function fuSave_(p){
 }
 
 /* ═════════════ v1.3 — NHẮC VIỆC (RH_Notify + email thứ Hai) ═════════════ */
+/* giai đoạn đang theo dõi: thầu công lập 1–6, mua sắm tư nhân 11–14 */
+function fuOpen_(st){ return (st >= 1 && st <= 6) || (st >= 11 && st <= 14); }
 function fuToday_(){ return Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd'); }
 function fuAddDays_(iso, n){ var d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n); return Utilities.formatDate(d, 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd'); }
 function fuDays_(a, b){ var x = new Date(String(a).slice(0, 10) + 'T00:00:00'), y = new Date(String(b).slice(0, 10) + 'T00:00:00'); return (isNaN(x) || isNaN(y)) ? 0 : Math.round((y - x) / 864e5); }
@@ -195,7 +202,7 @@ function fuLogPut_(log){
 function fuPlan_(today){
   var t = today || fuToday_(), soon = fuAddDays_(t, FU.SOON_DAYS), log = fuLogGet_(), out = [], mg = fuMgrs_();
   fuCases_().forEach(function(c){
-    if(!(c.stage >= 1 && c.stage <= 6) || /^TEST/i.test(c.pic)) return;
+    if(!fuOpen_(c.stage) || /^TEST/i.test(c.pic)) return;
     var at = String(c.at).slice(0, 10), age = fuDays_(at, t), what = c.stageName + ' · ' + (c.pkg || c.id);
     if(c.due && c.due <= soon && c.due >= at){                                     /* mốc sắp tới / đã qua mà chưa cập nhật sau mốc */
       var k = c.id + '|due|' + c.due;
@@ -236,7 +243,7 @@ function fuMailOf_(){
 }
 /* thứ Hai: mỗi PIC 1 email các gói đang theo dõi của mình + 1 email tổng cho trưởng nhóm (thư thường, như email hệ thống khác) */
 function fuWeekly_(dry){
-  var t = fuToday_(), open = fuCases_().filter(function(c){ return c.stage >= 1 && c.stage <= 6 && !/^TEST/i.test(c.pic); });
+  var t = fuToday_(), open = fuCases_().filter(function(c){ return fuOpen_(c.stage) && !/^TEST/i.test(c.pic); });
   if(!open.length) return { sent:0, pics:0 };
   var M = fuMailOf_(), by = {}, sent = 0, miss = [];
   open.forEach(function(c){ (by[c.pic] = by[c.pic] || []).push(c); });
