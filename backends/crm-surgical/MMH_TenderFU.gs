@@ -24,11 +24,12 @@
      Report Hub / CRM, bấm mở Tender Map đúng cơ sở; gói ≥ 30 ngày chưa cập nhật ⇒ nhắc PIC + trưởng nhóm (ORDER_APPROVERS.surgical), nhắc lại mỗi tuần.
      Đã nhắc ghi ở Script Property FU_REMIND_LOG (không nhắc trùng). Thứ Hai: email tóm tắt (mmhMail_) cho từng PIC có gói đang theo dõi + 1 email tổng cho trưởng nhóm.
    v1.3.1 (05/11/2026): sửa v1.2 từ chối nhầm MỌI phiên (phiên chỉ có phần trước @ ⇒ không khớp mẫu miền) ⇒ đăng nhập xong vẫn quay lại ô nhập email.
+   v1.4 (05/11/2026): bản đồ hoạt động Sales — fuVisits / fuVisitLog / fuLocSave ở MMH_VisitMap.gs; fuCrm nhận fid (cơ sở đã gắn mã KH trên Tender Map), trả 30 lượt gần nhất kèm bước tiếp theo.
    · fuCrm — chi tiết cơ sở trên Tender Map hiện dữ liệu CRM Surgical: mã / PIC địa bàn, lượt gặp 12 tháng, người liên hệ (CBC, không SĐT), đơn hàng 12 tháng.
      Cần phiên email công ty như fuList.
    ════════════════════════════════════════════════════════════════════════════════════════ */
 var FU = {
-  VER: '1.3.1',
+  VER: '1.4',
   MAP_URL: 'https://manimedicalhanoi.github.io/Tender-Result/map/',
   SOON_DAYS: 3, STALE_DAYS: 30, TRIG_V: 'fu1',
   DOMAINS: /@(manimedicalhanoi\.com|mani\.inc)$/i,
@@ -50,6 +51,9 @@ function fuRoute_(action, p){
     if(action === 'fuSave') return fuSave_(p);
     if(action === 'fuCrm') return fuCrm_(p);
     if(action === 'fuRemind') return fuRemindApi_(p);
+    if(action === 'fuVisits') return fuVisits_(p);                /* MMH_VisitMap.gs — bản đồ hoạt động Sales */
+    if(action === 'fuVisitLog') return fuVisitLog_(p);
+    if(action === 'fuLocSave') return fuLocSave_(p);
     return { ok:false, error:'Unknown action: ' + action };
   }catch(e){ return { ok:false, error:String(e && e.message || e) }; }
 }
@@ -318,15 +322,21 @@ function fuCrm_(p){
       if(k === key) sc = 3; else if(k.length >= 10 && key.length >= 10 && (k.indexOf(key) >= 0 || key.indexOf(k) >= 0) && Math.min(k.length, key.length) / Math.max(k.length, key.length) >= 0.75) sc = 2;
       return { c:c, sc:sc + (fuPk_(c.province) && provs.indexOf(fuPk_(c.province)) >= 0 ? 0.5 : 0) }; })
     .filter(function(x){ return x.sc >= 2 && okProv(x.c.province); }).sort(function(a, b){ return b.sc - a.sc; });
+  /* v1.4 — mã KH đã được gắn với cơ sở này trên Tender Map (sheet TENDER MAP · VỊ TRÍ ĐỊA BÀN) ⇒ ưu tiên tuyệt đối */
+  var fid = tfS_(p.fid);
+  if(fid && typeof vmLocs_ === 'function'){
+    var L = vmLocs_(), linked = Object.keys(L).filter(function(c){ return L[c][2] === fid; });
+    if(linked.length){ var ci = customerIndex(); cand = linked.map(function(c){ return { c:ci.filter(function(x){ return x.code === c; })[0], sc:9 }; }).filter(function(x){ return x.c; }).concat(cand.filter(function(x){ return linked.indexOf(x.c.code) < 0; })); }
+  }
   var out = { ok:true, v:FU.VER, acc:null, alt:0 };
   if(cand.length){
     var acc = cand[0].c, ak = fuNk_(acc.name), since = Utilities.formatDate(new Date(Date.now() - 365 * 864e5), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
     out.acc = { code:acc.code, name:acc.name, type:acc.type, province:acc.province, area:acc.area, pic:acc.pic }; out.alt = cand.length - 1;
     var vis = readTab('weekly').filter(function(r){ var a = parseCheckName(S(r.account)); return fuNk_(a.name || r.account) === ak && okProv(a.province || r.province); })
-      .map(function(r){ return { d:d2s(r.start), pic:S(r.pic), act:S(r.typeAction), st:S(r.status), res:S(r.result).slice(0, 240), fb:S(r.feedback).slice(0, 160) }; })
+      .map(function(r){ return { d:d2s(r.start), pic:S(r.pic), act:S(r.typeAction), st:S(r.status), res:S(r.result).slice(0, 600), fb:S(r.feedback).slice(0, 200), next:S(r.nextAction).slice(0, 200) }; })
       .filter(function(v){ return v.d && v.d <= fuToday_(); }).sort(function(a, b){ return a.d < b.d ? 1 : -1; });
     var v12 = vis.filter(function(v){ return v.d >= since; }), done = v12.filter(function(v){ return /^complete/i.test(v.st); }).length;
-    out.visits = { n12:v12.length, done12:done, total:vis.length, last:vis.slice(0, 5) };
+    out.visits = { n12:v12.length, done12:done, total:vis.length, last:vis.slice(0, 30) };
     out.cbc = readTab('cbc').filter(function(r){ return S(r.code) === acc.code; }).slice(0, 15)
       .map(function(r){ return { name:S(r.contact), title:S(r.jobTitle), spec:S(r.specialize), role:S(r.role), inf:S(r.influence) }; }).filter(function(x){ return x.name; });
     var ords = readTab('order').filter(function(r){ return (S(r.code) === acc.code || fuNk_(r.name) === ak) && d2s(r.day) >= since; }), nos = {}, amt = 0, pr = {}, lastD = '';
