@@ -1,5 +1,7 @@
 /*************************************************************************************************
- * MMH CRM — Google Apps Script backend  (v10.21)  ·  MỘT FILE CODE CHO CẢ 3 NHÓM
+ * MMH CRM — Google Apps Script backend  (v10.24)  ·  MỘT FILE CODE CHO CẢ 3 NHÓM
+ * ⭐ v10.24 (04/11/2026) · XOÁ ĐƠN HÀNG TỪ PIC: action deleteOrder (MMH_OrderDelete.gs) — PIC xoá cả đơn của mình (chưa Đã duyệt), kiểm đúng dòng,
+ *   xoá mọi dòng sản phẩm trong 1 khoá. Trước đây deleteRow chặn tab order với sales ⇒ nút Xoá đơn trên app luôn báo lỗi.
  * ⭐ v10.21 (29/10/2026) · SỐ LƯỢNG COMPOSITE / JIZAI HỖ TRỢ (C6 / C7) CHỈ CỘNG ĐƠN ĐÃ DUYỆT — giống C5 (người dùng yêu cầu).
  *   k68CalcSupp_: dòng đơn cần duyệt (có Order Type hoặc tháng ≥ ORDER_CUTOFF) mà chưa "Đã duyệt" ⇒ không cộng số lượng; đơn cũ trước ORDER_CUTOFF
  *   không có loại vẫn tính như trước. Tháng của số lượng vẫn là tháng đặt hàng (không đổi theo tháng KQTT / hạn FY như trị giá C5).
@@ -509,7 +511,7 @@ function handle(e, method){
     if (action === 'kpiLate') return reply(kpiLate_(user, p), callback);               /* ⭐ v10.4 */
 
     switch (action) {
-      case 'ping'            : out = { ok:true, pong:true, source:TEAM(), app:appName_(), pic:user.pic, ver:'10.23', cbcEnsure:true, suppApproved:true, orderNotes:true, orderHeal:true, orderLink:true, orderEdit:true, rpStatus:true, sandbox:true, careGate:true, visitDone:true, rate:K68_RATE_DEF, dateFix:props_().getProperty('CRM_DATEFIX_LOG') || '', orderApproval:true, presentTpl:true, migrate:props_().getProperty('CRM_LAYOUT_V') || '', meeting:true, trip2:true, kpi68:true, tenderPrice:true, custLog:true, deleteAccount:true, na:true, kr:true, idem:true, kpiPush:true }; break;
+      case 'ping'            : out = { ok:true, pong:true, source:TEAM(), app:appName_(), pic:user.pic, ver:'10.24', orderDelete:true, cbcEnsure:true, suppApproved:true, orderNotes:true, orderHeal:true, orderLink:true, orderEdit:true, rpStatus:true, sandbox:true, careGate:true, visitDone:true, rate:K68_RATE_DEF, dateFix:props_().getProperty('CRM_DATEFIX_LOG') || '', orderApproval:true, presentTpl:true, migrate:props_().getProperty('CRM_LAYOUT_V') || '', meeting:true, trip2:true, kpi68:true, tenderPrice:true, custLog:true, deleteAccount:true, na:true, kr:true, idem:true, kpiPush:true }; break;
       case 'boot'            : out = boot(user); break;
       case 'master'          : out = { ok:true, master: readMaster() }; break;
       case 'customerIndex'   : out = { ok:true, rows: customerIndex() }; break;
@@ -543,6 +545,7 @@ function handle(e, method){
       case 'savePresentation': out = presCheckSave_(user, p); break;          /* ⭐ v10.11 — mẫu Event review + Actual participant */
       case 'saveADP'         : out = saveRow(user, p, 'adp'); break;
       case 'deleteRow'       : out = deleteRow(user, p); break;
+      case 'deleteOrder'     : out = deleteOrder(user, p); break;              /* ⭐ 04/11/2026 — MMH_OrderDelete.gs: PIC xoá cả đơn của mình */
       case 'deleteAccount'   : out = deleteAccount(user, p); break;              /* ⭐ v9.3 */
       case 'uploadPhoto'     : out = uploadPhoto(user, p); break;
       case 'photoMeta'       : out = photoMeta(p); break;
@@ -596,7 +599,7 @@ function isManager(user){ return user && user.role === 'manager'; }
 
 /* ⭐ v10.0 — các action GHI dữ liệu (dùng cho chống ghi trùng theo rid) */
 var WRITE_ACTIONS = { fuSave:1, weeklyReport:1, monthlyReport:1, tripPropose2:1, tfDecide:1, addKey:1, addSub:1, atImport:1, saveOrders:1, saveOrder:1, saveCustomer:1, saveCBC:1, saveCustomerCbc:1, cbcEnsure:1, saveWeekly:1, saveMonthly:1,
-                      savePresentation:1, saveADP:1, deleteRow:1, deleteAccount:1, uploadPhoto:1,
+                      savePresentation:1, saveADP:1, deleteRow:1, deleteOrder:1, deleteAccount:1, uploadPhoto:1,
                       naSave:1, naSubmit:1, naDecide:1, naDelete:1, orderDoc:1, orderDecide:1, orderRequest:1,
                       updateKey:1, updateSub:1, updateProgress:1, updateStatus:1, deleteKey:1, deleteSub:1, deletePhoto:1 };   /* ⭐ v10.11 — ALL TASK + xoá ảnh cũng chống trùng theo rid */
 
@@ -1737,6 +1740,7 @@ function deleteRow(user, p){
   }
   /* ⭐ v9.3 — quản lý xoá mọi dòng; sales xoá được task / account / CBC do CHÍNH MÌNH phụ trách */
   if (!isManager(user)){
+    if (tab === 'order') return { ok:false, code:'USE_DELETE_ORDER', error:'Bấm Tải lại (cập nhật app) rồi xoá đơn lại — đơn hàng nay xoá cả đơn bằng lệnh mới.' };   /* ⭐ v10.24 */
     if (['weekly','cbc','customer'].indexOf(tab) < 0) return { ok:false, error:'Chỉ quản lý mới được xoá dòng ở tab này.' };
     var ownerPic = S(sh(tab).getRange(row, COL[tab].pic).getValue());
     if (ownerPic && ownerPic.toLowerCase() !== S(user.pic).toLowerCase())
@@ -2343,7 +2347,7 @@ function kpiLate_(user, p){
 
 /* ⭐ v9.7 — REALTIME: các thao tác lưu trên app làm đổi số KPI của tab 9 ⇒ đẩy ngay lên file KPI tổng */
 var K68_PUSH_ACTIONS = { saveOrders:1, saveOrder:1, saveCustomer:1, saveCBC:1, saveCustomerCbc:1, saveWeekly:1,
-                         savePresentation:1, deleteRow:1, deleteAccount:1, orderDecide:1 };
+                         savePresentation:1, deleteRow:1, deleteOrder:1, deleteAccount:1, orderDecide:1 };
 function k68PushQuick_(){
   try {
     var s = kpiTab_(); if (!s) return { ok:false, error:'Chưa có tab KPI' };
