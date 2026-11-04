@@ -320,6 +320,8 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   Ra báo giá → Ra HSMT → Đang chấm thầu → Đã trúng / Đã trượt / Huỷ), sản phẩm `items` JSON (mã dao / chỉ khâu MANI + SL ước tính), chống gửi trùng theo `rid`.
   **v1.1 (04/11/2026, người dùng yêu cầu "mở ra để ai cũng dùng được")**: KHÔNG bắt đăng nhập — ai có link Tender Map cũng xem / ghi được; người cập nhật = tên app gửi (`pic`, bắt buộc,
   thiếu ⇒ `code:'NAME'`), có phiên email hợp lệ thì lấy tên + email trong phiên. `fuList` trả `people` = tên nhân sự đang hoạt động trong RH_Users (không email, đệm 1 giờ) cho ô chọn tên.
+  **v1.2 (04/11/2026, người dùng chốt)**: CHỈ tài khoản **@manimedicalhanoi.com / @mani.inc** mới xem + ghi — `fuList` / `fuSave` cần phiên `tk` hợp lệ (`tfWho_` + kiểm miền email trong phiên `fuMail_`),
+  thiếu / sai ⇒ `{ ok:false, code:'AUTH' }`; người cập nhật = tên trong phiên. Phần KQTT / NPP của Tender Map vẫn xem không cần đăng nhập.
 - **04/11/2026 — CRM v10.24: PIC xoá đơn hàng (`MMH_OrderDelete.gs` GIỐNG HỆT ở crm-dental / surgical / eyeless)**: lỗi — `deleteRow` chặn tab `order` với sales ⇒ nút "Xoá đơn" của PIC luôn báo lỗi.
   Action **`deleteOrder`** (`rows` = [{_row, _no, _nm}]): trong 1 khoá kiểm từng dòng (Order No. + account), số dòng dời ⇒ tìm lại theo Order No. + account; đơn chưa có số mà dòng lệch ⇒ `STALE`;
   xoá CẢ ĐƠN (cùng Order No. + account + PIC + tháng) từ dưới lên. Quyền: quản lý / người duyệt (`ordIsApprover_`) xoá mọi đơn; PIC chỉ đơn của mình và chưa "Đã duyệt" (`APPROVED`).
