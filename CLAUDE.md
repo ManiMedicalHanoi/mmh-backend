@@ -322,6 +322,11 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   thiếu ⇒ `code:'NAME'`), có phiên email hợp lệ thì lấy tên + email trong phiên. `fuList` trả `people` = tên nhân sự đang hoạt động trong RH_Users (không email, đệm 1 giờ) cho ô chọn tên.
   **v1.2 (04/11/2026, người dùng chốt)**: CHỈ tài khoản **@manimedicalhanoi.com / @mani.inc** mới xem + ghi — `fuList` / `fuSave` cần phiên `tk` hợp lệ (`tfWho_` + kiểm miền email trong phiên `fuMail_`),
   thiếu / sai ⇒ `{ ok:false, code:'AUTH' }`; người cập nhật = tên trong phiên. Phần KQTT / NPP của Tender Map vẫn xem không cần đăng nhập.
+  **v1.3 (04/11/2026)**: trigger hằng ngày `fuDaily` (~08:00, trừ CN; tự cài qua `fuTick_` khi có người mở Theo dõi thầu, Script Property `FU_TRIG`): gói giai đoạn 1–6 có mốc dự kiến ≤ 3 ngày tới / quá mốc chưa cập nhật,
+  hoặc ≥ 30 ngày chưa cập nhật (nhắc lại mỗi tuần, kèm trưởng nhóm `ORDER_APPROVERS.surgical`) ⇒ dòng sheet **RH_Notify** (Training Master, App = "Theo dõi thầu", Kind `remind`, Url = Tender Map `?v=fu#<Tỉnh>/<Cơ sở>`)
+  ⇒ hiện ở nút "Nhắc tôi" của Report Hub / CRM; đã nhắc ghi `FU_REMIND_LOG`. Thứ Hai: email (`mmhMail_`) danh sách gói đang theo dõi cho từng PIC + email tổng cho trưởng nhóm (`FU_WEEK`).
+  Thử: workflow **Kiểm tra** ▸ ping `crm-surgical?action=fuRemind&op=dry&key=<8 ký tự cuối ID Sheet>&full=1` (`op=run` ghi thông báo, `op=week&mail=0` thử email, `op=tick` cài lại trigger).
+  `fuCrm` (phiên công ty): cơ sở trên Tender Map ⇒ địa bàn CRM Surgical khớp tên (`fuNk_`: bỏ dấu, mở BV / BVĐK / TTYT) + tỉnh mới / cũ ⇒ mã, PIC, lượt gặp 12 tháng (5 lượt gần nhất), CBC (không SĐT), đơn hàng 12 tháng; đệm 10 phút.
 - **04/11/2026 — CRM v10.24: PIC xoá đơn hàng (`MMH_OrderDelete.gs` GIỐNG HỆT ở crm-dental / surgical / eyeless)**: lỗi — `deleteRow` chặn tab `order` với sales ⇒ nút "Xoá đơn" của PIC luôn báo lỗi.
   Action **`deleteOrder`** (`rows` = [{_row, _no, _nm}]): trong 1 khoá kiểm từng dòng (Order No. + account), số dòng dời ⇒ tìm lại theo Order No. + account; đơn chưa có số mà dòng lệch ⇒ `STALE`;
   xoá CẢ ĐƠN (cùng Order No. + account + PIC + tháng) từ dưới lên. Quyền: quản lý / người duyệt (`ordIsApprover_`) xoá mọi đơn; PIC chỉ đơn của mình và chưa "Đã duyệt" (`APPROVED`).
