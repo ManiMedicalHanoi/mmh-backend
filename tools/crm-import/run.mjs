@@ -90,21 +90,35 @@ async function main() {
   for (const k of ['product', 'process', 'feedback', 'nextAction', 'typeTask']) if (!val[k]) throw new Error('Chưa xác định được giá trị ' + k);
   say('Giá trị:', JSON.stringify(val));
   let okN = 0, skipN = 0, errN = 0;
+  const nm = a => String(a || '').split('/')[0].trim().toLowerCase();
   for (const t of SPEC.tasks) {
-    const c = cust.find(x => x.code === t.code);
-    if (!c) { say(`- [${t.id}] ${t.label}: ✗ không có mã ${t.code}`); errN++; continue; }
-    const account = [c.name, c.type, c.province, c.area].join('/');
-    const dup = mine.find(r => String(r.start).slice(0, 10) === t.date && String(r.account).split('/')[0].trim().toLowerCase() === c.name.trim().toLowerCase() && r.typeAction === 'Visiting');
-    if (dup) { say(`- [${t.id}] ${t.label} ${t.date}: bỏ qua — đã có dòng ${dup._row} (${dup.status}, ảnh ${dup.photo ? 'có' : 'chưa'})`); skipN++; continue; }
+    if (t.skip) { say(`- [${t.id}] ${t.label}: bỏ qua — ${t.skip}`); skipN++; continue; }
     const img = fs.readFileSync(path.join(DIR, 'khang-202609', t.id + '.jpg')).toString('base64');
-    const data = {
-      _row: 0, account, start: t.date, finish: t.date, pic: SPEC.pic,
-      typeTask: val.typeTask, typeAction: val.typeAction, process: val.process, product: val.product,
-      plan: SPEC.plan, result: t.result || SPEC.result, status: val.status,
-      feedback: val.feedback, nextAction: val.nextAction, stopReason: ''
-    };
-    const r = await call(null, { action: 'saveWeekly', pic: SPEC.pic, push: '0', rid: `imp-khang-${t.date}-${t.code}`, data, photo: { b64: 'data:image/jpeg;base64,' + img, mime: 'image/jpeg' } });
-    if (r && r.ok) { okN++; say(`- [${t.id}] ${t.label} ${t.date}: ✓ dòng ${r.row} · No ${r.no || ''} · ảnh ${r.photo && r.photo.ok ? r.photo.name : '✗ ' + (r.photoError || JSON.stringify(r.photo || {}))}`); }
+    let data, rid;
+    if (t.row) {                                       /* CẬP NHẬT dòng Khang đã có: chuyển Completed + ảnh, giữ kết quả đã viết */
+      const ex = mine.find(r => r._row === t.row);
+      if (!ex || String(ex.start).slice(0, 10) !== t.date || nm(ex.account) !== nm(t.acc)) { say(`- [${t.id}] ${t.label}: ✗ dòng ${t.row} không còn khớp (${ex ? ex.start + ' · ' + ex.account : 'không thấy'}) — không ghi`); errN++; continue; }
+      if (ex.photo) { say(`- [${t.id}] ${t.label}: bỏ qua — dòng ${t.row} đã có ảnh`); skipN++; continue; }
+      say(`- [${t.id}] trước khi sửa dòng ${ex._row}: ${JSON.stringify({ status: ex.status, typeTask: ex.typeTask, product: ex.product, process: ex.process, feedback: ex.feedback, nextAction: ex.nextAction, result: ex.result })}`);
+      data = { _row: ex._row, _no: ex.no, _acc: ex.account, _pic: ex.pic, _start: String(ex.start).slice(0, 10),
+               account: ex.account, start: String(ex.start).slice(0, 10), finish: String(ex.finish || ex.start).slice(0, 10),
+               status: val.status, product: val.product, process: val.process, feedback: val.feedback, nextAction: val.nextAction, stopReason: '' };
+      if (!String(ex.typeTask || '').trim()) data.typeTask = val.typeTask;
+      if (!String(ex.result || '').trim()) data.result = SPEC.result;
+      rid = `imp-khang-u${ex._row}-${t.date}`;
+    } else {                                           /* TẠO MỚI */
+      const c = cust.find(x => x.code === t.code);
+      if (!c) { say(`- [${t.id}] ${t.label}: ✗ không có mã ${t.code}`); errN++; continue; }
+      const account = [c.name, c.type, c.province, c.area].join('/');
+      const dup = mine.find(r => String(r.start).slice(0, 10) === t.date && nm(r.account) === c.name.trim().toLowerCase() && r.typeAction === 'Visiting');
+      if (dup) { say(`- [${t.id}] ${t.label} ${t.date}: bỏ qua — đã có dòng ${dup._row} (${dup.status}, ảnh ${dup.photo ? 'có' : 'chưa'})`); skipN++; continue; }
+      data = { _row: 0, account, start: t.date, finish: t.date, pic: SPEC.pic,
+               typeTask: val.typeTask, typeAction: val.typeAction, process: val.process, product: val.product,
+               plan: SPEC.plan, result: SPEC.result, status: val.status, feedback: val.feedback, nextAction: val.nextAction, stopReason: '' };
+      rid = `imp-khang-${t.date}-${t.code}`;
+    }
+    const r = await call(null, { action: 'saveWeekly', pic: SPEC.pic, push: '0', rid, data, photo: { b64: 'data:image/jpeg;base64,' + img, mime: 'image/jpeg' } });
+    if (r && r.ok) { okN++; say(`- [${t.id}] ${t.label} ${t.date}: ✓ ${t.row ? 'cập nhật' : 'tạo'} dòng ${r.row} · No ${r.no || ''} · ảnh ${r.photo && r.photo.ok ? r.photo.name : '✗ ' + (r.photoError || JSON.stringify(r.photo || {}))}`); }
     else { errN++; say(`- [${t.id}] ${t.label} ${t.date}: ✗ ${JSON.stringify(r).slice(0, 400)}`); }
   }
   say(`\nKết quả: ghi ${okN} · bỏ qua ${skipN} · lỗi ${errN}`);
