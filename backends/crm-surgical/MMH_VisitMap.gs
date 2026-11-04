@@ -14,9 +14,9 @@
 var VM = {
   VER: '1.0',
   TAB: 'TENDER MAP · VỊ TRÍ ĐỊA BÀN',
-  HDR: ['Thời gian', 'Mã KH', 'Tên khách hàng', 'Tỉnh / thành', 'Vĩ độ', 'Kinh độ', 'Mã cơ sở (Tender Map)', 'Tên cơ sở (Tender Map)', 'Nguồn', 'Người cập nhật', 'Ghi chú'],
+  HDR: ['Thời gian', 'Mã KH', 'Tên khách hàng', 'Tỉnh / thành', 'Vĩ độ', 'Kinh độ', 'Mã cơ sở (Tender Map)', 'Tên cơ sở (Tender Map)', 'Nguồn', 'Người cập nhật', 'Ghi chú', 'Tên chuẩn'],
   FROM: '2025-09-01',                      /* FY67 */
-  ACC_COLS: ['code', 'name', 'type', 'province', 'area', 'pic', 'address', 'gps', 'loc'],
+  ACC_COLS: ['code', 'name', 'type', 'province', 'area', 'pic', 'address', 'gps', 'loc', 'std'],
   ROW_COLS: ['d', 'pic', 'acc', 'act', 'st', 'lat', 'lng', 'photo', 'task']
 };
 
@@ -26,6 +26,8 @@ function vmSheet_(){
     sh = book.insertSheet(VM.TAB);
     sh.getRange(1, 1, 1, VM.HDR.length).setValues([VM.HDR]).setFontWeight('bold').setBackground('#CFE2F3');
     sh.setFrozenRows(1);
+  } else if(tfS_(sh.getRange(1, VM.HDR.length).getValue()) !== VM.HDR[VM.HDR.length - 1]){
+    sh.getRange(1, 1, 1, VM.HDR.length).setValues([VM.HDR]).setFontWeight('bold');                /* thêm cột mới ở cuối (Tên chuẩn) */
   }
   try{ if(!sh.isSheetHidden()) sh.hideSheet(); }catch(e){}
   return sh;
@@ -37,8 +39,10 @@ function vmLocs_(){
   sh.getRange(2, 1, last - 1, VM.HDR.length).getValues().forEach(function(r){
     var c = tfS_(r[1]); if(!c) return;
     var lat = Number(r[4]), lng = Number(r[5]), fid = tfS_(r[6]);
-    if(!(lat && lng) && !fid){ delete m[c]; return; }
-    m[c] = [lat || '', lng || '', fid, tfS_(r[7]), tfS_(r[8]) || 'tay', tfS_(r[9]), r[0] instanceof Date ? Utilities.formatDate(r[0], 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd HH:mm') : tfS_(r[0])];
+    var std = tfS_(r[11]), prev = m[c];
+    if(tfS_(r[8]) === 'tên'){ if(prev) prev[7] = std; else m[c] = ['', '', '', '', '', tfS_(r[9]), '', std]; return; }          /* dòng chỉ đổi tên chuẩn */
+    if(!(lat && lng) && !fid){ if(prev && prev[7]) m[c] = ['', '', '', '', '', '', '', prev[7]]; else delete m[c]; return; }
+    m[c] = [lat || '', lng || '', fid, tfS_(r[7]), tfS_(r[8]) || 'tay', tfS_(r[9]), r[0] instanceof Date ? Utilities.formatDate(r[0], 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd HH:mm') : tfS_(r[0]), std || (prev && prev[7]) || ''];
   });
   return m;
 }
@@ -94,7 +98,8 @@ function fuVisits_(p){
   var me = fuMe_(p);
   if(me.err) return { ok:false, code:'AUTH', error:me.err };
   var from = tfIso_(p.from) || VM.FROM, core = vmCore_(from), L = vmLocs_();
-  var acc = core.acc.map(function(a){ var o = a.slice(); o[8] = (a[0] && L[a[0]]) || null; return o; });
+  var STD = (typeof VM_STD !== 'undefined') ? VM_STD : {};
+  var acc = core.acc.map(function(a){ var o = a.slice(); o[8] = (a[0] && L[a[0]]) || null; o[9] = (o[8] && o[8][7]) || (a[0] && STD[a[0]]) || ''; return o; });
   return { ok:true, v:VM.VER, from:from, to:core.to, today:fuToday_(), accCols:VM.ACC_COLS, acc:acc, pics:core.pics, acts:core.acts, sts:core.sts, tasks:core.tasks, cols:VM.ROW_COLS, rows:core.rows };
 }
 /* nhật ký đầy đủ của 1 khách hàng (mọi thời gian) */
@@ -121,7 +126,7 @@ function fuLocSave_(p){
   if(me.err) return { ok:false, code:'AUTH', error:me.err };
   var code = tfS_(p.code); if(!code) return { ok:false, error:'Thiếu mã khách hàng.' };
   var clear = tfS_(p.op) === 'clear', lat = Number(p.lat), lng = Number(p.lng), fid = tfS_(p.fid).slice(0, 60);
-  if(!clear){
+  if(!clear && tfS_(p.op) !== 'name'){
     var okLL = lat > 7 && lat < 24.5 && lng > 101.5 && lng < 118;
     if(!okLL && !fid) return { ok:false, error:'Vị trí nằm ngoài Việt Nam.' };
     if(!okLL){ lat = ''; lng = ''; }
@@ -129,9 +134,26 @@ function fuLocSave_(p){
   var lock = LockService.getScriptLock(); lock.waitLock(20000);
   try{
     var sh = vmSheet_();
+    if(tfS_(p.op) === 'name'){                                                                    /* chỉ đổi tên chuẩn của khách (tên đúng ngoài đời) */
+      sh.getRange(sh.getLastRow() + 1, 1, 1, VM.HDR.length).setValues([[new Date(), fuTxt_(code, 40), fuTxt_(p.name, 200), fuTxt_(p.prov, 60), '', '', '', '', 'tên', fuTxt_(me.pic, 60), fuTxt_(p.note, 300), fuTxt_(p.std, 200)]]);
+      return { ok:true, code:code, loc:vmLocs_()[code] || null };
+    }
     var row = [new Date(), fuTxt_(code, 40), fuTxt_(p.name, 200), fuTxt_(p.prov, 60), clear ? '' : (lat === '' ? '' : Math.round(lat * 1e6) / 1e6), clear ? '' : (lng === '' ? '' : Math.round(lng * 1e6) / 1e6),
-               clear ? '' : fuTxt_(fid, 60), clear ? '' : fuTxt_(p.fname, 200), clear ? 'xoá' : fuTxt_(p.src || 'tay', 20), fuTxt_(me.pic, 60), fuTxt_(p.note, 300)];
+               clear ? '' : fuTxt_(fid, 60), clear ? '' : fuTxt_(p.fname, 200), clear ? 'xoá' : fuTxt_(p.src || 'tay', 20), fuTxt_(me.pic, 60), fuTxt_(p.note, 300), ''];
     sh.getRange(sh.getLastRow() + 1, 1, 1, row.length).setValues([row]);
   } finally { lock.releaseLock(); }
   return { ok:true, code:code, loc:vmLocs_()[code] || null };
 }
+
+/* chẩn đoán (khoá = 8 ký tự cuối ID Sheet, gọi qua workflow Kiểm tra): danh sách khách 1. CUSTOMER CODE — chỉ tên cơ sở / loại / tỉnh / PIC (không SĐT)
+   ⇒ để chuẩn hoá tên bệnh viện / phòng khám tư (MMH_AccNames.gs ▸ VM_STD). off / n = phân trang, types = chỉ đếm loại */
+function fuAccDiag_(p){
+  if(!(tfS_(p.key) && tfS_(p.key) === String(ssReal_().getId()).slice(-8))) return { ok:false, code:'AUTH', error:'Cần khoá file.' };
+  var L = readTab('customer').map(function(c){ return [S(c.code), S(c.name), S(c.type), S(c.province), S(c.pic)]; }).filter(function(r){ return r[0]; });
+  var types = {}; L.forEach(function(r){ types[r[2] || '—'] = (types[r[2] || '—'] || 0) + 1; });
+  if(tfS_(p.types) === '1') return { ok:true, n:L.length, types:types };
+  var ty = tfS_(p.type), off = parseInt(p.off, 10) || 0, n = Math.min(200, parseInt(p.n, 10) || 60);
+  if(ty) L = L.filter(function(r){ return new RegExp(ty, 'i').test(r[2]); });
+  return { ok:true, n:L.length, off:off, rows:L.slice(off, off + n).map(function(r){ return r.join('|'); }) };
+}
+
