@@ -1,0 +1,25 @@
+{
+ "note": "Nhập bù lượt đi địa bàn tháng 09/2026 của Khang (CRM Surgical) — ảnh Khang gửi qua Zalo, người dùng yêu cầu 04/11/2026",
+ "pic": "Khang",
+ "plan": "Viếng thăm khoa Mắt — giới thiệu dao phẫu thuật nhãn khoa MANI",
+ "values": {
+  "typeAction": "Visiting",
+  "status": "Completed",
+  "product": "ophthalmic.*knife|dao.*nhan",
+  "process": "engage",
+  "feedback": "^tich cuc",
+  "nextAction": "duy tri",
+  "typeTask": ""
+ },
+ "tasks": [
+  {
+   "id": "14",
+   "date": "2026-09-07",
+   "label": "BV Quân Y 175",
+   "row": 1063,
+   "acc": "BỆNH VIỆN QUÂN Y 175",
+   "mode": "photo"
+  }
+ ],
+ "result": "Người gặp: chưa ghi tên\n1. Actions Taken: Viếng thăm khoa Mắt, giới thiệu dao phẫu thuật nhãn khoa MANI (Ophthalmic Knife)\n2. Current Situation: Đang tiếp cận (ENGAGE)\n3. Customer Feedback: Tích cực\n4. Opportunities / Next Steps: Tiếp tục chăm sóc khách hàng\n(Nhập bù 11/2026 từ ảnh Khang gửi qua Zalo)"
+}
