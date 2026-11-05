@@ -52,7 +52,7 @@ async function main() {
 
   if (MODE !== 'apply') {
     say('\n## Danh mục (master)');
-    for (const k of ['typeTask', 'typeAction', 'process', 'status', 'feedback', 'product', 'nextAction', 'area', 'accountType']) say(`- ${k}: ${JSON.stringify(master[k] || [])}`);
+    for (const k of ['typeTask', 'typeAction', 'process', 'status', 'feedback', 'product', 'nextAction', 'area', 'accountType', 'province', 'fy']) say(`- ${k}: ${JSON.stringify(master[k] || [])}`);
     say('\n## Giá trị khớp được', JSON.stringify(val));
     say(`\n## Khách hàng khớp từng ảnh (tổng ${cust.length} khách)`);
     for (const t of SPEC.tasks) {
@@ -113,7 +113,20 @@ async function main() {
       if (!String(ex.result || '').trim()) data.result = t.result || SPEC.result;
       rid = `imp-${SPEC.pic}-u${ex._row}-${t.date}`;
     } else {                                           /* TẠO MỚI */
-      const c = cust.find(x => x.code === t.code);
+      let c = t.code ? cust.find(x => x.code === t.code) : null;
+      if (!c && t.newAcc) {                            /* địa bàn chưa có ⇒ tạo như nút "Thêm địa bàn mới" của app (saveCustomerCbc) */
+        const A = t.newAcc;
+        c = cust.find(x => nd(x.name) === nd(A.name));
+        if (c) say(`- [${t.id}] địa bàn "${A.name}" đã có (mã ${c.code}) — dùng lại`);
+        else {
+          if ((master.province || []).length && !(master.province || []).includes(A.province)) { say(`- [${t.id}] ✗ tỉnh "${A.province}" không có trong danh mục`); errN++; continue; }
+          const cus = { _row: 0, name: A.name, type: A.type, province: A.province, area: A.area, address: A.address || '', pic: SPEC.pic, fy: A.fy, openDate: A.openDate || t.date };
+          const ra = await call(null, { action: 'saveCustomerCbc', pic: SPEC.pic, push: '0', rid: `imp-${SPEC.pic}-acc-${nd(A.name).replace(/\W+/g, '-')}`, customer: cus, cbc: null });
+          if (!ra || !ra.ok) { say(`- [${t.id}] ✗ tạo địa bàn lỗi: ${JSON.stringify(ra).slice(0, 300)}`); errN++; continue; }
+          c = Object.assign({ code: ra.code || '' }, cus); cust.push(c);
+          say(`- [${t.id}] ✓ tạo địa bàn mới "${A.name}" · dòng ${ra.row} · mã ${ra.code || '(chưa có)'}`);
+        }
+      }
       if (!c) { say(`- [${t.id}] ${t.label}: ✗ không có mã ${t.code}`); errN++; continue; }
       const account = [c.name, c.type, c.province, c.area].join('/');
       const dup = mine.find(r => String(r.start).slice(0, 10) === t.date && nm(r.account) === c.name.trim().toLowerCase() && r.typeAction === 'Visiting');
@@ -122,7 +135,7 @@ async function main() {
       data = { _row: 0, account, start: t.date, finish: t.date, pic: SPEC.pic,
                typeTask: t.typeTask || val.typeTask, typeAction: val.typeAction, process: val.process, product,
                plan: t.plan || SPEC.plan, result: t.result || SPEC.result, status: val.status, feedback: val.feedback, nextAction: val.nextAction, stopReason: '' };
-      rid = `imp-${SPEC.pic}-${t.date}-${t.code}${SPEC.ridSuffix || ""}`;
+      rid = `imp-${SPEC.pic}-${t.date}-${c.code || nd(c.name).replace(/\W+/g, '-')}${SPEC.ridSuffix || ""}`;
     }
     const r = await call(null, { action: 'saveWeekly', pic: SPEC.pic, push: '0', rid, data, photo: { b64: 'data:image/jpeg;base64,' + img, mime: 'image/jpeg' } });
     if (r && r.ok) { okN++; say(`- [${t.id}] ${t.label} ${t.date}: ✓ ${t.row ? 'cập nhật' : 'tạo'} dòng ${r.row} · No ${r.no || ''} · ảnh ${r.photo && r.photo.ok ? r.photo.name : '✗ ' + (r.photoError || JSON.stringify(r.photo || {}))}`); }
