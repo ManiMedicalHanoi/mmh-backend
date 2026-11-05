@@ -9,3 +9,7 @@ B = {os.path.basename(p)[:-4]: dh(p) for p in sorted(glob.glob('/tmp/drive/*.jpg
 for a, ha in A.items():
     d = sorted((sum(x != y for x, y in zip(ha, hb)), b) for b, hb in B.items())
     print(f'ảnh {a}: gần nhất', d[:3])
+if not B: print('DỪNG: không tải được ảnh đã có để so'); sys.exit(1)
+bad = [a for a, ha in A.items() if B and min(sum(x != y for x, y in zip(ha, hb)) for hb in B.values()) <= 20]
+if bad: print('DỪNG: ảnh', bad, 'trùng ảnh đã có trên CRM — không ghi'); sys.exit(1)
+print('Không trùng ảnh nào đã có — tiếp tục ghi')
