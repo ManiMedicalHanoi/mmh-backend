@@ -31,6 +31,16 @@ async function call(q, body) {
   }
   throw new Error('Không gọi được ' + q.action);
 }
+async function write(body) {
+  for (let i = 0; i < 4; i++) {
+    const b = Object.assign({}, body, i ? { rid: body.rid + '-b' + i } : {});
+    const r = await call(null, b);
+    if (!(r && r.ok === false && /bận/i.test(String(r.error || '')))) return r;
+    say(`  … máy chủ bận (${body.action}), đợi ${20 * (i + 1)} giây rồi thử lại`);
+    await new Promise(z => setTimeout(z, 20000 * (i + 1)));
+  }
+  return { ok: false, error: 'Máy chủ bận quá lâu' };
+}
 const pick = (list, re) => { if (!re) return ''; const R = new RegExp(re, 'i'); return (list || []).find(v => R.test(nd(v))) || ''; };
 
 async function main() {
@@ -121,7 +131,7 @@ async function main() {
         else {
           if ((master.province || []).length && !(master.province || []).includes(A.province)) { say(`- [${t.id}] ✗ tỉnh "${A.province}" không có trong danh mục`); errN++; continue; }
           const cus = { _row: 0, name: A.name, type: A.type, province: A.province, area: A.area, address: A.address || '', pic: SPEC.pic, fy: A.fy, openDate: A.openDate || t.date };
-          const ra = await call(null, { action: 'saveCustomerCbc', pic: SPEC.pic, push: '0', rid: `imp-${SPEC.pic}-acc-${nd(A.name).replace(/\W+/g, '-')}`, customer: cus, cbc: null });
+          const ra = await write({ action: 'saveCustomerCbc', pic: SPEC.pic, push: '0', rid: `imp-${SPEC.pic}-acc-${nd(A.name).replace(/\W+/g, '-')}${SPEC.ridSuffix || ''}`, customer: cus, cbc: null });
           if (!ra || !ra.ok) { say(`- [${t.id}] ✗ tạo địa bàn lỗi: ${JSON.stringify(ra).slice(0, 300)}`); errN++; continue; }
           c = Object.assign({ code: ra.code || '' }, cus); cust.push(c);
           say(`- [${t.id}] ✓ tạo địa bàn mới "${A.name}" · dòng ${ra.row} · mã ${ra.code || '(chưa có)'}`);
@@ -137,7 +147,7 @@ async function main() {
                plan: t.plan || SPEC.plan, result: t.result || SPEC.result, status: val.status, feedback: val.feedback, nextAction: val.nextAction, stopReason: '' };
       rid = `imp-${SPEC.pic}-${t.date}-${c.code || nd(c.name).replace(/\W+/g, '-')}${SPEC.ridSuffix || ""}`;
     }
-    const r = await call(null, { action: 'saveWeekly', pic: SPEC.pic, push: '0', rid, data, photo: { b64: 'data:image/jpeg;base64,' + img, mime: 'image/jpeg' } });
+    const r = await write({ action: 'saveWeekly', pic: SPEC.pic, push: '0', rid, data, photo: { b64: 'data:image/jpeg;base64,' + img, mime: 'image/jpeg' } });
     if (r && r.ok) { okN++; say(`- [${t.id}] ${t.label} ${t.date}: ✓ ${t.row ? 'cập nhật' : 'tạo'} dòng ${r.row} · No ${r.no || ''} · ảnh ${r.photo && r.photo.ok ? r.photo.name : '✗ ' + (r.photoError || JSON.stringify(r.photo || {}))}`); }
     else { errN++; say(`- [${t.id}] ${t.label} ${t.date}: ✗ ${JSON.stringify(r).slice(0, 400)}`); }
   }

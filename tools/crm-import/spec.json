@@ -26,7 +26,8 @@
     "address": "",
     "area": "North",
     "fy": "FY68"
-   }
+   },
+   "skip": "đã ghi ngày 05/11/2026 (tạo địa bàn NNA-DL1881)"
   },
   {
    "id": "02",
@@ -50,7 +51,8 @@
     "address": "135 Chiến Thắng, Tân Triều, Thanh Trì, Hà Nội",
     "area": "North",
     "fy": "FY68"
-   }
+   },
+   "skip": "đã ghi ngày 05/11/2026 (tạo địa bàn NHA-CL1882)"
   },
   {
    "id": "04",
@@ -126,5 +128,6 @@
   }
  ],
  "plan": "Viếng thăm khách hàng — giới thiệu sản phẩm MANI",
- "result": "Người gặp: chưa ghi tên\n1. Actions Taken: Viếng thăm, giới thiệu sản phẩm MANI (Composite)\n2. Current Situation: Đang thuyết phục\n3. Customer Feedback: Good\n4. Opportunities / Next Steps: Tiếp tục chăm sóc khách hàng\n(Nhập bù 11/2026 từ ảnh Việt gửi qua Zalo)"
+ "result": "Người gặp: chưa ghi tên\n1. Actions Taken: Viếng thăm, giới thiệu sản phẩm MANI (Composite)\n2. Current Situation: Đang thuyết phục\n3. Customer Feedback: Good\n4. Opportunities / Next Steps: Tiếp tục chăm sóc khách hàng\n(Nhập bù 11/2026 từ ảnh Việt gửi qua Zalo)",
+ "ridSuffix": "-r2"
 }
