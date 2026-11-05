@@ -1,5 +1,5 @@
 /* ════════════════════════════════════════════════════════════════════════════════════════
-   MMH · FOLLOW UP TENDER — theo dõi gói thầu dao / chỉ khâu nhãn khoa theo địa bàn (web Tender Map, 04/11/2026)
+   MMH · FOLLOW UP TENDER — theo dõi gói thầu / gói mua sắm (dao, chỉ khâu nhãn khoa, ghim da Manipler, Hook, Micro Forceps) theo địa bàn (web Tender Map, 04/11/2026)
    Chỉ có ở backend CRM Surgical VN. Sheet ẨN "FOLLOW UP TENDER" trong file CRM này (code tự tạo + tự ẩn).
 
    GHI NỐI TIẾP, KHÔNG BAO GIỜ SỬA / XOÁ DÒNG CŨ: mỗi lần PIC cập nhật 1 gói = 1 dòng mới (cùng "Mã theo dõi", "Lần" + 1)
@@ -33,11 +33,14 @@
    v1.7 (05/11/2026, người dùng chốt): chia theo TỈNH CŨ — Viet Ha = miền Bắc → hết Đà Nẵng CŨ, Khang = từ Quảng Nam CŨ trở vào (tỉnh Đà Nẵng mới gồm cả 2).
      Cột mới cuối sheet "PIC phụ trách địa bàn" (`own`, app gửi theo tỉnh cũ của cơ sở); dòng cũ / thiếu ⇒ fuTerrOf_ đoán: Đà Nẵng mới + địa chỉ có huyện / thị Quảng Nam cũ
      hoặc toạ độ phía nam vĩ độ FU.QNAM_LAT ⇒ Khang.
+   v1.8 (05/11/2026, người dùng yêu cầu): Sales Surgical phụ trách thêm GHIM DA (Manipler), HOOK (Trabeculotomy Hook), MICRO FORCEPS ⇒ loại sản phẩm từng dòng
+     `kind` nhận dao · chi · ghim · hook · forcep (FU.KINDS; giá trị lạ ⇒ dao như cũ), cột "Loại sản phẩm" (ptype) tối đa 120 ký tự; email tuần ghi "gói thầu / mua sắm".
    · fuCrm — chi tiết cơ sở trên Tender Map hiện dữ liệu CRM Surgical: mã / PIC địa bàn, lượt gặp 12 tháng, người liên hệ (CBC, không SĐT), đơn hàng 12 tháng.
      Cần phiên email công ty như fuList.
    ════════════════════════════════════════════════════════════════════════════════════════ */
 var FU = {
-  VER: '1.7',
+  VER: '1.8',
+  KINDS: ['dao', 'chi', 'ghim', 'hook', 'forcep'],      /* v1.8 — loại sản phẩm của 1 dòng: dao · chỉ khâu · ghim da · Hook · Micro Forceps */
   MAP_URL: 'https://manimedicalhanoi.github.io/Tender-Result/map/',
   SOON_DAYS: 3, STALE_DAYS: 30, TRIG_V: 'fu1',
   DOMAINS: /@(manimedicalhanoi\.com|mani\.inc)$/i,
@@ -165,6 +168,12 @@ function fuList_(p){
 function fuTxt_(v, max){ var s = tfS_(v).replace(/\r\n?/g, '\n'); if(max && s.length > max) s = s.slice(0, max); return /^[=+\-@]/.test(s) ? "'" + s : s; }
 function fuNum_(v){ var n = Number(String(v == null ? '' : v).replace(/[^\d.\-]/g, '')); return isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : 0; }
 
+/* v1.8 — loại sản phẩm 1 dòng: dao · chi · ghim · hook · forcep (giá trị lạ / trống ⇒ dao như bản cũ) */
+function fuKind_(k){
+  k = tfS_(k).toLowerCase();
+  if(FU.KINDS.indexOf(k) >= 0) return k;
+  return /^chi/.test(k) ? 'chi' : 'dao';
+}
 function fuSave_(p){
   var me = fuMe_(p);
   if(me.err) return { ok:false, code:'AUTH', error:me.err };
@@ -174,7 +183,7 @@ function fuSave_(p){
   var items = p.items;
   if(typeof items === 'string'){ try{ items = JSON.parse(items); }catch(e){ items = []; } }
   items = (Array.isArray(items) ? items : []).slice(0, FU.MAX_ITEMS).map(function(it){
-    return { code:tfS_(it && it.code).slice(0, 40), qty:fuNum_(it && it.qty), kind:/^chi/i.test(tfS_(it && it.kind)) ? 'chi' : 'dao', name:tfS_(it && it.name).slice(0, 80) };
+    return { code:tfS_(it && it.code).slice(0, 40), qty:fuNum_(it && it.qty), kind:fuKind_(it && it.kind), name:tfS_(it && it.name).slice(0, 80) };
   }).filter(function(it){ return it.code; });
   var due = tfIso_(p.due);
   var lock = LockService.getScriptLock(); lock.waitLock(20000);
@@ -193,7 +202,7 @@ function fuSave_(p){
     var qty = items.reduce(function(a, it){ return a + it.qty; }, 0);
     var txt = items.map(function(it){ return it.code + ' × ' + (it.qty || '?'); }).join('; ');
     var row = [new Date(), id, rev, fuTxt_(me.pic, 60), me.local, fuTxt_(p.fid, 40), fuTxt_(hosp, 200), fuTxt_(p.prov, 60), fuTxt_(p.addr, 300),
-      fuTxt_(p.pkg, 300), fuTxt_(p.tbmt, 60), fuTxt_(p.ptype, 40), fuTxt_(txt, 2000), qty, fuNum_(p.value), stage, FU.STAGES[stage],
+      fuTxt_(p.pkg, 300), fuTxt_(p.tbmt, 60), fuTxt_(p.ptype, 120), fuTxt_(txt, 2000), qty, fuNum_(p.value), stage, FU.STAGES[stage],
       due, fuTxt_(p.note, 3000), JSON.stringify(items), rid, fuTxt_(p.src || 'Tender Map', 40), fuTxt_(p.ll, 40),
       fuTxt_((p.own === FU.TERR_N || p.own === FU.TERR_S) ? p.own : fuTerrOf_(p.prov, p.addr, p.ll), 40)];
     sh.getRange(sh.getLastRow() + 1, 1, 1, row.length).setValues([row]);
@@ -289,7 +298,7 @@ function fuWeekly_(dry){
   Object.keys(by).forEach(function(pic){
     var em = M[pic.toLowerCase()]; if(!em){ miss.push(pic); return; }
     var L = sortL(by[pic]), stale = L.filter(function(c){ return fuDays_(c.at, t) >= FU.STALE_DAYS; }).length;
-    var html = '<p>Dear ' + fuH_(pic) + ',</p><p>Tuần này bạn đang theo dõi <b>' + L.length + '</b> gói thầu dao / chỉ khâu' + (stale ? ', trong đó <b>' + stale + '</b> gói đã ≥ ' + FU.STALE_DAYS + ' ngày chưa cập nhật' : '') + ':</p>' + table(L) + foot;
+    var html = '<p>Dear ' + fuH_(pic) + ',</p><p>Tuần này bạn đang theo dõi <b>' + L.length + '</b> gói thầu / mua sắm' + (stale ? ', trong đó <b>' + stale + '</b> gói đã ≥ ' + FU.STALE_DAYS + ' ngày chưa cập nhật' : '') + ':</p>' + table(L) + foot;
     if(!dry){ try{ mmhMail_({ to:em, subject:'[Tender Map] Gói thầu đang theo dõi tuần ' + fuD2_(t) + ' · ' + L.length + ' gói', htmlBody:html, body:'Mở Tender Map ▸ Theo dõi thầu: ' + FU.MAP_URL }); sent++; }catch(e){ miss.push(pic + ' (' + e.message + ')'); } }
     else sent++;
   });
@@ -297,7 +306,7 @@ function fuWeekly_(dry){
   if(mg.length){
     var stale = open.filter(function(c){ return fuDays_(c.at, t) >= FU.STALE_DAYS; }).length;
     var hon = fuMgrs_().map(function(m){ return (typeof NA_HONOR !== 'undefined' && NA_HONOR[m]) || ('anh/chị ' + m); }).join(', ');
-    var html = '<p>Dear ' + fuH_(hon) + ',</p><p>Tổng hợp theo dõi thầu dao / chỉ khâu tuần ' + fuD2_(t) + ': <b>' + open.length + '</b> gói đang theo dõi, <b>' + stale + '</b> gói ≥ ' + FU.STALE_DAYS + ' ngày chưa cập nhật.</p>' +
+    var html = '<p>Dear ' + fuH_(hon) + ',</p><p>Tổng hợp theo dõi thầu / mua sắm tuần ' + fuD2_(t) + ': <b>' + open.length + '</b> gói đang theo dõi, <b>' + stale + '</b> gói ≥ ' + FU.STALE_DAYS + ' ngày chưa cập nhật.</p>' +
       Object.keys(by).sort().map(function(pic){ return '<p style="margin:12px 0 4px"><b>' + fuH_(pic) + '</b> · ' + by[pic].length + ' gói</p>' + table(sortL(by[pic])); }).join('') + foot;
     if(!dry){ try{ mmhMail_({ to:mg.join(','), subject:'[Tender Map] Tổng hợp theo dõi thầu tuần ' + fuD2_(t), htmlBody:html, body:'Mở Tender Map ▸ Theo dõi thầu: ' + FU.MAP_URL }); sent++; }catch(e){ miss.push('trưởng nhóm (' + e.message + ')'); } }
     else sent++;

@@ -340,6 +340,7 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   không gửi người cập nhật cuối; giai đoạn 14 = "Ký hợp đồng mua sắm". App Tender Map bắt đăng nhập ngay màn hình đầu; Sales chỉ xem địa bàn + hoạt động của mình, người khác xem tất cả / chọn PIC (lọc ở app, dữ liệu backend không đổi).
   **v1.7 (05/11/2026, người dùng chốt)**: chia theo **tỉnh cũ** — Viet Ha = miền Bắc → hết **Đà Nẵng cũ**, Khang = từ **Quảng Nam cũ** trở vào. Sheet FOLLOW UP TENDER thêm cột cuối
   **PIC phụ trách địa bàn** (`own`, app gửi theo tỉnh cũ của cơ sở); dòng cũ ⇒ `fuTerrOf_(prov, addr, ll)`: tỉnh Đà Nẵng mới + địa chỉ có huyện / thị Quảng Nam cũ (`FU.QNAM_RE`) hoặc vĩ độ < `FU.QNAM_LAT` ⇒ Khang.
+  **v1.8 (05/11/2026)**: Sales Surgical phụ trách thêm **ghim da (Manipler), Hook (Trabeculotomy Hook), Micro Forceps** ⇒ `items[].kind` nhận `dao · chi · ghim · hook · forcep` (`FU.KINDS`, `fuKind_`; lạ ⇒ dao), ptype ≤ 120 ký tự.
   `fuCrm` (phiên công ty): cơ sở trên Tender Map ⇒ địa bàn CRM Surgical khớp tên (`fuNk_`: bỏ dấu, mở BV / BVĐK / TTYT) + tỉnh mới / cũ ⇒ mã, PIC, lượt gặp 12 tháng (5 lượt gần nhất), CBC (không SĐT), đơn hàng 12 tháng; đệm 10 phút.
 - **04/11/2026 — CRM v10.24: PIC xoá đơn hàng (`MMH_OrderDelete.gs` GIỐNG HỆT ở crm-dental / surgical / eyeless)**: lỗi — `deleteRow` chặn tab `order` với sales ⇒ nút "Xoá đơn" của PIC luôn báo lỗi.
   Action **`deleteOrder`** (`rows` = [{_row, _no, _nm}]): trong 1 khoá kiểm từng dòng (Order No. + account), số dòng dời ⇒ tìm lại theo Order No. + account; đơn chưa có số mà dòng lệch ⇒ `STALE`;
