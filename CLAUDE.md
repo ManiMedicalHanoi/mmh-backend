@@ -346,3 +346,8 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   Action **`deleteOrder`** (`rows` = [{_row, _no, _nm}]): trong 1 khoá kiểm từng dòng (Order No. + account), số dòng dời ⇒ tìm lại theo Order No. + account; đơn chưa có số mà dòng lệch ⇒ `STALE`;
   xoá CẢ ĐƠN (cùng Order No. + account + PIC + tháng) từ dưới lên. Quyền: quản lý / người duyệt (`ordIsApprover_`) xoá mọi đơn; PIC chỉ đơn của mình và chưa "Đã duyệt" (`APPROVED`).
   `deleteRow` tab order với sales ⇒ `USE_DELETE_ORDER`. App CRM v35.2 (khối `v352-js`).
+- **05/11/2026 — CRM v10.25 (crm-dental / surgical / eyeless `Mã.gs`, app CRM v35.3)**: `saveOrders` — dòng sửa / bỏ phải khớp `_no` / `_nm` / `_sg` (chữ ký `ordSig_` = loại · SL · đơn giá) với dòng trên sheet,
+  lệch (số dòng đã dời, có người sửa ở nơi khác) ⇒ `{ ok:false, code:'STALE' }`, KHÔNG ghi gì (trước: bỏ dòng thất bại im lặng / sửa nhầm dòng ⇒ "lưu rồi vẫn như cũ").
+  Đơn MỚI mà số app gửi đã có trên sheet ⇒ cấp số mới (`renumbered`). `ordKey_` có số = số + PIC + tháng + account + ngày đặt (khớp app `ordGK`) — 2 đơn trùng số không bị gộp.
+  `MMH_OrderDiag.gs` (GIỐNG HỆT 3 nơi): `?action=ordDiag&key=<8 ký tự cuối Script ID>&no=521,561` chẩn đoán (dòng sheet + ORDER LOG + Action log, chỉ đọc);
+  `&op=renumber&rows=…&no=…` tách các dòng (cùng số + account) sang số mới. Gọi qua workflow **Kiểm tra** ▸ ping `crm-dental?action=ordDiag&…&full=1`.
