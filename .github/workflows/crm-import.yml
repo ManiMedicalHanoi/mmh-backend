@@ -1,0 +1,25 @@
+name: Nhập bù task CRM (tạm)
+# Tạm thời: nhập bù lượt đi địa bàn + ảnh vào CRM (tools/crm-import/spec.json). Chạy khi đẩy tools/crm-import/** lên nhánh này.
+on:
+  push:
+    branches: [ccr-998b4ddf-v1bgwo]
+    paths: ['tools/crm-import/**', '.github/workflows/crm-import.yml']
+permissions: { contents: read }
+concurrency: { group: crm-import, cancel-in-progress: false }
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Đọc dữ liệu + tải ảnh đã có (chỉ đọc)
+        run: MODE=check node tools/crm-import/run.mjs
+      - name: So ảnh (MODE=apply ⇒ trùng thì dừng)
+        run: |
+          pip install -q pillow
+          if [ "$(cat tools/crm-import/MODE)" = "apply" ]; then python3 tools/crm-import/cmp.py tools/crm-import/photos; else python3 tools/crm-import/cmp.py tools/crm-import/photos || true; fi
+      - name: Ghi
+        if: hashFiles('tools/crm-import/MODE') != ''
+        run: if [ "$(cat tools/crm-import/MODE)" = "apply" ]; then MODE=apply node tools/crm-import/run.mjs; else echo "MODE=check — không ghi"; fi
