@@ -4,6 +4,9 @@
      loại, SL, giá, tiền, duyệt + nhóm theo ordKey_ + nhật ký lưu đơn (ORDER LOG) + nhật ký thao tác (Action log) liên quan.
    ?action=ordDiag&key=…&op=renumber&rows=1734,1735&no=561   (GHI) — tách các dòng đã cho (cùng Order No. = no, cùng account) sang 1 Order No. mới.
      Dùng khi 2 đơn khác nhau bị app cũ cấp trùng số (v10.25 đã chặn cho đơn mới). Ghi nhật ký thao tác "renumber".
+   ?action=ordDiag&key=…&op=audit[&from=202609]   (chỉ đọc) — rà mọi đơn: trùng số giữa các đơn khác nhau, dòng có số mà trống ngày,
+     dòng giống hệt nhau trong cùng đơn (loại · SL · giá · Detail), dòng chưa có số.
+   ?action=ordDiag&key=…&op=dellines&no=521&rows=1636,1637&sg=composite|1|200000   (GHI) — xoá đúng các dòng đã cho (khớp số + chữ ký dòng).
    ?action=ordDiag&key=…&op=heal   (GHI) — chạy ngay ordNoHeal_ (điền số cho dòng không số + điền ngày đặt cho dòng có số mà trống ngày). */
 /* chữ ký 1 dòng sản phẩm: loại + SL + đơn giá (app gửi _sg lúc mở form ⇒ máy chủ chỉ sửa / bỏ đúng dòng đó) */
 function ordSig_(ptype, qty, price){ return S(ptype).trim().toLowerCase() + '|' + num(qty) + '|' + num(price); }
@@ -11,6 +14,8 @@ function ordDiag_(p){
   var key = S(p.key); if (!key || key !== ScriptApp.getScriptId().slice(-8)) return { ok:false, error:'key?' };
   if (S(p.op) === 'renumber') return ordRenumber_(p);
   if (S(p.op) === 'heal') return { ok:true, healed:ordNoHeal_(true) };   /* chạy ngay bước gộp đơn bị tách / điền ngày đặt còn trống */
+  if (S(p.op) === 'audit') return ordAudit_(p);
+  if (S(p.op) === 'dellines') return ordDelLines_(p);
   try { flushLog_(); } catch(e){}
   var nos = S(p.no).split(/[,\s]+/).filter(String), acc = normName_(S(p.acc)), m = COL.order;
   var hitNo = function(v){ var t = /(\d+)\s*$/.exec(S(v)); return t && nos.indexOf(t[1]) >= 0; };
@@ -60,5 +65,53 @@ function ordRenumber_(p){
     SpreadsheetApp.flush(); bumpVersion(bumpTabsFor_('order')); _RAW = {}; _ORDSUPP = null;
     try { logAct({ pic:'system' }, 'renumber', 'order', got[0] + ' → ' + nn, 'tách ' + rows.length + ' dòng (trùng số với đơn khác)', rows[0]); flushLog_(); } catch(e){}
     return { ok:true, from:got[0], to:nn, rows:rows };
+  } finally { lock.releaseLock(); }
+}
+
+function ordAudit_(p){
+  var from = S(p.from).replace(/\D/g, '').slice(0, 6) || '202609';
+  _RAW = {};
+  var rows = readTab('order').filter(function(o){ return ordYm_(o) >= from && S(o.name); });
+  var short = function(o){ return S(o.name).slice(0, 22); };
+  var byNo = {}, grp = {}, noDay = [], noNo = [];
+  rows.forEach(function(o){
+    var no = S(o.orderNo);
+    if (!no){ noNo.push(o._row + ' ' + S(o.pic) + ' ' + short(o) + ' ' + ordYm_(o)); return; }
+    var g = normName_(o.pic) + '|' + ordYm_(o) + '|' + normName_(o.name) + '|' + (wkIso_(o.day) || '');
+    (byNo[no] = byNo[no] || {})[g] = (byNo[no][g] || []).concat([o]);
+    if (!S(o.day)) noDay.push(o._row + ' ' + no + ' ' + S(o.pic) + ' ' + short(o));
+    var k = ordKey_(o); (grp[k] = grp[k] || []).push(o);
+  });
+  var dupNo = [];
+  Object.keys(byNo).forEach(function(no){
+    var gs = Object.keys(byNo[no]); if (gs.length < 2) return;
+    dupNo.push(no + ' ⇒ ' + gs.map(function(g){ var L = byNo[no][g], o = L[0]; return S(o.pic) + ' · ' + short(o) + ' · ' + (wkIso_(o.day) || '(trống ngày)') + ' · ' + L.length + ' dòng · ' + L.reduce(function(s, x){ return s + num(x.amount); }, 0) + ' · dòng ' + L.map(function(x){ return x._row; }).join(','); }).join('  ||  '));
+  });
+  var dupLine = [];
+  Object.keys(grp).forEach(function(k){
+    var seen = {};
+    grp[k].forEach(function(o){ var sg = ordSig_(o.ptype, o.qty, o.price) + '|' + S(o.detail).trim().toLowerCase(); (seen[sg] = seen[sg] || []).push(o._row); });
+    Object.keys(seen).forEach(function(sg){ if (seen[sg].length > 1){ var o = grp[k][0]; dupLine.push(S(o.orderNo) + ' · ' + S(o.pic) + ' · ' + short(o) + ' · ' + sg.split('|').slice(0, 3).join(' ') + ' × ' + seen[sg].length + ' dòng ' + seen[sg].join(',')); } });
+  });
+  return { ok:true, team:TEAM(), from:from, rows:rows.length, dupNo:dupNo, noDay:noDay.slice(0, 30), nNoDay:noDay.length, dupLine:dupLine, noNo:noNo.slice(0, 30), nNoNo:noNo.length };
+}
+function ordDelLines_(p){
+  var rows = S(p.rows).split(/[,\s]+/).map(function(x){ return parseInt(x, 10); }).filter(function(x){ return x > 0; });
+  var no = S(p.no).replace(/\D/g, ''), sg = S(p.sg).toLowerCase();
+  if (!rows.length || !no || !sg) return { ok:false, error:'rows? no? sg?' };
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(25000); } catch(e){ return { ok:false, error:'busy' }; }
+  try {
+    var s = sh('order'), m = COL.order, lc = lastColOf('order'), info = [];
+    for (var i = 0; i < rows.length; i++){
+      var v = s.getRange(rows[i], 1, 1, lc).getValues()[0];
+      if (!(new RegExp('(^|\\D)' + no + '$')).test(S(v[m.orderNo - 1]))) return { ok:false, error:'Dòng ' + rows[i] + ' có số "' + S(v[m.orderNo - 1]) + '"' };
+      if (ordSig_(v[m.ptype - 1], v[m.qty - 1], v[m.price - 1]) !== sg) return { ok:false, error:'Dòng ' + rows[i] + ' khác chữ ký: ' + ordSig_(v[m.ptype - 1], v[m.qty - 1], v[m.price - 1]) };
+      info.push(S(v[m.name - 1]).slice(0, 30));
+    }
+    rows.sort(function(a, b){ return b - a; }).forEach(function(r){ s.deleteRow(r); });
+    SpreadsheetApp.flush(); bumpVersion(bumpTabsFor_('order')); _RAW = {}; _ORDSUPP = null;
+    try { logAct({ pic:'system' }, 'dellines', 'order', 'No. ' + no + ' · ' + info[0], 'xoá ' + rows.length + ' dòng trùng (' + sg + ')', rows[0]); flushLog_(); } catch(e){}
+    return { ok:true, deleted:rows };
   } finally { lock.releaseLock(); }
 }

@@ -1233,7 +1233,7 @@ function saveOrders(user, p){
       if (!d || !d._del) return;
       var row = parseInt(d._row || 0, 10); out[i] = 0; if (!row) return;
       var v = s.getRange(row, 1, 1, lastCol).getValues()[0], g = function(f){ return S(v[map[f] - 1]); };
-      if (S(d._no) !== g('orderNo') || normName_(d._nm || d.name) !== normName_(g('name'))){ skipped.push(row); return; }
+      if (S(d._no) !== g('orderNo') || normName_(d._nm || d.name) !== normName_(g('name')) || !normName_(g('name'))){ skipped.push(row); return; }   /* v10.25 — không bao giờ bỏ dòng trống tên */
       if (d._sg != null && S(d._sg) !== ordSig_(g('ptype'), g('qty'), g('price'))){ skipped.push(row); return; }   /* ⭐ v10.25 — đúng DÒNG SẢN PHẨM, không chỉ đúng đơn */
       if (!isManager(user) && g('pic') && normName_(g('pic')) !== normName_(user && user.pic)){ skipped.push(row); return; }
       dels.push(row);
