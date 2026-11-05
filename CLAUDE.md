@@ -350,4 +350,5 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   lệch (số dòng đã dời, có người sửa ở nơi khác) ⇒ `{ ok:false, code:'STALE' }`, KHÔNG ghi gì (trước: bỏ dòng thất bại im lặng / sửa nhầm dòng ⇒ "lưu rồi vẫn như cũ").
   Đơn MỚI mà số app gửi đã có trên sheet ⇒ cấp số mới (`renumbered`). `ordKey_` có số = số + PIC + tháng + account + ngày đặt (khớp app `ordGK`) — 2 đơn trùng số không bị gộp.
   `MMH_OrderDiag.gs` (GIỐNG HỆT 3 nơi): `?action=ordDiag&key=<8 ký tự cuối Script ID>&no=521,561` chẩn đoán (dòng sheet + ORDER LOG + Action log, chỉ đọc);
-  `&op=renumber&rows=…&no=…` tách các dòng (cùng số + account) sang số mới. Gọi qua workflow **Kiểm tra** ▸ ping `crm-dental?action=ordDiag&…&full=1`.
+  `&op=renumber&rows=…&no=…` tách các dòng (cùng số + account) sang số mới. `&op=heal` chạy ngay `ordNoHeal_` — từ v10.25 còn điền NGÀY ĐẶT cho dòng có số mà trống ngày
+  (cùng số + PIC + tháng + account với các dòng có đúng 1 ngày; đơn 509: dòng trống ngày ⇒ HOD thấy 6 dòng, PIC thấy 5). Gọi qua workflow **Kiểm tra** ▸ ping `crm-dental?action=ordDiag&…&full=1`.
