@@ -500,6 +500,7 @@ function handle(e, method){
       return reply(out, callback);
     }
     if (action === 'k68Diag') return reply(k68Diag_(p), callback);   /* 17/10/2026 — chẩn đoán ô #ERROR! KPI viếng thăm (chỉ đọc; fix=1 chạy lại bản vá) */
+    if (action === 'ordDiag') return reply(ordDiag_(p), callback);   /* 05/11/2026 — chẩn đoán đơn hàng (chỉ đọc, cần key) — MMH_OrderDiag.gs */
     if (action === 'kpiPush') return reply({ ok:true, kpiPush:k68PushQuick_() }, callback);
     if (action === 'kpiLate') return reply(kpiLate_(user, p), callback);               /* ⭐ v10.4 */
 
