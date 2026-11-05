@@ -352,3 +352,6 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   `MMH_OrderDiag.gs` (GIỐNG HỆT 3 nơi): `?action=ordDiag&key=<8 ký tự cuối Script ID>&no=521,561` chẩn đoán (dòng sheet + ORDER LOG + Action log, chỉ đọc);
   `&op=renumber&rows=…&no=…` tách các dòng (cùng số + account) sang số mới. `&op=heal` chạy ngay `ordNoHeal_` — từ v10.25 còn điền NGÀY ĐẶT cho dòng có số mà trống ngày
   (cùng số + PIC + tháng + account với các dòng có đúng 1 ngày; đơn 509: dòng trống ngày ⇒ HOD thấy 6 dòng, PIC thấy 5). Gọi qua workflow **Kiểm tra** ▸ ping `crm-dental?action=ordDiag&…&full=1`.
+- **05/11/2026 — rà / dọn đơn hàng (`MMH_OrderDiag.gs`)**: `op=audit` (trùng số giữa các đơn, dòng có số mà trống ngày, dòng giống hệt trong 1 đơn, dòng chưa có số),
+  `op=dedupe[&run=1]` (mỗi Order No. còn 1 đơn: trống ngày + đúng 1 ngày cùng PIC · tháng · account ⇒ điền ngày; còn trùng ⇒ đơn có dòng nhỏ nhất giữ số, đơn khác nhận số mới; không run=1 = in kế hoạch),
+  `op=dellines&no=&rows=&sg=` (xoá đúng dòng, khớp số + chữ ký). Nguyên nhân trùng số: app cũ tự đếm số đơn trên máy (chỉ thấy đơn của mình / chưa thấy đơn còn chờ ghi) — v10.25 máy chủ cấp số mới khi trùng.
