@@ -122,7 +122,7 @@ async function main() {
       data = { _row: 0, account, start: t.date, finish: t.date, pic: SPEC.pic,
                typeTask: t.typeTask || val.typeTask, typeAction: val.typeAction, process: val.process, product,
                plan: t.plan || SPEC.plan, result: t.result || SPEC.result, status: val.status, feedback: val.feedback, nextAction: val.nextAction, stopReason: '' };
-      rid = `imp-${SPEC.pic}-${t.date}-${t.code}`;
+      rid = `imp-${SPEC.pic}-${t.date}-${t.code}${SPEC.ridSuffix || ""}`;
     }
     const r = await call(null, { action: 'saveWeekly', pic: SPEC.pic, push: '0', rid, data, photo: { b64: 'data:image/jpeg;base64,' + img, mime: 'image/jpeg' } });
     if (r && r.ok) { okN++; say(`- [${t.id}] ${t.label} ${t.date}: ✓ ${t.row ? 'cập nhật' : 'tạo'} dòng ${r.row} · No ${r.no || ''} · ảnh ${r.photo && r.photo.ok ? r.photo.name : '✗ ' + (r.photoError || JSON.stringify(r.photo || {}))}`); }
