@@ -6,9 +6,9 @@
  "values": {
   "typeAction": "Visiting",
   "status": "Completed",
-  "product": "",
-  "process": "engage",
-  "feedback": "^tich cuc",
+  "product": "^composite$",
+  "process": "thuyet phuc",
+  "feedback": "^good$",
   "nextAction": "duy tri",
   "typeTask": ""
  },
@@ -18,60 +18,69 @@
    "date": "2026-09-11",
    "label": "Đại lý Hải Yến",
    "find": "hai yen",
-   "find2": "hai yen"
+   "skip": "chưa có địa bàn trong CRM Dental — chờ tạo địa bàn mới"
   },
   {
    "id": "02",
    "date": "2026-09-08",
    "label": "NK Đông Thành",
    "find": "dong thanh",
-   "find2": "dong thanh"
+   "code": "NHA-CL1748",
+   "typeTask": "Sale-Clinics"
   },
   {
    "id": "03",
    "date": "2026-09-08",
    "label": "NK Dr Anh",
    "find": "dr\\.? ?anh|bac si anh|quoc te anh",
-   "find2": "dr\\.? ?anh|quoc te anh|135,? (duong )?chien thang"
+   "skip": "chưa có địa bàn trong CRM Dental — chờ tạo địa bàn mới"
   },
   {
    "id": "04",
    "date": "2026-09-08",
    "label": "NK 119 Chiến Thắng",
    "find": "119|chien thang|minh",
-   "find2": "119,? (duong )?chien thang|chien thang"
+   "skip": "chưa có địa bàn trong CRM Dental — chờ tạo địa bàn mới"
   },
   {
    "id": "05",
    "date": "2026-09-08",
    "label": "NK Linh Hằng",
    "find": "linh hang",
-   "find2": "linh hang|trieu khuc"
+   "skip": "chưa có địa bàn trong CRM Dental — chờ tạo địa bàn mới"
   },
   {
    "id": "06",
    "date": "2026-09-11",
    "label": "NK Dr Nam",
    "find": "dr\\.? ?nam|bac si nam|bac sy nam",
-   "find2": "(dr|bs|bac si|bac sy|nk|nha khoa)\\.? ?nam\\b"
+   "skip": "chưa có địa bàn trong CRM Dental — chờ tạo địa bàn mới"
   },
   {
    "id": "07",
    "date": "2026-09-12",
    "label": "Đại lý TSG",
-   "find": "tsg|tsc"
+   "find": "tsg|tsc",
+   "code": "NNA2-DL1366",
+   "typeTask": "Sale-Dealer"
   },
   {
    "id": "08",
    "date": "2026-09-11",
    "label": "BV Quang Thành",
-   "find": "quang thanh"
+   "find": "quang thanh",
+   "code": "NNA-HO1138",
+   "typeTask": "Sale-Hospital"
   },
   {
    "id": "09",
    "date": "2026-09-12",
    "label": "Đại lý Hoàng Thành",
-   "find": "hoang thanh"
+   "find": "hoang thanh",
+   "code": "NHA-DL0192",
+   "typeTask": "Sale-Dealer"
   }
- ]
+ ],
+ "plan": "Viếng thăm khách hàng — giới thiệu sản phẩm MANI",
+ "result": "Người gặp: chưa ghi tên\n1. Actions Taken: Viếng thăm, giới thiệu sản phẩm MANI (Composite)\n2. Current Situation: Đang thuyết phục\n3. Customer Feedback: Good\n4. Opportunities / Next Steps: Tiếp tục chăm sóc khách hàng\n(Nhập bù 11/2026 từ ảnh Việt gửi qua Zalo)"
 }
