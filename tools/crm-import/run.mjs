@@ -61,6 +61,16 @@ async function main() {
       say(`- [${t.id}] ${t.label} (${t.date}) → ${c.length ? '' : 'KHÔNG THẤY'}`);
       c.slice(0, 12).forEach(x => say(`    · ${x.code} | ${x.name} | ${x.type} | ${x.province} | ${x.area} | PIC ${x.pic} | CBC ${x.nCbc} | đơn ${x.nOrder}`));
     }
+    if (SPEC.tasks.some(t => t.find2)) {               /* tìm rộng: tên + địa chỉ trên MỌI khách (tab 1. CUSTOMER) */
+      const all = (await call({ action: 'list', tab: 'customer', limit: 5000 })).rows || [];
+      say(`\n## Tìm theo tên + địa chỉ (${all.length} khách)`);
+      for (const t of SPEC.tasks.filter(t => t.find2)) {
+        const R = new RegExp(t.find2, 'i');
+        const c = all.filter(x => R.test(nd(x.name + ' | ' + x.address)));
+        say(`- [${t.id}] ${t.label} → ${c.length ? '' : 'KHÔNG THẤY'}`);
+        c.slice(0, 15).forEach(x => say(`    · ${x.code} | ${x.name} | ${x.type} | ${x.address} | ${x.province} | ${x.area} | PIC ${x.pic} | mở ${x.openDate || ''}`));
+      }
+    }
     say(`\n## Mọi dòng của ${SPEC.pic} tháng ${SPEC.month}: ${mine.length}`);
     for (const r of mine) say(`[dòng ${r._row}] No ${r.no} · ${r.start}→${r.finish} · ${r.account} · ${r.typeAction} · ${r.status} · tt=${r.typeTask} · sp=${r.product} · proc=${r.process} · fb=${r.feedback} · next=${r.nextAction}\n  plan=${JSON.stringify(String(r.plan || '').slice(0, 160))} · result=${JSON.stringify(String(r.result || '').slice(0, 200))} · ảnh=${r.photo ? 'có' : '—'}`);
     const ids = []; mine.forEach(r => { const mm = /\/d\/([-\w]{20,})/.exec(String(r.photo || '')); if (mm) ids.push([r._row, mm[1]]); });
