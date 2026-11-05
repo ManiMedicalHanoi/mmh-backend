@@ -30,20 +30,23 @@
    v1.6 (05/11/2026, người dùng yêu cầu): ĐỊA BÀN PHỤ TRÁCH — Viet Ha = miền Bắc → hết Đà Nẵng, Khang = Quảng Ngãi → miền Nam (FU.TERR, theo tỉnh của cơ sở,
      tên tỉnh mới hoặc cũ). Nhắc việc RH_Notify + email thứ Hai gửi PIC phụ trách địa bàn (fuOwner_), không còn gửi người cập nhật cuối.
      Giai đoạn 14 (tư nhân) = "Ký hợp đồng mua sắm" (cơ sở tư nhân mua theo hợp đồng mua sắm, không qua thầu).
+   v1.7 (05/11/2026, người dùng chốt): chia theo TỈNH CŨ — Viet Ha = miền Bắc → hết Đà Nẵng CŨ, Khang = từ Quảng Nam CŨ trở vào (tỉnh Đà Nẵng mới gồm cả 2).
+     Cột mới cuối sheet "PIC phụ trách địa bàn" (`own`, app gửi theo tỉnh cũ của cơ sở); dòng cũ / thiếu ⇒ fuTerrOf_ đoán: Đà Nẵng mới + địa chỉ có huyện / thị Quảng Nam cũ
+     hoặc toạ độ phía nam vĩ độ FU.QNAM_LAT ⇒ Khang.
    · fuCrm — chi tiết cơ sở trên Tender Map hiện dữ liệu CRM Surgical: mã / PIC địa bàn, lượt gặp 12 tháng, người liên hệ (CBC, không SĐT), đơn hàng 12 tháng.
      Cần phiên email công ty như fuList.
    ════════════════════════════════════════════════════════════════════════════════════════ */
 var FU = {
-  VER: '1.6',
+  VER: '1.7',
   MAP_URL: 'https://manimedicalhanoi.github.io/Tender-Result/map/',
   SOON_DAYS: 3, STALE_DAYS: 30, TRIG_V: 'fu1',
   DOMAINS: /@(manimedicalhanoi\.com|mani\.inc)$/i,
   TAB: 'FOLLOW UP TENDER',
   HDR: ['Thời gian cập nhật', 'Mã theo dõi', 'Lần', 'PIC', 'Email', 'Mã cơ sở', 'Cơ sở y tế', 'Tỉnh / thành', 'Địa chỉ',
         'Tên gói thầu', 'Số TBMT', 'Loại sản phẩm', 'Sản phẩm · SL ước tính', 'Tổng SL', 'Giá trị ước tính (VND)',
-        'Bước', 'Giai đoạn', 'Ngày dự kiến', 'Tình hình (ghi chú)', 'Sản phẩm (JSON)', 'Mã yêu cầu', 'Nguồn', 'Toạ độ'],
+        'Bước', 'Giai đoạn', 'Ngày dự kiến', 'Tình hình (ghi chú)', 'Sản phẩm (JSON)', 'Mã yêu cầu', 'Nguồn', 'Toạ độ', 'PIC phụ trách địa bàn'],
   COLS: ['at', 'id', 'rev', 'pic', 'mail', 'fid', 'hosp', 'prov', 'addr', 'pkg', 'tbmt', 'ptype', 'itemsTxt', 'qty', 'value',
-         'stage', 'stageName', 'due', 'note', 'items', 'rid', 'src', 'll'],
+         'stage', 'stageName', 'due', 'note', 'items', 'rid', 'src', 'll', 'own'],
   STAGES: ['', 'Giới thiệu sản phẩm', 'Lên danh mục', 'Chốt cấu hình', 'Ra báo giá', 'Ra HSMT', 'Đang chấm thầu',
            'Đã trúng thầu', 'Đã trượt thầu', 'Huỷ / dừng theo dõi',
            /* v1.5 — cơ sở TƯ NHÂN (mua sắm, không qua thầu): 11–15 đang tiến hành → thành công, 18 không thành công, 19 dừng */
@@ -53,16 +56,27 @@ var FU = {
   TERR_N: 'Viet Ha', TERR_S: 'Khang',
   TERR_N_PROV: ['Hà Nội', 'Bắc Ninh', 'Bắc Giang', 'Quảng Ninh', 'Hải Phòng', 'Hải Dương', 'Hưng Yên', 'Thái Bình', 'Ninh Bình', 'Nam Định', 'Hà Nam',
     'Cao Bằng', 'Tuyên Quang', 'Hà Giang', 'Lào Cai', 'Yên Bái', 'Thái Nguyên', 'Bắc Kạn', 'Lạng Sơn', 'Phú Thọ', 'Vĩnh Phúc', 'Hòa Bình', 'Hoà Bình',
-    'Điện Biên', 'Lai Châu', 'Sơn La', 'Thanh Hóa', 'Thanh Hoá', 'Nghệ An', 'Hà Tĩnh', 'Quảng Trị', 'Quảng Bình', 'Huế', 'Thừa Thiên Huế', 'Đà Nẵng', 'Quảng Nam']
+    'Điện Biên', 'Lai Châu', 'Sơn La', 'Thanh Hóa', 'Thanh Hoá', 'Nghệ An', 'Hà Tĩnh', 'Quảng Trị', 'Quảng Bình', 'Huế', 'Thừa Thiên Huế', 'Đà Nẵng'],
+  /* v1.7 — tỉnh Đà Nẵng mới = Đà Nẵng cũ (Viet Ha) + Quảng Nam cũ (Khang): nhận Quảng Nam cũ qua tên huyện / thị trong địa chỉ hoặc toạ độ */
+  QNAM_RE: /\b(quang nam|tam ky|hoi an|dien ban|duy xuyen|que son|thang binh|nui thanh|phu ninh|dai loc|nong son|hiep duc|tien phuoc|tra my|phuoc son|nam giang|dong giang|tay giang|chu lai)\b/,
+  QNAM_LAT: 15.955
 };
-/* PIC phụ trách địa bàn của 1 tỉnh ('' nếu không rõ tỉnh) */
-function fuTerrOf_(prov){
+/* PIC phụ trách địa bàn ('' nếu không rõ tỉnh). addr / ll chỉ dùng để tách tỉnh Đà Nẵng mới (Đà Nẵng cũ ⇄ Quảng Nam cũ) */
+function fuTerrOf_(prov, addr, ll){
   var k = fuPk_(prov); if(!k) return '';
+  if(k === 'quangnam') return FU.TERR_S;
+  if(k === 'danang'){
+    var a = ' ' + String(addr || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/[^a-z0-9]+/g, ' ') + ' ';
+    if(FU.QNAM_RE.test(a)) return FU.TERR_S;
+    var m = /(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/.exec(String(ll || ''));
+    if(m && +m[1] > 8 && +m[1] < FU.QNAM_LAT) return FU.TERR_S;
+    return FU.TERR_N;
+  }
   if(!FU._tn){ FU._tn = {}; FU.TERR_N_PROV.forEach(function(x){ FU._tn[fuPk_(x)] = 1; }); }
   return FU._tn[k] ? FU.TERR_N : FU.TERR_S;
 }
-/* người nhận nhắc việc của 1 gói = PIC phụ trách địa bàn; không rõ tỉnh ⇒ người cập nhật cuối */
-function fuOwner_(c){ return fuTerrOf_(c.prov) || c.pic; }
+/* người nhận nhắc việc của 1 gói = PIC phụ trách địa bàn (app ghi sẵn ở cột "PIC phụ trách địa bàn"); không có ⇒ đoán theo tỉnh; không rõ tỉnh ⇒ người cập nhật cuối */
+function fuOwner_(c){ return (c.own && (c.own === FU.TERR_N || c.own === FU.TERR_S) ? c.own : '') || fuTerrOf_(c.prov, c.addr, c.ll) || c.pic; }
 
 function fuRoute_(action, p){
   try{
@@ -133,7 +147,7 @@ function fuRowOut_(r){
   var due = r[17] instanceof Date && !isNaN(r[17]) ? Utilities.formatDate(r[17], 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd') : tfS_(r[17]);
   return [at, tfS_(r[1]), +r[2] || 1, tfS_(r[3]), tfS_(r[4]), tfS_(r[5]), tfS_(r[6]), tfS_(r[7]), tfS_(r[8]), tfS_(r[9]), tfS_(r[10]),
           tfS_(r[11]), tfS_(r[12]), +r[13] || 0, +r[14] || 0, +r[15] || 0, tfS_(r[16]), due, tfS_(r[18]), tfS_(r[19]), tfS_(r[20]),
-          tfS_(r[21]), tfS_(r[22])];
+          tfS_(r[21]), tfS_(r[22]), tfS_(r[23])];
 }
 
 function fuList_(p){
@@ -180,7 +194,8 @@ function fuSave_(p){
     var txt = items.map(function(it){ return it.code + ' × ' + (it.qty || '?'); }).join('; ');
     var row = [new Date(), id, rev, fuTxt_(me.pic, 60), me.local, fuTxt_(p.fid, 40), fuTxt_(hosp, 200), fuTxt_(p.prov, 60), fuTxt_(p.addr, 300),
       fuTxt_(p.pkg, 300), fuTxt_(p.tbmt, 60), fuTxt_(p.ptype, 40), fuTxt_(txt, 2000), qty, fuNum_(p.value), stage, FU.STAGES[stage],
-      due, fuTxt_(p.note, 3000), JSON.stringify(items), rid, fuTxt_(p.src || 'Tender Map', 40), fuTxt_(p.ll, 40)];
+      due, fuTxt_(p.note, 3000), JSON.stringify(items), rid, fuTxt_(p.src || 'Tender Map', 40), fuTxt_(p.ll, 40),
+      fuTxt_((p.own === FU.TERR_N || p.own === FU.TERR_S) ? p.own : fuTerrOf_(p.prov, p.addr, p.ll), 40)];
     sh.getRange(sh.getLastRow() + 1, 1, 1, row.length).setValues([row]);
     return { ok:true, rec:fuRowOut_(row), cols:FU.COLS };
   } finally { lock.releaseLock(); }
@@ -204,7 +219,7 @@ function fuCases_(){
     if((+o[2] || 1) >= (+c.last[2] || 1)) c.last = o;
   });
   return order.map(function(id){ var L = by[id].last;
-    return { id:id, at:L[0], start:by[id].first[0], pic:L[3], hosp:L[6], prov:L[7], pkg:L[9], tbmt:L[10], stage:+L[15] || 0, stageName:L[16], due:L[17], note:L[18], items:L[12] }; });
+    return { id:id, at:L[0], start:by[id].first[0], pic:L[3], hosp:L[6], prov:L[7], addr:L[8], pkg:L[9], tbmt:L[10], stage:+L[15] || 0, stageName:L[16], due:L[17], note:L[18], items:L[12], ll:L[22], own:L[23] }; });
 }
 function fuLink_(c){ return FU.MAP_URL + '?v=fu#' + encodeURIComponent(c.prov) + '/' + encodeURIComponent(c.hosp); }
 function fuMgrs_(){ try{ return (typeof ORDER_APPROVERS !== 'undefined' && ORDER_APPROVERS.surgical) ? ORDER_APPROVERS.surgical.slice() : []; }catch(e){ return []; } }
