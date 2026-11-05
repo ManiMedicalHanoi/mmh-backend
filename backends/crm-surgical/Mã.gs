@@ -1,5 +1,9 @@
 /*************************************************************************************************
- * MMH CRM — Google Apps Script backend  (v10.24)  ·  MỘT FILE CODE CHO CẢ 3 NHÓM
+ * MMH CRM — Google Apps Script backend  (v10.25)  ·  MỘT FILE CODE CHO CẢ 3 NHÓM
+ * ⭐ v10.25 (05/11/2026) · SỬA / XOÁ DÒNG ĐƠN HÀNG AN TOÀN (Viet báo đơn 521 / 561: sửa, xoá dòng rồi Lưu nhưng đơn quay lại như cũ)
+ *   ① saveOrders: dòng sửa / bỏ phải khớp Order No. + account + chữ ký dòng (_sg = loại · SL · đơn giá) lúc mở form, lệch ⇒ code STALE, không ghi gì.
+ *   ② đơn MỚI mà số app tự đếm đã có trên sheet ⇒ cấp số mới (2 đơn của cùng khách nhập liền nhau từng bị trùng No. 561 ⇒ gộp sai 51,5 tr).
+ *   ③ ordKey_ thêm account + ngày đặt (khớp cách app gom đơn). MMH_OrderDiag.gs: ordDiag (chẩn đoán, op=renumber tách số trùng).
  * ⭐ v10.24 (04/11/2026) · XOÁ ĐƠN HÀNG TỪ PIC: action deleteOrder (MMH_OrderDelete.gs) — PIC xoá cả đơn của mình (chưa Đã duyệt), kiểm đúng dòng,
  *   xoá mọi dòng sản phẩm trong 1 khoá. Trước đây deleteRow chặn tab order với sales ⇒ nút Xoá đơn trên app luôn báo lỗi.
  * ⭐ v10.21 (29/10/2026) · SỐ LƯỢNG COMPOSITE / JIZAI HỖ TRỢ (C6 / C7) CHỈ CỘNG ĐƠN ĐÃ DUYỆT — giống C5 (người dùng yêu cầu).
@@ -512,7 +516,7 @@ function handle(e, method){
     if (action === 'kpiLate') return reply(kpiLate_(user, p), callback);               /* ⭐ v10.4 */
 
     switch (action) {
-      case 'ping'            : out = { ok:true, pong:true, source:TEAM(), app:appName_(), pic:user.pic, ver:'10.24', orderDelete:true, cbcEnsure:true, suppApproved:true, orderNotes:true, orderHeal:true, orderLink:true, orderEdit:true, rpStatus:true, sandbox:true, careGate:true, visitDone:true, rate:K68_RATE_DEF, dateFix:props_().getProperty('CRM_DATEFIX_LOG') || '', orderApproval:true, presentTpl:true, migrate:props_().getProperty('CRM_LAYOUT_V') || '', meeting:true, trip2:true, kpi68:true, tenderPrice:true, custLog:true, deleteAccount:true, na:true, kr:true, idem:true, kpiPush:true }; break;
+      case 'ping'            : out = { ok:true, pong:true, source:TEAM(), app:appName_(), pic:user.pic, ver:'10.25', orderSafe:true, orderDelete:true, cbcEnsure:true, suppApproved:true, orderNotes:true, orderHeal:true, orderLink:true, orderEdit:true, rpStatus:true, sandbox:true, careGate:true, visitDone:true, rate:K68_RATE_DEF, dateFix:props_().getProperty('CRM_DATEFIX_LOG') || '', orderApproval:true, presentTpl:true, migrate:props_().getProperty('CRM_LAYOUT_V') || '', meeting:true, trip2:true, kpi68:true, tenderPrice:true, custLog:true, deleteAccount:true, na:true, kr:true, idem:true, kpiPush:true }; break;
       case 'boot'            : out = boot(user); break;
       case 'master'          : out = { ok:true, master: readMaster() }; break;
       case 'customerIndex'   : out = { ok:true, rows: customerIndex() }; break;
@@ -1237,13 +1241,31 @@ function saveOrders(user, p){
       var row = parseInt(d._row || 0, 10); out[i] = 0; if (!row) return;
       var v = s.getRange(row, 1, 1, lastCol).getValues()[0], g = function(f){ return S(v[map[f] - 1]); };
       if (S(d._no) !== g('orderNo') || normName_(d._nm || d.name) !== normName_(g('name'))){ skipped.push(row); return; }
+      if (d._sg != null && S(d._sg) !== ordSig_(g('ptype'), g('qty'), g('price'))){ skipped.push(row); return; }   /* ⭐ v10.25 — đúng DÒNG SẢN PHẨM, không chỉ đúng đơn */
       if (!isManager(user) && g('pic') && normName_(g('pic')) !== normName_(user && user.pic)){ skipped.push(row); return; }
       dels.push(row);
     });
+    /* ⭐ v10.25 (05/11/2026) — dòng đang sửa phải đúng dòng app đang thấy (_no / _nm = Order No. + account lúc mở form).
+       Số dòng đã dời (có người xoá / thêm dòng phía trên) hoặc dòng bỏ không khớp ⇒ KHÔNG ghi gì (trước: sửa nhầm dòng khác / bỏ dòng thất bại
+       nhưng app vẫn báo đã lưu ⇒ tải lại thấy đơn như cũ). App tải lại đơn rồi sửa lại. */
+    list.forEach(function(d){
+      if (!d || d._del || !(parseInt(d._row || 0, 10) > 0) || d._no == null) return;
+      var row = parseInt(d._row, 10), v = s.getRange(row, 1, 1, lastCol).getValues()[0];
+      if (S(d._no) !== S(v[map.orderNo - 1]) || normName_(d._nm) !== normName_(v[map.name - 1]) ||
+          (d._sg != null && S(d._sg) !== ordSig_(v[map.ptype - 1], v[map.qty - 1], v[map.price - 1]))) skipped.push(row);
+    });
+    if (skipped.length) return { ok:false, code:'STALE', rows:skipped,
+      error:'Đơn hàng đã thay đổi trên sheet (có dòng được thêm / xoá / sửa ở nơi khác) — chưa lưu gì. Mở lại đơn rồi sửa lại.' };
 
     /* ⭐ v10.17 — ORDER NO.: cả đơn dùng 1 số. Đơn chưa có số ⇒ cấp số mới (lớn nhất + 1) và điền cho cả các dòng cùng đơn đã có trên sheet
        (dòng không số trước đây bị tính thành từng đơn riêng ⇒ Gửi xác nhận / duyệt / KPI chỉ lấy dòng đầu). */
-    var no = ''; keep.some(function(d){ return (no = S(d.orderNo)); });
+    var no = '', renum = ''; keep.some(function(d){ return (no = S(d.orderNo)); });
+    /* ⭐ v10.25 (05/11/2026) — ĐƠN MỚI mà số app tự đếm đã có trên sheet (máy chưa tải đơn mới nhất / đơn trước còn chờ ghi) ⇒ cấp số mới.
+       Trước đây 2 đơn khác nhau dùng chung 1 số ⇒ bị gộp thành 1 đơn (tổng tiền sai, sửa không được). */
+    if (no && !editing){
+      var used = colValues('order', map.orderNo).some(function(v){ return S(v) === no; });
+      if (used){ keep.forEach(function(d){ if (S(d.orderNo) === no) d.orderNo = ''; }); renum = no; no = ''; }
+    }
     if (!no) no = ordNextNo_();
     /* ⭐ v10.19 — dòng đang sửa vốn KHÔNG có số trên sheet (kể cả khi app gửi kèm số mới) ⇒ các dòng không số cùng đơn nhận cùng số + loại đơn / chứng từ */
     var fill = [], olds = {}, blank = false;
@@ -1304,7 +1326,7 @@ function saveOrders(user, p){
     var acc = S(keep[0].name);
     logAct(user, editing ? 'edit' : 'add', 'order', acc, 'đơn ' + no + ' · ' + keep.length + ' dòng sản phẩm' + (dels.length ? ' · bỏ ' + dels.length + ' dòng' : ''), out[list.indexOf(keep[0])] || 0);
     var rowsOut = list.map(function(d, i){ return out[i] || 0; });
-    var _out = { ok:true, rows:rowsOut, count:keep.length, orderNo:no, deleted:dels.length, skipped:skipped,
+    var _out = { ok:true, rows:rowsOut, count:keep.length, orderNo:no, renumbered:renum, deleted:dels.length, skipped:skipped,
              message:'Đã lưu ' + keep.length + ' dòng sản phẩm cho đơn ' + no + (dels.length ? ' (bỏ ' + dels.length + ' dòng)' : '') +
                      (skipped.length ? ' — ' + skipped.length + ' dòng chưa bỏ được (dữ liệu đã đổi, tải lại rồi sửa lại)' : '') };
   } finally { lock.releaseLock(); }
@@ -6891,7 +6913,8 @@ function ordNoHeal_(force){
    là 1 đơn riêng ⇒ đơn nhiều sản phẩm bị tách: Gửi xác nhận / duyệt / KPI C5 chỉ lấy dòng đầu). Đơn mới từ v10.17 luôn được cấp số. */
 function ordKey_(o){
   var ym = ordYm_(o), no = S(o.orderNo);
-  if (no) return no + '|' + S(o.pic) + '|' + ym;
+  /* ⭐ v10.25 (05/11/2026) — thêm account + ngày đặt (như app gom đơn): 2 đơn trùng số (app cũ tự đếm số khi còn đơn chờ ghi) không bị gộp thành 1 đơn */
+  if (no) return no + '|' + S(o.pic) + '|' + ym + '|' + normName_(o.name) + '|' + (wkIso_(o.day) || S(o.day));
   return '~' + normName_(o.name) + '|' + (wkIso_(o.day) || S(o.day)) + '|' + S(o.pic) + '|' + ym;
 }
 /* gom các dòng sản phẩm thành đơn (ordKey_) */
