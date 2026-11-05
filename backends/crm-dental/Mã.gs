@@ -6859,7 +6859,16 @@ function ordNoHeal_(force){
     ORD_SHARE.forEach(function(f){ if (!map[f] || S(o[f])) return; var v = ''; L.some(function(x){ return (v = S(x[f])); }); if (v) set[f] = f === 'tender' ? num(v) : v; });
     fix.push({ row:o._row, name:S(o.name), set:set });
   });
-  if (!fix.length) return 0;
+  /* ⭐ v10.25 (05/11/2026) — dòng CÓ số nhưng TRỐNG ngày đặt, cùng số + PIC + tháng + account với các dòng có ngày (chỉ 1 ngày) ⇒ điền ngày đó.
+     Trước đây máy chủ gom theo số + PIC + tháng (thấy cả dòng này) còn app gom theo ngày (không thấy) ⇒ HOD và PIC thấy 2 tổng tiền khác nhau (đơn 509). */
+  var dayOf = {}, dfix = [];
+  rows.forEach(function(o){ var d = wkIso_(o.day); if (!S(o.orderNo) || !d) return; var k = S(o.orderNo) + '|' + normName_(o.pic) + '|' + ordYm_(o) + '|' + normName_(o.name); (dayOf[k] = dayOf[k] || {})[d] = 1; });
+  rows.forEach(function(o){
+    if (!S(o.orderNo) || S(o.day) || !S(o.name)) return;
+    var ds = Object.keys(dayOf[S(o.orderNo) + '|' + normName_(o.pic) + '|' + ordYm_(o) + '|' + normName_(o.name)] || {});
+    if (ds.length === 1) dfix.push({ row:o._row, name:S(o.name), no:S(o.orderNo), day:ds[0] });
+  });
+  if (!fix.length && !dfix.length) return 0;
   var lock = LockService.getScriptLock();
   try { lock.waitLock(20000); } catch(e){ c.remove(ck); return 0; }
   var n = 0;
@@ -6869,6 +6878,12 @@ function ordNoHeal_(force){
       var v = s.getRange(f.row, 1, 1, Math.max(map.orderNo, map.name)).getValues()[0];
       if (S(v[map.orderNo - 1]) || normName_(v[map.name - 1]) !== normName_(f.name)) return;   /* sheet đã đổi ⇒ bỏ qua */
       for (var k in f.set) s.getRange(f.row, map[k]).setValue(f.set[k]);
+      n++;
+    });
+    if (map.day) dfix.forEach(function(f){
+      var v = s.getRange(f.row, 1, 1, Math.max(map.orderNo, map.name, map.day)).getValues()[0];
+      if (S(v[map.orderNo - 1]) !== f.no || normName_(v[map.name - 1]) !== normName_(f.name) || S(v[map.day - 1])) return;   /* sheet đã đổi ⇒ bỏ qua */
+      s.getRange(f.row, map.day).setValue(s2d(f.day));
       n++;
     });
     if (n){ SpreadsheetApp.flush(); bumpVersion(bumpTabsFor_('order')); _RAW = {}; _ORDSUPP = null; }

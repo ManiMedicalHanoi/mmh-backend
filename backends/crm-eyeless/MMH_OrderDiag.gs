@@ -3,12 +3,14 @@
    ⇒ mọi dòng tab 3. SALE ORDER có Order No. khớp (hoặc account chứa chữ đã cho): dòng sheet, số, ngày, tháng, PIC, account (rút gọn),
      loại, SL, giá, tiền, duyệt + nhóm theo ordKey_ + nhật ký lưu đơn (ORDER LOG) + nhật ký thao tác (Action log) liên quan.
    ?action=ordDiag&key=…&op=renumber&rows=1734,1735&no=561   (GHI) — tách các dòng đã cho (cùng Order No. = no, cùng account) sang 1 Order No. mới.
-     Dùng khi 2 đơn khác nhau bị app cũ cấp trùng số (v10.25 đã chặn cho đơn mới). Ghi nhật ký thao tác "renumber". */
+     Dùng khi 2 đơn khác nhau bị app cũ cấp trùng số (v10.25 đã chặn cho đơn mới). Ghi nhật ký thao tác "renumber".
+   ?action=ordDiag&key=…&op=heal   (GHI) — chạy ngay ordNoHeal_ (điền số cho dòng không số + điền ngày đặt cho dòng có số mà trống ngày). */
 /* chữ ký 1 dòng sản phẩm: loại + SL + đơn giá (app gửi _sg lúc mở form ⇒ máy chủ chỉ sửa / bỏ đúng dòng đó) */
 function ordSig_(ptype, qty, price){ return S(ptype).trim().toLowerCase() + '|' + num(qty) + '|' + num(price); }
 function ordDiag_(p){
   var key = S(p.key); if (!key || key !== ScriptApp.getScriptId().slice(-8)) return { ok:false, error:'key?' };
   if (S(p.op) === 'renumber') return ordRenumber_(p);
+  if (S(p.op) === 'heal') return { ok:true, healed:ordNoHeal_(true) };   /* chạy ngay bước gộp đơn bị tách / điền ngày đặt còn trống */
   try { flushLog_(); } catch(e){}
   var nos = S(p.no).split(/[,\s]+/).filter(String), acc = normName_(S(p.acc)), m = COL.order;
   var hitNo = function(v){ var t = /(\d+)\s*$/.exec(S(v)); return t && nos.indexOf(t[1]) >= 0; };
