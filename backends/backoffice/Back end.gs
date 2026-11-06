@@ -216,6 +216,7 @@ function handle(e, method){
   }
   return reply(out, callback);
 }
+var NOCOL_READ = { ping:1, version:1, sheets:1, boot:1, weekly:1 };
 var RHX_ONCE = { tfDecide:1, tripPropose:1, mailSend:1, tripReport:1, tripUpdate:1, tripDelete:1 };
 var RHX_ACTIONS = { tripSync:1, tripMaster:1, tripPropose:1, mailSend:1, tripInfo:1, tripReport:1, tripUpdate:1, tripDelete:1 };   /* ⭐ v12.8: xem / báo cáo / sửa / xoá công tác */
 function dispatch(action, user, p){
@@ -227,6 +228,7 @@ function dispatch(action, user, p){
       if(typeof rhxDispatch !== 'function') return { ok:false, error:'Chưa thêm file ReportHub_Trip_Mail.gs vào project Apps Script (hoặc chưa deploy version mới).' };
       return rhxDispatch(action, user, p);
     }
+    if(NOCOL_READ[action] && typeof noColHeal_ === 'function'){ var _nh = noColHeal_(); if(_nh && _nh.cleared && _nh.cleared.length) _DV = null; }   /* ⭐ 07/11/2026: cột No. bị chặn ⇒ tự gỡ (MMH_NoColHeal.gs) */
     switch(action){
       case 'ping':          try{ if(typeof rhDateFix_==='function') rhDateFix_(); }catch(_e){}   /* ⭐ 13/10 chuẩn hoá ngày */
                                      out = { ok:true, pong:true, pic:user.pic, source:SOURCE }; break;
@@ -605,6 +607,7 @@ function warmCache(force){
     finally{ lock.releaseLock(); }
   }
   if(typeof _vsSyncSafe === 'function' && SOURCE === 'marketing'){ try{ _vsSyncSafe(); }catch(e){} }
+  try{ if(typeof noColHeal_ === 'function') noColHeal_(true); }catch(e){}   /* ⭐ 07/11/2026 */
   /* 2) phát hiện sửa thẳng trên sheet mà trigger onChange bỏ lỡ: so "dấu" nội dung */
   _DV = null;
   var weekly = readWeeklyRaw();
@@ -721,6 +724,7 @@ function doneStampOnEdit(e){
   }
 }
 function onChangeTouch(e){
+  try{ if(typeof noColHeal_ === 'function') noColHeal_(); }catch(err){}   /* ⭐ 07/11/2026: dán đè cột No. ⇒ gỡ ngay */
   try{ doneStampOnEdit(e); }catch(err){}   /* ⭐ v12.4 — chạy TRƯỚC khi đổi vân tay (cần trạng thái cũ) */
   touchVersion();
 }
@@ -836,7 +840,8 @@ function sheetInfo(){
            allSheets: ss().getSheets().map(function(s){ return s.getName()+' (gid '+s.getSheetId()+')'; }),
            weekly: info(shWeekly(), GID_WEEKLY),
            monthly:info(shMonthly(), GID_MONTHLY),
-           master: info(shMaster(),  GID_MASTER) };
+           master: info(shMaster(),  GID_MASTER),
+           noCol: (typeof noColInfo_ === 'function') ? noColInfo_() : null };   /* ⭐ 07/11/2026 */
 }
 function shWeekly(){  return resolveSheet('w', GID_WEEKLY,  NAMES_WEEKLY);  }
 function shMonthly(){ return resolveSheet('m', GID_MONTHLY, NAMES_MONTHLY); }
