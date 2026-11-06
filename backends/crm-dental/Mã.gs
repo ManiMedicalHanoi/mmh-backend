@@ -1,5 +1,7 @@
 /*************************************************************************************************
- * MMH CRM — Google Apps Script backend  (v10.25)  ·  MỘT FILE CODE CHO CẢ 3 NHÓM
+ * MMH CRM — Google Apps Script backend  (v10.26)  ·  MỘT FILE CODE CHO CẢ 3 NHÓM
+ * ⭐ v10.26 (06/11/2026) · GIỜ CHỤP ẢNH ĐI ĐỊA BÀN: uploadPhoto nhận `shot` (ms, file.lastModified) ⇒ cột W thêm dòng "📷 yyyy-MM-dd HH:mm"; visitFeed trả `shotAt`
+ *   (app CRM v35.5 dùng cho cảnh báo ảnh dày đặc của HOD / Giám đốc — ảnh chờ mạng tải bù không còn lệch giờ).
  * ⭐ v10.25 (05/11/2026) · SỬA / XOÁ DÒNG ĐƠN HÀNG AN TOÀN (Viet báo đơn 521 / 561: sửa, xoá dòng rồi Lưu nhưng đơn quay lại như cũ)
  *   ① saveOrders: dòng sửa / bỏ phải khớp Order No. + account + chữ ký dòng (_sg = loại · SL · đơn giá) lúc mở form, lệch ⇒ code STALE, không ghi gì.
  *   ② đơn MỚI mà số app tự đếm đã có trên sheet ⇒ cấp số mới (2 đơn của cùng khách nhập liền nhau từng bị trùng No. 561 ⇒ gộp sai 51,5 tr).
@@ -509,7 +511,7 @@ function handle(e, method){
     if (action === 'kpiLate') return reply(kpiLate_(user, p), callback);               /* ⭐ v10.4 */
 
     switch (action) {
-      case 'ping'            : out = { ok:true, pong:true, source:TEAM(), app:appName_(), pic:user.pic, ver:'10.25', orderSafe:true, orderDelete:true, cbcEnsure:true, suppApproved:true, orderNotes:true, orderHeal:true, orderLink:true, orderEdit:true, rpStatus:true, sandbox:true, careGate:true, visitDone:true, rate:K68_RATE_DEF, dateFix:props_().getProperty('CRM_DATEFIX_LOG') || '', orderApproval:true, presentTpl:true, migrate:props_().getProperty('CRM_LAYOUT_V') || '', meeting:true, trip2:true, kpi68:true, tenderPrice:true, custLog:true, deleteAccount:true, na:true, kr:true, idem:true, kpiPush:true }; break;
+      case 'ping'            : out = { ok:true, pong:true, source:TEAM(), app:appName_(), pic:user.pic, ver:'10.26', photoShot:true, orderSafe:true, orderDelete:true, cbcEnsure:true, suppApproved:true, orderNotes:true, orderHeal:true, orderLink:true, orderEdit:true, rpStatus:true, sandbox:true, careGate:true, visitDone:true, rate:K68_RATE_DEF, dateFix:props_().getProperty('CRM_DATEFIX_LOG') || '', orderApproval:true, presentTpl:true, migrate:props_().getProperty('CRM_LAYOUT_V') || '', meeting:true, trip2:true, kpi68:true, tenderPrice:true, custLog:true, deleteAccount:true, na:true, kr:true, idem:true, kpiPush:true }; break;
       case 'boot'            : out = boot(user); break;
       case 'master'          : out = { ok:true, master: readMaster() }; break;
       case 'customerIndex'   : out = { ok:true, rows: customerIndex() }; break;
@@ -1723,7 +1725,7 @@ function saveWeekly(user, p){
         b64: ph.b64, mime: ph.mime || 'image/jpeg', row: out.row,
         account: data.account, date: S(data.start).slice(0, 10),
         pic: S(data.pic) || S(user && user.pic), replace: 1,
-        lat: ph.lat, lng: ph.lng, acc: ph.acc
+        lat: ph.lat, lng: ph.lng, acc: ph.acc, shot: ph.shot
       });
       out.photo = up;
       if (up && up.ok) out.message = (out.message || 'Đã lưu') + ' · đã tải ảnh lên Drive';
@@ -1866,6 +1868,11 @@ function parseUpAt_(cellVal){
   var m = /🕒\s*(\d{4}-\d{2}-\d{2}\s+\d{1,2}:\d{2})/.exec(S(cellVal));
   return m ? m[1] : '';
 }
+/* ⭐ v10.26 — giờ chụp ảnh (cột W, dòng 📷), app v35.5 trở đi */
+function parseShotAt_(cellVal){
+  var m = /📷\s*(\d{4}-\d{2}-\d{2}\s+\d{1,2}:\d{2})/.exec(S(cellVal));
+  return m ? m[1] : '';
+}
 /* GIỜ TẢI của các ảnh CŨ: lấy ngày tạo file trên Drive (tối đa 150 id / lần, cache 6 giờ) */
 function photoMeta(p){
   var ids = S(p.ids).split(/[,\s]+/).filter(function(x){ return /^[-\w]{20,}$/.test(x); }).slice(0, 150);
@@ -1925,6 +1932,9 @@ function uploadPhoto(user, p){
   var gLine = hasGps ? gpsLine_(lat, lng, p.acc, addr) : '';
   var upStamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
   gLine = (gLine ? gLine + '\n' : '') + '🕒 ' + upStamp;
+  /* ⭐ v10.26 (06/11/2026) — GIỜ CHỤP thật (app gửi file.lastModified, ms): ảnh chờ mạng tải bù vẫn đúng giờ chụp ⇒ cảnh báo ảnh dày đặc (HOD / Giám đốc) không báo nhầm */
+  var shotN = Number(p.shot || 0);
+  if (shotN > 1.6e12 && shotN < Date.now() + 600000) gLine += '\n📷 ' + Utilities.formatDate(new Date(shotN), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
 
   var row = parseInt(p.row || 0, 10);
   if (row){ var _rs = wkResolve_(row, wkHints_(p)); if (_rs.stale) return _rs; row = _rs.row; }   /* ⭐ v10.11 — đúng dòng */
@@ -3557,7 +3567,7 @@ function visitFeed(p){
   });
   rows.forEach(function(r){
     var g = parseGps_(r.gpsInfo);
-    r.upAt = parseUpAt_(r.gpsInfo);
+    r.upAt = parseUpAt_(r.gpsInfo); r.shotAt = parseShotAt_(r.gpsInfo);
     r.gps = g.gps; r.gpsAddr = g.gpsAddr;
     delete r.gpsInfo;
     var a = parseCheckName(S(r.account));
