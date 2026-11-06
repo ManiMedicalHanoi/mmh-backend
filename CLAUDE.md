@@ -358,3 +358,6 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
 - **06/11/2026 — CRM v10.26 (crm-dental / surgical / eyeless `Mã.gs`)**: `uploadPhoto` (và ảnh kèm `saveWeekly`) nhận `shot` = giờ chụp (ms, `file.lastModified` của app) ⇒ cột W thêm dòng
   `📷 yyyy-MM-dd HH:mm` dưới `🕒` (giờ tải); `visitFeed` trả `shotAt` (`parseShotAt_`). App CRM v35.5 dùng cho **cảnh báo ảnh đi địa bàn dày đặc** (HOD / Giám đốc): ảnh trước v10.26 chỉ có giờ tải.
   Workflow **Kiểm tra**: bước diff / ping chạy theo `!cancelled()` (trước `always()` ⇒ bấm huỷ vẫn chạy lệnh ghi — 05/11/2026 `ordDiag op=dedupe&run=1` đã lỡ chạy: 21 đơn Dental đổi số No. 567–587, 3 dòng điền ngày).
+- **07/11/2026 — Report Hub nhóm Back office trắng dữ liệu (`backoffice/MMH_NoColHeal.gs`)**: cột No. (B) sheet **WEEKY new** = 1 công thức MAP ở B7 trải cả cột; 06/11/2026 có người dán đè công thức
+  vào B1024, B1032:B1034 ⇒ B7 `#REF!`, mọi ô No. trống ⇒ `readWeeklyRaw` bỏ qua mọi dòng (`weekly` chỉ trả 1 key `no:"#REF!"`). `noColHeal_`: B7 là công thức mảng mà đang lỗi ⇒ xoá nội dung các ô cột B dưới B7
+  (≤ 1 lần / 2 phút, ở ping / version / sheets / boot / weekly + onChange + warmCache); lần gỡ gần nhất ở `?action=sheets` ▸ `noCol.lastHeal`. Chẩn đoán: workflow Kiểm tra ▸ ping `backoffice?action=weekly&full=1`.
