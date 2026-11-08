@@ -11,12 +11,15 @@
  * Đăng nhập: phiên email công ty do Training Hub ký (tk, khoá RH_Secret của Training Master — đọc bằng SpreadsheetApp,
  * không thêm quyền mới). Quyền: sheet "PHÂN QUYỀN APP" của file gốc (Admin sửa trên app); Admin / Director / HOD xem + sửa mọi NPP.
  *
- * Action (GET, JSONP được qua callback=): ping · dtBoot (tk) · dtAccess (tk, Admin)
+ * Action (GET, JSONP được qua callback=): ping · dtBoot (tk) · dtLines (tk, npp, m) · dtAccess (tk, Admin)
+ * v1.1 (09/11/2026, người dùng: app mở chậm): dtBoot gửi dạng gọn (fmt 2: mảng số [NPP, mã, tháng, SL] đã cộng theo NPP + tháng + mã,
+ *   chỉ từ tháng 09 của kỳ trước), đọc sheet theo getLastRow, bỏ dòng đơn chi tiết (tải riêng bằng dtLines khi mở tab Đặt hàng thực tế),
+ *   đệm kết quả 10 phút trong CacheService (nén gzip, chia khúc) — lưu từ app / dòng cuối sheet đổi ⇒ đệm mới; phiên đăng nhập đệm 30 phút.
  * Action (POST JSON text/plain hoặc GET): dtSave (tk, ops) · dtAccessSave (tk, Admin) · dtLog (tk, ghi nhật ký xuất / nhập Excel)
  */
 
 const DW = {
-  VERSION: '1.0 · 08/11/2026',
+  VERSION: '1.1 · 09/11/2026',
   SHEET_ID: '1lhc4c0-sSlLRRgJ5e8hzkZslzsyl3ZBXiPJ5BslfSX4',            // file gốc "Dự trù NPP Dashboard" (dự phòng khi không có getActive)
   MASTER_ID: '1byCL6NjhqBuEcd-K5pxYRrQj2XXs6GMIvR79x45mHRQ',          // Training Master (RH_Users + RH_Secret)
   ACL: 'PHÂN QUYỀN APP',
@@ -24,7 +27,9 @@ const DW = {
   APPLOG: 'NHẬT KÝ APP DỰ TRÙ',
   APPLOG_HEAD: ['Thời điểm', 'Người thực hiện', 'Việc', 'NPP', 'Chi tiết', 'Số dòng'],
   SH: { dt: '1 Dự trù cố định', tt: '2 Đặt hàng thực tế', dk: '3 Đặt hàng dự kiến' },
-  MAX_OPS: 3000
+  MAX_OPS: 3000,
+  TTL: 600,                 // giây — đệm dữ liệu boot
+  WHO_TTL: 1800
 };
 
 
@@ -59,6 +64,7 @@ function dwRoute_(action, p) {
     if (me.err) return { ok: false, code: 'AUTH', error: me.err };
     if (action === 'dtBoot') return dwBoot_(me, p);
     if (action === 'dtSave') return dwSave_(me, p);
+    if (action === 'dtLines') return dwLines_(me, p);
     if (action === 'dtAccess') return dwAccessList_(me);
     if (action === 'dtAccessSave') return dwAccessSave_(me, p);
     if (action === 'dtLog') return dwLogApi_(me, p);
@@ -108,7 +114,7 @@ function dwWho_(p) {
   if (!(u[4] === '' || dwTrue_(u[4]))) return { err: 'Tài khoản đã bị khoá.' };
   if ((t.s || 1) !== Math.max(1, parseInt(u[5], 10) || 1)) return { err: 'Phiên đăng nhập đã bị đăng xuất từ xa.' };
   const me = { local: dwLocal_(t.e), pic: dwS_(u[1]), level: dwS_(u[2]).toLowerCase(), admin: dwTrue_(u[3]), dept: dwS_(u[10]), title: dwS_(u[11]) };
-  try { c.put(key, JSON.stringify(me), 600); } catch (e) {}
+  try { c.put(key, JSON.stringify(me), DW.WHO_TTL); } catch (e) {}
   return me;
 }
 
@@ -177,18 +183,51 @@ function dwCatalog_(ss) {
 
 function dwHead_(sh) { return sh.getRange(1, 1, 1, CFG.NCOL).getValues()[0].map(norm_); }
 
-/** Dữ liệu 1 sheet của các NPP được xem: [iNPP, yyyymm, mã, SL, dòng sheet, cột C, ghi chú] */
-function dwRows_(sh, allow) {
-  const out = [];
-  readBlock_(sh).forEach(function (r, i) {
+/** Đọc cột A–G từ dòng 2 tới dòng cuối có dữ liệu (getLastRow — không đọc hàng nghìn dòng trống cuối sheet) */
+function dwRead_(sh) {
+  const last = sh.getLastRow();
+  return last < 2 ? [] : sh.getRange(2, 1, last - 1, CFG.NCOL).getValues();
+}
+
+/** Gộp 1 sheet thành mảng số phẳng [iNPP, iMã, tháng−m0 (số tháng), SL, …] — cộng theo NPP + tháng + mã */
+function dwPack_(vals, allow, m0, codeIx, codes) {
+  const sum = {}, out = [];
+  const base = Math.floor(m0 / 100) * 12 + (m0 % 100 - 1);
+  vals.forEach(function (r) {
     const k = key_(r[0]);
     if (!allow.hasOwnProperty(k)) return;
-    const m = toYm_(r[1]), code = codeStr_(r[3]), q = num_(r[5]);
-    if (!m || !code || typeof q !== 'number' || isNaN(q)) return;
-    const c3 = r[2];
-    out.push([allow[k], m, code, q, i + 2, Object.prototype.toString.call(c3) === '[object Date]' ? fmt_(c3, 'dd/MM/yyyy') : dwS_(c3), dwS_(r[6]).slice(0, 120)]);
+    const m = toYm_(r[1]); if (!m || m < m0) return;
+    const code = codeStr_(r[3]); if (!code) return;
+    const q = num_(r[5]); if (typeof q !== 'number' || isNaN(q)) return;
+    let ci = codeIx[key_(code)];
+    if (ci === undefined) { ci = codeIx[key_(code)] = codes.length; codes.push([code, norm_(r[4]), 'Khác', 0]); }
+    const mo = Math.floor(m / 100) * 12 + (m % 100 - 1) - base;
+    const kk = allow[k] + '|' + ci + '|' + mo;
+    if (sum.hasOwnProperty(kk)) out[sum[kk] + 3] += q;
+    else { sum[kk] = out.length; out.push(allow[k], ci, mo, q); }
   });
   return out;
+}
+
+function dwGen_() { return PropertiesService.getScriptProperties().getProperty('DW_GEN') || '0'; }
+function dwBump_() { try { PropertiesService.getScriptProperties().setProperty('DW_GEN', String(Date.now())); } catch (e) {} }
+function dwCacheGet_(k) {
+  const c = CacheService.getScriptCache(), head = c.get(k);
+  if (!head) return null;
+  const n = +head, parts = c.getAll(Array.apply(null, Array(n)).map(function (_, i) { return k + '_' + i; }));
+  let b64 = '';
+  for (let i = 0; i < n; i++) { if (!parts[k + '_' + i]) return null; b64 += parts[k + '_' + i]; }
+  try { return Utilities.ungzip(Utilities.newBlob(Utilities.base64Decode(b64), 'application/x-gzip')).getDataAsString(); } catch (e) { return null; }
+}
+function dwCachePut_(k, str) {
+  try {
+    const b64 = Utilities.base64Encode(Utilities.gzip(Utilities.newBlob(str, 'application/json')).getBytes());
+    const SZ = 90000, o = {}, n = Math.ceil(b64.length / SZ);
+    if (n > 40) return;
+    for (let i = 0; i < n; i++) o[k + '_' + i] = b64.substr(i * SZ, SZ);
+    const c = CacheService.getScriptCache();
+    c.putAll(o, DW.TTL); c.put(k, String(n), DW.TTL);
+  } catch (e) {}
 }
 
 function dwBoot_(me, p) {
@@ -199,21 +238,53 @@ function dwBoot_(me, p) {
     access: { all: acc.all, edit: acc.edit, admin: acc.admin }, npps: acc.npps };
   if (acc.none) return Object.assign(base, { ok: false, code: 'NOACCESS',
     error: 'Tài khoản ' + me.pic + ' chưa được cấp quyền xem dự trù NPP. Liên hệ Admin (sheet "' + DW.ACL + '" của file gốc).' });
-  const allow = {};
-  acc.npps.forEach(function (n, i) { allow[key_(n)] = i; });
+  const shs = { dt: sheet_(ss, DW.SH.dt), tt: sheet_(ss, DW.SH.tt), dk: sheet_(ss, DW.SH.dk) };
+  const sig = [dwGen_(), S.cm, shs.dt.getLastRow(), shs.tt.getLastRow(), shs.dk.getLastRow(), acc.npps.join('|')].join('~');
+  const ck = 'dwb_' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, sig)).slice(0, 22);
+  let data = null;
+  const hit = p.fresh ? null : dwCacheGet_(ck);
+  if (hit) { try { data = JSON.parse(hit); data.cacheHit = true; } catch (e) { data = null; } }
+  if (!data) {
+    const allow = {};
+    acc.npps.forEach(function (n, i) { allow[key_(n)] = i; });
+    const cat = dwCatalog_(ss), codes = cat.list.slice(), codeIx = {};
+    codes.forEach(function (r, i) { codeIx[key_(r[0])] = i; });
+    const m0 = addM_(fy_(S.cm) * 100 + 9, -12);          // từ tháng 09 của kỳ trước
+    const files = {};
+    try { regRows_(ss).forEach(function (r) { if (allow.hasOwnProperty(key_(r.npp))) files[r.npp] = { url: r.url, synced: fmtTime_(r.synced), result: r.result }; }); } catch (e) {}
+    data = {
+      fmt: 2, m0: m0, at: nowText_(),
+      dt: dwPack_(dwRead_(shs.dt), allow, m0, codeIx, codes),
+      dk: dwPack_(dwRead_(shs.dk), allow, m0, codeIx, codes),
+      tt: dwPack_(dwRead_(shs.tt), allow, m0, codeIx, codes),
+      cat: { list: codes, nCat: cat.list.length, head: cat.head, price: cat.price },
+      head: { dt: dwHead_(shs.dt), tt: dwHead_(shs.tt), dk: dwHead_(shs.dk) },
+      files: files, sheetUrl: acc.boss ? ss.getUrl() : ''
+    };
+    dwCachePut_(ck, JSON.stringify(data));
+  }
   const day = +Utilities.formatDate(new Date(), tz_(), 'd');
-  const files = {};
-  try { regRows_(ss).forEach(function (r) { if (allow.hasOwnProperty(key_(r.npp))) files[r.npp] = { url: r.url, synced: fmtTime_(r.synced), result: r.result }; }); } catch (e) {}
-  return Object.assign(base, {
-    at: nowText_(), today: fmt_(new Date(), 'yyyy-MM-dd'),
-    set: { cm: S.cm, lead: S.lead, T: S.T, fromDT: gFromDT_(S), day: day, hanDay: G.HAN_DAY, watch: S.watch, high: S.high, tbN: S.tbN },
-    cat: dwCatalog_(ss),
-    head: { dt: dwHead_(sheet_(ss, DW.SH.dt)), tt: dwHead_(sheet_(ss, DW.SH.tt)), dk: dwHead_(sheet_(ss, DW.SH.dk)) },
-    dt: dwRows_(sheet_(ss, DW.SH.dt), allow),
-    tt: dwRows_(sheet_(ss, DW.SH.tt), allow),
-    dk: dwRows_(sheet_(ss, DW.SH.dk), allow),
-    files: files, sheetUrl: acc.boss ? ss.getUrl() : ''
+  return Object.assign(base, data, {
+    today: fmt_(new Date(), 'yyyy-MM-dd'),
+    set: { cm: S.cm, lead: S.lead, T: S.T, fromDT: gFromDT_(S), day: day, hanDay: G.HAN_DAY, watch: S.watch, high: S.high, tbN: S.tbN }
   });
+}
+
+/** Các lần đặt hàng thực tế (sheet 2) của 1 NPP trong 1 tháng: [[dòng sheet, mã, SL, ngày, ghi chú], …] */
+function dwLines_(me, p) {
+  const ss = dwSs_(), S = settings_(ss), acc = dwAccess_(ss, me, S.npps);
+  const npp = acc.npps.filter(function (n) { return key_(n) === key_(p.npp); })[0];
+  if (!npp) return { ok: false, code: 'FORBIDDEN', error: 'Không có quyền xem NPP này.' };
+  const m = toYm_(p.m); if (!m) return { ok: false, error: 'Thiếu tháng.' };
+  const out = [];
+  dwRead_(sheet_(ss, DW.SH.tt)).forEach(function (r, i) {
+    if (key_(r[0]) !== key_(npp) || toYm_(r[1]) !== m) return;
+    const q = num_(r[5]); if (typeof q !== 'number' || isNaN(q)) return;
+    const c3 = r[2], note = dwS_(r[6]);
+    out.push([i + 2, codeStr_(r[3]), q, Object.prototype.toString.call(c3) === '[object Date]' ? fmt_(c3, 'dd/MM/yyyy') : dwS_(c3),
+      /^App Dự trù ·/.test(note) ? '' : note.replace(/ · App Dự trù ·.*$/, '').slice(0, 80)]);
+  });
+  return { ok: true, npp: npp, m: m, lines: out };
 }
 
 
@@ -297,6 +368,7 @@ function dwSave_(me, p) {
       res.added.forEach(function (a) { a.row -= Object.keys(kill).filter(function (k) { return +k < a.row - 2; }).length; });
     });
     SpreadsheetApp.flush();
+    dwBump_();
     const total = res.n.dt + res.n.dk + res.n.tt;
     if (total) dwLog_(ss, me, 'Lưu từ app', dwS_(p.npp) || [...new Set(ops.map(function (o) { return o.npp; }))].join(', '),
       'Dự trù ' + res.n.dt + ' · dự kiến ' + res.n.dk + ' · thực tế ' + res.n.tt + (dwS_(p.why) ? ' · ' + dwS_(p.why) : '') +
