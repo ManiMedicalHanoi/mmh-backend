@@ -370,3 +370,6 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   `dtBoot` (settings_ + DANH MỤC có đơn giá + 3 sheet của NPP được xem) · `dtSave` (ops `dk` / `dt` thay theo NPP + tháng + mã, `tt` add / del theo dòng có kiểm lại; dự trù tháng < `gFromDT_` chỉ Admin; rid chống gửi trùng) ·
   `dtAccess` / `dtAccessSave` (Admin, sheet **PHÂN QUYỀN APP**) · `dtLog` (sheet **NHẬT KÝ APP DỰ TRÙ**). Đăng nhập = phiên Training Hub (`dwWho_`, RH_Secret + RH_Users như `tfWho_`);
   Admin / Director / HOD mọi NPP, người khác theo PHÂN QUYỀN APP. Excel cho NPP do app dựng (ExcelJS); menu Excel cũ trên Sheet vẫn giữ.
+  **v1.1 (09/11/2026, người dùng: app mở chậm)**: `dtBoot` trả dạng gọn `fmt:2` (mảng số phẳng `[iNPP, iMã, tháng − m0, SL]` đã cộng theo NPP + tháng + mã, chỉ từ tháng 09 kỳ trước; mã ngoài DANH MỤC nối cuối `cat.list`, `nCat`),
+  đọc sheet theo `getLastRow` (`dwRead_`), đệm kết quả 10 phút CacheService (gzip, chia khúc; khoá = `DW_GEN` + tháng + dòng cuối 3 sheet + NPP — `dtSave` đổi `DW_GEN`), phiên đệm 30 phút.
+  Từng lần đặt hàng thực tế KHÔNG còn trong boot ⇒ action `dtLines` (npp, m) khi mở tab Đặt hàng thực tế.
