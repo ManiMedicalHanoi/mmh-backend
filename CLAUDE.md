@@ -364,3 +364,8 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
 - **08/11/2026 — Training Hub v3.40: khoá bản tin nội bộ app MMH Daily (`training/RH_Daily.gs`)**: action `dailyKey` (phiên `tk`, mọi RH_Users đang hoạt động) ⇒ `{key, kid, admin}`.
   Khoá AES-256 tự tạo lần đầu ở Script Property `DAILY_KEY` (không ghi vào repo). GitHub Actions của kho MMH Daily mã hoá bản tin nội bộ Chủ nhật (AES-256-GCM) bằng secret
   `DAILY_INTERNAL_KEY` = khoá này (Admin chép 1 lần từ app); app giải mã sau khi đăng nhập email công ty. Lộ khoá ⇒ xoá `DAILY_KEY` ⇒ khoá mới ⇒ Admin dán lại secret.
+- **08/11/2026 — App Dự trù NPP (`du-tru-npp/WebApp.gs` v1.0, app `ManiMedicalHanoi/MMH-FY67-Turnover` ▸ `du-tru/`)**: web app MỚI cho file gốc (backends.json `newWebapp`).
+  Chỉ đọc / ghi cột A–G của `1 Dự trù cố định` · `2 Đặt hàng thực tế` · `3 Đặt hàng dự kiến` (dùng `readBlock_` / `writeBlock_`, không đụng SUM / công thức); mọi phép tính làm trên app.
+  `dtBoot` (settings_ + DANH MỤC có đơn giá + 3 sheet của NPP được xem) · `dtSave` (ops `dk` / `dt` thay theo NPP + tháng + mã, `tt` add / del theo dòng có kiểm lại; dự trù tháng < `gFromDT_` chỉ Admin; rid chống gửi trùng) ·
+  `dtAccess` / `dtAccessSave` (Admin, sheet **PHÂN QUYỀN APP**) · `dtLog` (sheet **NHẬT KÝ APP DỰ TRÙ**). Đăng nhập = phiên Training Hub (`dwWho_`, RH_Secret + RH_Users như `tfWho_`);
+  Admin / Director / HOD mọi NPP, người khác theo PHÂN QUYỀN APP. Excel cho NPP do app dựng (ExcelJS); menu Excel cũ trên Sheet vẫn giữ.

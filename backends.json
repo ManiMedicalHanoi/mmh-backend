@@ -174,10 +174,13 @@
     "url": "https://script.google.com/macros/s/AKfycbxH-EoEvrR46I5TYdCmF8OiWy8JVH6udnOKMk8JEBH9UvMVZ5ltIIgXw21IqOWaJ1y_Og/exec"
   },
   "du-tru-npp": {
-    "name": "Dự trù NPP Dashboard (menu trong Sheet — xuất / nhập file Excel NPP)",
-    "apps": [],
+    "name": "Dự trù NPP Dashboard (menu trong Sheet + web app cho app Dự trù NPP)",
+    "apps": [
+      "ManiMedicalHanoi/MMH-FY67-Turnover"
+    ],
     "scriptId": "1R1tJ85Pze-v35DNodoHdeMW611cH8yGheMQtgz71Qlfa3ixa56H-84AL",
-    "sheetId": "1lhc4c0-sSlLRRgJ5e8hzkZslzsyl3ZBXiPJ5BslfSX4"
+    "sheetId": "1lhc4c0-sSlLRRgJ5e8hzkZslzsyl3ZBXiPJ5BslfSX4",
+    "newWebapp": true
   },
   "survey": {
     "name": "MMH Survey / Quiz Builder (tạo Google Form khảo sát & bài kiểm tra)",
