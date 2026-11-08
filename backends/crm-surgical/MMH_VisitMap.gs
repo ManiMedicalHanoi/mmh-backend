@@ -8,15 +8,19 @@
    App tự định vị khi chưa ghim: cơ sở trùng tên trong danh mục ⇒ cụm GPS ảnh viếng thăm (cột W) ⇒ phường / quận trong địa chỉ ⇒ tâm tỉnh.
 
      GET action=fuVisits   tk [from=yyyy-mm-dd]  → { ok, v, from, to, accCols, acc:[[…]], pics, acts, sts, cols, rows:[[…]] }   (gọn: chỉ số, không chữ dài)
+         v1.1 (08/11/2026, người dùng: bấm khách / rê chuột phải hiện ngay, có ảnh lần đi địa bàn gần nhất): mỗi khách thêm
+         `last` = ≤ 3 lượt gần nhất (đến hôm nay) [ngày, PIC, loại, trạng thái, kết quả ≤ 200, phản hồi ≤ 100, bước tiếp theo ≤ 120, [mã ảnh Drive ≤ 4]]
+         và `ph` = [ngày, [mã ảnh]] của lượt gần nhất có ảnh (ảnh CRM chia sẻ "ai có link" ⇒ app hiện drive.google.com/thumbnail?id=…).
      GET action=fuVisitLog tk code | name+prov   → { ok, acc, rows:[{…}] }   (mọi lượt của 1 khách hàng, mới trước, đủ kết quả / phản hồi / bước tiếp theo)
      POST action=fuLocSave tk code name prov lat lng fid fname src note [op=clear] → { ok, loc }
    ════════════════════════════════════════════════════════════════════════════════════════ */
 var VM = {
-  VER: '1.0',
+  VER: '1.1',
   TAB: 'TENDER MAP · VỊ TRÍ ĐỊA BÀN',
   HDR: ['Thời gian', 'Mã KH', 'Tên khách hàng', 'Tỉnh / thành', 'Vĩ độ', 'Kinh độ', 'Mã cơ sở (Tender Map)', 'Tên cơ sở (Tender Map)', 'Nguồn', 'Người cập nhật', 'Ghi chú', 'Tên chuẩn'],
   FROM: '2025-09-01',                      /* FY67 */
-  ACC_COLS: ['code', 'name', 'type', 'province', 'area', 'pic', 'address', 'gps', 'loc', 'std', 'kind'],
+  ACC_COLS: ['code', 'name', 'type', 'province', 'area', 'pic', 'address', 'gps', 'loc', 'std', 'kind', 'last', 'ph'],
+  LAST_N: 3,
   ROW_COLS: ['d', 'pic', 'acc', 'act', 'st', 'lat', 'lng', 'photo', 'task']
 };
 
@@ -61,9 +65,16 @@ function vmCluster_(pts){
   return [Math.round(cl * 1e5) / 1e5, Math.round(cg * 1e5) / 1e5, pts.length, k];
 }
 
+/* mã ảnh Drive trong ô Photo link (nhiều link cách nhau dấu cách / xuống dòng) */
+function vmPhotoIds_(cell){
+  var out = [];
+  (S(cell).match(/[-\w]{25,}/g) || []).forEach(function(id){ if(out.indexOf(id) < 0 && out.length < 4) out.push(id); });
+  return out;
+}
+function vmCut_(v, n){ v = S(v).replace(/\s*\n+\s*/g, ' · ').replace(/\s+/g, ' ').trim(); return v.length > n ? v.slice(0, n - 1) + '…' : v; }
 /* danh sách địa bàn + mọi lượt việc khách hàng (dạng gọn) — đệm theo phiên bản 2 tab */
 function vmCore_(from){
-  return cachedFor_('VM1|' + from, ['customer', 'weekly'], function(){
+  return cachedFor_('VM2|' + from, ['customer', 'weekly'], function(){
     var acc = [], byCode = {}, byChk = {}, byNm = {}, pts = {};
     readTab('customer').forEach(function(c){
       var code = S(c.code); if(!code || byCode[code] != null) return;
@@ -72,7 +83,7 @@ function vmCore_(from){
       byChk[normName_(checkName(c))] = byCode[code];
       var nk = normName_(c.name) + '|' + normName_(c.province); if(!(nk in byNm)) byNm[nk] = byCode[code];
     });
-    var pics = [], acts = [], sts = [], tasks = [], rows = [], to = fuAddDays_(fuToday_(), 92);
+    var pics = [], acts = [], sts = [], tasks = [], rows = [], to = fuAddDays_(fuToday_(), 92), today = fuToday_(), last = {}, ph = {};
     function ix(arr, v){ var i = arr.indexOf(v); if(i < 0){ arr.push(v); i = arr.length - 1; } return i; }
     readTab('weekly').forEach(function(r){
       var d = d2s(r.start); if(!/^\d{4}-\d{2}-\d{2}$/.test(d)) return;
@@ -86,10 +97,21 @@ function vmCore_(from){
       }
       var g = vmGps_(r.gpsInfo);
       if(g && /^visit/i.test(S(r.typeAction))) (pts[ai] = pts[ai] || []).push(g);
+      if(d <= today){                                                                   /* v1.1 — lượt gần nhất + ảnh gần nhất (mọi thời gian) */
+        var ids = vmPhotoIds_(r.photo);
+        if(ids.length && !(ph[ai] && ph[ai][0] >= d)) ph[ai] = [d, ids];
+        var L = last[ai] = last[ai] || [];
+        if(L.length < VM.LAST_N || d > L[L.length - 1][0]){
+          L.push([d, S(r.pic), S(r.typeAction), S(r.status), vmCut_(r.result, 200), vmCut_(r.feedback, 100), vmCut_(r.nextAction, 120), ids]);
+          L.sort(function(x, y){ return x[0] < y[0] ? 1 : x[0] > y[0] ? -1 : 0; });
+          if(L.length > VM.LAST_N) L.length = VM.LAST_N;
+        }
+      }
       if(d < from || d > to) return;
       rows.push([d, ix(pics, S(r.pic) || '—'), ai, ix(acts, S(r.typeAction) || '—'), ix(sts, S(r.status) || '—'), g ? g[0] : '', g ? g[1] : '', S(r.photo) ? 1 : 0, ix(tasks, S(r.typeTask) || '—')]);
     });
     Object.keys(pts).forEach(function(i){ acc[i][7] = vmCluster_(pts[i]); });
+    acc.forEach(function(a, i){ a[8] = null; a[9] = null; a[10] = null; a[11] = last[i] || null; a[12] = ph[i] || null; });
     rows.sort(function(x, y){ return x[0] < y[0] ? -1 : x[0] > y[0] ? 1 : 0; });
     return { acc:acc, pics:pics, acts:acts, sts:sts, tasks:tasks, rows:rows, to:to };
   });
