@@ -361,3 +361,6 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
 - **07/11/2026 — Report Hub nhóm Back office trắng dữ liệu (`backoffice/MMH_NoColHeal.gs`)**: cột No. (B) sheet **WEEKY new** = 1 công thức MAP ở B7 trải cả cột; 06/11/2026 có người dán đè công thức
   vào B1024, B1032:B1034 ⇒ B7 `#REF!`, mọi ô No. trống ⇒ `readWeeklyRaw` bỏ qua mọi dòng (`weekly` chỉ trả 1 key `no:"#REF!"`). `noColHeal_`: B7 là công thức mảng mà đang lỗi ⇒ xoá nội dung các ô cột B dưới B7
   (≤ 1 lần / 2 phút, ở ping / version / sheets / boot / weekly + onChange + warmCache); lần gỡ gần nhất ở `?action=sheets` ▸ `noCol.lastHeal`. Chẩn đoán: workflow Kiểm tra ▸ ping `backoffice?action=weekly&full=1`.
+- **08/11/2026 — Training Hub v3.40: khoá bản tin nội bộ app MMH Daily (`training/RH_Daily.gs`)**: action `dailyKey` (phiên `tk`, mọi RH_Users đang hoạt động) ⇒ `{key, kid, admin}`.
+  Khoá AES-256 tự tạo lần đầu ở Script Property `DAILY_KEY` (không ghi vào repo). GitHub Actions của kho MMH Daily mã hoá bản tin nội bộ Chủ nhật (AES-256-GCM) bằng secret
+  `DAILY_INTERNAL_KEY` = khoá này (Admin chép 1 lần từ app); app giải mã sau khi đăng nhập email công ty. Lộ khoá ⇒ xoá `DAILY_KEY` ⇒ khoá mới ⇒ Admin dán lại secret.
