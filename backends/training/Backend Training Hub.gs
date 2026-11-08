@@ -171,7 +171,7 @@
 
 var HUB = {
 
-  VERSION: '3.39',   // ★ 02/11/2026 — v3.39 docPublish: tài liệu ⇒ bản PDF xem trên app dạng trình chiếu (RH_Docs.gs) · v3.38 hộp thông báo chung RH_Notify (RH_Notify.gs: rhNotifyList / rhNotifySeen) · 29/10/2026 — v3.37 chuyển Completed không cần kết quả bài kiểm tra · v3.36 Admin học xong được cấp chứng chỉ (chỉ trainer của khoá không nhận) · v3.35 chọn video từ MMH Library (RH_Library.gs) + sửa luật hoàn thành học online · 28/10/2026 — v3.34 rhAuthLink: link đăng nhập trong email duyệt đơn CRM (RH_Auth.gs) · 21/10/2026 — v3.33 ảnh thương hiệu ⇒ GitHub (RH_Brand.gs) · 17/10/2026 — v3.32 rhTurnover: cầu nối đọc file Turnover cho CRM · 16/10/2026 — v3.31 bài kiểm tra bật lại (RH_Assess.gs) · v3.30 leaderboard: bảng xếp hạng học viên (RH_Leaderboard.gs)
+  VERSION: '3.40',   // ★ 08/11/2026 — v3.40 dailyKey: khoá mở bản tin nội bộ app MMH Daily (RH_Daily.gs) · 02/11/2026 — v3.39 docPublish: tài liệu ⇒ bản PDF xem trên app dạng trình chiếu (RH_Docs.gs) · v3.38 hộp thông báo chung RH_Notify (RH_Notify.gs: rhNotifyList / rhNotifySeen) · 29/10/2026 — v3.37 chuyển Completed không cần kết quả bài kiểm tra · v3.36 Admin học xong được cấp chứng chỉ (chỉ trainer của khoá không nhận) · v3.35 chọn video từ MMH Library (RH_Library.gs) + sửa luật hoàn thành học online · 28/10/2026 — v3.34 rhAuthLink: link đăng nhập trong email duyệt đơn CRM (RH_Auth.gs) · 21/10/2026 — v3.33 ảnh thương hiệu ⇒ GitHub (RH_Brand.gs) · 17/10/2026 — v3.32 rhTurnover: cầu nối đọc file Turnover cho CRM · 16/10/2026 — v3.31 bài kiểm tra bật lại (RH_Assess.gs) · v3.30 leaderboard: bảng xếp hạng học viên (RH_Leaderboard.gs)
                      // 3.29 — claimCert: nút Nhận chứng chỉ (tạo / gửi lại chứng chỉ qua email)
   /* v3.28 */   // ★ 16/10/2026 — asLearner cho cả trainer (nút Học thử như học viên)
   /* v3.27 */   // ★ 15/10/2026 — RH_Warm.gs v1.1: làm nóng đệm KHÔNG giữ khoá ghi (v3.26 làm thao tác ghi báo bận)
@@ -610,7 +610,8 @@ var HUB_ROUTES = {
   'rhCustTrain'     : {fn:'apiRhCustTrain',     auth:0},
   'rhLibList'       : {fn:'apiRhLibList',       auth:0},   // ★ v3.35 — Report Hub: chọn video từ MMH Library cho buổi đào tạo
   'rhLibAttach'     : {fn:'apiRhLibAttach',     auth:0},
-  'rhTurnover'      : {fn:'apiRhTurnover',      auth:0}    // ★ v3.32 — đọc file Turnover giúp CRM (RH_Turnover.gs)
+  'rhTurnover'      : {fn:'apiRhTurnover',      auth:0},   // ★ v3.32 — đọc file Turnover giúp CRM (RH_Turnover.gs)
+  'dailyKey'        : {fn:'apiRhDailyKey',      auth:0}    // ★ v3.40 — khoá mở bản tin nội bộ app MMH Daily (RH_Daily.gs, tự kiểm phiên)
 };
 
 /** Lấy tham chiếu hàm theo tên — an toàn cho cả runtime V8 và Rhino */
