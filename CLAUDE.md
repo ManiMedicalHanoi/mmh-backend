@@ -332,6 +332,7 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   `fuVisits` (`from`, mặc định 2025-09-01) = 1. CUSTOMER CODE (mã · tên · loại · tỉnh · vùng · PIC · địa chỉ · cụm GPS · vị trí đã ghim) + MỌI dòng 6. WEEKLY REPORT dạng gọn
   `[ngày, PIC, KH, loại hoạt động, trạng thái, lat, lng, ảnh, loại việc]` (chỉ số, không chữ dài; đệm `cachedFor_` theo 2 tab); khách chưa có trong CUSTOMER CODE ⇒ dòng mã trống; bỏ TBD.
   Cụm GPS = trung vị toạ độ ảnh các lượt **Visiting** (cột W, mọi thời gian) + số điểm trong 1,5 km. `fuVisitLog` (code | name + prov) = mọi lượt của 1 khách (kết quả, phản hồi, bước tiếp theo, ảnh, GPS), mới trước, ≤ 300.
+  **VisitMap v1.1 (08/11/2026)**: `fuVisits` thêm cột khách `last` (≤ 3 lượt gần nhất đến hôm nay: ngày · PIC · loại · trạng thái · kết quả ≤ 200 · phản hồi · bước tiếp theo · mã ảnh Drive) + `ph` (ảnh của lượt gần nhất có ảnh) ⇒ app hiện ngay khi rê chuột / bấm khách (không chờ `fuVisitLog`); ảnh CRM chia sẻ "ai có link" ⇒ `drive.google.com/thumbnail?id=…`. Đệm khoá `VM2|`.
   `fuLocSave` (ghi nối tiếp, có trong `WRITE_ACTIONS`) ⇒ sheet ẨN **TENDER MAP · VỊ TRÍ ĐỊA BÀN** (mã KH ⇄ toạ độ ghim tay / cơ sở danh mục `fid` của Tender Map; `op=clear` bỏ ghim); `fuCrm` nhận `fid` ⇒ ưu tiên mã KH đã gắn.
   **v1.5 (05/11/2026)**: cơ sở **tư nhân** theo dõi mua sắm bằng giai đoạn 11 Giới thiệu · 12 Demo · 13 Đề xuất từ chuyên môn · 14 Ký hợp đồng · 15 Sử dụng hàng (18 Không thành công · 19 Dừng)
   — cùng sheet FOLLOW UP TENDER (`fuOpen_` = 1–6 hoặc 11–14). **Tên chuẩn** khách tư nhân: `MMH_AccNames.gs` ▸ `VM_STD` (mã KH ⇒ tên đúng ngoài đời) + cột "Tên chuẩn" của sheet VỊ TRÍ ĐỊA BÀN (`fuLocSave op=name`, ưu tiên hơn);
@@ -364,3 +365,11 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
 - **08/11/2026 — Training Hub v3.40: khoá bản tin nội bộ app MMH Daily (`training/RH_Daily.gs`)**: action `dailyKey` (phiên `tk`, mọi RH_Users đang hoạt động) ⇒ `{key, kid, admin}`.
   Khoá AES-256 tự tạo lần đầu ở Script Property `DAILY_KEY` (không ghi vào repo). GitHub Actions của kho MMH Daily mã hoá bản tin nội bộ Chủ nhật (AES-256-GCM) bằng secret
   `DAILY_INTERNAL_KEY` = khoá này (Admin chép 1 lần từ app); app giải mã sau khi đăng nhập email công ty. Lộ khoá ⇒ xoá `DAILY_KEY` ⇒ khoá mới ⇒ Admin dán lại secret.
+- **08/11/2026 — App Dự trù NPP (`du-tru-npp/WebApp.gs` v1.0, app `ManiMedicalHanoi/MMH-FY67-Turnover` ▸ `du-tru/`)**: web app MỚI cho file gốc (backends.json `newWebapp`).
+  Chỉ đọc / ghi cột A–G của `1 Dự trù cố định` · `2 Đặt hàng thực tế` · `3 Đặt hàng dự kiến` (dùng `readBlock_` / `writeBlock_`, không đụng SUM / công thức); mọi phép tính làm trên app.
+  `dtBoot` (settings_ + DANH MỤC có đơn giá + 3 sheet của NPP được xem) · `dtSave` (ops `dk` / `dt` thay theo NPP + tháng + mã, `tt` add / del theo dòng có kiểm lại; dự trù tháng < `gFromDT_` chỉ Admin; rid chống gửi trùng) ·
+  `dtAccess` / `dtAccessSave` (Admin, sheet **PHÂN QUYỀN APP**) · `dtLog` (sheet **NHẬT KÝ APP DỰ TRÙ**). Đăng nhập = phiên Training Hub (`dwWho_`, RH_Secret + RH_Users như `tfWho_`);
+  Admin / Director / HOD mọi NPP, người khác theo PHÂN QUYỀN APP. Excel cho NPP do app dựng (ExcelJS); menu Excel cũ trên Sheet vẫn giữ.
+  **v1.1 (09/11/2026, người dùng: app mở chậm)**: `dtBoot` trả dạng gọn `fmt:2` (mảng số phẳng `[iNPP, iMã, tháng − m0, SL]` đã cộng theo NPP + tháng + mã, chỉ từ tháng 09 kỳ trước; mã ngoài DANH MỤC nối cuối `cat.list`, `nCat`),
+  đọc sheet theo `getLastRow` (`dwRead_`), đệm kết quả 10 phút CacheService (gzip, chia khúc; khoá = `DW_GEN` + tháng + dòng cuối 3 sheet + NPP — `dtSave` đổi `DW_GEN`), phiên đệm 30 phút.
+  Từng lần đặt hàng thực tế KHÔNG còn trong boot ⇒ action `dtLines` (npp, m) khi mở tab Đặt hàng thực tế.
