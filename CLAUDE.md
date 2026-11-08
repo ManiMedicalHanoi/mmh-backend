@@ -373,3 +373,7 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   **v1.1 (09/11/2026, người dùng: app mở chậm)**: `dtBoot` trả dạng gọn `fmt:2` (mảng số phẳng `[iNPP, iMã, tháng − m0, SL]` đã cộng theo NPP + tháng + mã, chỉ từ tháng 09 kỳ trước; mã ngoài DANH MỤC nối cuối `cat.list`, `nCat`),
   đọc sheet theo `getLastRow` (`dwRead_`), đệm kết quả 10 phút CacheService (gzip, chia khúc; khoá = `DW_GEN` + tháng + dòng cuối 3 sheet + NPP — `dtSave` đổi `DW_GEN`), phiên đệm 30 phút.
   Từng lần đặt hàng thực tế KHÔNG còn trong boot ⇒ action `dtLines` (npp, m) khi mở tab Đặt hàng thực tế.
+- **09/11/2026 — Training Hub v3.41: nút "Cập nhật ngay" của app MMH Daily (`training/RH_DailyRun.gs`)**: `dailyRun` (phiên `tk`, mọi nhân sự đang hoạt động; 1 lượt / 3 phút / người, Admin không giới hạn)
+  `kind` daily|weekly · `writer` auto|claude · `sources` (tên miền) · `topics` · `voice` edge|eleven · `voices` (bộ giọng) ⇒ auto: GitHub `workflow_dispatch` kho MMH-Daily (`daily.yml`, token Script Property `DAILY_GH_TOKEN`,
+  fine-grained: Actions R/W kho MMH-Daily); claude: Routine `/fire` (`DAILY_RT_URL` / `DAILY_RT_TOKEN`, nội bộ `…_IN`), chưa cấu hình ⇒ chạy auto. ElevenLabs ≤ `DAILY_ELEVEN_MAX` lượt / ngày (mặc định 6).
+  `dailyStatus` = lượt chạy gần nhất + bước đang chạy (đệm 10 giây). `dailySetup` (Admin) lưu token — KHÔNG trả token về app. `dailyKey` trả thêm `run` (cờ đã cấu hình).
