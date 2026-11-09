@@ -377,3 +377,10 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   `kind` daily|weekly · `writer` auto|claude · `sources` (tên miền) · `topics` · `voice` edge|eleven · `voices` (bộ giọng) ⇒ auto: GitHub `workflow_dispatch` kho MMH-Daily (`daily.yml`, token Script Property `DAILY_GH_TOKEN`,
   fine-grained: Actions R/W kho MMH-Daily); claude: Routine `/fire` (`DAILY_RT_URL` / `DAILY_RT_TOKEN`, nội bộ `…_IN`), chưa cấu hình ⇒ chạy auto. ElevenLabs ≤ `DAILY_ELEVEN_MAX` lượt / ngày (mặc định 6).
   `dailyStatus` = lượt chạy gần nhất + bước đang chạy (đệm 10 giây). `dailySetup` (Admin) lưu token — KHÔNG trả token về app. `dailyKey` trả thêm `run` (cờ đã cấu hình).
+- **09/11/2026 — Event Dental Thái (`thai-dental-mkt`, script GẮN file "2. Thailand - Dental Event Report FY67" `12GnjS0…`, Script ID `16MjKF2…`)**: trước đây script trống (`myFunction`).
+  Nay = web app Event CÙNG API với `thai-mkt` (Surgical Thái): `list` / `customers` / `save` / `delete` (rid, sig, EDITORS Dao · Yong · Man · Sui + quản lý) cho tab Event của CRM nhóm `thaid`.
+  Khác file Surgical: CUSTOMER LIST dữ liệu từ dòng 4 (`CUST_FIRST`), Master name AC Type of Event · AI Plan status · AJ Action Status · AP→AQ tỉnh → Area; cột A REPORT_EVENT = PIC-KPI
+  (`picKpi`, sự kiện mới của Sui / Man / Yong tự điền tên); `list` trả `lists.sheet` {url, event, cust gid} cho nút Mở sheet của app. KPI vẫn đọc thẳng file (`KpiThaiEvents.gs` th_dent).
+  backends.json `newWebapp` ⇒ lần deploy đầu tạo web app; chủ script chạy `evSetup` 1 lần trong trình soạn để cấp quyền.
+  **crm-thai-dental `TH_DentalFix.gs` v1.1 (f2)**: Type action **Event** cùng **Co-visiting with distributor** (`THD_TYPE_ACTIONS`) luôn có trong MASTER LIST, dropdown CUSTOMER TASK và danh sách app (`master_`);
+  file đã chạy f1 ⇒ f2 chỉ chạy bước master + dropdowns.

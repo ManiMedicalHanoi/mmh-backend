@@ -16,8 +16,13 @@
  *     emptied again when a column is cleared. KPI C2-02 (TARGET & KPI) = different accounts of the PIC with a date in AH
  *     ≤ end of the month ÷ different customers of the PIC in CUSTOMER CODE.
  *  Runs once by itself (trigger cronTh, Script Property THD_FIX = THDFIX.VER) · manual: thdFixNow() · action thdFix&key=<8 last chars>.
+ *
+ *  v1.1 (09/11/2026, user request): Type action "Event" added next to "Co-visiting with distributor" (THD_TYPE_ACTIONS) — in
+ *  MASTER LIST + every dropdown + the app list (master_). File already fixed with f1 ⇒ f2 only runs the master + dropdowns steps.
  *************************************************************************************************/
-var THDFIX = { VER: 'f1', PROP: 'THD_FIX', LOG: 'THD_FIX_LOG' };
+var THDFIX = { VER: 'f2', PROP: 'THD_FIX', LOG: 'THD_FIX_LOG' };
+/* Type actions the Dental Thailand team always has (MASTER LIST ▸ Type action, dropdown of CUSTOMER TASK, app) */
+var THD_TYPE_ACTIONS = ['Co-visiting with distributor', 'Event'];
 var THD_OLDNAME = { 'CUSTOMER TASK': 'CUSTOMER VISITING', 'OTHERS TASK': 'ALL TASK' };
 var THD_NEWNAME = { 'CUSTOMER VISITING': 'CUSTOMER TASK', 'ALL TASK': 'OTHERS TASK' };
 /* profile columns that must all be filled (TABS.adp fields) — monthly results / amounts actual are NOT required */
@@ -97,7 +102,7 @@ function thdCodeMapFix_(){
 /* ③ dropdowns: MASTER LIST has the values · every range-based dropdown covers the whole column */
 function thdMasterAdd_(){
   var s = sh_(CFG.SH_MASTER), lc = s.getLastColumn(), hdr = s.getRange(3, 1, 1, lc).getValues()[0], added = [];
-  var want = { 'type action': ['Co-visiting with distributor'] };
+  var want = { 'type action': THD_TYPE_ACTIONS };
   hdr.forEach(function(h, c){
     var list = want[picKey_(h)]; if(!list) return;
     var col = s.getRange(4, c + 1, Math.max(1, s.getMaxRows() - 3), 1).getValues().map(function(r){ return str_(r[0]); });
@@ -192,8 +197,16 @@ function adpStamp_(){
 function thdFixRun_(force){
   var P = props_();
   if(!force && P.getProperty(THDFIX.PROP) === THDFIX.VER) return null;
-  var log = [];
+  var log = [], light = !force && P.getProperty(THDFIX.PROP) === 'f1';   /* f1 done ⇒ only the new Type action */
   function step(nm, fn){ try{ log.push(nm + ': ' + fn()); }catch(e){ log.push(nm + ': ⚠ ' + (e && e.message || e)); } }
+  if(light){
+    step('master', function(){ var a = thdMasterAdd_(); return a.length ? 'added ' + a.join(', ') : 'ok'; });
+    step('dropdowns', function(){ return thdDvFix_() + ' column(s) now cover the whole list'; });
+    try{ bump_(['master']); }catch(e){}
+    P.setProperty(THDFIX.PROP, THDFIX.VER);
+    P.setProperty(THDFIX.LOG, Utilities.formatDate(new Date(), tz_(), 'dd/MM/yyyy HH:mm') + ' · ' + THDFIX.VER + ' · ' + log.join(' | '));
+    return log;
+  }
   step('names', thdRenameAll_);
   step('codemap', thdCodeMapFix_);
   step('master', function(){ var a = thdMasterAdd_(); return a.length ? 'added ' + a.join(', ') : 'ok'; });

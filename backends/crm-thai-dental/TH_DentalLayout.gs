@@ -39,7 +39,7 @@ var THD = {
     'pic': { set: ['Yong', 'Man', 'Sui', 'Dao', 'Moo', 'Sale Admin', 'Others'] },
     'account type': { add: ['DSO'] },
     'type task': { add: ['Sales-Thailand Dental'], drop: ['Sales-Thailand Surgical'] },
-    'type action': { add: ['Co-visiting with distributor', 'Follow up'] },
+    'type action': { add: ['Co-visiting with distributor', 'Event', 'Follow up'] },
     'product group': { set: ['JIZAI', 'EndoCompath', 'Hand files', 'Rotary files', 'DIA-BURS', 'Carbide burs', 'Surgical burs', 'IPR-01EF',
                              'Composite (MMG)', 'Mani Bond (MMG)', 'Bleaching (MMG)', 'Acrylic (MMG)', 'Dental sutures', 'Others'] },
     'job title': { add: ['Dentist', 'Endodontist', 'Clinic owner', 'Lecturer', 'Dental assistant', 'Purchasing'] }
