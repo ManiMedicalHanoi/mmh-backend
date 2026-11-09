@@ -209,7 +209,9 @@ var KSC = {
   /* link file CRM: dùng khi cột B của _CRM_LINKS còn trống (kscSetup tự điền vào _CRM_LINKS) */
   CRM_DEFAULT : { dental: '13aLqhO4H7he4LeHWNCdwNRhGXcIzieuNtFcA0BJJJj0', surgical: '16ke8ZRvmbG6TUte-oDLFSGzKbW9_PA98EJnLo5LoauM',
                   eyeless: '1FxMj1uWZBi6yimnAlPCOG0dh2OF0dFfWIQntFXVduZA', thai: '1rX8BDcbFGOjpXFmPJeKTkllE4LH7q9A8zz22R7jDA0E',
-                  thaid: '1uZ8GtOFgXRg-kPQ_xMGW04tULazP5DIf1_Nser01Rb0' },   // 30/10/2026 — CRM Thailand Dental (Yong · Man · Sui)
+                  thaid: '1ONYLqqBaw4dPoN4jZJg8a1A5GAvfAuzM-Gsp_UHI7O4' },   // 09/11/2026 — CRM Thailand Dental = file thật "1. Thailand - Dental Action" (trước: bản draft)
+  /* file CRM đã chuyển: link cũ còn ghi ở _CRM_LINKS ⇒ dùng file mới và ghi lại link (kscFillLinks_) */
+  CRM_MOVED   : { thaid: { from: '1uZ8GtOFgXRg-kPQ_xMGW04tULazP5DIf1_Nser01Rb0', to: '1ONYLqqBaw4dPoN4jZJg8a1A5GAvfAuzM-Gsp_UHI7O4' } },
   CRM_TAB     : { dental: '9. TARGET & KPI', surgical: '9. TARGET & KPI', eyeless: '9. TARGET & KPI', thai: '9. TARGET & KPI', thaid: 'TARGET & KPI' },   // Dental Thái: tên sheet không đánh số
   CRM_TAB_OLD : ['9. MỤC TIÊU & KPI'],                              // tên tab KPI trước CRM v9.5
   FULL_EVERY  : 15,          // phút: đọc lại toàn bộ
@@ -627,7 +629,8 @@ function kscLinks_(ss) {
   if (sh && sh.getLastRow() >= 2) sh.getRange(2, 1, sh.getLastRow() - 1, 4).getValues().forEach(function (r, i) {
     var team = String(r[0] || '').trim(); if (!team) return;
     var link = String(r[1] || '').trim(), m = /\/d\/([a-zA-Z0-9_-]{20,})/.exec(link) || /^([a-zA-Z0-9_-]{25,})$/.exec(link);
-    var id = m ? m[1] : (KSC.CRM_DEFAULT[team] || '');
+    var id = m ? m[1] : (KSC.CRM_DEFAULT[team] || ''), mv = (KSC.CRM_MOVED || {})[team];
+    if (mv && m && id === mv.from) { id = mv.to; link = ''; m = null; }   /* link cũ ⇒ file mới, kscFillLinks_ ghi lại ô B */
     seen[team] = 1;
     out.push({ row: i + 2, team: team, link: link || (id ? 'https://docs.google.com/spreadsheets/d/' + id + '/edit' : ''), id: id, tab: String(r[2] || '').trim() || KSC.CRM_TAB[team] || '', lang: String(r[3] || '').trim(), fromDefault: !m && !!id });
   });
