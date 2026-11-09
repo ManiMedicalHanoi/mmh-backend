@@ -399,4 +399,14 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   dữ liệu thật không bao giờ được đệm ⇒ mỗi lần mở đọc lại ~12 tab + Drive. Nay `ehBigPut_` / `ehBigGet_` = đệm chia mảnh (≤ 30.000 ký tự / mảnh, khoá chính `{v, n}`; xoá khoá chính = huỷ cả bộ,
   mọi lệnh ghi vẫn `remove('eh_boot')`), TTL 25 phút; trúng đệm ⇒ KHÔNG mở file Sheet (danh sách TEAM ▸ Quản lý nằm trong đệm `mgrs`); `ehBootWarm_` trong `ehSyncTick_` giữ đệm nóng;
   `eh_link` cũng chia mảnh; `ehBook_` chỉ kiểm / tạo tab 1 lần / 6 giờ / phiên bản (`ehEnsureTabsOnce_`). App v2.6 lưu bản dữ liệu trên máy (localStorage `eh_bc1:<email>`) ⇒ mở lần sau hiện ngay.
-
+- **09/11/2026 — Follow up by Account + bảng giá NPP (crm-surgical, người dùng yêu cầu)**: sheet **"Follow up by Account"** (file CRM Surgical, hiện) = dự báo doanh số FY của NPP theo bệnh viện × MÃ SP
+  (1 mã / gói = 1 dòng), gộp Hùng Vĩ + I-Care + kênh tư nhân. `MMH_FcCore.gs` (thuần JS, chạy được Node) ▸ `fcBuild_`: theo 2 file kế hoạch FY68 của NPP — ① Existing (gói MANI trúng còn hiệu lực trong FY) ·
+  ② Duy trì (gói MANI gần nhất hết hạn trong FY ⇒ gói kế tiếp từ tháng sau, SL = gói cũ; hết sớm hơn ⇒ trống mốc) · ③ Mở mới (loại dao hãng khác giữ, SL MANI = 0 / SL NPP đã chào nếu trượt) · Đang dự thầu (gói NPP chưa có kết quả);
+  mỗi bệnh viện theo GÓI GẦN NHẤT. Doanh số = SL ÷ hiệu lực × giá MANI→NPP theo mã (`MMH_Prices.gs`, 295 mã: dao 01/01/2025, chỉ khâu, ghim da 01/10/2025; giá / cái = giá hộp ÷ quy cách; sheet tra "BẢNG GIÁ NPP") × số tháng trong FY;
+  12 cột SL theo tháng. `MMH_FcAccount.gs`: đọc thẳng 3 file (SpreadsheetApp, không UrlFetch) — Hùng Vĩ "Tender FY66", I-Care "Tender FY65-67", KQTT "Data xử lý"; trigger `faSyncTrig` mỗi giờ (`faTick_`);
+  gộp theo "ID dòng" (E|/D|/M|/B| tự động, S| Sales): giữ cột Sales (giai đoạn bán hàng · tiến độ · cấu hình · hãng đề xuất · tiêu chí · cơ hội · ghi chú · ngày dự kiến) + SL / mốc / hiệu lực của dòng ② ③;
+  dòng ① theo hợp đồng; nguồn lỗi ⇒ không ghi (giữ sheet). Dòng Sales đủ SL + mốc thay dòng ② ③ cùng bệnh viện + loại (không cộng trùng). Hạt giống 1 lần từ 2 file FY68 (`MMH_FcSeed.gs`, chỉ ô trống).
+  API (`fuRoute_`): `fuFcList` / `fuFcSave` / `fuFcDel` (phiên email công ty) · `fuFcSync` / `fuFcDiag` (`key` = 8 ký tự cuối ID Sheet CRM Surgical hoặc phiên Admin). Lịch sử sửa: sheet ẩn "Follow up by Account · Lịch sử sửa".
+  **Theo dõi thầu v1.9**: giai đoạn = danh sách file FY68 (1 Chưa tiếp cận · 2 Đã giới thiệu tới chuyên môn · 3 Đang xây cấu hình · 4 Đã gửi báo giá · 5 Đang dự thầu · 7 Đã trúng thầu · 8 Trượt thầu · 9 Tạm dừng theo dõi
+  · 10 Không tham dự; dòng cũ đổi số theo tên cũ `FU_LEGACY`), sheet đổi tên "Follow up by Account · Nhật ký" + 2 cột Bắt đầu dự kiến / Hiệu lực; lưu gói ⇒ `faCaseUpsert_` cập nhật ngay dòng S|. App: Tender Map v20 (khối Doanh số ước tính).
+  Thử: harness Node giả lập SpreadsheetApp với dữ liệu 2 file FY68 (không có trong repo). Kiểm tra thật: workflow Kiểm tra ▸ ping `crm-surgical?action=fuFcDiag&key=…&full=1` (`fuFcSync` chạy đồng bộ ngay).

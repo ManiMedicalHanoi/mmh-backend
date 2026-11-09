@@ -605,7 +605,7 @@ function whoAmI(p){
 function isManager(user){ return user && user.role === 'manager'; }
 
 /* ⭐ v10.0 — các action GHI dữ liệu (dùng cho chống ghi trùng theo rid) */
-var WRITE_ACTIONS = { fuSave:1, fuLocSave:1, weeklyReport:1, monthlyReport:1, tripPropose2:1, tfDecide:1, addKey:1, addSub:1, atImport:1, saveOrders:1, saveOrder:1, saveCustomer:1, saveCBC:1, saveCustomerCbc:1, cbcEnsure:1, saveWeekly:1, saveMonthly:1,
+var WRITE_ACTIONS = { fuSave:1, fuLocSave:1, fuFcSave:1, fuFcDel:1, weeklyReport:1, monthlyReport:1, tripPropose2:1, tfDecide:1, addKey:1, addSub:1, atImport:1, saveOrders:1, saveOrder:1, saveCustomer:1, saveCBC:1, saveCustomerCbc:1, cbcEnsure:1, saveWeekly:1, saveMonthly:1,
                       savePresentation:1, saveADP:1, deleteRow:1, deleteOrder:1, deleteAccount:1, uploadPhoto:1,
                       naSave:1, naSubmit:1, naDecide:1, naDelete:1, orderDoc:1, orderDecide:1, orderRequest:1,
                       updateKey:1, updateSub:1, updateProgress:1, updateStatus:1, deleteKey:1, deleteSub:1, deletePhoto:1 };   /* ⭐ v10.11 — ALL TASK + xoá ảnh cũng chống trùng theo rid */

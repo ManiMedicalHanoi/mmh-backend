@@ -35,25 +35,31 @@
      hoặc toạ độ phía nam vĩ độ FU.QNAM_LAT ⇒ Khang.
    v1.8 (05/11/2026, người dùng yêu cầu): Sales Surgical phụ trách thêm GHIM DA (Manipler), HOOK (Trabeculotomy Hook), MICRO FORCEPS ⇒ loại sản phẩm từng dòng
      `kind` nhận dao · chi · ghim · hook · forcep (FU.KINDS; giá trị lạ ⇒ dao như cũ), cột "Loại sản phẩm" (ptype) tối đa 120 ký tự; email tuần ghi "gói thầu / mua sắm".
+   v1.9 (09/11/2026, người dùng yêu cầu — "Follow up by Account"): giai đoạn bán hàng theo file kế hoạch FY68 của NPP:
+     1 Chưa tiếp cận · 2 Đã giới thiệu tới chuyên môn · 3 Đang xây cấu hình · 4 Đã gửi báo giá · 5 Đang dự thầu · 7 Đã trúng thầu · 8 Trượt thầu
+     · 9 Tạm dừng theo dõi · 10 Không tham dự (số 6 bỏ trống; dòng cũ đọc lại theo tên giai đoạn cũ ⇒ số mới, FU_LEGACY). Sheet đổi tên
+     "Follow up by Account · Nhật ký" (vẫn ghi nối tiếp); 2 cột mới "Bắt đầu dự kiến (tháng)" + "Hiệu lực (tháng)" để tính doanh số;
+     lưu gói ⇒ cập nhật ngay sheet "Follow up by Account" (MMH_FcAccount.gs ▸ faCaseUpsert_). Action fuFc* = Follow up by Account.
    · fuCrm — chi tiết cơ sở trên Tender Map hiện dữ liệu CRM Surgical: mã / PIC địa bàn, lượt gặp 12 tháng, người liên hệ (CBC, không SĐT), đơn hàng 12 tháng.
      Cần phiên email công ty như fuList.
    ════════════════════════════════════════════════════════════════════════════════════════ */
 var FU = {
-  VER: '1.8',
+  VER: '1.9',
   KINDS: ['dao', 'chi', 'ghim', 'hook', 'forcep'],      /* v1.8 — loại sản phẩm của 1 dòng: dao · chỉ khâu · ghim da · Hook · Micro Forceps */
   MAP_URL: 'https://manimedicalhanoi.github.io/Tender-Result/map/',
   SOON_DAYS: 3, STALE_DAYS: 30, TRIG_V: 'fu1',
   DOMAINS: /@(manimedicalhanoi\.com|mani\.inc)$/i,
-  TAB: 'FOLLOW UP TENDER',
+  TAB: 'Follow up by Account · Nhật ký', OLD_TAB: 'FOLLOW UP TENDER',
   HDR: ['Thời gian cập nhật', 'Mã theo dõi', 'Lần', 'PIC', 'Email', 'Mã cơ sở', 'Cơ sở y tế', 'Tỉnh / thành', 'Địa chỉ',
         'Tên gói thầu', 'Số TBMT', 'Loại sản phẩm', 'Sản phẩm · SL ước tính', 'Tổng SL', 'Giá trị ước tính (VND)',
-        'Bước', 'Giai đoạn', 'Ngày dự kiến', 'Tình hình (ghi chú)', 'Sản phẩm (JSON)', 'Mã yêu cầu', 'Nguồn', 'Toạ độ', 'PIC phụ trách địa bàn'],
+        'Bước', 'Giai đoạn', 'Ngày dự kiến', 'Tình hình (ghi chú)', 'Sản phẩm (JSON)', 'Mã yêu cầu', 'Nguồn', 'Toạ độ', 'PIC phụ trách địa bàn',
+        'Bắt đầu dự kiến (tháng)', 'Hiệu lực (tháng)'],
   COLS: ['at', 'id', 'rev', 'pic', 'mail', 'fid', 'hosp', 'prov', 'addr', 'pkg', 'tbmt', 'ptype', 'itemsTxt', 'qty', 'value',
-         'stage', 'stageName', 'due', 'note', 'items', 'rid', 'src', 'll', 'own'],
-  STAGES: ['', 'Giới thiệu sản phẩm', 'Lên danh mục', 'Chốt cấu hình', 'Ra báo giá', 'Ra HSMT', 'Đang chấm thầu',
-           'Đã trúng thầu', 'Đã trượt thầu', 'Huỷ / dừng theo dõi',
+         'stage', 'stageName', 'due', 'note', 'items', 'rid', 'src', 'll', 'own', 'fcStart', 'fcDur'],
+  STAGES: ['', 'Chưa tiếp cận', 'Đã giới thiệu tới chuyên môn', 'Đang xây cấu hình', 'Đã gửi báo giá', 'Đang dự thầu', '',
+           'Đã trúng thầu', 'Trượt thầu', 'Tạm dừng theo dõi', 'Không tham dự',
            /* v1.5 — cơ sở TƯ NHÂN (mua sắm, không qua thầu): 11–15 đang tiến hành → thành công, 18 không thành công, 19 dừng */
-           '', 'Giới thiệu', 'Demo', 'Đề xuất từ chuyên môn', 'Ký hợp đồng mua sắm', 'Sử dụng hàng', '', '', 'Không thành công', 'Dừng theo dõi'],
+           'Giới thiệu', 'Demo', 'Đề xuất từ chuyên môn', 'Ký hợp đồng mua sắm', 'Sử dụng hàng', '', '', 'Không thành công', 'Dừng theo dõi'],
   MAX_ITEMS: 40,
   /* v1.6 — địa bàn phụ trách theo tỉnh (34 tỉnh mới + tên cũ); tỉnh không thuộc danh sách Viet Ha ⇒ Khang */
   TERR_N: 'Viet Ha', TERR_S: 'Khang',
@@ -85,7 +91,12 @@ function fuRoute_(action, p){
   try{
     if(action === 'fuMeta') return { ok:true, v:FU.VER, stages:FU.STAGES };
     if(action === 'fuList') return fuList_(p);
-    if(action === 'fuSave') return fuSave_(p);
+    if(action === 'fuSave'){ var sv = fuSave_(p); if(sv && sv.ok && !sv.dup && sv.rec && typeof faCaseUpsert_ === 'function'){ try{ faCaseUpsert_(sv.rec[1]); }catch(e){ sv.faErr = String(e && e.message || e); } } return sv; }
+    if(action === 'fuFcList') return faList_(p);                  /* MMH_FcAccount.gs — Follow up by Account (dự báo doanh số theo mã) */
+    if(action === 'fuFcSave') return faSave_(p);
+    if(action === 'fuFcDel') return faDel_(p);
+    if(action === 'fuFcSync') return faSyncApi_(p);
+    if(action === 'fuFcDiag') return faDiag_(p);
     if(action === 'fuCrm') return fuCrm_(p);
     if(action === 'fuRemind') return fuRemindApi_(p);
     if(action === 'fuVisits') return fuVisits_(p);                /* MMH_VisitMap.gs — bản đồ hoạt động Sales */
@@ -130,8 +141,11 @@ function fuPeople_(){
   return out;
 }
 
+/* v1.9 — dòng cũ: số giai đoạn theo tên giai đoạn cũ ⇒ số mới */
+var FU_LEGACY = { 'Giới thiệu sản phẩm':2, 'Lên danh mục':3, 'Chốt cấu hình':3, 'Ra báo giá':4, 'Ra HSMT':5, 'Đang chấm thầu':5, 'Đã trượt thầu':8, 'Huỷ / dừng theo dõi':9 };
 function fuSheet_(){
   var book = ss(), sh = book.getSheetByName(FU.TAB);
+  if(!sh){ var old = book.getSheetByName(FU.OLD_TAB); if(old){ old.setName(FU.TAB); sh = old; } }
   if(!sh){
     sh = book.insertSheet(FU.TAB);
     sh.getRange(1, 1, 1, FU.HDR.length).setValues([FU.HDR]).setFontWeight('bold').setBackground('#CFE2F3');
@@ -148,9 +162,12 @@ function fuRowOut_(r){
   r = r.map(function(v){ return typeof v === 'string' && v.charAt(0) === "'" ? v.slice(1) : v; });
   var at = r[0] instanceof Date && !isNaN(r[0]) ? Utilities.formatDate(r[0], 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd HH:mm:ss') : tfS_(r[0]);
   var due = r[17] instanceof Date && !isNaN(r[17]) ? Utilities.formatDate(r[17], 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd') : tfS_(r[17]);
+  var nm = tfS_(r[16]), stg = +r[15] || 0;
+  if(FU_LEGACY[nm]){ stg = FU_LEGACY[nm]; nm = FU.STAGES[stg]; }
+  var fs = r[24] instanceof Date && !isNaN(r[24]) ? Utilities.formatDate(r[24], 'Asia/Ho_Chi_Minh', 'yyyy-MM') : tfS_(r[24]);
   return [at, tfS_(r[1]), +r[2] || 1, tfS_(r[3]), tfS_(r[4]), tfS_(r[5]), tfS_(r[6]), tfS_(r[7]), tfS_(r[8]), tfS_(r[9]), tfS_(r[10]),
-          tfS_(r[11]), tfS_(r[12]), +r[13] || 0, +r[14] || 0, +r[15] || 0, tfS_(r[16]), due, tfS_(r[18]), tfS_(r[19]), tfS_(r[20]),
-          tfS_(r[21]), tfS_(r[22]), tfS_(r[23])];
+          tfS_(r[11]), tfS_(r[12]), +r[13] || 0, +r[14] || 0, stg, nm, due, tfS_(r[18]), tfS_(r[19]), tfS_(r[20]),
+          tfS_(r[21]), tfS_(r[22]), tfS_(r[23]), fs, +r[25] || 0];
 }
 
 function fuList_(p){
@@ -204,7 +221,8 @@ function fuSave_(p){
     var row = [new Date(), id, rev, fuTxt_(me.pic, 60), me.local, fuTxt_(p.fid, 40), fuTxt_(hosp, 200), fuTxt_(p.prov, 60), fuTxt_(p.addr, 300),
       fuTxt_(p.pkg, 300), fuTxt_(p.tbmt, 60), fuTxt_(p.ptype, 120), fuTxt_(txt, 2000), qty, fuNum_(p.value), stage, FU.STAGES[stage],
       due, fuTxt_(p.note, 3000), JSON.stringify(items), rid, fuTxt_(p.src || 'Tender Map', 40), fuTxt_(p.ll, 40),
-      fuTxt_((p.own === FU.TERR_N || p.own === FU.TERR_S) ? p.own : fuTerrOf_(p.prov, p.addr, p.ll), 40)];
+      fuTxt_((p.own === FU.TERR_N || p.own === FU.TERR_S) ? p.own : fuTerrOf_(p.prov, p.addr, p.ll), 40),
+      (/^\d{4}-\d{2}/.test(tfS_(p.start)) ? tfS_(p.start).slice(0, 7) : ''), Math.max(0, Math.min(60, parseInt(p.dur, 10) || 0))];
     sh.getRange(sh.getLastRow() + 1, 1, 1, row.length).setValues([row]);
     return { ok:true, rec:fuRowOut_(row), cols:FU.COLS };
   } finally { lock.releaseLock(); }
@@ -224,11 +242,12 @@ function fuCases_(){
   var by = {}, order = [];
   sh.getRange(2, 1, last - 1, FU.HDR.length).getValues().forEach(function(r){
     var o = fuRowOut_(r), id = o[1]; if(!id) return;
-    var c = by[id]; if(!c){ c = by[id] = { first:o, last:o }; order.push(id); }
-    if((+o[2] || 1) >= (+c.last[2] || 1)) c.last = o;
+    var c = by[id]; if(!c){ c = by[id] = { first:o, last:o, raw:tfS_(r[16]) }; order.push(id); }
+    if((+o[2] || 1) >= (+c.last[2] || 1)){ c.last = o; c.raw = tfS_(r[16]); }
   });
   return order.map(function(id){ var L = by[id].last;
-    return { id:id, at:L[0], start:by[id].first[0], pic:L[3], hosp:L[6], prov:L[7], addr:L[8], pkg:L[9], tbmt:L[10], stage:+L[15] || 0, stageName:L[16], due:L[17], note:L[18], items:L[12], ll:L[22], own:L[23] }; });
+    return { id:id, at:L[0], first:by[id].first[0], pic:L[3], fid:L[5], hosp:L[6], prov:L[7], addr:L[8], pkg:L[9], tbmt:L[10], stage:+L[15] || 0, stageName:L[16], due:L[17], note:L[18], items:L[12], itemsJson:L[19], ll:L[22], own:L[23],
+      start:L[24] || '', dur:+L[25] || 0, stageNameRaw:by[id].raw }; });
 }
 function fuLink_(c){ return FU.MAP_URL + '?v=fu#' + encodeURIComponent(c.prov) + '/' + encodeURIComponent(c.hosp); }
 function fuMgrs_(){ try{ return (typeof ORDER_APPROVERS !== 'undefined' && ORDER_APPROVERS.surgical) ? ORDER_APPROVERS.surgical.slice() : []; }catch(e){ return []; } }
