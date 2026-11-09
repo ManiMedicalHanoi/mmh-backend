@@ -254,6 +254,11 @@ function faFromCases_(){
   }catch(e){ Logger.log('faFromCases_: ' + e.message); }
   return out;
 }
+/* dòng Sales kênh thầu chưa có nhóm (gói từ "Theo dõi thầu") ⇒ ② nếu bệnh viện đang có hợp đồng / gói MANI, còn lại ③ */
+function faGrpFill_(rows){
+  var mani = {}; rows.forEach(function(r){ if(r.grp === FC.GRP.E || r.grp === FC.GRP.D) mani[faHk_(r)] = 1; });
+  rows.forEach(function(r){ if(!r.grp) r.grp = r.kenh === 'Tư nhân' ? FC.GRP.P : (mani[faHk_(r)] ? FC.GRP.D : FC.GRP.M); });
+}
 /* lưu 1 gói ở "Theo dõi thầu" ⇒ cập nhật ngay các dòng S|<mã theo dõi>|… (không chờ lượt đồng bộ) */
 function faCaseUpsert_(caseId){
   faFy_();
@@ -265,6 +270,7 @@ function faCaseUpsert_(caseId){
       if(rows[i].id.indexOf('S|' + caseId + '|') === 0 && !want[rows[i].id]) sh.deleteRow(i + 2);
     }
     rows = faRead_(sh);
+    faGrpFill_(rows.concat(mine));
     mine.forEach(function(c){
       var idx = -1; for(var j = 0; j < rows.length; j++) if(rows[j].id === c.id){ idx = j; break; }
       if(idx >= 0){ var o = rows[idx]; ['stage', 'note', 'due', 'qty', 'code', 'start', 'dur', 'prog'].forEach(function(k){ if(c[k] !== '' && c[k] != null && c[k] !== 0) o[k] = c[k]; }); o.at = c.at; o.by = c.by; c = o; }
@@ -321,6 +327,7 @@ function faSync_(opt){
       if(o.man || o.note || o.prog || o.cfg || o.chance || (o.stage && o.stage !== 'Đã trúng thầu' && o.stage !== 'Đang dự thầu')){ o.stale = 'Gói đã thay (dữ liệu thầu mới)'; out.push(o); }
     });
     Object.keys(sales).forEach(function(id){ out.push(sales[id]); });
+    faGrpFill_(out);
     /* hạt giống: thông tin Sales trong 2 file mẫu FY68 (Hùng Vĩ) — chỉ 1 lần, chỉ điền ô trống */
     if(typeof faSeed_ === 'function') faSeed_(out);
     out.forEach(faDerive_);
