@@ -384,3 +384,8 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   backends.json `newWebapp` ⇒ lần deploy đầu tạo web app; chủ script chạy `evSetup` 1 lần trong trình soạn để cấp quyền.
   **crm-thai-dental `TH_DentalFix.gs` v1.1 (f2)**: Type action **Event** cùng **Co-visiting with distributor** (`THD_TYPE_ACTIONS`) luôn có trong MASTER LIST, dropdown CUSTOMER TASK và danh sách app (`master_`);
   file đã chạy f1 ⇒ f2 chỉ chạy bước master + dropdowns.
+- **09/11/2026 — CRM Thailand Dental chuyển sang FILE THẬT (người dùng yêu cầu)**: `crm-thai-dental` = script `1sksFTfo…` gắn file "1. Thailand - Dental Action" `1ONYLqq…` (trước: bản draft
+  "Bản sao của 1. Thailand - Dental Action FY68" `1uZ8GtOF…` / script `1Wh-WbDk…` / web app `AKfycbz2QxuR…` — chỉ có dữ liệu mẫu, không còn quản lý ở repo). Code cũ của file thật (menu "📊 MMH Report",
+  báo cáo tuần / tháng từ sheet WEEK) được thay bằng code CRM (vẫn còn trong lịch sử git, commit "Kéo code từ Apps Script (crm-thai-dental)"). Lần deploy đầu tạo web app MỚI ⇒ app CRM `TEAMS.thaid.url` đổi theo.
+  Dựng bố cục trên file thật: ping `crm-thai-dental?action=thdSample&op=build&key=<8 ký tự cuối ID Sheet>` (KHÔNG seed dữ liệu mẫu); `thdFixRun_` chờ dựng xong (`thdFixReady_`), `thdRun_` chạy bản sửa f2 ngay khi xong.
+  KPI: `KSC.CRM_DEFAULT.thaid` = file thật + `KSC.CRM_MOVED` (link cũ ở _CRM_LINKS tự đổi sang file mới).
