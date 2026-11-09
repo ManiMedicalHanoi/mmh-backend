@@ -843,10 +843,15 @@ function kscTrainSessions_(tss, people) {
       if (!type || (type.indexOf('internal') !== 0 && type.indexOf('external') !== 0 && type.indexOf('coaching') !== 0)) continue;   // 13/10: + Coaching
       var sid = String(g(row, 'session id') || '').trim(), topic = String(g(row, 'training topic') || '').trim();
       if (/^test/i.test(sid) || /^\[test\]/i.test(topic)) continue;
-      if (sid) { if (seen[sid]) continue; seen[sid] = 1; }
       var name = trainerRaw.indexOf('@') > 0 ? (people[trainerRaw.toLowerCase()] || trainerRaw) : trainerRaw;
       var key = kscNorm_(name); if (KSC_TRAIN.ALIAS[key]) key = kscNorm_(KSC_TRAIN.ALIAS[key]);
       var date = g(row, 'actual date'), status = String(g(row, 'status') || '').trim();
+      /* 09/11/2026 — trùng Session ID chỉ bỏ khi CÙNG buổi (cùng ngày / tháng + trainer): dòng chép từ buổi cũ còn giữ ID cũ
+         (vd. Hoa 03/10/2026 mang ID S20260727-056) trước đây bị bỏ qua ⇒ L2-05 tháng 10 = 0 */
+      if (sid) {
+        var dk = sid + '|' + key + '|' + (kscIsDate_(date) ? Utilities.formatDate(date, KSC.TZ, 'yyyyMMdd') : kscYm_(date, g(row, 'month')));
+        if (seen[dk]) continue; seen[dk] = 1;
+      }
       var catKey = kscNorm_(g(row, 'training category')), done = KSC_TRAIN.DONE.indexOf(kscNorm_(status)) >= 0;
       var it = { sheet: s.getName(), row: r + 1, sid: sid, topic: topic, audience: String(g(row, 'target audience') || '').trim(),
         date: kscIsDate_(date) ? Utilities.formatDate(date, KSC.TZ, 'dd/MM/yyyy') : String(date || ''),

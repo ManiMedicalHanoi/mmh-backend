@@ -40,6 +40,6 @@ function kscTrainDiag_(p) {
     var s = x.s; return raw.some(function (o) { return o.sheet === s.sheet && o.row === s.row; });
   }).map(function (x) { var s = x.s; return { sheet: s.sheet, row: s.row, sid: s.sid, ym: s.ym, type: s.type, cat: s.cat, trainer: s.trainer, trainerKey: s.trainerKey,
     status: s.status, done: s.done, ok: s.ok, why: s.why, hits: x.hit }; });
-  raw.forEach(function (o) { if (!parsed.some(function (x) { return x.sheet === o.sheet && x.row === o.row; })) o.skipped = 'không vào bộ đếm (Training Type không phải Internal / External / Coaching, phiên TEST, hoặc Session ID trùng dòng khác)'; });
+  raw.forEach(function (o) { if (!parsed.some(function (x) { return x.sheet === o.sheet && x.row === o.row; })) o.skipped = 'không vào bộ đếm (Training Type không phải Internal / External / Coaching, phiên TEST, hoặc trùng Session ID + ngày + trainer với dòng khác)'; });
   return { ok: true, sheets: S.sheets, curYm: ctx.curYm, months: L.months, codes: codes, raw: raw.slice(0, 40), parsed: parsed.slice(0, 40) };
 }
