@@ -2681,7 +2681,7 @@ function kscMailSend(f) {
   if (f.replyTo) mo.replyTo = f.replyTo;
   mmhMail_(mo);
   /* ⭐ 23/10/2026 — MMH_ReportLog.gs: ghi nhận báo cáo KPI tháng (bỏ bản thử [TEST]) */
-  if (!/^\[TEST\]/i.test(subject) && typeof rplAdd_ === 'function') rplAdd_('kpi', d.pic, String(d.month), { by: f.by || '', opt: f.self ? 'self' : 'email', cal: f.lang === 'en' ? 'TH' : 'VN', note: to.join(', ') });
+  if (!f.self && !/^\[TEST\]/i.test(subject) && typeof rplAdd_ === 'function') rplAdd_('kpi', d.pic, String(d.month), { by: f.by || '', opt: 'email', cal: f.lang === 'en' ? 'TH' : 'VN', note: to.join(', ') });
   var me = ''; try { me = Session.getActiveUser().getEmail(); } catch (e) {}
   try {
     var ss = SpreadsheetApp.getActive(), lg = ss.getSheetByName(KSC_MAIL.LOG);

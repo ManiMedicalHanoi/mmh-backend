@@ -58,6 +58,7 @@ function rkvRoute0_(p) {
   if (a === 'rhKpiMailPreview') return rkvMail_(p, 'preview');
   if (a === 'rhKpiMailSend') return rkvMail_(p, 'send');
   if (a === 'rhSeSend') return rkvSeSend_(p);                     /* ⭐ 23/10/2026: email tự đánh giá quý (file Word) */
+  if (a === 'rhKpiSent') return rkvSent_(p);                       /* ⭐ v1.5 (09/11/2026): người dùng bấm "Đã gửi" (tự gửi từ email của mình) ⇒ thống kê gửi báo cáo */
   if (a === 'trDiag') return kscTrainDiag_(p);                   /* 09/11/2026: chẩn đoán KPI đào tạo (chỉ đọc, KpiTrainDiag.gs) */
   if (a === 'rpLog') return rplApi_(p);                           /* ⭐ 23/10/2026: thống kê gửi báo cáo (MMH_ReportLog.gs) */
   return {ok: false, error: 'Không tìm thấy chức năng: ' + a};
@@ -242,10 +243,30 @@ function rkvMail_(p, mode) {
   f.to = me; f.cc = ''; f.self = true; f.fwdHtml = fwd.html; f.replyTo = '';
   if (/^\[TEST\]/i.test(f.subject)) f.subject = f.subject.replace(/^\[TEST\]\s*/i, '');
   var r = kscMailSend(f);
-  if (r && r.ok) r.msg = (f.lang === 'en' ? 'Draft e-mail sent to your mailbox ' + me + ' — forward it from your own e-mail' : 'Đã gửi bản soạn sẵn về hộp thư ' + me + ' — hãy chuyển tiếp từ email của bạn') +
-                         (fwd.to ? (f.lang === 'en' ? ' to ' : ' tới ') + fwd.to + (fwd.cc ? ' · CC ' + fwd.cc : '') : '') + '.';
+  if (r && r.ok) r.msg = (f.lang === 'en' ? 'Copy sent to ' + me + ' — send the official e-mail yourself' : 'Đã gửi bản sao về ' + me + ' — hãy tự gửi email chính thức từ hộp thư của bạn') + '.';
   if (r && r.ok) { r.message = r.msg; try { console.log('[rhKpiMailSend] ' + vw.u.pic + ' gửi KPI ' + pic + ' ' + month); } catch (e) {} }
   return r;
+}
+
+/* ⭐ v1.5 (09/11/2026) — POST rhKpiSent { tk, pic, kind: 'm' (month = yyyyMM) | 'q' (fy, q), to, lang } — người dùng tự gửi email báo cáo từ hộp thư
+   của mình rồi bấm "Đã gửi" ⇒ ghi _MMH_REPORT_LOG (opt = user) để Thống kê gửi báo cáo tính đúng hạn / muộn. Chỉ chính người đó (hoặc người xem được KPI của pic). */
+function rkvSent_(p) {
+  var vw = rkvViewer_(p.tk);
+  if (vw.err) return {ok: false, code: 'AUTH', error: vw.err};
+  var d = rkvData_(), sc = rkvScope_(vw.u, d), pic = String(p.pic || sc.myName).trim();
+  if (!sc.see(pic)) return {ok: false, code: 'FORBIDDEN', error: 'Bạn không xem được KPI của ' + pic + '.'};
+  var en = p.lang === 'en', note = String(p.to || '').slice(0, 300);
+  if (typeof rplAdd_ !== 'function') return {ok: true, logged: false};
+  if (p.kind === 'q') {
+    var fy = String(p.fy || '').replace(/\D/g, ''), q = String(p.q || '').toUpperCase();
+    if (!fy || !/^Q[1-4]$/.test(q)) return {ok: false, error: 'Kỳ đánh giá không hợp lệ.'};
+    rplAdd_('quarter', pic, 'FY' + fy + '-' + q, {by: vw.u.pic || '', opt: 'user', cal: en ? 'TH' : 'VN', note: note});
+  } else {
+    var m = String(p.month || '');
+    if (!/^\d{6}$/.test(m)) return {ok: false, error: 'Tháng không hợp lệ.'};
+    rplAdd_('kpi', pic, m, {by: vw.u.pic || '', opt: 'user', cal: en ? 'TH' : 'VN', note: note});
+  }
+  return {ok: true, logged: true};
 }
 
 /* ⭐ v1.5 (09/11/2026) — email của chính người đăng nhập (phiên Report Hub ghi phần trước @) + khung "chuyển tiếp tới" đặt đầu email */
@@ -254,8 +275,8 @@ function rkvFwd_(p, en) {
   var clean = function(s){ return String(s || '').split(/[,;\s]+/).map(function(e){ return e.trim(); }).filter(function(e){ return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e); }).slice(0, 12).join(', '); };
   var to = clean(p.fwdTo), cc = clean(p.fwdCc);
   var esc = function(s){ return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); };
-  var t1 = en ? 'Prepared by MMH system — forward this e-mail from YOUR OWN mailbox' : 'Bản soạn sẵn từ hệ thống MMH — hãy chuyển tiếp (Forward) email này từ HỘP THƯ CỦA BẠN';
-  var t2 = en ? 'Delete this box before sending.' : 'Xoá khung này trước khi gửi.';
+  var t1 = en ? 'Reference copy from the MMH system — NOT sent to anyone else. Send the official e-mail yourself from YOUR OWN mailbox' : 'Bản sao tham khảo từ hệ thống MMH — KHÔNG gửi cho ai khác. Hãy tự gửi email chính thức từ HỘP THƯ CỦA BẠN';
+  var t2 = en ? 'Copy the content / Word file from here if you need them.' : 'Có thể sao chép nội dung / file Word từ email này.';
   var html = '<div style="font-family:Aptos,Calibri,Arial,sans-serif;font-size:12px;color:#5B4A12;background:#FFF8E1;border:1px solid #E8C86A;border-radius:6px;padding:8px 12px;margin:0 0 14px">' +
              '<b>' + esc(t1) + '</b><br>' + (to ? 'To: <b>' + esc(to) + '</b>' : '') + (cc ? ' &nbsp;·&nbsp; CC: <b>' + esc(cc) + '</b>' : '') + (to || cc ? '<br>' : '') + esc(t2) + '</div>';
   var text = t1 + '\n' + (to ? 'To: ' + to : '') + (cc ? ' · CC: ' + cc : '') + '\n' + t2 + '\n\n';
@@ -392,8 +413,6 @@ function rkvSeSend_(p) {
   var full = (d.staff[pic] && d.staff[pic].full) || pic, reply = vw.u.local ? vw.u.local + '@manimedicalhanoi.com' : '';
   if (test) subject = subject.replace(/^\[TEST\]\s*/, '');
   mmhMail_({to: me, subject: subject, htmlBody: html, body: fwd.text + body, attachments: [blob], name: full});
-  if (typeof rplAdd_ === 'function') rplAdd_('quarter', pic, 'FY' + fy + '-' + q, {by: vw.u.pic || '', opt: 'self', cal: en ? 'TH' : 'VN', note: fwd.to || me});
   return {ok: true, self: true, sent: {to: [me], cc: [], fwdTo: fwd.to, fwdCc: fwd.cc, at: Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'dd/MM/yyyy HH:mm')},
-          message: (en ? 'Draft e-mail ' + per + ' sent to your mailbox ' + me + ' — forward it from your own e-mail' : 'Đã gửi bản soạn sẵn ' + per + ' về hộp thư ' + me + ' — hãy chuyển tiếp từ email của bạn') +
-                   (fwd.to ? (en ? ' to ' : ' tới ') + fwd.to + (fwd.cc ? ' · CC ' + fwd.cc : '') : '') + '.'};
+          message: (en ? 'Copy ' + per + ' sent to ' + me + ' — send the official e-mail yourself' : 'Đã gửi bản sao ' + per + ' về ' + me + ' — hãy tự gửi email chính thức từ hộp thư của bạn') + '.'};
 }
