@@ -1,5 +1,5 @@
 /*************************************************************************************************
- * TH_AccountMap.gs — v1.1 (09/11/2026 · v1.1 district from the address) · CRM Thailand Dental — Account tracking + Thailand map (user request)
+ * TH_AccountMap.gs — v1.2 (09/11/2026 · v1.1 district from the address · v1.2 one spelling per district) · CRM Thailand Dental — Account tracking + Thailand map (user request)
  *
  * Sheet "ACCOUNT TRACKING" (English, visible, 1 row per account of CUSTOMER CODE, filled automatically):
  *   A Code · B Account name · C Account type · D Province · E District · F Distributor · G Distributor sales rep ·
@@ -31,7 +31,9 @@ function acmSheet_(){
   }
   return s;
 }
-function acmDistrictOf_(note){ var m = /District\s*:\s*([^·\n]+)/i.exec(String(note || '')); return m ? m[1].trim() : ''; }
+function acmDistrictOf_(note){ var m = /District\s*:\s*([^·\n]+)/i.exec(String(note || '')); return m ? acmDisClean_(m[1]) : ''; }
+/* v1.2 — one spelling per district: no house number, no "District" / "Amphoe" / "Khet", Muang ⇒ Mueang (filters of the app group by this text) */
+function acmDisClean_(d){ return String(d || '').replace(/^[\s\d\/,.-]+/, '').replace(/\s+(district|amphoe)\s*$/i, '').replace(/^(khet|amphoe|amphur)\s+/i, '').replace(/^Muang\b/i, 'Mueang').replace(/\s+/g, ' ').trim(); }
 /* v1.1 — district from the address: Bangkok = one of the 50 khet (comma part of the address), elsewhere "… District" / "Amphoe …" */
 var ACM_BKK = ['Phra Nakhon','Dusit','Nong Chok','Bang Rak','Bang Khen','Bang Kapi','Pathum Wan','Pom Prap Sattru Phai','Phra Khanong','Min Buri',
   'Lat Krabang','Yan Nawa','Samphanthawong','Phaya Thai','Thon Buri','Bangkok Yai','Huai Khwang','Khlong San','Taling Chan','Bangkok Noi',
@@ -49,7 +51,7 @@ function acmDistrictAddr_(addr, prov){
     for(var i = parts.length - 1; i >= 0; i--){ var hit = ACM_BKK_SK[acmSk_(parts[i])]; if(hit) return hit; }
   }
   var m = /([^,\n]+?)\s+District\b/i.exec(addr) || /\bAmphoe\s+([^,\n]+)/i.exec(addr);
-  return m ? m[1].replace(/^\s*(Mueang|Muang)\s*$/i, 'Mueang').trim() : '';
+  return m ? acmDisClean_(m[1]) : '';
 }
 function acmRead_(s){
   var last = s.getLastRow(), out = [];
@@ -73,6 +75,7 @@ function acmSync_(){
     if(want[0] !== str_(r.code) || want[1] !== str_(r.name) || want[2] !== str_(r.type) || want[3] !== str_(r.province)){
       s.getRange(r._row, 1, 1, 4).setValues([want]); upd++;
     }
+    if(str_(r.district) && !str_(r.at) && acmDisClean_(r.district) !== str_(r.district)){ s.getRange(r._row, 5).setValue(acmDisClean_(r.district)); upd++; }   /* not edited yet ⇒ same spelling */
     if(!str_(r.district)){ var d = acmDistrictOf_(c.note) || acmDistrictAddr_(c.address, c.province); if(d){ s.getRange(r._row, 5).setValue(d); upd++; } }
   });
   if(add.length){
@@ -108,7 +111,7 @@ function acmSave(user, p){
     if(!r){ acmSync_(); r = acmFind_(s, code, name); }
     if(!r) return { ok: false, error: 'Account not found in CUSTOMER CODE.' };
     var set = function(f, v){ s.getRange(r._row, ACM.F.indexOf(f) + 1).setValue(v); };
-    ['district', 'dist', 'dsr'].forEach(function(f){ if(p[f] !== undefined) set(f, str_(p[f])); });
+    ['district', 'dist', 'dsr'].forEach(function(f){ if(p[f] !== undefined) set(f, f === 'district' ? acmDisClean_(p[f]) : str_(p[f])); });
     if(str_(p.src) === 'clear'){ set('lat', ''); set('lng', ''); set('src', ''); }
     else if(p.lat !== undefined && p.lng !== undefined && acmNum_(p.lat) !== '' && acmNum_(p.lng) !== ''){
       set('lat', acmNum_(p.lat)); set('lng', acmNum_(p.lng)); set('src', str_(p.src) || 'pin');
