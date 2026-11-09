@@ -1,5 +1,5 @@
 /**
- * MMH_SurveyEdit.gs v1.0 (09/11/2026) — ĐỌC và SỬA TẠI CHỖ một Google Form đã có (giữ nguyên link trả lời + câu trả lời cũ).
+ * MMH_SurveyEdit.gs v1.1 (09/11/2026; v1.1: thêm trang mới rồi chuyển chỗ bằng số thứ tự — moveItem không nhận PageBreakItem) — ĐỌC và SỬA TẠI CHỖ một Google Form đã có (giữ nguyên link trả lời + câu trả lời cũ).
  * Người dùng yêu cầu: sửa form khảo sát đã gửi bác sĩ mà không đổi link. Sửa tại chỗ = giữ mã (id) từng câu ⇒ câu trả lời cũ vẫn gắn đúng câu,
  * cột trong Sheet kết quả giữ nguyên (đổi tên câu ⇒ Google tự đổi tiêu đề cột cho lượt mới).
  *
@@ -21,7 +21,7 @@
  * Mỗi lần sửa thật ⇒ sheet nhật ký ▸ tab EDIT (thời gian, formId, ops, bản trước khi sửa) để tra / hoàn tác tay.
  * Bài kiểm tra (quiz, chấm trên máy chủ theo id câu) ⇒ chỉ cho "form" + "set" phần chữ (q / help), không thêm / xoá / đổi lựa chọn.
  */
-var SVE = { VER: '1.0', NUM: /^Câu\s+\d+\s*[.:]\s*/ };
+var SVE = { VER: '1.1', NUM: /^Câu\s+\d+\s*[.:]\s*/ };
 
 function svEdT_(it) {
   var T = FormApp.ItemType, t = it.getType();
@@ -219,7 +219,8 @@ function svEdit_(formId, ops, dry) {
       var it = svEdAdd_(form, op.q, numbered && op.num !== false, pages);
       var to = form.getItems().length - 1;
       if (r.after) to = svEdIdx_(form, r.after) + 1; else if (r.before) to = svEdIdx_(form, r.before);
-      if (to < form.getItems().length - 1) form.moveItem(it, to);
+      var at = svEdIdx_(form, it);  // moveItem chỉ nhận Item chung / số thứ tự (PageBreakItem báo lỗi) ⇒ luôn dùng số thứ tự
+      if (to !== at) form.moveItem(at, to);
       plan.push('Thêm #' + it.getId() + ' «' + it.getTitle().slice(0, 50) + '» ở vị trí ' + to); struct = true;
     } else if (op.op === 'delete') {
       plan.push('Xoá #' + r.it.getId() + ' «' + r.it.getTitle().slice(0, 50) + '»');
