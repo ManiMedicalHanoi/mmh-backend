@@ -235,6 +235,7 @@
     ],
     "scriptId": "16MjKF2AmzS2vcIX4BX74TY9HciQsJQhZDZ9YmK53yw_C-9c6GP1CIjXL",
     "sheetId": "12GnjS0esEOfW3_uWTrTwe0AQgOtAVsIuqDiSSCea308",
-    "note": "File sự kiện Dental Thái (REPORT_EVENT · PLAN_EVENT · CUSTOMER LIST · Master name). KPI đọc thẳng file này (kpi/KpiThaiEvents.gs th_dent: C14-00, C11-02). Kế hoạch: web app Event cho CRM nhóm thaid như thai-mkt."
+    "note": "File sự kiện Dental Thái (REPORT_EVENT · PLAN_EVENT · CUSTOMER LIST · Master name). Web app Event cho CRM nhóm thaid (cùng API với thai-mkt). KPI đọc thẳng file này (kpi/KpiThaiEvents.gs th_dent: C14-00, C11-02). Lần deploy đầu tạo web app ⇒ chủ script chạy evSetup 1 lần trong trình soạn để cấp quyền.",
+    "newWebapp": true
   }
 }

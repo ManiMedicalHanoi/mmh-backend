@@ -373,9 +373,9 @@ function master_(){
     var list = []; for(var r = 1; r < v.length; r++){ var x = v[r][c]; if(x === '' || x == null) continue; list.push(String(x).trim()); }
     m[k] = list;
   }
-  /* Dental Thái: Type action "Co-visiting with distributor" (KPI C4-01 / C4-03) luôn có trong danh sách chọn của app */
+  /* Dental Thái: Type action "Co-visiting with distributor" (KPI C4-01 / C4-03) + "Event" (09/11/2026) luôn có trong danh sách chọn của app */
   m.typeAction = m.typeAction || [];
-  ['Co-visiting with distributor'].forEach(function(x){ if(!m.typeAction.some(function(y){ return picKey_(y) === picKey_(x); })) m.typeAction.push(x); });
+  THD_TYPE_ACTIONS.forEach(function(x){ if(!m.typeAction.some(function(y){ return picKey_(y) === picKey_(x); })) m.typeAction.push(x); });
   /* PIC list of the team always first */
   var pics = TEAM_PICS.slice(); (m.pic || []).forEach(function(p){ if(pics.indexOf(p) < 0 && !/^others?$/i.test(p)) pics.push(p); });
   m.pic = pics;
