@@ -295,7 +295,11 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   dịch vụ nâng cao Drive v3 — thiếu quyền này người ngoài gặp "You need access"); `share` view | edit | none cho file Form + Sheet. Bài kiểm tra (`type: quiz`): trang làm bài `<exec>?t=<formId>`
   (`SurveyQuiz.html`: đếm ngược `minutes`, hết giờ tự nộp, chấm trên máy chủ — đáp án không xuống trình duyệt, vé HMAC `SV_SECRET`), mốc đạt `passScore`, tab "Tổng hợp bài làm", email `notify[]` qua `mmhMail_`
   (cấu hình bài: Script Property `Q_<formId>`). Trang dự phòng `<exec>?b=1&k=<khoá>#<spec gzip base64url>` (`SurveyBuilder.html`) khi Claude không gọi được máy chủ. `Mã.gs` = phiếu VOS 2026 cũ (giữ nguyên).
-  Phía Claude: skill `mmh-survey-quiz` + `mmh-library/surveys/`, `tools/survey.py`. `smoke: false` (backends.json) — đổi phạm vi quyền ⇒ chủ script chạy `svCapQuyen` trong trình soạn.
+  Phía Claude: skill `mmh-survey-quiz` + `mmh-library/surveys/`, `tools/survey.py`.
+  **Sửa form đã có, giữ link (09/11/2026, `MMH_SurveyEdit.gs`, v2.8)**: `formDump` (key, formId, off, n — đọc từng câu: id, loại, lựa chọn, điều hướng) · `formEdit` (key, formId, `pz` = gzip base64url JSON
+  `[ops]`, `dry=1` xem trước): `form` / `set` / `add` (cả trang `{t:"page"}`) / `delete` / `move` / `renumber`; sửa tại chỗ ⇒ giữ id câu, câu trả lời cũ không mất; nhật ký tab EDIT của sheet nhật ký.
+  Gọi từ phiên Claude: workflow **Kiểm tra** ▸ ping `survey?action=formDump&key=…&formId=…&full=1` (≤ 6000 ký tự ⇒ đọc từng đoạn `off` / `n`). Form tạo bằng `Mã.gs` (VOS 2026) cũng sửa được (cùng chủ sở hữu).
+  ⚠️ Câu sàng lọc ("Không làm ⇒ chuyển phần sau") phải nằm 1 mình 1 trang — v2.9 `svCreate_` tự thêm trang "<Phần> (tiếp)" sau câu có `go`. `smoke: false` (backends.json) — đổi phạm vi quyền ⇒ chủ script chạy `svCapQuyen` trong trình soạn.
 - **03/11/2026 — App Sự kiện MKT v2.4 / Event Hub v1.5 (`marketing/MKT_EventHubFlow.gs`, người dùng: việc lập kế hoạch / follow-up / báo cáo tiến độ sự kiện bị miss)**:
   ① lập kế hoạch muộn: `ehTasksFor_` không tự "Bỏ qua" việc có hạn mẫu đã qua nữa ⇒ `ehCompress_` dồn hạn (dueManual `nén`, EVENTS.latePlan); dữ liệu cũ chuyển 1 lần (`ehFlowMigrate_`, `EH_FLOW_V`).
   ② `event.close` / `event.reopen` (EVENTS.closedAt / closedBy / closeNote; còn việc ⇒ cần lý do, việc còn lại "Bỏ qua", mở lại trả về). Sự kiện đã đóng ⇒ thôi nhắc.
