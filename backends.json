@@ -130,8 +130,9 @@
     ],
     "scriptId": "1sksFTfo4P4nhIoisv0ZybkHLNcegTi4DVBk_qyk85ukC5oPGBosgdHDB",
     "sheetId": "1ONYLqqBaw4dPoN4jZJg8a1A5GAvfAuzM-Gsp_UHI7O4",
-    "newWebapp": true,
-    "note": "09/11/2026: chuyển từ file draft \"Bản sao của 1. Thailand - Dental Action FY68\" (sheet 1uZ8GtOFgXRg-kPQ_xMGW04tULazP5DIf1_Nser01Rb0, script 1Wh-WbDkgdhSWFBPZoU8sQPjrcub2DYn32SDcTJiM2EIbfziq8ZGxqEeW, web app AKfycbz2QxuRLqmadEoM5bWaXRflzOkX9J44JmxeKHOAQmwVvv-m--iD5CY1LHWty8bZZg74ug — vẫn chạy, không còn quản lý ở repo) sang file thật. Lần deploy đầu tạo web app mới ⇒ chủ script cấp quyền 1 lần, rồi dựng bố cục: ping action=thdSample&op=build&key=<8 ký tự cuối ID Sheet>."
+    "note": "09/11/2026: chuyển từ file draft \"Bản sao của 1. Thailand - Dental Action FY68\" (sheet 1uZ8GtOFgXRg-kPQ_xMGW04tULazP5DIf1_Nser01Rb0, script 1Wh-WbDkgdhSWFBPZoU8sQPjrcub2DYn32SDcTJiM2EIbfziq8ZGxqEeW, web app AKfycbz2QxuRLqmadEoM5bWaXRflzOkX9J44JmxeKHOAQmwVvv-m--iD5CY1LHWty8bZZg74ug — vẫn chạy, không còn quản lý ở repo) sang file thật. Lần deploy đầu tạo web app mới ⇒ chủ script cấp quyền 1 lần, rồi dựng bố cục: ping action=thdSample&op=build&key=<8 ký tự cuối ID Sheet>.",
+    "deploymentId": "AKfycbwEvi4Y2rnLKwR0JKaqJKNCiHgyS6SEY473dEM9meSGHZ8B6b4tVka5jB4ppEAEPPHQ",
+    "url": "https://script.google.com/macros/s/AKfycbwEvi4Y2rnLKwR0JKaqJKNCiHgyS6SEY473dEM9meSGHZ8B6b4tVka5jB4ppEAEPPHQ/exec"
   },
   "cust-data": {
     "name": "Data khách hàng (đồng bộ khách hàng từ Event)",
