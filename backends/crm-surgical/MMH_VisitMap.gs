@@ -74,7 +74,7 @@ function vmPhotoIds_(cell){
 function vmCut_(v, n){ v = S(v).replace(/\s*\n+\s*/g, ' · ').replace(/\s+/g, ' ').trim(); return v.length > n ? v.slice(0, n - 1) + '…' : v; }
 /* danh sách địa bàn + mọi lượt việc khách hàng (dạng gọn) — đệm theo phiên bản 2 tab */
 function vmCore_(from){
-  return cachedFor_('VM2|' + from, ['customer', 'weekly'], function(){
+  return cachedFor_('VM3|' + from, ['customer', 'weekly'], function(){
     var acc = [], byCode = {}, byChk = {}, byNm = {}, pts = {};
     readTab('customer').forEach(function(c){
       var code = S(c.code); if(!code || byCode[code] != null) return;

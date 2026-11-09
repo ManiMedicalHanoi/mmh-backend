@@ -7,7 +7,7 @@ var VM_STD = {
   "SCM-HO0001": ["Bệnh viện Mắt - Da liễu tỉnh Cà Mau", 'cl'],
   "SHCM-HO0002": ["Bệnh viện Đại học Y Dược TP. Hồ Chí Minh", 'cl'],
   "NHN-HO0003": ["Bệnh viện Mắt Sài Gòn - Hà Nội (cơ sở 1)", 'tn'],
-  "NHN-HO0004": ["Bệnh viện Mắt Hà Đông", 'tn'],
+  "NHN-HO0004": ["Bệnh viện Mắt Hà Nội (cơ sở Hà Đông)", 'cl'],   // BV Mắt Hà Đông (Sở Y tế HN) đã hợp nhất vào BV Mắt Hà Nội — công lập
   "NHN-HO0005": ["Bệnh viện Mắt Hà Nội", 'cl'],
   "NHT-HO0006": ["Bệnh viện Mắt Hà Tĩnh", 'cl'],
   "NNB-HO0007": ["Bệnh viện Mắt tỉnh Ninh Bình", 'cl'],
