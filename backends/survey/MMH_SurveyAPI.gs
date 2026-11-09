@@ -1,5 +1,5 @@
 /**
- * MMH Survey API v2.8 (09/11/2026; v2.8: formDump / formEdit — đọc + sửa tại chỗ form đã có, giữ link (MMH_SurveyEdit.gs); v2.1: action docText (đọc chữ tài liệu Drive cho Claude); v2.0: bài kiểm tra có trang làm bài đếm ngược + mốc đạt + email kết quả (MMH_SurveyQuiz.gs); v1.2: người trả lời = ai có link (Drive reader + view published), action share; v1.1: câu sàng lọc — mọi lựa chọn đều gắn điều hướng, form lỗi giữa chừng tự vào Thùng rác) — tạo Google Form KHẢO SÁT / BÀI KIỂM TRA từ 1 bản mô tả JSON.
+ * MMH Survey API v2.9 (09/11/2026; v2.9: câu sàng lọc tự tách trang — các câu sau nằm ở trang "(tiếp)"; v2.8: formDump / formEdit — đọc + sửa tại chỗ form đã có, giữ link (MMH_SurveyEdit.gs); v2.1: action docText (đọc chữ tài liệu Drive cho Claude); v2.0: bài kiểm tra có trang làm bài đếm ngược + mốc đạt + email kết quả (MMH_SurveyQuiz.gs); v1.2: người trả lời = ai có link (Drive reader + view published), action share; v1.1: câu sàng lọc — mọi lựa chọn đều gắn điều hướng, form lỗi giữa chừng tự vào Thùng rác) — tạo Google Form KHẢO SÁT / BÀI KIỂM TRA từ 1 bản mô tả JSON.
  * Claude (phiên Claude Code) soạn câu hỏi theo yêu cầu + tài liệu ⇒ gọi web app này ⇒ trả link ngay trong chat.
  * Bộ mô tả + quy tắc soạn: kho mmh-library ▸ surveys/ (README.md, specs/*.json, tools/survey.py).
  *
@@ -27,7 +27,7 @@
  *       low, high, lowLabel, highLabel (scale), rows, cols (grid),
  *       correct (quiz: chỉ số đáp án đúng, từ 0), points, explanation }
  */
-var SV = { VER: '2.8', PAGE: 'https://manimedicalhanoi.github.io/Training-Hub/quiz/', URL: 'https://script.google.com/macros/s/AKfycbx8l7u4j2tFDpfsg8IFsEcuXNrTbrLVRA_SoZ2Iisqprfm1ipL4z2NfDudVKuI1paFQPg/exec', KEY: 'mmh-sv-7Qk2pX9w', LOG_PROP: 'SV_LOG_ID', FOLDER_PROP: 'SV_FOLDER_ID', FOLDER: 'MMH Survey · Form tạo tự động' };
+var SV = { VER: '2.9', PAGE: 'https://manimedicalhanoi.github.io/Training-Hub/quiz/', URL: 'https://script.google.com/macros/s/AKfycbx8l7u4j2tFDpfsg8IFsEcuXNrTbrLVRA_SoZ2Iisqprfm1ipL4z2NfDudVKuI1paFQPg/exec', KEY: 'mmh-sv-7Qk2pX9w', LOG_PROP: 'SV_LOG_ID', FOLDER_PROP: 'SV_FOLDER_ID', FOLDER: 'MMH Survey · Form tạo tự động' };
 
 function doGet(e) {
   var p = e && e.parameter || {};
@@ -145,7 +145,10 @@ function svCreate_(spec) {
       var h = form.addSectionHeaderItem().setTitle(s.title || '');
       if (s.help) h.setHelpText(s.help);
     }
-    (s.questions || []).forEach(function (q) {
+    (s.questions || []).forEach(function (q, qi) {
+      // câu sàng lọc (lựa chọn có go) phải nằm 1 mình 1 trang: Google chỉ điều hướng khi bấm "Tiếp", mà muốn bấm Tiếp phải trả lời hết câu bắt buộc cùng trang (v2.9)
+      if (qi > 0 && !quiz && (s.questions[qi - 1].t || 'radio') !== 'checkbox' && svOpts_(s.questions[qi - 1]).some(function (o) { return o.go; }))
+        form.addPageBreakItem().setTitle((s.title || '') + ' (tiếp)');
       var numbered = q.t !== 'header' && spec.number !== false;
       if (numbered) num++;
       var q2 = Object.assign({}, q, { q: numbered ? 'Câu ' + num + '. ' + q.q : q.q });
