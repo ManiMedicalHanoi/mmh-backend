@@ -1,5 +1,5 @@
 /*************************************************************************************************
- * TH_AccountMap.gs — v1.0 (09/11/2026) · CRM Thailand Dental — Account tracking + Thailand map (user request)
+ * TH_AccountMap.gs — v1.1 (09/11/2026 · v1.1 district from the address) · CRM Thailand Dental — Account tracking + Thailand map (user request)
  *
  * Sheet "ACCOUNT TRACKING" (English, visible, 1 row per account of CUSTOMER CODE, filled automatically):
  *   A Code · B Account name · C Account type · D Province · E District · F Distributor · G Distributor sales rep ·
@@ -32,6 +32,25 @@ function acmSheet_(){
   return s;
 }
 function acmDistrictOf_(note){ var m = /District\s*:\s*([^·\n]+)/i.exec(String(note || '')); return m ? m[1].trim() : ''; }
+/* v1.1 — district from the address: Bangkok = one of the 50 khet (comma part of the address), elsewhere "… District" / "Amphoe …" */
+var ACM_BKK = ['Phra Nakhon','Dusit','Nong Chok','Bang Rak','Bang Khen','Bang Kapi','Pathum Wan','Pom Prap Sattru Phai','Phra Khanong','Min Buri',
+  'Lat Krabang','Yan Nawa','Samphanthawong','Phaya Thai','Thon Buri','Bangkok Yai','Huai Khwang','Khlong San','Taling Chan','Bangkok Noi',
+  'Bang Khun Thian','Phasi Charoen','Nong Khaem','Rat Burana','Bang Phlat','Din Daeng','Bueng Kum','Sathon','Bang Sue','Chatuchak',
+  'Bang Kho Laem','Prawet','Khlong Toei','Suan Luang','Chom Thong','Don Mueang','Ratchathewi','Lat Phrao','Watthana','Bang Khae',
+  'Lak Si','Sai Mai','Khan Na Yao','Saphan Sung','Wang Thonglang','Khlong Sam Wa','Bang Na','Thawi Watthana','Thung Khru','Bang Bon'];
+function acmSk_(s){ return String(s || '').toLowerCase().replace(/\b(khet|district|amphoe|amphur|เขต)\b/g, '').replace(/[^a-z]/g, '')
+  .replace(/h/g, '').replace(/y/g, 'i').replace(/rn/g, 'n').replace(/(.)\1+/g, '$1').replace(/^k(?=[lr])/, 'k'); }
+var ACM_BKK_SK = null;
+function acmDistrictAddr_(addr, prov){
+  addr = String(addr || ''); if(!addr) return '';
+  if(/^(bkk|bangkok|krung ?thep)/i.test(String(prov || '').trim()) || /bangkok|กรุงเทพ/i.test(addr)){
+    if(!ACM_BKK_SK){ ACM_BKK_SK = {}; ACM_BKK.forEach(function(d){ ACM_BKK_SK[acmSk_(d)] = d; }); }
+    var parts = addr.split(/[,\n]/);
+    for(var i = parts.length - 1; i >= 0; i--){ var hit = ACM_BKK_SK[acmSk_(parts[i])]; if(hit) return hit; }
+  }
+  var m = /([^,\n]+?)\s+District\b/i.exec(addr) || /\bAmphoe\s+([^,\n]+)/i.exec(addr);
+  return m ? m[1].replace(/^\s*(Mueang|Muang)\s*$/i, 'Mueang').trim() : '';
+}
 function acmRead_(s){
   var last = s.getLastRow(), out = [];
   if(last < ACM.DATA) return out;
@@ -49,12 +68,12 @@ function acmSync_(){
   cust.forEach(function(c){
     var code = str_(c.code), name = str_(c.name); if(!name) return;
     var r = (code && byCode[code]) || byName[picKey_(name) + '|' + picKey_(c.province)];
-    if(!r){ add.push([code, name, str_(c.type), str_(c.province), acmDistrictOf_(c.note), '', '', '', '', '', '', '']); return; }
+    if(!r){ add.push([code, name, str_(c.type), str_(c.province), acmDistrictOf_(c.note) || acmDistrictAddr_(c.address, c.province), '', '', '', '', '', '', '']); return; }
     var want = [code || str_(r.code), name, str_(c.type), str_(c.province)];
     if(want[0] !== str_(r.code) || want[1] !== str_(r.name) || want[2] !== str_(r.type) || want[3] !== str_(r.province)){
       s.getRange(r._row, 1, 1, 4).setValues([want]); upd++;
     }
-    if(!str_(r.district)){ var d = acmDistrictOf_(c.note); if(d){ s.getRange(r._row, 5).setValue(d); upd++; } }
+    if(!str_(r.district)){ var d = acmDistrictOf_(c.note) || acmDistrictAddr_(c.address, c.province); if(d){ s.getRange(r._row, 5).setValue(d); upd++; } }
   });
   if(add.length){
     var row = Math.max(s.getLastRow(), ACM.HDR) + 1;
