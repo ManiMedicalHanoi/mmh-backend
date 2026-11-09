@@ -61,6 +61,10 @@ function thdSampleStatus(){
   var done = thdDone_();
   return { ok: true, layout: THD.STEPS.map(function(x){ return (done[x] ? '✓ ' : '· ') + x; }).join(' '), pending: props_().getProperty(THS.WANT) || '',
            error: props_().getProperty('THD_ERR') || '', progress: props_().getProperty('THD_PROG') || '', tries: props_().getProperty('THD_TRY') || '', sample: s,
+           running: (function(){ var t = +(props_().getProperty('THD_RUN') || 0); return t ? Math.round((Date.now() - t) / 1000) + ' s ago' : ''; })(),
+           copied: props_().getProperty('THD_COPY') || '',
+           triggers: (function(){ try{ return ScriptApp.getProjectTriggers().map(function(t){ return t.getHandlerFunction(); }).join(','); }catch(e){ return String(e && e.message || e); } })(),
+           sheets: (function(){ try{ return ss_().getSheets().map(function(x){ return x.getName() + (x.isSheetHidden() ? '(h)' : ''); }).join(' | '); }catch(e){ return ''; } })(),
            allTask: (function(){ try{ return atSummary_(); }catch(e){ return { error: String(e && e.message || e) }; } })(),
            visits: (function(){ try{ return thdVisitDiag_(); }catch(e){ return { error: String(e && e.message || e) }; } })() };
 }

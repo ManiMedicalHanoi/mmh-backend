@@ -216,9 +216,15 @@ var THD_STEP = {
       var sh = src.copyTo(book); sh.setName(THD_NAME(name)); made.push(THD_NAME(name)); thdMade_(sh.getSheetId());
     });
     _SH = {};
+    /* 09/11/2026 — resumable: the real file needs > 6 minutes for this part ⇒ every finished sheet is remembered (THD_COPY),
+       near the time budget the step returns THD_MORE and the next run goes on with the next sheet (formulas of THD_FML merged) */
+    var cdone = {}; try{ cdone = JSON.parse(props_().getProperty('THD_COPY') || '{}'); }catch(e){}
+    try{ var fprev = JSON.parse(props_().getProperty('THD_FML') || '{}'); Object.keys(fprev).forEach(function(k){ fmlAll[k] = fprev[k]; }); }catch(e){}
+    var more = false;
     THD.COPY.forEach(function(c){
       var name = c[0], hRow = c[1], first = c[2], src = tpl.getSheetByName(name), sh = book.getSheetByName(THD_NAME(name));
-      if(!first) return;                                               /* reference sheet (18. FRAMEWORK): keep as copied */
+      if(!first || more || cdone[THD_NAME(name)]) return;              /* reference sheet (18. FRAMEWORK): keep as copied */
+      if(THD_T0 && Date.now() - THD_T0 > THD_STEP_MS){ more = true; return; }
       var lc = src.getLastColumn();
       /* header area: formulas again (cross-sheet references resolve now that every sheet exists) */
       if(first > 1){
@@ -252,8 +258,13 @@ var THD_STEP = {
         tv.forEach(function(r, i){ r.forEach(function(x, j){ if(!tf[i][j] && typeof x === 'string' && /surgical/i.test(x)){ tv[i][j] = x.replace(/SURGICAL/g, 'DENTAL').replace(/Surgical/g, 'Dental').replace(/surgical/g, 'dental'); ch = true; } }); });
         if(ch) tr.setValues(tv.map(function(r, i){ return r.map(function(x, j){ return tf[i][j] ? tf[i][j] : x; }); }));
       }
+      SpreadsheetApp.flush();
+      cdone[THD_NAME(name)] = 1; props_().setProperty('THD_COPY', JSON.stringify(cdone));
+      props_().setProperty('THD_FML', JSON.stringify(fmlAll));
+      props_().setProperty('THD_PROG', 'copy ' + Object.keys(cdone).length + '/' + THD.COPY.filter(function(x){ return x[2]; }).length);
     });
     props_().setProperty('THD_FML', JSON.stringify(fmlAll));
+    if(more) return THD_MORE;
     /* _LOG: fresh */
     if(!book.getSheetByName(CFG.SH_LOG)){
       var lg = book.insertSheet(CFG.SH_LOG);
