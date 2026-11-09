@@ -7,5 +7,6 @@
   "TH_DentalLayout.gs",
   "TH_DentalSample.gs",
   "TH_DentalFix.gs",
-  "TH_Trip.gs"
+  "TH_Trip.gs",
+  "TH_AccountMap.gs"
 ]

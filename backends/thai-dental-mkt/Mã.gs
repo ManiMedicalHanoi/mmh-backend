@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════════════════
-   MMH — THAILAND DENTAL · EVENT REPORT — EVENT BACKEND  v1.0 (09/11/2026)
+   MMH — THAILAND DENTAL · EVENT REPORT — EVENT BACKEND  v1.1 (09/11/2026 — v1.1: budget / ROI / follow-up, EV_Roi.gs)
    File: "2. Thailand - Dental Event Report FY67"  (12GnjS0…)
    Same API as the Thailand Surgical event backend (thai-mkt), used by the CRM app (Thailand Dental team):
      · tab "Event"            → list / add / edit / delete rows of sheet REPORT_EVENT
@@ -66,11 +66,13 @@ function evHandle_(e, method){
 function evRoute_(p){
   var a = String(p.action || '');
   switch(a){
-    case 'ping':      return { ok:true, app:'thai-dental-event', ver:'1.0', sheet: evSS_().getName() };
+    case 'ping':      return { ok:true, app:'thai-dental-event', ver:'1.1', sheet: evSS_().getName() };
     case 'list':      return evList_(p);
     case 'customers': return evCustomers_(p);
     case 'save':      return evOnce_(p, function(){ return evSave_(p); });
     case 'delete':    return evOnce_(p, function(){ return evDelete_(p); });
+    case 'followup':  return evOnce_(p, function(){ return evFollowup_(p); });
+    case 'budgetSheet': return evOnce_(p, function(){ return evBudgetSheet_(p); });
     default:          return { ok:false, error:'Unknown action: ' + a };
   }
 }
@@ -172,6 +174,8 @@ function evRows_(){
       review: evStr_(r[EVC.review - 1]), target: evNum_(r[EVC.target - 1]), actual: evNum_(r[EVC.actual - 1])
     });
   }
+  /* T..AB budget · revenue · P/L · note · next follow up · follow-up log (EV_Roi.gs) */
+  try{ if(typeof evRoiRead_ === 'function') evRoiRead_(s, out); }catch(e){}
   return out;
 }
 function evLists_(){
@@ -266,6 +270,8 @@ function evSave_(p){
   s.getRange(row, EVC.month, 1, 9).setValues([[month, dateCell, o.type, o.product, o.segment, o.topic, o.kol, o.partner, o.place]]);
   /* N..R */
   s.getRange(row, EVC.plan, 1, 5).setValues([[o.plan, o.action, o.link, o.review, o.target]]);
+  /* Z note · AA next follow up · numbers of T U W X typed in the app (EV_Roi.gs, never over a formula) */
+  if(typeof evRoiSave_ === 'function') evRoiSave_(s, row, ev);
   SpreadsheetApp.flush();
   var newName = evStr_(s.getRange(row, EVC.name).getValue());
   var moved = 0;

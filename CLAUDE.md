@@ -421,3 +421,8 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   Hạn: ngày 05 hằng tháng (KPI tháng trước) · ngày 05 tháng đầu quý kế tiếp (KPI quý) — app nhắc ngày 01–05, quá hạn 06–10.
 - **09/11/2026 — crm-thai-dental `TH_DentalFix` v1.2**: `thdFix&op=internal` (đếm) / `op=internalRun` (chuyển) — việc văn phòng / ngày công tác (account loại MMH: "Thailand office", "Businesstrip") từ CUSTOMER TASK
   ⇒ OTHERS TASK dưới key "Others MM/yyyy" của PIC, sao lưu sheet ẩn `OLD · Internal tasks (moved)` / `OLD · Internal accounts (removed)`. Đã chạy trên file thật 09/11/2026 (688 / 2.959 dòng).
+- **09/11/2026 — Thailand Dental: Account tracking + bản đồ + ROI sự kiện (người dùng duyệt từ khảo sát cải tiến)**: crm-thai-dental `TH_AccountMap.gs` — sheet **ACCOUNT TRACKING** (tiếng Anh, 1 dòng / account của CUSTOMER CODE, tự thêm;
+  District lấy 1 lần từ ghi chú "District: …"; Distributor · Distributor sales rep chọn trên app; Latitude / Longitude + Location source `pin` (ghim tay, không bao giờ bị ghi đè) · `osm` · `search` · `province`).
+  Action `acctList` (đồng bộ ≤ 10 phút, `force`) · `acctSave` (district / dist / dsr / lat / lng, `src=clear`) · `acctGeo` (lô toạ độ app tìm được trên trình duyệt — OpenStreetMap; chỉ trong Thái Lan, bỏ dòng `pin`).
+  thai-dental-mkt v1.1 `EV_Roi.gs`: REPORT_EVENT T..Y (chi phí / doanh thu / lãi lỗ ước tính & thực tế — thường là công thức trỏ sheet "Sale out Event Budget" L10:M12; app chỉ ghi ô không có công thức),
+  Z Note · AA Next follow up · **AB Follow-up log** (app thêm, mỗi dòng "yyyy-MM-dd | PIC | 2w|4w|8w|call|visit|order|other | nội dung"). Action `followup` · `budgetSheet` (chép sheet budget mới nhất, xoá ô nhập E:F / I:M trừ dòng Subtotal, ghi tên sự kiện C3 / J7, nối T..Y).
