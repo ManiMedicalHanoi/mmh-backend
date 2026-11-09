@@ -5,7 +5,7 @@ This guide shows the Thailand Dental sales team how to use **MMH CRM** in daily 
 | Part | Content |
 |---|---|
 | **1 · Getting started** | Sign in, install the app, find your way around on a computer and on a phone |
-| **2 · Data entry** | Customer tasks, other tasks, business trips, events, customers and contacts |
+| **2 · Data entry** | Customer tasks, other tasks, business trips, events and ROI, customers and contacts, account tracking, map of Thailand |
 | **3 · Reports** | Weekly report, monthly plan, monthly KPI report |
 | **4 · Overview** | Dashboard, KPIs & Targets, calendar views |
 

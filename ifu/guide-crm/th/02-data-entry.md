@@ -1,7 +1,7 @@
 ---
 number: 2
 ---
-[[opener 2 | Data entry | Record every customer activity on the day it happens. Each entry is written to the team's Google Sheet in the background; managers and the KPI file read it from there. | crmth/task_new | Add a customer task; Report the result; Co-visits, events and product tests; Other tasks; Business trips; Events; Customers and contacts]]
+[[opener 2 | Data entry | Record every customer activity on the day it happens. Each entry is written to the team's Google Sheet in the background; managers and the KPI file read it from there. | crmth/task_new | Add a customer task; Report the result; Co-visits, events and product tests; Other tasks; Business trips; Events and ROI; Customers and contacts; Account tracking; Map of Thailand]]
 
 ## Add a customer task
 
@@ -86,7 +86,7 @@ After the trip, click the trip on the calendar ▸ fill in **Key Activities**, *
 Before approval you can still **Edit** or **Delete** the request.
 :::split-end
 
-## Events
+## Events and ROI
 
 :::split crmth/event | The Event list: events of the month with status and participants.
 **Event** shows every seminar, workshop and exhibition of the **Dental Event Report** file by month: upcoming and done, target and actual participants.
@@ -102,6 +102,19 @@ Before approval you can still **Edit** or **Delete** the request.
 After the event, open it again and fill in the **Event review** and the **actual participants**.
 :::split-end
 
+:::split crmth/event_roi | Event list: cost, revenue, ROI and follow-ups due.
+Each event card shows **cost**, **revenue**, **profit / loss**, **ROI** and **cost per attendee** (actual figures once the event is done, otherwise the budget).
+
+After each event, follow up with the customers **2, 4 and 8 weeks** later. **Follow-ups due** at the top of the page lists what is due ▸ **Log**.
+:::split-end
+
+:::split crmth/event_budget | Budget & ROI and the follow-up log in the event form.
+1. Open the event ▸ **Budget & ROI**. Grey figures come from the budget sheet — edit them there.
+2. No budget sheet yet ▸ **Create budget sheet**: a copy of the *Sale out Event Budget* sheet is made for the event and linked to it.
+3. Fill in **Note** and **Next follow up** ▸ **Save to Google Sheet**.
+4. **Log follow-up**: choose 2 / 4 / 8 weeks, call, visit or order, write what was done ▸ **Log follow-up**.
+:::split-end
+
 ## Customers and contacts
 
 :::split crmth/cust_new | ＋ New account: the customer and its first contact in one form.
@@ -112,4 +125,29 @@ To add a new customer: **＋ New account** ▸ enter the **name**, **account typ
 
 :::split crmth/cust_profile, crmth/m_cust | Customer profile: timeline, contacts and account plan (left) · Customer list on a phone (right).
 Click a customer to open the **360° profile**: timeline of all tasks, key contacts, account plan (ADP) and activity in the last 12 months. Use **Add CBC** to add another contact and **Log activity** to add a task for this customer.
+:::split-end
+
+## Account tracking
+
+:::split crmth/acct_list, crmth/m_acct | Account tracking on a computer (left) and a phone (right).
+**Customers ▸ Account tracking** shows one row per account: **district**, **distributor**, **distributor sales rep**, **last visit**, **next step**, **next visit**, **stage** and activities in the last 30 / 90 days.
+
+The figures at the top: accounts, **active accounts** (activity in the last 90 days), visits and calls this month, new accounts. Filter by PIC, province, district, distributor, stage or status.
+:::split-end
+
+:::split crmth/acct_edit | Update the district, distributor and distributor sales rep of an account.
+Click an account ▸ fill in **District** (Bangkok districts are suggested), **Distributor** and **Distributor sales rep** ▸ **Save**. The data is saved to sheet **ACCOUNT TRACKING**.
+
+Last visit, next step, next visit and stage come from your customer tasks — keep them up to date there.
+:::split-end
+
+## Map of Thailand
+
+:::split crmth/acct_map, crmth/m_acct_map | The map on a computer (left) and a phone (right).
+**Account tracking ▸ Map**: provinces are shaded by number of accounts; pins are coloured by distributor.
+
+- Choose a **region** or click a **province** to filter.
+- **Locate accounts** finds the location of accounts not yet on the map (OpenStreetMap hospitals and clinics, then the address, otherwise the province centre — shown as approximate).
+- Wrong place? Open the pin ▸ **Move pin**, drag it, **Save location**. A pin placed by hand is kept.
+- **Hospitals (OpenStreetMap)** shows hospitals that are not accounts yet.
 :::split-end
