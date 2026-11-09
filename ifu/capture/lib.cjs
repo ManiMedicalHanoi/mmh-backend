@@ -4,7 +4,7 @@ const path = require('path'), fs = require('fs');
 const MOCK = require('./crm_mock.cjs');
 const APP = process.env.CRM_APP || 'file:///home/user/MMH-CRM/index.html';
 const OUT = process.env.SHOT_OUT || (__dirname + '/../shots/crm');
-const LOCAL = { Viet:'mmh.hanoi', Vinh:'mmh.danang', Phuong:'mmh.saigon', Tuyen:'tt.tuyen', 'Nguyen Ha':'nt.ha', Giang:'mmh.product', Dao:'manithailand', Miew:'manithailand4' };
+const LOCAL = { Viet:'mmh.hanoi', Vinh:'mmh.danang', Phuong:'mmh.saigon', Tuyen:'tt.tuyen', 'Nguyen Ha':'nt.ha', Giang:'mmh.product', Dao:'manithailand', Miew:'manithailand4', Yong:'th.yong', Man:'th.man', Sui:'th.sui' };
 
 async function newPage(browser, o){
   o = o || {};
@@ -18,7 +18,7 @@ async function newPage(browser, o){
   page.on('pageerror', e => page._errs.push(e.message));
   page.on('dialog', d => d.dismiss().catch(() => {}));
   await page.clock.setFixedTime(new Date(o.time || '2026-10-07T09:00:00+07:00'));
-  const pic = o.pic || 'Viet', team = o.team || (pic === 'Dao' || pic === 'Miew' ? 'thai' : 'dental');
+  const pic = o.pic || 'Viet', team = o.team || (pic === 'Dao' || pic === 'Miew' ? 'thai' : /^(Yong|Man|Sui)$/.test(pic) ? 'thaid' : 'dental');
   const sess = { level:o.level || 'pic', admin:!!o.admin };
   await page.addInitScript(([pic, team, sess, gate, local, keep, extra]) => {
     try {
@@ -33,7 +33,7 @@ async function newPage(browser, o){
         localStorage.setItem('mmh_last_email', local + '@example.com');
         if (!keep.upd){
           const ids = ['2026-10-12-v31.4','2026-10-12-v31.3','2026-10-12-v31.2','2026-10-11-v31.1','2026-10-11-v31.0','2026-10-10-v30.9','2026-10-10-v30.8','2026-10-08-v30.7','2026-10-08-v30.6','2026-10-08-v30.5','2026-10-08-v30.4','2026-10-07-v30.3','2026-10-07-v30.2','2026-10-06-v30.1','2026-10-06-v30.0'];
-          const h = {}; ids.forEach(i => h[i] = 1); ['Viet','Vinh','Phuong','Tuyen','Nguyen Ha','Giang','Dao','Miew','_'].forEach(p => localStorage.setItem('mmh_upd_hide_' + p, JSON.stringify(h)));
+          const h = {}; ids.forEach(i => h[i] = 1); ['Viet','Vinh','Phuong','Tuyen','Nguyen Ha','Giang','Dao','Miew','Yong','Man','Sui','_'].forEach(p => localStorage.setItem('mmh_upd_hide_' + p, JSON.stringify(h)));
         }
         if (!keep.tfa) localStorage.setItem('mmh_tfa_seen', new Date().toISOString().slice(0, 10));
         Object.keys(extra || {}).forEach(k => localStorage.setItem(k, extra[k]));
