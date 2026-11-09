@@ -103,7 +103,7 @@ var NA_FOLDER_TH = '1NpZkyMi-cIe_2FLHO9_2WsX_DiCFLYDf';
 var NA_APPROVERS_TH = { 'Dao':['Tuyen'], '*':['Dao','Tuyen'] };
 var NA_ADMINS = ['Nguyen Ha','Tuyen','Hoa','Giang'];
 var NA_DECIDERS = ['Nguyen Ha','Tuyen'];
-var WRITE_ACTIONS = { weeklyReport:1, monthlyReport:1, tripPropose2:1, saveWeekly:1, saveCustomer:1, saveCBC:1, saveCustomerCbc:1, saveMonthly:1, savePresentation:1, saveADP:1,
+var WRITE_ACTIONS = { weeklyReport:1, monthlyReport:1, tripPropose2:1, tripPropose:1, tripUpdate:1, tripDelete:1, tripReport:1, saveWeekly:1, saveCustomer:1, saveCBC:1, saveCustomerCbc:1, saveMonthly:1, savePresentation:1, saveADP:1,
                       deleteRow:1, deleteAccount:1, addKey:1, addSub:1, naSave:1, naSubmit:1, naDecide:1, naDelete:1 };
 /* who receives the weekly / monthly report of each PIC */
 function mailRule_(pic){
@@ -1279,6 +1279,7 @@ function route_(p){
   if(/^(ping|boot)$/.test(a)){ try { dfMaybe_(); } catch(eD){} }        /* v1.19 — chuẩn hoá ngày (1 lần + mỗi đêm) */
   if(/^na[A-Z]/.test(a)) return naRoute_(a, user, p);                    /* v1.9 */
   if(/^kr[A-Z]/.test(a)) return krRoute_(a, user, p);                    /* v1.9 */
+  { var thr = (typeof thtRoute_ === 'function') ? thtRoute_(a, user, p) : null; if(thr) return thr; }   /* 09/11/2026 — TH_Trip.gs: every trip action → the team's own Business Trip file */
   if(/^trip(Master|Propose)2$/.test(a)) return tripRoute_(a, user, p);  /* v1.16 */
   switch(a){
     case 'rpLog': return rplApi_(p);                                      /* ⭐ 23/10/2026: thống kê gửi báo cáo (MMH_ReportLog.gs) */
@@ -1349,7 +1350,7 @@ function route_(p){
     case 'deleteKey': return atDelete_(user, p, true);
     case 'deleteSub': return atDelete_(user, p, false);
     case 'syncVisiting': { var r = vsSync_(false); return { ok: true, message: 'Customer visiting synced to ALL TASK', result: r }; }
-    case 'tripSync': case 'tripMaster': case 'tripInfo': return { ok: false, error: 'Business trips are not used by the Thailand CRM.' };
+    /* 09/11/2026: tripSync / tripMaster / tripInfo … handled by TH_Trip.gs (thtRoute_) */
     /* ⭐ v1.1 — WEEKLY MEETING (same actions as the Vietnam CRM backend v8.7) */
     case 'mtList': return mtList_();
     case 'mtGet': return mtGet_(str_(p.id));

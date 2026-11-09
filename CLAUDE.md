@@ -389,3 +389,9 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   báo cáo tuần / tháng từ sheet WEEK) được thay bằng code CRM (vẫn còn trong lịch sử git, commit "Kéo code từ Apps Script (crm-thai-dental)"). Lần deploy đầu tạo web app MỚI ⇒ app CRM `TEAMS.thaid.url` đổi theo.
   Dựng bố cục trên file thật: ping `crm-thai-dental?action=thdSample&op=build&key=<8 ký tự cuối ID Sheet>` (KHÔNG seed dữ liệu mẫu); `thdFixRun_` chờ dựng xong (`thdFixReady_`), `thdRun_` chạy bản sửa f2 ngay khi xong.
   KPI: `KSC.CRM_DEFAULT.thaid` = file thật + `KSC.CRM_MOVED` (link cũ ở _CRM_LINKS tự đổi sang file mới).
+- **09/11/2026 — Công tác nhóm Thái = file Business Trip RIÊNG (`TH_Trip.gs` GIỐNG HỆT ở crm-thai + crm-thai-dental, người dùng yêu cầu)**: Thailand Dental ⇒ "Thailand Dental - Business trip Approval and Report"
+  (`1w6jn6Vs…`, backend `trip-thai-dental` = script PIC / HOD Menu của file), Thailand Surgical ⇒ "Thailand Surgical - …" (`1B3KifUW…`, `trip-thai-surgical`). KHÔNG còn ghi file Business Trip VN.
+  `thtRoute_` (gọi đầu `route_`) nhận tripMaster(2) · tripPropose(2) · tripInfo · tripUpdate · tripDelete · tripReport · tfTrips / tripList · tripSync (no-op). Cột dò theo TÊN tiêu đề (dòng có PIC + Start date, dòng gợi ý
+  "Auto / Choose" bỏ qua), dòng mới chép công thức dòng trên, ô có công thức không ghi. Đề xuất: Approval "Not Yet" ⇒ email "Approval Business trip - ddMMyyyy - PIC" (đúng mẫu file) To Director / CC HOD + PIC ⇒
+  "Already sent propose email"; HOD vẫn duyệt bằng HOD Menu trên Sheet. Báo cáo (chỉ Approved): folder chuyến (folder gốc `1HMrQ4x…`), file Word (.doc HTML — backend Thái không có DocumentApp, không thêm quyền),
+  cột Business trip Report + Actual report date, email To Shuhei-san (`s-takahashi@mani.inc`) CC Director + PIC. Tiền luôn THB. Chữ / email tiếng Anh. PIC thiếu trong Master I:M (Yong, Miew) ⇒ `thtEnsurePerson_` tự thêm 1 dòng.
