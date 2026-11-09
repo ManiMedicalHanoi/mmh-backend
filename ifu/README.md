@@ -78,3 +78,14 @@ Số trang IFU đọc từ `ppt/ifu_pages.json` (ghi lại sau mỗi lần dựn
 - Ảnh: `capture/crm_guide.cjs [vi|en] [cảnh…]` (CRM chạy qua http: `python3 -m http.server 8790` trong MMH-CRM, `CRM_APP=http://127.0.0.1:8790/index.html`) ⇒ `shots/crmg` (Dental VN, tiếng Việt)
   và `shots/crmg_en` (Thailand Surgical, tiếng Anh); hình minh hoạ cài đặt (Chrome / Safari / màn hình chính): `capture/crm_ill.cjs` (chạy sau). Dữ liệu giả: `capture/crm_mock.cjs`.
 - Cần `config.local.json` có `"pagedjs"` trỏ tới `node_modules/pagedjs/dist/paged.polyfill.js` (gói pagedjs mới không cho `require.resolve` đường dẫn này).
+
+## Sales Guide Thailand Dental — tiếng Anh, A4 ngang (09/11/2026)
+
+`node build.mjs crmth` → `dist/MMH_CRM_Sales_Guide_Thailand_Dental_EN.pdf` (người dùng yêu cầu: formal, ngắn gọn, thứ tự Đăng nhập → Nhập liệu → Báo cáo → Tổng quan, ảnh máy tính + điện thoại).
+
+- Nội dung: `guide-crm/th/*.md` (00 giới thiệu + 3 quy tắc dữ liệu · 01 getting started · 02 data entry · 03 reports · 04 overview).
+- Ảnh: `capture/crm_th_guide.cjs` (nhóm `thaid`, Yong, dữ liệu giả `crm_mock.cjs ▸ buildTHD` / `EV_THD` / `TRIPS_TH`) ⇒ `shots/crmth`.
+  Chạy: `python3 -m http.server 8790` trong MMH-CRM, rồi `CRM_APP=http://127.0.0.1:8790/index.html NODE_PATH=$(npm root -g) node capture/crm_th_guide.cjs [cảnh…]`.
+- Không có link Sheet thật trong sách này (chỉ tên file) ⇒ gửi được cho nhóm Thái.
+- `build.mjs ▸ olNum`: số bước của danh sách đánh số ghi sẵn vào `data-n` (bộ đếm CSS bị Paged.js đếm sai ⇒ hiện -5, -4…) — áp dụng mọi bản dựng.
+- `npm install` trong `ifu/` kéo thêm playwright cục bộ không có trình duyệt ⇒ xoá `node_modules/playwright*` để dùng bản cài sẵn.

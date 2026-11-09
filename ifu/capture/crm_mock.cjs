@@ -217,6 +217,68 @@ function buildTH(){
   return D;
 }
 
+/* ═════════════ NHÓM THAILAND DENTAL (thaid — Yong · Man · Sui), dữ liệu giả ═════════════ */
+const MASTER_THD = {
+  pic: ['Yong','Man','Sui'], accountType: ['Hospital','Clinic','University','Distributor'], typeTask: ['Sale-Hospital','Sale-Clinics','Sale-University','Sale-Distributor','Marketing-Event','Training & Education'],
+  typeAction: ['Visiting','Phone call','Online meeting','Co-visiting with distributor','Event','Product test'], process: ['IDENTIFY','APPROACH','DEMO / TRIAL','NEGOTIATE','CLOSE','AFTER-SALES'],
+  status: ['Not started','In Progress','Completed','Cancel'], feedback: ['Positive','Neutral','Need more info','Not satisfied'], product: ['Jizai and handfile','Bur','Composite','Mani Bond'],
+  area: ['Bangkok','Central','North','Northeast','South'], fy: ['FY68'], province: ['Bangkok','Nonthaburi','Chiang Mai','Khon Kaen','Nakhon Ratchasima','Songkhla','Phuket'],
+  jobTitle: ['Dentist','Endodontist','Clinic Owner','Head of Department','Purchasing Manager','Distributor sales'], role: ['Decision maker','Influencer','User'], influence: ['High','Medium','Low'],
+  abcd: ['A','B','C','D'], nextAction: ['Tiếp tục chăm - Tăng tốc','Tiếp tục chăm - Duy trì','Chờ - Thử lại sau 30 ngày','Dừng lại']
+};
+const AREA_THD = { Bangkok:'Bangkok', Nonthaburi:'Central', 'Chiang Mai':'North', 'Khon Kaen':'Northeast', 'Nakhon Ratchasima':'Northeast', Songkhla:'South', Phuket:'South' };
+function buildTHD(){
+  const D = { customer:[], cbc:[], order:[], npp:[], monthly:[], weekly:[], present:[], adp:[] }, byName = {};
+  const C = [['CBKK-CL0001','Smile Avenue Dental Clinic (demo)','Clinic','Bangkok','Yong'],['CBKK-HP0002','Chao Phraya Dental Hospital (demo)','Hospital','Bangkok','Yong'],['CNON-CL0003','Nonthaburi Family Dental (demo)','Clinic','Nonthaburi','Yong'],
+    ['NCMI-UN0004','Lanna Faculty of Dentistry (demo)','University','Chiang Mai','Man'],['NKKN-CL0005','Isan Endo Clinic (demo)','Clinic','Khon Kaen','Man'],['SSKA-HP0006','Hat Yai Dental Center (demo)','Hospital','Songkhla','Man'],
+    ['SPKT-CL0007','Andaman Smile Clinic (demo)','Clinic','Phuket','Sui'],['CBKK-DT0008','DDI Distributor (demo)','Distributor','Bangkok','Yong']];
+  const CT = ['Dr. Somchai P.','Dr. Nattaya K.','Dr. Anan S.','Dr. Pimchanok R.','Dr. Kittipong W.','Dr. Supaporn L.','Dr. Chanida M.','Khun Mac T.'];
+  C.forEach((c, i) => { const o = { _row: 4 + i, code: c[0], name: c[1], type: c[2], address: c[3], province: c[3], area: AREA_THD[c[3]], pic: c[4], fy: 'FY68', openDate: '2025-0' + (i + 1) + '-10', openMonth: '20250' + (i + 1), nCbc: 1, nOrder: 0, note: '' }; D.customer.push(o); byName[c[1]] = o;
+    D.cbc.push({ _row: 4 + i, code: c[0], cbcCode: c[0] + '-PIC1', type: c[2], name: c[1], address: c[3], province: c[3], area: AREA_THD[c[3]], pic: c[4], cbcNo: 1, contact: CT[i], phone: '080 000 02' + i + '0', jobTitle: i === 7 ? 'Distributor sales' : i === 3 ? 'Endodontist' : 'Dentist', specialize: i === 3 ? 'Endodontics' : 'General dentistry', role: 'Decision maker', influence: 'High', trust: '', note: '', log: '' }); });
+  let wr = 4, wno = 1;
+  const W = (pic, start, cn, o) => { const c = byName[cn]; o = o || {}; const st = o.status || (start < '2026-10-07' ? 'Completed' : 'Not started'); const ct = D.cbc.find(x => x.code === c.code);
+    D.weekly.push({ _row: wr++, no: wno++, fy: 'FY68', month: ymOf(start), start, finish: start, pic, account: `${c.name}/${c.type}/${c.province}/${c.area}`, type: c.type, province: c.province, area: c.area, product: o.product || 'Jizai and handfile',
+      typeTask: c.type === 'Hospital' ? 'Sale-Hospital' : c.type === 'Clinic' ? 'Sale-Clinics' : c.type === 'University' ? 'Sale-University' : 'Sale-Distributor', typeAction: o.ta || 'Visiting', process: o.process || 'APPROACH', plan: o.plan || 'Introduce Jizai rotary files and glide path files',
+      result: st === 'Completed' ? `Person met: ${ct.contact} (${ct.jobTitle})\n1. Actions Taken: Hands-on demo of Jizai on an extracted tooth.\n2. Current Situation: Uses a competitor rotary system.\n3. Customer Feedback: Likes the flexibility; asked for the price list.\n4. Opportunities / Next Steps: 2-week trial through DDI.` : '',
+      status: st, feedback: st === 'Completed' ? 'Positive' : '', nextAction: st === 'Completed' ? 'Tiếp tục chăm - Tăng tốc' : '', stopReason: '', photo: '', gpsInfo: '' }); };
+  [['Yong','2026-10-05','Smile Avenue Dental Clinic (demo)'],['Yong','2026-10-06','Chao Phraya Dental Hospital (demo)',{ta:'Co-visiting with distributor'}],['Yong','2026-10-07','Nonthaburi Family Dental (demo)',{status:'In Progress',product:'Composite'}],
+   ['Yong','2026-10-08','Smile Avenue Dental Clinic (demo)',{product:'Bur'}],['Yong','2026-10-09','Chao Phraya Dental Hospital (demo)',{ta:'Co-visiting with distributor'}],['Yong','2026-10-01','CBKK-DT0008'.length && 'DDI Distributor (demo)',{ta:'Online meeting',product:'Composite'}],
+   ['Man','2026-10-05','Lanna Faculty of Dentistry (demo)',{ta:'Event'}],['Man','2026-10-06','Isan Endo Clinic (demo)'],['Man','2026-10-07','Hat Yai Dental Center (demo)',{ta:'Product test'}],['Man','2026-10-09','Isan Endo Clinic (demo)'],
+   ['Sui','2026-10-06','Andaman Smile Clinic (demo)',{product:'Composite'}],['Yong','2026-09-29','Smile Avenue Dental Clinic (demo)'],['Man','2026-09-30','Lanna Faculty of Dentistry (demo)'],['Yong','2026-09-22','Chao Phraya Dental Hospital (demo)',{ta:'Co-visiting with distributor'}]].forEach(x => W(x[0], x[1], x[2], x[3]));
+  D.monthly.push({ _row:4, no:1, typeTask:'Sale-Clinics', pic:'Yong', area:'Bangkok', fy:'FY68', period:'202610', plan:'1. Customer visit:\n- Focus areas: Bangkok, Nonthaburi\n- Key accounts: Chao Phraya Dental Hospital\n- Focus products: Jizai and handfile', result:'' });
+  D.monthly.push({ _row:5, no:2, typeTask:'Training & Education', pic:'Man', area:'North', fy:'FY68', period:'202610', plan:'1. Hands-on workshop Jizai at Lanna Faculty (24/10)\n2. Product test follow-up: 5 dentists', result:'' });
+  D.present.push({ _row:4, no:1, account:'Lanna Faculty of Dentistry (demo)/University/Chiang Mai/North', pic:'Man', province:'Chiang Mai', area:'North', fy:'FY68', month:'202610', day:'2026-10-05', folder:'https://drive.google.com/drive/folders/1FAKEPRES', review:'', target:25, actual:22 });
+  D.adp.push({ _row:4, no:1, account:'Chao Phraya Dental Hospital (demo)/Hospital/Bangkok/Bangkok', pic:'Yong', fy:'FY68', abcd:'A', caseInfo:'12 dental chairs, 2 endodontists', analysis:'Uses competitor rotary files; open to trial', objective:'Switch endo department to Jizai', tactic:'Co-visits with DDI + hands-on demo', keyAction:'Trial 2 weeks, then quotation', targetAmt:6000, actualAmt:1500 });
+  return D;
+}
+const EV_THD = [
+  { row:5, sig:'a', picKpi:'Man', no:1, name:'Jizai hands-on workshop (demo)', month:'202610', date:'20261024', start:'2026-10-24', end:'2026-10-24', fy:'FY68', dateWarn:false, type:'Workshop', product:'Jizai and handfile', segment:'Dental', topic:'Glide path and shaping with Jizai', kol:'MMH Man', partner:'DDI', place:'Lanna Faculty of Dentistry (demo)', area:'North', plan:'Fixed', action:'As planned', link:'', review:'', target:30, actual:0 },
+  { row:6, sig:'b', picKpi:'Yong', no:2, name:'Composite layering seminar (demo)', month:'202610', date:'20261012', start:'2026-10-12', end:'2026-10-12', fy:'FY68', dateWarn:false, type:'Seminar', product:'Composite', segment:'MMG', topic:'Natural layering with MMG composite', kol:'Dr. Arnon K.', partner:'DDI', place:'Bangkok', area:'Bangkok', plan:'Fixed', action:'As planned', link:'', review:'- Objective: Awareness\n- Actual Attendees: 38', target:40, actual:38 },
+  { row:7, sig:'c', picKpi:'Sui', no:3, name:'Phuket dental exhibition booth (demo)', month:'202611', date:'20261115', start:'2026-11-15', end:'2026-11-16', fy:'FY68', dateWarn:false, type:'Exhibition', product:'Bur', segment:'Dental', topic:'MANI booth', kol:'MMH Sui', partner:'DDI', place:'Phuket', area:'South', plan:'Not yet fixed', action:'As planned', link:'', review:'', target:150, actual:0 } ];
+const TRIPS_TH = [
+  { no:'71', pic:'Yong', start:'2026-10-13', finish:'2026-10-15', dest:'Chiang Mai', purpose:'Co-visits with DDI and Jizai demo at Lanna Faculty', expect:'2 trial orders', ap:'Approved', rep:'' },
+  { no:'70', pic:'Man', start:'2026-09-23', finish:'2026-09-26', dest:'Nakhon Ratchasima', purpose:'Jizai and handfile exhibition with DDI', expect:'Brand awareness, 10 boxes sold', ap:'Approved', rep:'1. Key Activities: 2-day booth with DDI, 90 participants.\n2. Key Findings: Strong interest in glide path files.\n3. Next Actions: Follow up 4 interested dentists.' },
+  { no:'72', pic:'Yong', start:'2026-10-27', finish:'2026-10-28', dest:'Phuket', purpose:'Visit clinics with DDI sales rep', expect:'3 new accounts', ap:'Not Yet', rep:'' } ];
+function tfTripsTH(pics){
+  const today = '2026-10-07';
+  return TRIPS_TH.filter(t => !pics.length || pics.includes(t.pic)).map(t => {
+    const days = Math.round((new Date(t.finish) - new Date(t.start)) / 864e5) + 1, m = t.start.replace(/-/g, '').slice(0, 6);
+    const dm = x => x.slice(8,10) + '/' + x.slice(5,7) + '/' + x.slice(0,4);
+    const s = t.rep ? { status:'Completed', pct:100 } : /approv/i.test(t.ap) ? (today < t.start ? { status:'To Do', pct:0 } : { status:'In Progress', pct:50 }) : { status:'To Do', pct:0 };
+    return { no:'BT' + t.no, row:0, keyTask:'Business trips ' + m.slice(4,6) + '/' + m.slice(0,4), type:'Business trip', pic:t.pic,
+      subTask:'Business trip ' + t.dest + ' · ' + days + ' day(s) · ' + dm(t.start) + ' – ' + dm(t.finish),
+      result:'Trip plan\n1. Purpose: ' + t.purpose + '\n2. Expected result: ' + t.expect + '\n\nReport\n' + (t.rep || '(No business trip report yet)') + '\n\nApproval: ' + t.ap,
+      start:t.start, planned:t.finish, revised:'', status:s.status, progress:s.pct, approval:t.ap, vSrc:'trip', vMeta:{ id:'T' + t.no + '|' + t.pic, r:60 + (+t.no), m } };
+  });
+}
+function tripInfoTH(id){
+  const t = TRIPS_TH.find(x => ('T' + x.no) === String(id).split('|')[0] || String(60 + (+x.no)) === String(id) || x.no === String(id)) || TRIPS_TH[0];
+  const days = Math.round((new Date(t.finish) - new Date(t.start)) / 864e5) + 1;
+  return { ok:true, trip:{ id:60 + (+t.no), no:t.no, pic:t.pic, hubPic:t.pic, dest:t.dest, start:t.start, finish:t.finish, days, co:'No', equip:'', purpose:t.purpose, expect:t.expect,
+    schedule:'Day 1: Bangkok → ' + t.dest + ', 2 clinic visits with DDI\nDay 2: workshop / visits\nDay 3: return to Bangkok', estCost:'Per diem: 1,500 THB\nTransport: 3,200 THB\nHotel: 2,400 THB', total:7100, currency:'THB', approval:t.ap,
+    approved:/approv/i.test(t.ap) && !/not/i.test(t.ap), folder:'https://drive.google.com/drive/folders/1FAKETRIPFOLDER', report:t.rep, reportDate:t.rep ? '2026-09-28' : '', canReport:/approv/i.test(t.ap) && !/not/i.test(t.ap), canEdit:!/approv/i.test(t.ap) || /not/i.test(t.ap), canDelete:!/approv/i.test(t.ap) || /not/i.test(t.ap) } };
+}
+
 /* ═════════════ CÔNG VIỆC KHÁC (sheet ALL TASK) ═════════════ */
 function allTasks(team){
   let row = 7;
@@ -228,7 +290,11 @@ function allTasks(team){
     return k;
   };
   let keys;
-  if (team === 'thai') keys = [
+  if (team === 'thaid') keys = [
+    K('Reports & Plans 10/2026','Sales-Thailand Dental','Yong','2026-10-01','2026-10-31',[['Weekly report and plan for next week','Yong','2026-10-05','2026-10-05','Completed',100,'Sent to Shuhei-san'],['Monthly sales plan November','Yong','2026-10-26','2026-10-30','To Do',0]]),
+    K('Training & Research 10/2026','Sales-Thailand Dental','Yong','2026-10-01','2026-10-31',[['Prepare Jizai demo kit for Chiang Mai trip','Yong','2026-10-08','2026-10-10','In Progress',40]]),
+    K('Event Enrolment 10/2026','Sales-Thailand Dental','Man','2026-10-01','2026-10-31',[['Invite dentists to the Jizai workshop 24/10','Man','2026-10-06','2026-10-20','In Progress',60]])];
+  else if (team === 'thai') keys = [
     K('Tender — Rajavithi Eye Center FY68','Sales-Thailand Surgical','Dao','2026-10-01','2026-10-20',[['Prepare technical spec MVR knife','Dao','2026-10-05','2026-10-08','In Progress',50],['Price proposal to purchasing','Dao','2026-10-09','2026-10-12','To Do',0]]),
     K('Distributor support — October','Sales-Thailand Surgical','Miew','2026-10-01','2026-10-31',[['Stock check with distributor','Miew','2026-10-06','2026-10-06','Completed',100],['Q2 sales plan meeting','Miew','2026-10-13','2026-10-13','To Do',0]])];
   else keys = [
@@ -331,6 +397,15 @@ const KPI_DEF = {
          ['C2-01','Sales – New Customer Accounts','Number of New Accounts & New SKU Listings – Thailand','Account','Cộng dồn',0.20,[1,1,1,1,1,1,1,1,1,1,1,1],[1,0]],
          ['C3-21','Sales – Customer Visits & Co-visits','Number of Customer Visits – Thailand','Visit','Cộng dồn',0.25,[16,16,16,16,16,16,16,16,16,16,16,16],[18,6]],
          ['P2-01','People – Behaviour','Key Behavioural Indicator Score','Point','Bình quân',0.25,[4,4,4,4,4,4,4,4,4,4,4,4],[4.1,null]] ],
+  Yong: [ ['F4-00','Sales – Turnover','MMH Sales Amount to Distributors – Dental & MMG Thailand','USD','Lũy kế',0.40,[10000,20000,30000,40000,50000,60000,70000,80000,90000,100000,110000,120000],[9600,17800]],
+          ['C2-01','Sales – New Customer Accounts','Number of New Key Accounts – Thailand Dental','Account','Cộng dồn',0.20,[1,1,1,1,1,1,1,1,1,1,1,1],[1,0]],
+          ['C2-02','Sales – Key Account Profiling','Key Account Profiling Completion Rate','%','Lũy kế',0.10,[10,20,30,40,50,60,70,80,90,100,100,100],[12,18]],
+          ['C4-01','Sales – Customer Visits & Co-visits','Number of Co-visits with Distributor Sales Representatives – Thailand Dental','Visit','Cộng dồn',0.20,[8,8,8,8,8,8,8,8,8,8,8,8],[7,3]],
+          ['P2-01','People – Behaviour','Key Behavioural Indicator Score','Point','Bình quân',0.10,[4,4,4,4,4,4,4,4,4,4,4,4],[4.0,null]] ],
+  Man: [ ['C4-03','Sales – Customer Visits & Co-visits','Number of Days with Co-visits – Thailand Dental','Day','Cộng dồn',0.30,[6,6,6,6,6,6,6,6,6,6,6,6],[6,2]],
+         ['C11-02','Marketing – Event Number','Number of Events Led by MMH – Thailand Dental','Event','Cộng dồn',0.30,[1,1,1,1,1,1,1,1,1,1,1,1],[1,0]],
+         ['C11-03','Sales – Product Test','Product Test Pass Rate','%','Lũy kế',0.30,[70,70,70,70,70,70,70,70,70,70,70,70],[75,72]],
+         ['P2-01','People – Behaviour','Key Behavioural Indicator Score','Point','Bình quân',0.10,[4,4,4,4,4,4,4,4,4,4,4,4],[4.2,null]] ],
   Miew: [ ['C2-03','Sales – New Customer Accounts','Number of New Accounts & New SKU Listings – Manipler – Thailand','Account','Cộng dồn',0.30,[1,1,1,1,1,1,1,1,1,1,1,1],[1,1]],
           ['C3-22','Sales – Customer Visits & Co-visits','Number of Customer Visits – Thailand','Visit','Cộng dồn',0.40,[16,16,16,16,16,16,16,16,16,16,16,16],[15,7]],
           ['P2-01','People – Behaviour','Key Behavioural Indicator Score','Point','Bình quân',0.30,[4,4,4,4,4,4,4,4,4,4,4,4],[3.9,null]] ]
@@ -341,7 +416,10 @@ const STAFF = { Viet:{ full:'Nguyễn Minh Việt (demo)', title:'Dental Sales T
   Tuyen:{ full:'Trần Thanh Tuyền (demo)', title:'Head of Sales & Marketing VN', role:'HOD', team:'Sales & Marketing VN', dept:'Sales & Marketing VN', level:'Manager' },
   Giang:{ full:'Phạm Hương Giang (demo)', title:'Product Team Leader', role:'Team Leader', team:'Product team', dept:'Sales & Marketing VN', level:'Leader' },
   Dao:{ full:'Dao S. (demo)', title:'Thailand Surgical Team Leader', role:'Team Leader', team:'Thailand Surgical team', dept:'Sales Thailand', level:'Leader' },
-  Miew:{ full:'Miew K. (demo)', title:'Thailand Surgical Sales PIC', role:'', team:'Thailand Surgical team', dept:'Sales Thailand', level:'Staff' } };
+  Miew:{ full:'Miew K. (demo)', title:'Thailand Surgical Sales PIC', role:'', team:'Thailand Surgical team', dept:'Sales Thailand', level:'Staff' },
+  Yong:{ full:'Yong (demo)', title:'Thailand Dental - Commercial Lead', role:'', team:'Thailand Dental team', dept:'Sales Thailand', level:'Staff' },
+  Man:{ full:'Man (demo)', title:'Thailand Dental - Training & Education Lead', role:'', team:'Thailand Dental team', dept:'Sales Thailand', level:'Staff' },
+  Sui:{ full:'Sui (demo)', title:'Thailand Dental - Marketing Lead', role:'', team:'Thailand Dental team', dept:'Sales Thailand', level:'Staff' } };
 const nz = v => v == null ? null : v;
 function rkvRows(members){
   const periods = ['FY68','Q1','Q2','Q3','Q4'].concat(FYM), out = [];
@@ -357,7 +435,7 @@ function rkvRows(members){
   return { periods, rows: out };
 }
 function crmKpi(team){
-  const pics = team === 'thai' ? ['Dao','Miew'] : ['Viet','Vinh','Phuong'];
+  const pics = team === 'thaid' ? ['Yong','Man'] : team === 'thai' ? ['Dao','Miew'] : ['Viet','Vinh','Phuong'];
   const P = pics.map(pic => {
     const rows = (KPI_DEF[pic] || []).map(d => {
       const [code, group, name, unit, agg, w, t, a] = d, last = /Lũy kế/.test(agg);
@@ -365,12 +443,13 @@ function crmKpi(team){
       const tFY = last ? t[11] : tt.reduce((x, y) => x + y, 0), aFY = aa.filter(x => x != null).reduce((x, y) => x + y, 0);
       const tYtd = last ? t[1] : tt[0] + tt[1];
       const q = [0, 1, 2, 3].map(k => { if (k) return null; const T = tt.slice(0, 3).reduce((x, y) => x + y, 0); return Math.min(1.3, aFY / T); });
-      return { code, name, unit, agg, w, tFY, aFY, pct: aFY / tFY, ytd: Math.min(1.3, aFY / tYtd), t: last ? t.map((v, i) => i ? v - t[i - 1] : v) : tt, a: aa, q, manual: /^F/.test(code) };
+      const key = /^F/.test(code) ? 'turnover' : /^C(1|2-01|2-03)/.test(code) ? 'newacct' : /^C4-01/.test(code) ? 'covisit' : 'manual';
+      return { code, key, name, unit, agg, w, tFY, aFY, pct: aFY / tFY, ytd: Math.min(1.3, aFY / tYtd), t: last ? t.map((v, i) => i ? v - t[i - 1] : v) : tt, a: aa, q, manual: /^F/.test(code) };
     });
     const sw = rows.reduce((x, r) => x + r.w, 0), score = rows.reduce((x, r) => x + r.w * r.ytd, 0) / sw;
     return { pic, role: STAFF[pic].title, total: { pct: rows.reduce((x, r) => x + r.w * r.pct, 0) / sw, ytd: score, score, w: sw, q: [score, null, null, null] }, rows };
   });
-  const groups = team === 'thai' ? [] : [
+  const groups = /^thai/.test(team) ? [] : [
     { code:'F1', name:'Doanh số NPP Dental & MMG', unit:'USD', tFY:518000, aFY:79600, ytd:0.948, pct:0.154 },
     { code:'C1', name:'Mở mới khách hàng / SKU', unit:'Account', tFY:60, aFY:5, ytd:0.833, pct:0.083 },
     { code:'C3', name:'Viếng thăm khách hàng', unit:'Visit', tFY:780, aFY:87, ytd:0.637, pct:0.112 },
@@ -430,13 +509,13 @@ function filt(tab, rows, p){ return rows.filter(r => {
 async function install(page, opt){
   opt = opt || {};
   const team = opt.team || 'dental', me = opt.pic || 'Viet';
-  const D = team === 'thai' ? buildTH() : buildVN(), master = team === 'thai' ? MASTER_TH : MASTER_VN;
+  const D = team === 'thaid' ? buildTHD() : team === 'thai' ? buildTH() : buildVN(), master = team === 'thaid' ? MASTER_THD : team === 'thai' ? MASTER_TH : MASTER_VN;
   master.month = FYM.slice();
   const LOG = opt.log || [];
-  const users = { 'mmh.hanoi':'Viet','mmh.danang':'Vinh','mmh.saigon':'Phuong','tt.tuyen':'Tuyen','nt.ha':'Nguyen Ha','mmh.product':'Giang','manithailand':'Dao','manithailand4':'Miew','mmh.saigon1':'Khang','mmh.hanoi2':'Viet Ha' };
+  const users = { 'mmh.hanoi':'Viet','mmh.danang':'Vinh','mmh.saigon':'Phuong','tt.tuyen':'Tuyen','nt.ha':'Nguyen Ha','mmh.product':'Giang','manithailand':'Dao','manithailand4':'Miew','th.yong':'Yong','th.man':'Man','th.sui':'Sui','mmh.saigon1':'Khang','mmh.hanoi2':'Viet Ha' };
   const sess = opt.session || {};
   const cidx = D.customer.map(c => ['_row','code','name','type','province','area','pic','fy','openDate','nCbc','nOrder','note'].map(k => k === '_row' ? c._row : c[k]));
-  const picList = Object.keys(STAFF).filter(k => team === 'thai' ? ['Dao','Miew'].includes(k) : ['Viet','Vinh','Phuong','Tuyen','Giang'].includes(k))
+  const picList = Object.keys(STAFF).filter(k => team === 'thaid' ? ['Yong','Man','Sui','Dao'].includes(k) : team === 'thai' ? ['Dao','Miew'].includes(k) : ['Viet','Vinh','Phuong','Tuyen','Giang'].includes(k))
     .map(k => ({ pic:k, email:k.toLowerCase().replace(/\s/g,'') + '@example.com', role:/Leader|HOD/.test(STAFF[k].role) ? 'manager' : 'pic', title:STAFF[k].title, initials:k.slice(0,2).toUpperCase(), team:STAFF[k].team, level:/Leader/.test(STAFF[k].role) ? 'lead' : 'pic' }));
   const AT = allTasks(team);
   let NA = naRows();
@@ -450,7 +529,7 @@ async function install(page, opt){
     let p = Object.fromEntries(u.searchParams.entries());
     if (req.method() === 'POST'){ const raw = req.postData() || ''; try { Object.assign(p, JSON.parse(raw)); } catch(e){ const pd = new URLSearchParams(raw); pd.forEach((v, k) => p[k] = v); if (p.payload){ try { Object.assign(p, JSON.parse(p.payload)); } catch(_){} } } }
     const cb = p.callback, a = p.action || '', dep = u.pathname.split('/')[3] || '';
-    const host = /AKfycbwsX4cQ/.test(dep) ? 'training' : /AKfycbx58htP/.test(dep) ? 'kpi' : /AKfycbzn-5ch/.test(dep) ? 'reporthub' : /AKfycbz26knl/.test(dep) ? 'turnover' : /AKfycbz1qIyw|AKfycbykuiMS/.test(dep) ? 'event' : 'crm';
+    const host = /AKfycbwsX4cQ/.test(dep) ? 'training' : /AKfycbx58htP/.test(dep) ? 'kpi' : /AKfycbzn-5ch/.test(dep) ? 'reporthub' : /AKfycbz26knl/.test(dep) ? 'turnover' : /AKfycbz1qIyw|AKfycbykuiMS|AKfycbyUjFiu/.test(dep) ? 'event' : 'crm';
     LOG.push([host, a, req.method(), JSON.stringify(Object.assign({}, p, { callback:undefined, tk:undefined })).slice(0, 160)]);
     let d = { ok:true };
     const tkLocal = String(p.tk || '').replace(/^mocktk\./, '');
@@ -465,7 +544,7 @@ async function install(page, opt){
     } else if (host === 'kpi'){
       const viewer = users[tkLocal] || me, lvl = sess.level || 'pic';
       if (a === 'rhKpi'){ const scope = (lvl === 'director' || sess.admin) ? 'all' : lvl === 'hod' ? 'dept' : lvl === 'lead' ? 'team' : 'self';
-        const mem = scope === 'self' ? [viewer] : team === 'thai' ? ['Dao','Miew'] : ['Viet','Vinh','Phuong'];
+        const mem = scope === 'self' ? [viewer] : team === 'thaid' ? ['Yong','Man'] : team === 'thai' ? ['Dao','Miew'] : ['Viet','Vinh','Phuong'];
         const r = rkvRows(mem); d = { ok:true, me:viewer, scope, periods:r.periods, rows:r.rows, staff:Object.fromEntries(mem.map(m => [m, STAFF[m]])),
           org:Object.keys(STAFF).map(k => ({ key:k, full:STAFF[k].full, role:STAFF[k].role, team:STAFF[k].team, dept:STAFF[k].dept, level:STAFF[k].level })).concat([{ key:'', full:'Nguyễn Thị Hà (demo)', role:'Director', level:'Director' }]),
           sync:[{ month:'202609', at:'2026-10-07 08:55', src:'Doanh số NPP (Turnover)', status:'OK', file:'MMH Turnover Report', note:'202609' }, { src:'CRM Dental', status:'OK', file:'FY68_Dental CRM', at:'2026-10-07 08:55', note:'' }, { src:'Training Master', status:'OK', file:'Training Master', at:'2026-10-07 08:55', note:'' }, { src:'Marketing Offline', status:'OK', file:'MKT Offline', at:'2026-10-07 08:55', note:'' }, { src:'KBI', status:'OK', file:'KBI', at:'2026-10-07 08:55', note:'' }], total:(lvl === 'director' || lvl === 'hod' || !!sess.admin), at:'2026-10-07T01:58:00Z', v:'1.3' }; }
@@ -476,12 +555,12 @@ async function install(page, opt){
       if (a === 'weekly' || a === 'boot') d = { ok:true, source:'marketing', picList:[], keyTasks:[], monthly:[], activityLog:[] };
       else if (a === 'tripMaster') d = { ok:true, to:'Nguyen Ha (Director)', cc:'Tuyen (HOD)', master:{ destinations:['Ha Noi','Hai Phong','Quang Ninh','Bac Ninh','Da Nang','Hue','Quang Tri','Nghe An','Ho Chi Minh','Can Tho'], coTravelers:['Vinh','Phuong','Tuyen','Giang'], equipment:['Laptop','Hàng mẫu','Standee','Máy chiếu'] } };
       else if (a === 'tripInfo') d = tripInfo(p.r || p.id);
-    } else if (host === 'event'){ d = { ok:true, rows:[], events:[] }; }
+    } else if (host === 'event'){ d = team === 'thaid' ? (a === 'list' ? { ok:true, rows:EV_THD, lists:{ types:['Seminar','Workshop','Exhibition','Webinar','Private workshop'], plan:['Fixed','Not yet fixed'], action:['As planned','Change schedule','Additional','Cancel'], provinces:['Bangkok','Chiang Mai','Phuket','Khon Kaen'], areas:{ Bangkok:'Bangkok','Chiang Mai':'North',Phuket:'South','Khon Kaen':'Northeast' }, products:['Jizai and handfile','Bur','Composite'], partners:['DDI'], kols:['MMH Man','MMH Sui','Dr. Arnon K.'], kpiPics:['Man','Sui','Yong'], sheet:{ url:'https://docs.google.com/spreadsheets/d/FAKE/edit', event:'1', cust:'2' } }, editors:['Dao','Yong','Man','Sui'], reviewTemplate:'- Objective: \n- Target audience: \n- Expected outcome:\n- Actual Attendees:\n- Activities summary:\n- Customer feedback: \n- Sales impact:\n- Next action: ' } : a === 'customers' ? { ok:true, rows:[] } : { ok:true, message:'Saved' }) : { ok:true, rows:[], events:[] }; }
     else {
       /* backend CRM nhóm */
-      if (p.at === '1' && /^(weekly|boot)$/.test(a)) d = { ok:true, keyTasks:AT, source:'crm', statusOptions:['To Do','In Progress','Completed','Cancelled'] };
+      if ((p.at === '1' || /^thai/.test(team)) && /^(weekly|boot)$/.test(a)) d = { ok:true, keyTasks:AT, source:'crm', statusOptions:['To Do','In Progress','Completed','Cancelled'] };
       else if (p.at === '1') d = { ok:true, message:'Đã cập nhật task trong sheet ALL TASK', keyTasks:AT, source:'crm', no:p.no || '9', row:99 };
-      else if (a === 'bundle') d = { ok:true, source:team, team, app:'MMH ' + (team === 'thai' ? 'Thailand Surgical' : 'Dental') + ' CRM', user:{ pic:me }, picList, fyList:['FY68','FY67'], master, fyCurrent:'FY68',
+      else if (a === 'bundle') d = { ok:true, source:team, team, app:'MMH ' + (team === 'thaid' ? 'Thailand Dental' : team === 'thai' ? 'Thailand Surgical' : 'Dental') + ' CRM', user:{ pic:me }, picList, fyList:['FY68','FY67'], master, fyCurrent:'FY68',
         cidxCols:['_row','code','name','type','province','area','pic','fy','openDate','nCbc','nOrder','note'], cidx, kpi:crmKpi(team), stats:{ customers:D.customer.length, cbc:D.cbc.length, orders:D.order.length, weekly:D.weekly.length }, driveFolder:'1FAKEDRIVE', activity:[], ver:'101', vers:{ _all:'101', weekly:'1', cbc:'1', order:'1', customer:'1', master:'1', kpi:'1', monthly:'1', present:'1', adp:'1', pcode:'1' } };
       else if (a === 'version') d = { ok:true, ver:'101', vers:{ _all:'101', weekly:'1', cbc:'1', order:'1', customer:'1', master:'1', kpi:'1', monthly:'1', present:'1', adp:'1', pcode:'1' } };
       else if (a === 'ping') d = { ok:true, pong:true, source:team, ver:'10.10', meeting:true, trip2:true, kpi68:true, tenderPrice:true, custLog:true, deleteAccount:true, na:true, kr:true, idem:true, kpiPush:true };
@@ -494,17 +573,19 @@ async function install(page, opt){
       else if (a === 'multi'){ d = { ok:true, tabs:{}, ver:'101' }; String(p.tabs || '').split(',').forEach(t => { if (D[t]) d.tabs[t] = lean(t, filt(t, D[t], { fy:t === 'cbc' || t === 'npp' ? '' : p.fy, pic:p.pic })); }); }
       else if (a === 'list'){ const t = p.tab; d = D[t] ? (p.lean === '1' ? lean(t, filt(t, D[t], p)) : { ok:true, tab:t, total:D[t].length, rows:filt(t, D[t], p) }) : { ok:false, error:'Tab không hợp lệ' }; }
       else if (a === 'kpi') d = crmKpi(team);
-      else if (a === 'tfTrips'){ let pics = []; try { pics = JSON.parse(p.pics || '[]'); } catch(e){} d = { ok:true, trips:tfTripsOut(pics), at:'2026-10-07T02:00:00Z' }; }
+      else if (a === 'tfTrips' || a === 'tripList'){ let pics = []; try { pics = JSON.parse(p.pics || '[]'); } catch(e){} d = { ok:true, trips:/^thai/.test(team) ? tfTripsTH(pics) : tfTripsOut(pics), at:'2026-10-07T02:00:00Z' }; }
       else if (a === 'tfPending'){ const dir = sess.level === 'director'; d = (dir || sess.admin) ? { ok:true, director:dir, items:tfPend, count:tfPend.length, file:'https://docs.google.com/spreadsheets/d/FAKE/edit' } : { ok:true, director:false, items:[], count:0 }; }
       else if (a === 'tfDecide'){ let its = []; try { its = JSON.parse(p.items || '[]'); } catch(e){} tfPend = tfPend.filter(x => !its.some(y => y.row === x.row)); d = { ok:true, results:its.map(y => ({ row:y.row, pic:y.pic, ok:true, status:y.decision === 'reject' ? 'Rejected' : 'Approved', mailed:'x@example.com' })), done:its.length, failed:0 }; }
       else if (a === 'tfLog') d = { ok:true, items:[] };
+      else if (/^thai/.test(team) && /^tripMaster2?$/.test(a)) d = { ok:true, master:{ destinations:['Bangkok','Nonthaburi','Chiang Mai','Khon Kaen','Nakhon Ratchasima','Songkhla','Phuket','Vientiane (Laos)'], coTravelers:['Yong','Man','Sui','Dao'], equipment:[] }, tripName:me, to:'Director', cc:'HOD, ' + me, file:'https://docs.google.com/spreadsheets/d/FAKE/edit', currency:'THB', noEquip:true, team };
+      else if (/^thai/.test(team) && a === 'tripInfo') d = tripInfoTH(p.r || p.id);
       else if (a === 'tripMaster2') d = { ok:true, master:{ destinations:['Ha Noi','Hai Phong','Quang Ninh','Bac Ninh','Da Nang','Hue','Quang Tri','Nghe An','Ho Chi Minh','Can Tho','Binh Duong'], coTravelers:['Vinh','Phuong','Tuyen','Giang','Khang','Viet Ha'], equipment:['Laptop','Hàng mẫu','Standee','Máy chiếu'] },
         tripName:me, to:'director@example.com', cc:'hod@example.com, ' + me.toLowerCase() + '@example.com', file:'https://docs.google.com/spreadsheets/d/FAKE/edit' };
       else if (a === 'tripInfo') d = tripInfo(p.r || p.id);
       else if (a === 'naList'){ const mgr = ['Tuyen','Nguyen Ha','Giang'].includes(me) || me === 'Viet';
         const rows = NA.filter(o => mgr || o.pic === me).map(o => Object.assign({}, o, { canDecide:!opt.noNaDecide && o.status === 'Pending' && ((me === 'Tuyen') || (me === 'Viet' && o.pic !== 'Viet')), canEdit:o.pic === me && o.status !== 'Approved', approvers:o.pic === 'Viet' ? ['Tuyen'] : ['Viet','Tuyen'] }));
         d = { ok:true, na:true, ver:'5', _ver:'5', rows, pending:rows.filter(o => o.canDecide).length, me:{ pic:me, all:['Tuyen','Nguyen Ha','Giang'].includes(me), approverOf:me === 'Viet' ? ['Vinh','Phuong'] : me === 'Tuyen' ? ['Viet','Vinh','Phuong'] : [] },
-          cfg:{ team, lang:team === 'thai' ? 'en' : 'vi', pics:team === 'thai' ? ['Dao','Miew'] : ['Viet','Vinh','Phuong'], kpi:team === 'thai' ? { Dao:'', Miew:'C2-03' } : { Viet:'C1-01', Vinh:'C1-02', Phuong:'C1-03' }, dealerOnly:{}, folder:'https://drive.google.com/drive/folders/1FAKENAFOLDER', hasOrders:team !== 'thai', needOrder:team === 'dental', admins:['Nguyen Ha','Tuyen','Hoa','Giang'], deciders:['Nguyen Ha','Tuyen'] } }; }
+          cfg:{ team, lang:/^thai/.test(team) ? 'en' : 'vi', pics:team === 'thaid' ? ['Yong','Man','Sui'] : team === 'thai' ? ['Dao','Miew'] : ['Viet','Vinh','Phuong'], kpi:team === 'thaid' ? { Yong:'C2-01' } : team === 'thai' ? { Dao:'', Miew:'C2-03' } : { Viet:'C1-01', Vinh:'C1-02', Phuong:'C1-03' }, dealerOnly:{}, folder:'https://drive.google.com/drive/folders/1FAKENAFOLDER', hasOrders:!/^thai/.test(team), needOrder:team === 'dental', admins:['Nguyen Ha','Tuyen','Hoa','Giang'], deciders:['Nguyen Ha','Tuyen'] } }; }
       else if (a === 'naPending'){ d = { ok:true, n:NA.filter(o => o.status === 'Pending' && o.pic !== me).length, ids:NA.filter(o => o.status === 'Pending' && o.pic !== me).map(o => o.id), drafts:NA.filter(o => o.pic === me && o.status === 'Draft').length, ver:'5' }; }
       else if (a === 'naDecide' || a === 'naSave' || a === 'naSubmit'){ d = { ok:true, message:'Đã lưu', row:NA[0] }; }
       else if (a === 'account360'){ const c = D.customer.find(x => x.code === p.code) || D.customer.find(x => x.name === p.name) || D.customer[0];
@@ -554,4 +635,4 @@ async function install(page, opt){
   await page.route(/drive\.google\.com\/thumbnail|googleusercontent|drive\.google\.com\/uc/, route => { const b = photoFor(route.request().url()); if (b) return route.fulfill({ status:200, contentType:'image/jpeg', body:b }); return route.fulfill({ status:404, body:'' }); });
   return { D, LOG, NA:() => NA };
 }
-module.exports = { install, buildVN, buildTH, STAFF, KPI_DEF };
+module.exports = { install, buildVN, buildTH, buildTHD, STAFF, KPI_DEF };

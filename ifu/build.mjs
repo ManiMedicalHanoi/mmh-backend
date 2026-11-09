@@ -152,6 +152,18 @@ function keep(html) {
   const re = new RegExp('(<h[23][^>]*>[\\s\\S]*?</h[23]>\\s*(?:<h3[^>]*>[\\s\\S]*?</h3>\\s*)?)(' + blk + ')', 'g');
   return html.replace(re, (m, h, b) => b.length > 5000 && !b.startsWith('<figure') ? m : `<div class="keep">${h}${b}</div>`);
 }
+/* số bước của <ol> ghi sẵn vào data-n: bộ đếm CSS (counter-increment) bị Paged.js đếm sai khi trang tách (hiện -5, -4…) */
+function olNum(html) {
+  return html.replace(/<ol(\s[^>]*)?>([\s\S]*?)<\/ol>/g, (m, at, inner) => {
+    const st = /start="(\d+)"/.exec(at || ''); let n = st ? +st[1] - 1 : 0, depth = 0;
+    inner = inner.replace(/<(\/?)(li|ul|ol)\b([^>]*)>/g, (t, close, tag, rest) => {
+      if (tag !== 'li') { depth += close ? -1 : 1; return t; }
+      if (close || depth) return t;
+      return `<li data-n="${++n}"${rest}>`;
+    });
+    return `<ol${at || ''}>${inner}</ol>`;
+  });
+}
 function chapterHtml(file, front) {
   chapNo++; figNo = 0; secNo = 0;
   let md = fs.readFileSync(path.join(ROOT, CHDIR, file), 'utf8');
@@ -159,7 +171,7 @@ function chapterHtml(file, front) {
   if (fm) { fm[1].split('\n').forEach(l => { const i = l.indexOf(':'); if (i > 0) meta[l.slice(0, i).trim()] = l.slice(i + 1).trim(); }); md = md.slice(fm[0].length); }
   if (meta.number) chapNo = +meta.number;
   md = md.replace(/^## (.+)$/gm, (m, t) => { secNo++; return front ? `<h2>${esc(t)}</h2>` : `<h2 id="s${chapNo}-${secNo}"><span class="num">${chapNo}.${secNo}&nbsp;</span>${esc(t)}</h2>`; });
-  let fn = 0; const body = keep(marked.parse(expand(md))).replace(/\u0001FIG\u0001/g, () => chapNo + '.' + (++fn));
+  let fn = 0; const body = olNum(keep(marked.parse(expand(md))).replace(/\u0001FIG\u0001/g, () => chapNo + '.' + (++fn)));
   return { html: `<section class="chapter" data-ch="${chapNo}">${body}</section>`, meta };
 }
 function tocHtml(chs) {

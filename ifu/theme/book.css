@@ -38,7 +38,7 @@ li{ margin-bottom:1.2mm; }
 ul li::marker{ color:var(--blue); }
 ol{ counter-reset:st; list-style:none; padding-left:0; }
 ol > li{ counter-increment:st; position:relative; padding-left:8.5mm; min-height:6mm; }
-ol > li::before{ content:counter(st); position:absolute; left:0; top:.2mm; width:5.6mm; height:5.6mm; border-radius:50%; background:var(--navy); color:#fff;
+ol > li::before{ content:attr(data-n); position:absolute; left:0; top:.2mm; width:5.6mm; height:5.6mm; border-radius:50%; background:var(--navy); color:#fff;
   font-size:8pt; font-weight:700; display:flex; align-items:center; justify-content:center; line-height:1; }
 code,kbd{ font-family:'Be Vietnam Pro'; font-size:8.6pt; background:#EEF2F7; border:0.6pt solid #D5DCE5; border-radius:1.2mm; padding:0 1.2mm; }
 kbd{ border-bottom-width:1.4pt; font-weight:600; }
