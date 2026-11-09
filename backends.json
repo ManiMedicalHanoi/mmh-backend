@@ -239,5 +239,23 @@
     "note": "File sự kiện Dental Thái (REPORT_EVENT · PLAN_EVENT · CUSTOMER LIST · Master name). Web app Event cho CRM nhóm thaid (cùng API với thai-mkt). KPI đọc thẳng file này (kpi/KpiThaiEvents.gs th_dent: C14-00, C11-02). Lần deploy đầu tạo web app ⇒ chủ script chạy evSetup 1 lần trong trình soạn để cấp quyền.",
     "deploymentId": "AKfycbyUjFiuSPFRvBSS5JOODOhd8PkaNJSwoazwKSFDwO5O-eCQxTT5Yl4tXHsA_JprsnALQg",
     "url": "https://script.google.com/macros/s/AKfycbyUjFiuSPFRvBSS5JOODOhd8PkaNJSwoazwKSFDwO5O-eCQxTT5Yl4tXHsA_JprsnALQg/exec"
+  },
+  "trip-thai-dental": {
+    "name": "Business Trip Thailand Dental (Thailand Dental - Business trip Approval and Report)",
+    "apps": [
+      "ManiMedicalHanoi/MMH-CRM"
+    ],
+    "scriptId": "1lti8KkeFq3vaZNGU1b7EoZm6FbJfyOiQ1UIxvkwgZqdRGUol-UDXkxA8",
+    "sheetId": "1w6jn6Vsc4WvWJFTsyf2dRFdElnVWq8CS76pVbQKxlhc",
+    "note": "File Business Trip riêng của nhóm Thái (sheet MMH Travel report: tiêu đề dòng 4, dữ liệu từ dòng 6; Master: tỉnh C, thành viên E, Name I → email J–M). CRM nhóm Thái ghi đề xuất / báo cáo công tác vào đây (09/11/2026)."
+  },
+  "trip-thai-surgical": {
+    "name": "Business Trip Thailand Surgical (Thailand Surgical - Business trip Approval and Report)",
+    "apps": [
+      "ManiMedicalHanoi/MMH-CRM"
+    ],
+    "scriptId": "1O1fLyoFiUXk-vSi_OYOr4XSusnqbt0o8RZ-r0SugyBn7dcn_yrBEpA_4",
+    "sheetId": "1B3KifUWTc_l5G6fCrHl22T3Msb125W8VzU6sTy20WZA",
+    "note": "File Business Trip riêng của nhóm Thái (sheet MMH Travel report: tiêu đề dòng 4, dữ liệu từ dòng 6; Master: tỉnh C, thành viên E, Name I → email J–M). CRM nhóm Thái ghi đề xuất / báo cáo công tác vào đây (09/11/2026)."
   }
 }
