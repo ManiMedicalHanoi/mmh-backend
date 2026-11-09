@@ -2674,14 +2674,14 @@ function kscMailSend(f) {
     att.push(Utilities.newBlob(Utilities.base64Decode(String(f.attB64)), 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', an));
     f.attName = an;
   }
-  var html = kscMailHtml_(d, f), subject = f.subject || ((f.lang === 'en' ? 'Monthly KPI Report ' : 'Báo cáo KPI tháng ') + kscMon_(d.month) + ' (MMHSOP_009-FM01) · ' + (d.full || d.pic));
+  var html = (f.fwdHtml || '') + kscMailHtml_(d, f), subject = f.subject || ((f.lang === 'en' ? 'Monthly KPI Report ' : 'Báo cáo KPI tháng ') + kscMon_(d.month) + ' (MMHSOP_009-FM01) · ' + (d.full || d.pic));
   var plain = html.replace(/<br>/g, '\n').replace(/<\/(div|tr|li)>/g, '\n').replace(/<\/t[dh]>/g, '\t').replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
   var mo = { to: to.join(','), cc: cc.join(','), subject: subject, htmlBody: html, body: plain, name: d.full };
   if (att.length) mo.attachments = att;
   if (f.replyTo) mo.replyTo = f.replyTo;
   mmhMail_(mo);
   /* ⭐ 23/10/2026 — MMH_ReportLog.gs: ghi nhận báo cáo KPI tháng (bỏ bản thử [TEST]) */
-  if (!/^\[TEST\]/i.test(subject) && typeof rplAdd_ === 'function') rplAdd_('kpi', d.pic, String(d.month), { by: f.by || '', opt: 'email', cal: f.lang === 'en' ? 'TH' : 'VN', note: to.join(', ') });
+  if (!/^\[TEST\]/i.test(subject) && typeof rplAdd_ === 'function') rplAdd_('kpi', d.pic, String(d.month), { by: f.by || '', opt: f.self ? 'self' : 'email', cal: f.lang === 'en' ? 'TH' : 'VN', note: to.join(', ') });
   var me = ''; try { me = Session.getActiveUser().getEmail(); } catch (e) {}
   try {
     var ss = SpreadsheetApp.getActive(), lg = ss.getSheetByName(KSC_MAIL.LOG);
