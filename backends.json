@@ -227,5 +227,14 @@
     "sheetId": "1lI1s1nEyRtSluQiCJu2sdkgZdP38A35qYFdzOvVXE7I",
     "sheetUrl": "https://docs.google.com/spreadsheets/d/1lI1s1nEyRtSluQiCJu2sdkgZdP38A35qYFdzOvVXE7I/edit?gid=1603394577#gid=1603394577",
     "note": "File KQTT dao các năm trên bệnh viện công lập (sheet 'Data xử lý', gid 1603394577, tiêu đề dòng 2; cập nhật thường xuyên — Hùng Vĩ syncTender cũng ghi thêm dòng Win). Script gắn Sheet, chưa có web app ⇒ deploy chỉ đẩy code + lưu phiên bản. Web Tender Map đọc dữ liệu qua tender-hungvi ?action=kqttMap (MMH_KqttMap.gs, đã có quyền mở file này)."
+  },
+  "thai-dental-mkt": {
+    "name": "Thai Dental Marketing (event nhóm Dental Thái — 2. Thailand - Dental Event Report FY67)",
+    "apps": [
+      "ManiMedicalHanoi/MMH-CRM"
+    ],
+    "scriptId": "16MjKF2AmzS2vcIX4BX74TY9HciQsJQhZDZ9YmK53yw_C-9c6GP1CIjXL",
+    "sheetId": "12GnjS0esEOfW3_uWTrTwe0AQgOtAVsIuqDiSSCea308",
+    "note": "File sự kiện Dental Thái (REPORT_EVENT · PLAN_EVENT · CUSTOMER LIST · Master name). KPI đọc thẳng file này (kpi/KpiThaiEvents.gs th_dent: C14-00, C11-02). Kế hoạch: web app Event cho CRM nhóm thaid như thai-mkt."
   }
 }
