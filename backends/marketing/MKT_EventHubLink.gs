@@ -162,11 +162,10 @@ function ehLinkSync_(){
 
 /* ehBoot_ ⇒ base.link (đệm riêng 'eh_link', 10 phút; ghi lại khi đồng bộ) */
 function ehLinkGet_(ss){
-  var c = CacheService.getScriptCache(), hit = c.get('eh_link');
-  if (hit){ try { return JSON.parse(hit); } catch(e){} }
+  var hit = ehBigGet_('eh_link'); if (hit) return hit;   /* v1.6: đệm chia mảnh (MKT_EventHubFast.gs) */
   var out = {};
   try { if (ss.getSheetByName(EHL.TAB)) ehRead_(ss, EHL.TAB).forEach(function(r){ try { out[ehS_(r.eventId)] = JSON.parse(r.json); } catch(e){} }); } catch(e){}
-  try { var js = JSON.stringify(out); if (js.length < 95000) c.put('eh_link', js, 600); } catch(e){}
+  ehBigPut_('eh_link', out, 900);
   return out;
 }
 

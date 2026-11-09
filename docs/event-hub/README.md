@@ -7,3 +7,4 @@
   (cần `plans.json` xuất từ các file kế hoạch .xlsx — không đưa file thật vào kho).
 - `MKT_EventHubLink.gs` (v1.2) = đọc file MKT Offline (REPORT_EVENT / PLAN_EVENT, đếm CUSTOMER LIST) + file Digital (EVENT REPORT, ORDER REPORT) theo sự kiện ⇒ tab MKT_LINK ⇒ `ehBoot.link` (tab "MKT Offline · Online" của app).
 - `MKT_EventHubFlow.gs` (v1.5, app v2.4) = lập kế hoạch muộn (dồn hạn), đóng sự kiện, biên bản họp ⇒ việc, Pending, cập nhật tuần (tab CHECKINS), mốc quan trọng, follow-up, nhắc theo bậc, việc ⇒ sub `H:` Report Hub.
+- `MKT_EventHubFast.gs` (v1.6, app v2.6) = tải app nhanh: đệm dữ liệu lớn chia mảnh, giữ đệm nóng, không mở Sheet khi trúng đệm, kiểm tab 1 lần / 6 giờ.
