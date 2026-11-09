@@ -20,9 +20,10 @@
  * v1.2: dữ liệu file MKT Offline (REPORT_EVENT, đếm CUSTOMER LIST) + file Digital (EVENT REPORT, ORDER REPORT) theo sự kiện — xem MKT_EventHubLink.gs.
  * v1.5 (03/11/2026): lập kế hoạch muộn = dồn hạn (không tự Bỏ qua) · đóng sự kiện · biên bản họp ⇒ việc · trạng thái Pending · cập nhật tuần (CHECKINS) ·
  *       mốc quan trọng · số liệu follow-up khách · nhắc theo bậc · việc sự kiện ⇒ sub Report Hub — xem MKT_EventHubFlow.gs.
+ * v1.6 (09/11/2026): tải app nhanh — đệm dữ liệu lớn chia mảnh, giữ đệm nóng, không mở Sheet khi trúng đệm — MKT_EventHubFast.gs.
  *************************************************************************************************/
 var EH = {
-  VER: '1.5',
+  VER: '1.6',
   ROOT: '1maHn2DD34aJBaNnH4q9Di0YH2wMurYuZ',     /* thư mục Drive "Event FY68" */
   BOOK_NAME: 'MMH · Event Hub FY68 (dữ liệu app Sự kiện MKT)',
   FILES_NAME: 'Event Hub · Tệp tải lên',
@@ -129,7 +130,7 @@ function ehBook_(){
     try { DriveApp.getFileById(ss.getId()).moveTo(DriveApp.getFolderById(EH.ROOT)); } catch(e){}
     pr.setProperty('EH_BOOK', ss.getId());
   }
-  ehEnsureTabs_(ss);
+  ehEnsureTabsOnce_(ss);   /* v1.6: 1 lần / 6 giờ (MKT_EventHubFast.gs) */
   return ss;
 }
 function ehEnsureTabs_(ss){
@@ -361,7 +362,7 @@ function ehPlanFiles_(){
 }
 
 /* ══════════════ ĐỒNG BỘ ══════════════ */
-function ehSyncTick_(){ var c = CacheService.getScriptCache(); if (c.get('eh_tick')) return; c.put('eh_tick', '1', 240); try { ehTeamFix_(); } catch(e){} try { ehFlowMigrate_(); } catch(e){} try { ehSync_({}); } catch(e){} try { ehTrig_(); } catch(e){} try { ehLinkTick_(); } catch(e){} }   /* v1.2: + file MKT Offline / Digital (MKT_EventHubLink.gs) */
+function ehSyncTick_(){ var c = CacheService.getScriptCache(); if (c.get('eh_tick')) return; c.put('eh_tick', '1', 240); try { ehTeamFix_(); } catch(e){} try { ehFlowMigrate_(); } catch(e){} try { ehSync_({}); } catch(e){} try { ehTrig_(); } catch(e){} try { ehLinkTick_(); } catch(e){} try { ehBootWarm_(); } catch(e){} }   /* v1.6: + giữ đệm nóng */   /* v1.2: + file MKT Offline / Digital (MKT_EventHubLink.gs) */
 function ehSync_(opt){
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) return { ok:false, error:'Đang có tiến trình ghi khác, thử lại sau.' };
@@ -593,24 +594,17 @@ function ehOnce_(p, fn){
   return out;
 }
 function ehClean2_(o){ var x = {}; for (var k in o) if (k !== '_r') x[k] = o[k]; return x; }
-function ehBoot_(p){
-  var ss = ehBook_(), me = ehMe_(p, ss); if (me.err) return { ok:false, code:'AUTH', error:me.err };
-  var c = CacheService.getScriptCache(), hit = c.get('eh_boot'), base = null;
-  if (hit){ try { base = JSON.parse(hit); } catch(e){} }
-  if (!base){
-    var plan = {}; ehRead_(ss, 'PLAN_JSON').forEach(function(r){ try { plan[ehS_(r.eventId)] = JSON.parse(r.json); } catch(e){} });
-    var tpl = ehRead_(ss, 'TEMPLATE').map(ehClean2_);
-    base = { events: ehRead_(ss, 'EVENTS').map(ehClean2_), tasks: ehRead_(ss, 'TASKS').map(ehClean2_), files: ehRead_(ss, 'FILES').map(ehClean2_),
-             log: ehRead_(ss, 'LOG').slice(-400).map(ehClean2_), comments: ehRead_(ss, 'COMMENTS').slice(-800).map(ehClean2_), meetings: ehRead_(ss, 'MEETINGS').map(ehClean2_), checkins: ehRead_(ss, 'CHECKINS').slice(-400).map(ehClean2_),
-             notify: ehRead_(ss, 'NOTIFY').slice(-150).map(ehClean2_), plan: plan, people: ehPeople_(), roles: EH.ROLES, status: EH.STATUS,
-             groups: tpl.filter(function(t){ return /lớn/i.test(ehS_(t.kind)); }).map(function(t){ return { group: t.group, role: t.role }; }),
-             book: ss.getUrl(), filesUrl: ehFilesRoot_().getUrl() };
-    try { var js = JSON.stringify(base); if (js.length < 95000) c.put('eh_boot', js, 120); } catch(e){}
-  }
+function ehBoot_(p){   /* v1.6: trúng đệm ⇒ không mở file Sheet (MKT_EventHubFast.gs) */
+  var who = tfWho_(p); if (who.err) return { ok:false, code:'AUTH', error:who.err };
+  var ss = null, book = function(){ return ss || (ss = ehBook_()); };
+  var base = ehBigGet_('eh_boot'), hit = !!base;
+  if (!base){ base = ehBootBuild_(book()); ehBigPut_('eh_boot', base, EH_BC.TTL); }
+  var mgr = !!who.admin || /^(director|hod|manager|leader)$/.test(who.level) || (base.mgrs || []).indexOf(who.pic) >= 0;
   var last = {}; try { last = JSON.parse(PropertiesService.getScriptProperties().getProperty('EH_LAST') || '{}'); } catch(e){}
-  try { base.link = ehLinkGet_(ss); } catch(e){ base.link = {}; }   /* v1.2: dữ liệu file MKT Offline / Digital theo sự kiện */
-  base.ok = true; base.me = { pic: me.pic, manager: me.manager, admin: !!me.admin, level: me.level }; base.sync = last; base.ver = EH.VER; base.cfg = ehCfg_();
-  if (!me.manager) base.notify = (base.notify || []).filter(function(n){ return n.to === me.pic || n.by === me.pic; });
+  try { base.link = ehBigGet_('eh_link') || ehLinkGet_(book()); } catch(e){ base.link = {}; }   /* v1.2: dữ liệu file MKT Offline / Digital theo sự kiện */
+  base.ok = true; base.me = { pic: who.pic, manager: mgr, admin: !!who.admin, level: who.level }; base.sync = last; base.ver = EH.VER; base.cfg = ehCfg_(); base.cached = hit;
+  if (!mgr) base.notify = (base.notify || []).filter(function(n){ return n.to === who.pic || n.by === who.pic; });
+  delete base.mgrs;
   return base;
 }
 /* ehSave: op = task.add | task.update | task.delete | event.update | link.add | file.delete (+ MKT_EventHubPlus.gs ▸ ehSave2_, MKT_EventHubFlow.gs ▸ ehSave3_) */

@@ -395,3 +395,8 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   "Auto / Choose" bỏ qua), dòng mới chép công thức dòng trên, ô có công thức không ghi. Đề xuất: Approval "Not Yet" ⇒ email "Approval Business trip - ddMMyyyy - PIC" (đúng mẫu file) To Director / CC HOD + PIC ⇒
   "Already sent propose email"; HOD vẫn duyệt bằng HOD Menu trên Sheet. Báo cáo (chỉ Approved): folder chuyến (folder gốc `1HMrQ4x…`), file Word (.doc HTML — backend Thái không có DocumentApp, không thêm quyền),
   cột Business trip Report + Actual report date, email To Shuhei-san (`s-takahashi@mani.inc`) CC Director + PIC. Tiền luôn THB. Chữ / email tiếng Anh. PIC thiếu trong Master I:M (Yong, Miew) ⇒ `thtEnsurePerson_` tự thêm 1 dòng.
+- **09/11/2026 — App Sự kiện MKT tải nhanh (Event Hub v1.6, `marketing/MKT_EventHubFast.gs`, người dùng: mở app đứng ở "Đang tải sự kiện…")**: `ehBoot_` cũ chỉ đệm khi dữ liệu < 95 KB (2 phút) ⇒
+  dữ liệu thật không bao giờ được đệm ⇒ mỗi lần mở đọc lại ~12 tab + Drive. Nay `ehBigPut_` / `ehBigGet_` = đệm chia mảnh (≤ 30.000 ký tự / mảnh, khoá chính `{v, n}`; xoá khoá chính = huỷ cả bộ,
+  mọi lệnh ghi vẫn `remove('eh_boot')`), TTL 25 phút; trúng đệm ⇒ KHÔNG mở file Sheet (danh sách TEAM ▸ Quản lý nằm trong đệm `mgrs`); `ehBootWarm_` trong `ehSyncTick_` giữ đệm nóng;
+  `eh_link` cũng chia mảnh; `ehBook_` chỉ kiểm / tạo tab 1 lần / 6 giờ / phiên bản (`ehEnsureTabsOnce_`). App v2.6 lưu bản dữ liệu trên máy (localStorage `eh_bc1:<email>`) ⇒ mở lần sau hiện ngay.
+
