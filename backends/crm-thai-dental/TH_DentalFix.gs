@@ -19,6 +19,16 @@
  *
  *  v1.1 (09/11/2026, user request): Type action "Event" added next to "Co-visiting with distributor" (THD_TYPE_ACTIONS) — in
  *  MASTER LIST + every dropdown + the app list (master_). File already fixed with f1 ⇒ f2 only runs the master + dropdowns steps.
+ *
+ *  v1.2 (09/11/2026, user review of the real file): CUSTOMER TASK also held the team's office work and business-trip days
+ *  ("Thailand office/MMH/BKK/Central", "Businesstrip/MMH/Vientiane/Laos" …) because step ⑤ of the layout copied EVERY row of the
+ *  old sheet WEEK, and step ③ added those "accounts" to CUSTOMER CODE ("Added from WEEK"). They are not customers:
+ *  they inflate the customer lists / visit counts and the KPI C2-02 denominator. thdInt* (action thdFix&op=internal):
+ *    · op=internal     — dry run: counts by account / PIC / month / Type task (nothing is written)
+ *    · op=internalRun  — rows ⇒ OTHERS TASK under the fixed key "Others MM/yyyy" of the PIC (sub task "[place] task", result,
+ *                        dates, status kept) · rows deleted from CUSTOMER TASK · the internal accounts cleared from CUSTOMER CODE
+ *                        (cells emptied, row kept ⇒ the codes of the other customers do not move) · everything backed up first in
+ *                        the hidden sheets "OLD · Internal tasks (moved)" / "OLD · Internal accounts (removed)".
  *************************************************************************************************/
 var THDFIX = { VER: 'f2', PROP: 'THD_FIX', LOG: 'THD_FIX_LOG' };
 /* Type actions the Dental Thailand team always has (MASTER LIST ▸ Type action, dropdown of CUSTOMER TASK, app) */
@@ -230,6 +240,8 @@ function thdFixApi_(p){
   if(!key || key !== id.slice(-8)) return { ok: false, error: 'key?' };
   var r = null;
   if(str_(p.op) === 'run') r = thdFixRun_(true);
+  if(str_(p.op) === 'internal') return { ok: true, dry: true, scan: thdIntScan_() };
+  if(str_(p.op) === 'internalRun') return { ok: true, moved: thdIntMove_(), scan: thdIntScan_() };
   var cm = codeMap_(), sample = readTab_('customer').slice(0, 5).map(function(c){ return str_(c.code) + ' · ' + str_(c.name); });
   return { ok: true, ver: THDFIX.VER, done: props_().getProperty(THDFIX.PROP) || '', log: props_().getProperty(THDFIX.LOG) || '', ran: r,
            codeMap: { areas: Object.keys(cm.a).length, provinces: Object.keys(cm.p).length, types: Object.keys(cm.t).length }, customers: sample,
@@ -247,4 +259,122 @@ function thdFixTick_(){
 function thdFixBg(){
   ScriptApp.getProjectTriggers().forEach(function(t){ if(t.getHandlerFunction() === 'thdFixBg') ScriptApp.deleteTrigger(t); });
   thdFixRun_(false);
+}
+
+
+/* ══════════════ v1.2 (09/11/2026) — office work / business-trip days out of CUSTOMER TASK ══════════════ */
+var THD_INT = { BAK_T: 'OLD · Internal tasks (moved)', BAK_C: 'OLD · Internal accounts (removed)', KEY: 'Others' };
+/* "Thailand office/MMH/BKK/Central", "Businesstrip/MMH/Vientiane/Laos", "MMH/…": account type MMH = the company itself */
+function thdIsInternal_(name, type){
+  var n = picKey_(name).replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim(), t = picKey_(type);
+  return t === 'mmh' || /^(mmh|thailand office|office|business ?trips?)\b/.test(n);
+}
+function thdIntRows_(){ return weeklyRows_().filter(function(w){ return thdIsInternal_(w.accName, w.accType); }); }
+function thdIntCust_(){ return readTab_('customer').filter(function(c){ return thdIsInternal_(c.name, c.type); }); }
+function thdIntScan_(){
+  _TAB = {};
+  var all = weeklyRows_(), rows = all.filter(function(w){ return thdIsInternal_(w.accName, w.accType); });
+  function cnt(f){ var o = {}; rows.forEach(function(w){ var k = f(w) || '(empty)'; o[k] = (o[k] || 0) + 1; }); return o; }
+  var dates = rows.map(function(w){ return w.start; }).filter(String).sort();
+  return { total: all.length, internal: rows.length,
+    byAccount: cnt(function(w){ return w.account; }), byPic: cnt(function(w){ return w.pic; }),
+    byMonth: cnt(function(w){ return w.month || ymOf_(w.start); }), byTypeTask: cnt(function(w){ return w.typeTask; }),
+    byTypeAction: cnt(function(w){ return w.typeAction; }), byStatus: cnt(function(w){ return w.status; }),
+    first: dates[0] || '', last: dates[dates.length - 1] || '',
+    sample: rows.slice(-6).map(function(w){ return [w.start, w.pic, w.account, w.typeTask, w.typeAction, str_(w.plan).slice(0, 80), w.status].join(' | '); }),
+    customers: thdIntCust_().map(function(c){ return [c._row, c.name, c.type, c.province, c.pic, str_(c.note).slice(0, 60)].join(' | '); }) };
+}
+function thdIntName_(w){
+  var place = /^business ?trips?$/i.test(str_(w.accName).replace(/\s+/g, ' ')) ? 'Business trip' + (w.province ? ' · ' + w.province : '') : str_(w.accName);
+  var t = str_(w.plan).split(/\r?\n/)[0] || w.typeAction || w.typeTask || 'Task';
+  if(t.length > 180) t = t.slice(0, 177) + '…';
+  return '[' + place + '] ' + t;
+}
+function thdIntMove_(){
+  var L = lock_(), out = { moved: 0, keysNew: 0, keysUsed: 0, customers: 0 };
+  try{
+    _TAB = {}; _AT = null;
+    var rows = thdIntRows_(), cus = thdIntCust_();
+    if(!rows.length && !cus.length) return out;
+    var book = ss_(), now = Utilities.formatDate(new Date(), tz_(), 'yyyy-MM-dd HH:mm');
+    /* ① backups (hidden sheets, appended) */
+    function bak(name, head, vals){
+      if(!vals.length) return;
+      var b = book.getSheetByName(name) || book.insertSheet(name);
+      if(b.getLastRow() < 1) b.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight('bold');
+      var w = Math.max.apply(null, vals.map(function(v){ return v.length; }));
+      vals = vals.map(function(v){ while(v.length < w) v.push(''); return v; });
+      b.getRange(b.getLastRow() + 1, 1, vals.length, w).setValues(vals);
+      try{ b.hideSheet(); }catch(e){}
+    }
+    var wk = sh_(CFG.SH_WK), wlast = wk.getLastRow(), WV = wk.getRange(CFG.DATA, 2, wlast - CFG.DATA + 1, TABS.weekly.w).getValues();
+    bak(THD_INT.BAK_T, ['Moved at', 'CUSTOMER TASK row'].concat(TABS.weekly.f),
+        rows.map(function(w){ return [now, w._row].concat(WV[w._row - CFG.DATA]); }));
+    var cs = sh_(CFG.SH_CUST), CV = cus.length ? cs.getRange(CFG.DATA, 2, cs.getLastRow() - CFG.DATA + 1, TABS.customer.w).getValues() : [];
+    bak(THD_INT.BAK_C, ['Removed at', 'CUSTOMER CODE row'].concat(TABS.customer.f),
+        cus.map(function(c){ return [now, c._row].concat(CV[c._row - CFG.DATA]); }));
+    /* ② OTHERS TASK: one "Others MM/yyyy" key per PIC + month */
+    var groups = {}, order = [];
+    rows.slice().sort(function(a, b){ return a.start < b.start ? -1 : a.start > b.start ? 1 : a._row - b._row; }).forEach(function(w){
+      var ym = w.month || ymOf_(w.start) || ymOf_(todayIso_()), k = w.pic + '|' + ym;
+      if(!groups[k]){ groups[k] = { pic: w.pic, ym: ym, subs: [] }; order.push(k); }
+      var st = vsStatus_(w.status), res = str_(w.result), tag = [w.typeTask, w.typeAction].filter(String).join(' · ');
+      groups[k].subs.push({ E: '', F: '', G: thdIntName_(w), H: w.pic,
+        I: res + (tag ? (res ? '\n' : '') + '(from CUSTOMER TASK · ' + tag + ')' : ''),
+        J: w.start, K: w.finish || w.start, N: st[0], O: Math.round(st[1] * 100) });
+    });
+    function keyName(ym){ return THD_INT.KEY + ' ' + ym.slice(4, 6) + '/' + ym.slice(0, 4); }
+    function roll(subs){
+      var list = subs.filter(function(x){ return !/cancel/i.test(x.N); }); if(!list.length) return ['To Do', 0];
+      var done = list.every(function(x){ return /complet/i.test(x.N); });
+      var avg = done ? 100 : Math.round(list.reduce(function(a, x){ return a + (/complet/i.test(x.N) ? 100 : x.O); }, 0) / list.length);
+      return [done ? 'Completed' : avg > 0 ? 'In Progress' : 'To Do', avg];
+    }
+    var at = sh_(CFG.SH_ALL), keys = atRead_().keys, ins = [], tail = [], used = [];
+    order.forEach(function(k){
+      var g = groups[k], nm = keyName(g.ym);
+      var ex = keys.filter(function(x){ return x.row && !x.vSrc && atNorm_(x.keyTask) === atNorm_(nm) && atNorm_(x.pic) === atNorm_(g.pic); })[0];
+      if(ex){ ins.push({ after: atKeyEnd_(ex), rows: g.subs, key: ex }); out.keysUsed++; }
+      else {
+        var y = +g.ym.slice(0, 4), m = +g.ym.slice(4, 6), r = roll(g.subs);
+        tail.push({ E: CFG.VS_TYPE, F: nm, G: '', H: g.pic, I: '', J: g.ym.slice(0, 4) + '-' + g.ym.slice(4, 6) + '-01',
+                    K: Utilities.formatDate(new Date(y, m, 0), tz_(), 'yyyy-MM-dd'), N: r[0], O: r[1] });
+        tail = tail.concat(g.subs); out.keysNew++;
+      }
+      out.moved += g.subs.length;
+    });
+    function put(row, list){
+      if(!list.length) return;
+      at.getRange(row, 5, list.length, 8).setValues(list.map(function(o){ return [o.E, o.F, o.G, o.H, o.I, date_(o.J) || '', date_(o.K) || '', '']; }));
+      at.getRange(row, 14, list.length, 2).setValues(list.map(function(o){ return [o.N, Math.max(0, Math.min(100, o.O)) / 100]; }));
+    }
+    ins.sort(function(a, b){ return b.after - a.after; }).forEach(function(x){
+      at.insertRowsAfter(x.after, x.rows.length);
+      at.getRange(x.after + 1, 2, x.rows.length, AT_W).clearContent();
+      put(x.after + 1, x.rows); used.push(x.key.keyTask + '|' + x.key.pic);
+    });
+    if(tail.length){
+      _AT = null; var r0 = atLastRow_() + 1;
+      if(r0 + tail.length > at.getMaxRows()) at.insertRowsAfter(at.getMaxRows(), r0 + tail.length - at.getMaxRows() + 20);
+      put(r0, tail);
+    }
+    SpreadsheetApp.flush(); _AT = null;
+    atHealFormulas_();
+    used.forEach(function(u){ _AT = null; var p = u.split('|'), k = atRead_().keys.filter(function(x){ return x.keyTask === p[0] && x.pic === p[1] && !x.vSrc; })[0]; if(k) atRollup_(k.no); });
+    /* ③ delete the rows from CUSTOMER TASK (bottom-up runs) */
+    var del = rows.map(function(w){ return w._row; }).sort(function(a, b){ return b - a; }), i = 0;
+    while(i < del.length){ var end = del[i], start = end; while(i + 1 < del.length && del[i + 1] === start - 1){ i++; start = del[i]; } wk.deleteRows(start, end - start + 1); i++; }
+    /* ④ CUSTOMER CODE: empty the data cells of the internal "accounts" (row kept ⇒ codes of the other customers unchanged) */
+    var fi = TABS.customer.f;
+    cus.forEach(function(c){
+      ['name','type','address','province','area','pic','fy','openDate','note'].forEach(function(f){ cs.getRange(c._row, 2 + fi.indexOf(f)).clearContent(); });
+      out.customers++;
+    });
+    SpreadsheetApp.flush();
+    log_('system', 'move', 'weekly', out.moved + ' internal row(s)', 'CUSTOMER TASK → OTHERS TASK (Others MM/yyyy) · ' + out.customers + ' internal account(s) removed', 0);
+  } finally { L.releaseLock(); }
+  _TAB = {}; _AT = null;
+  try{ out.sync = vsSync_(false, 30000); }catch(e){ out.sync = String(e); }
+  try{ bump_(); }catch(e){}
+  return out;
 }
