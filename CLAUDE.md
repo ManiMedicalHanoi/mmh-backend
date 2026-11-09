@@ -410,3 +410,9 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   **Theo dõi thầu v1.9**: giai đoạn = danh sách file FY68 (1 Chưa tiếp cận · 2 Đã giới thiệu tới chuyên môn · 3 Đang xây cấu hình · 4 Đã gửi báo giá · 5 Đang dự thầu · 7 Đã trúng thầu · 8 Trượt thầu · 9 Tạm dừng theo dõi
   · 10 Không tham dự; dòng cũ đổi số theo tên cũ `FU_LEGACY`), sheet đổi tên "Follow up by Account · Nhật ký" + 2 cột Bắt đầu dự kiến / Hiệu lực; lưu gói ⇒ `faCaseUpsert_` cập nhật ngay dòng S|. App: Tender Map v20 (khối Doanh số ước tính).
   Thử: harness Node giả lập SpreadsheetApp với dữ liệu 2 file FY68 (không có trong repo). Kiểm tra thật: workflow Kiểm tra ▸ ping `crm-surgical?action=fuFcDiag&key=…&full=1` (`fuFcSync` chạy đồng bộ ngay).
+- **09/11/2026 — Báo cáo KPI chỉ gửi về email của CHÍNH người dùng (người dùng yêu cầu, `kpi/RH_KpiView.gs` v1.5)**: `rhKpiMailSend` (FM01) và `rhSeSend` (FM02) bỏ qua `to` / `cc` của app,
+  luôn gửi về email của người đăng nhập (`rkvMyMail_` = phần trước @ của phiên + `@manimedicalhanoi.com`), đầu email có khung vàng "chuyển tiếp tới: To … CC …" (`rkvFwd_`, từ `fwdTo` / `fwdCc` app gửi).
+  Người dùng tự chuyển tiếp từ hộp thư của mình. Nhật ký `_MMH_REPORT_LOG` ghi `opt = self` (thống kê vẫn tính lần chuẩn bị đó). Hộp thoại email trên Sheet KPI (`kscMailSend` từ menu) giữ nguyên.
+  Hạn: ngày 05 hằng tháng (KPI tháng trước) · ngày 05 tháng đầu quý kế tiếp (KPI quý) — app `kpisop.js` v1.2 nhắc ngày 01–05, quá hạn 06–10.
+- **09/11/2026 — crm-thai-dental `TH_DentalFix` v1.2**: `thdFix&op=internal` (đếm) / `op=internalRun` (chuyển) — việc văn phòng / ngày công tác (account loại MMH: "Thailand office", "Businesstrip") từ CUSTOMER TASK
+  ⇒ OTHERS TASK dưới key "Others MM/yyyy" của PIC, sao lưu sheet ẩn `OLD · Internal tasks (moved)` / `OLD · Internal accounts (removed)`. Đã chạy trên file thật 09/11/2026 (688 / 2.959 dòng).
