@@ -97,6 +97,7 @@ function fuRoute_(action, p){
     if(action === 'fuFcDel') return faDel_(p);
     if(action === 'fuFcSync') return faSyncApi_(p);
     if(action === 'fuFcDiag') return faDiag_(p);
+    if(action === 'fuRecent') return fuRecent_(p);               /* MMH_FcRecent.gs — cập nhật gần đây (chỉ đọc, khoá file / Admin) */
     if(action === 'fuCrm') return fuCrm_(p);
     if(action === 'fuRemind') return fuRemindApi_(p);
     if(action === 'fuVisits') return fuVisits_(p);                /* MMH_VisitMap.gs — bản đồ hoạt động Sales */
