@@ -426,3 +426,7 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   Action `acctList` (đồng bộ ≤ 10 phút, `force`) · `acctSave` (district / dist / dsr / lat / lng, `src=clear`) · `acctGeo` (lô toạ độ app tìm được trên trình duyệt — OpenStreetMap; chỉ trong Thái Lan, bỏ dòng `pin`).
   thai-dental-mkt v1.1 `EV_Roi.gs`: REPORT_EVENT T..Y (chi phí / doanh thu / lãi lỗ ước tính & thực tế — thường là công thức trỏ sheet "Sale out Event Budget" L10:M12; app chỉ ghi ô không có công thức),
   Z Note · AA Next follow up · **AB Follow-up log** (app thêm, mỗi dòng "yyyy-MM-dd | PIC | 2w|4w|8w|call|visit|order|other | nội dung"). Action `followup` · `budgetSheet` (chép sheet budget mới nhất, xoá ô nhập E:F / I:M trừ dòng Subtotal, ghi tên sự kiện C3 / J7, nối T..Y).
+- **10/11/2026 — Quyền đăng nhập nhóm Thái (training `RH_UsersFix.gs`, HUB v3.42)**: Dao · Miew · Yong · Man · Sui trước dùng mật khẩu chung của CRM (hết hạn 31/10) nên không có dòng trong
+  **RH_Users** ⇒ "Email này chưa được cấp quyền". `rhEnsureUsers_()` thêm người thiếu / mở khoá theo `RH_ENSURE.USERS` (manithailand = Dao, …1 = Sui, …2 = Yong, …3 = Man, …4 = Miew; Dept "Sales & Marketing TH"),
+  tự chạy 1 lần khi các email này xin mã (Script Property `RH_ENSURE_V`). Rà soát mọi người dùng: workflow **Kiểm tra** ▸ ping `training?action=rhUsersDiag&key=<8 ký tự cuối Script ID>&full=1`
+  (`&op=ensure` chạy cấp quyền ngay; trả `missing` / `locked` / `duplicate` + danh sách phần trước @ · PIC · vai trò · khoá/mở · lần đăng nhập cuối).

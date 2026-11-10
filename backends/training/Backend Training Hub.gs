@@ -171,7 +171,7 @@
 
 var HUB = {
 
-  VERSION: '3.41',   // ★ 09/11/2026 — v3.41 dailyRun / dailyStatus / dailySetup: nút Cập nhật ngay của app MMH Daily (RH_DailyRun.gs) · 08/11/2026 — v3.40 dailyKey: khoá mở bản tin nội bộ app MMH Daily (RH_Daily.gs) · 02/11/2026 — v3.39 docPublish: tài liệu ⇒ bản PDF xem trên app dạng trình chiếu (RH_Docs.gs) · v3.38 hộp thông báo chung RH_Notify (RH_Notify.gs: rhNotifyList / rhNotifySeen) · 29/10/2026 — v3.37 chuyển Completed không cần kết quả bài kiểm tra · v3.36 Admin học xong được cấp chứng chỉ (chỉ trainer của khoá không nhận) · v3.35 chọn video từ MMH Library (RH_Library.gs) + sửa luật hoàn thành học online · 28/10/2026 — v3.34 rhAuthLink: link đăng nhập trong email duyệt đơn CRM (RH_Auth.gs) · 21/10/2026 — v3.33 ảnh thương hiệu ⇒ GitHub (RH_Brand.gs) · 17/10/2026 — v3.32 rhTurnover: cầu nối đọc file Turnover cho CRM · 16/10/2026 — v3.31 bài kiểm tra bật lại (RH_Assess.gs) · v3.30 leaderboard: bảng xếp hạng học viên (RH_Leaderboard.gs)
+  VERSION: '3.42',   // ★ 10/11/2026 — v3.42 rhUsersDiag: rà soát quyền đăng nhập RH_Users + cấp lại 5 tài khoản nhóm Thái (RH_UsersFix.gs) · 09/11/2026 — v3.41 dailyRun / dailyStatus / dailySetup: nút Cập nhật ngay của app MMH Daily (RH_DailyRun.gs) · 08/11/2026 — v3.40 dailyKey: khoá mở bản tin nội bộ app MMH Daily (RH_Daily.gs) · 02/11/2026 — v3.39 docPublish: tài liệu ⇒ bản PDF xem trên app dạng trình chiếu (RH_Docs.gs) · v3.38 hộp thông báo chung RH_Notify (RH_Notify.gs: rhNotifyList / rhNotifySeen) · 29/10/2026 — v3.37 chuyển Completed không cần kết quả bài kiểm tra · v3.36 Admin học xong được cấp chứng chỉ (chỉ trainer của khoá không nhận) · v3.35 chọn video từ MMH Library (RH_Library.gs) + sửa luật hoàn thành học online · 28/10/2026 — v3.34 rhAuthLink: link đăng nhập trong email duyệt đơn CRM (RH_Auth.gs) · 21/10/2026 — v3.33 ảnh thương hiệu ⇒ GitHub (RH_Brand.gs) · 17/10/2026 — v3.32 rhTurnover: cầu nối đọc file Turnover cho CRM · 16/10/2026 — v3.31 bài kiểm tra bật lại (RH_Assess.gs) · v3.30 leaderboard: bảng xếp hạng học viên (RH_Leaderboard.gs)
                      // 3.29 — claimCert: nút Nhận chứng chỉ (tạo / gửi lại chứng chỉ qua email)
   /* v3.28 */   // ★ 16/10/2026 — asLearner cho cả trainer (nút Học thử như học viên)
   /* v3.27 */   // ★ 15/10/2026 — RH_Warm.gs v1.1: làm nóng đệm KHÔNG giữ khoá ghi (v3.26 làm thao tác ghi báo bận)
@@ -593,6 +593,7 @@ var HUB_ROUTES = {
   'rhAdminList'     : {fn:'apiRhAdminList',     auth:0},
   'rhAdminSave'     : {fn:'apiRhAdminSave',     auth:0},
   'rhAdminKick'     : {fn:'apiRhAdminKick',     auth:0},
+  'rhUsersDiag'     : {fn:'apiRhUsersDiag',     auth:0},   // ★ v3.42 — rà soát RH_Users + cấp lại quyền nhóm Thái (RH_UsersFix.gs, cần key)
   // ★ v3.14 — việc được giao từ Report Hub (file RH_Assign.gs)
   'rhAssignList'    : {fn:'apiRhAssignList',    auth:0},
   'rhAssignAdd'     : {fn:'apiRhAssignAdd',     auth:0},

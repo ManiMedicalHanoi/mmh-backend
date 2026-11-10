@@ -215,6 +215,7 @@ function apiRhAuthStart(p) {
   // so khớp ĐÚNG tên miền (hubIsCompanyEmail nhận cả "x@mani.inc.trang-khac.com" — mã sẽ gửi ra ngoài)
   if (HUB.DOMAINS.indexOf(email.split('@')[1]) < 0) return {ok:false, code:'EMAIL', error:'Chỉ dùng email công ty: @mani.inc hoặc @manimedicalhanoi.com.'};
   var u = rhUserByLocal(email);
+  if ((!u || !u.active) && rhEnsureOnStart_(email)) u = rhUserByLocal(email);   // ★ v3.42 — nhóm Thái (RH_UsersFix.gs)
   if (!u) return {ok:false, code:'NOUSER', error:'Email này chưa được cấp quyền dùng Report Hub. Vui lòng liên hệ Admin (Giang – mmh.product).'};
   if (!u.active) return {ok:false, code:'LOCKED', error:'Tài khoản đang bị khoá. Vui lòng liên hệ Admin (Giang).'};
 
