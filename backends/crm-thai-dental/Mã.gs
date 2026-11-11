@@ -116,7 +116,7 @@ var NA_APPROVERS_TH = { 'Dao':['Tuyen'], '*':['Dao','Tuyen'] };
 var NA_ADMINS = ['Nguyen Ha','Tuyen','Hoa','Giang'];
 var NA_DECIDERS = ['Nguyen Ha','Tuyen'];
 var WRITE_ACTIONS = { acctSave:1, acctGeo:1, weeklyReport:1, monthlyReport:1, tripPropose2:1, tripPropose:1, tripUpdate:1, tripDelete:1, tripReport:1, saveWeekly:1, saveCustomer:1, saveCBC:1, saveCustomerCbc:1, saveMonthly:1, savePresentation:1, saveADP:1,
-                      deleteRow:1, deleteAccount:1, addKey:1, addSub:1, naSave:1, naSubmit:1, naDecide:1, naDelete:1 };
+                      deleteRow:1, deleteAccount:1, addKey:1, addSub:1, naSave:1, naSubmit:1, naDecide:1, naDelete:1, fuSave:1 };
 /* who receives the weekly / monthly report of each PIC */
 function mailRule_(pic){
   /* Dental (same routing as the old "MMH Report" menu of the Dental Action file): To Shuhei · Cc Ha + Hoa */
@@ -1376,6 +1376,7 @@ function route_(p){
   if(/^na[A-Z]/.test(a)) return naRoute_(a, user, p);                    /* v1.9 */
   if(/^kr[A-Z]/.test(a)) return krRoute_(a, user, p);                    /* v1.9 */
   { var thr = (typeof thtRoute_ === 'function') ? thtRoute_(a, user, p) : null; if(thr) return thr; }   /* 09/11/2026 — TH_Trip.gs: every trip action → the team's own Business Trip file */
+  if(/^fu(Meta|List|Save)$/.test(a) && typeof thfuRoute_ === 'function'){ var fur = thfuRoute_(a, user, p); if(fur) return fur; }   /* 11/11/2026 — TH_FollowUp.gs (CRM Working Map) */
   if(/^acct(List|Save|Geo)$/.test(a)){ var acr = (typeof acmRoute_ === 'function') ? acmRoute_(a, user, p) : null; if(acr) return acr; }   /* 09/11/2026 — TH_AccountMap.gs */
   if(/^trip(Master|Propose)2$/.test(a)) return tripRoute_(a, user, p);  /* v1.16 */
   switch(a){

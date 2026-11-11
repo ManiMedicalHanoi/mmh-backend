@@ -461,3 +461,6 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   khoá = sheet + from + số dòng × số cột ⇒ thêm dòng đọc lại ngay; `fresh=1` bỏ đệm; kết quả từ đệm có `cached:true`). Đo thật (workflow Kiểm tra ▸ ping, nay in **thời gian + dung lượng**, nhiều lệnh cách nhau " ; "):
   winMap Hùng Vĩ 4,3–5,4 s / 276 KB · iCare 3,7 s / 99 KB · kqttMap 3,3–4,2 s / 284 KB · lệnh rỗng Training Hub 3,3 s (≈ 2,7 s là thời gian khởi động của Google).
   crm-surgical `MMH_TenderFU.gs` v1.10: `fuSave` gói MỚI trùng (cùng cơ sở: fid hoặc `fuNk_` tên + tỉnh; và cùng số TBMT hoặc gói đang theo dõi cùng loại SP) ⇒ `{ code:'DUP', case }` (`fuDupOf_`), `force=1` bỏ qua.
+- **11/11/2026 — CRM Working Map (app CRM v36.4) + Follow-up Thailand Dental (`crm-thai-dental/TH_FollowUp.gs`)**: Working Map của CRM chỉ ĐỌC `visitFeed` / `customerIndex` của từng backend CRM (+ `fuVisits` / `fuList` của crm-surgical, `acctList` của crm-thai-dental), không cần action mới.
+  Thailand Dental có theo dõi thầu / mua sắm như Surgical VN: sheet **FOLLOW UP** (hiện, tiếng Anh, GHI NỐI TIẾP — mỗi lần cập nhật 1 dòng, cùng Case ID, Rev + 1), action `fuMeta` / `fuList` / `fuSave` (phiên `tk` qua `tmWho_`; sales chỉ thấy case của mình, Admin / Director / HOD thấy tất cả),
+  số giai đoạn GIỐNG crm-surgical (1–10 thầu công, 11–19 mua sắm tư nhân) ⇒ app dùng chung 1 khung.
