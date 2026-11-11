@@ -1277,6 +1277,7 @@ function route_(p){
   var pic = str_(p.actor) || str_(p.pic);
   var user = { pic: USERS[pic] ? pic : (pic || 'Dao') };
   if(/^(ping|boot)$/.test(a)){ try { dfMaybe_(); } catch(eD){} }        /* v1.19 — chuẩn hoá ngày (1 lần + mỗi đêm) */
+  if(/^opp[A-Z]/.test(a) && typeof oppRoute_ === 'function'){ var opr = oppRoute_(a, p); if(opr) return opr; }   /* 11/11/2026 — MMH_Opp.gs (CRM Working Map) */
   if(/^na[A-Z]/.test(a)) return naRoute_(a, user, p);                    /* v1.9 */
   if(/^kr[A-Z]/.test(a)) return krRoute_(a, user, p);                    /* v1.9 */
   { var thr = (typeof thtRoute_ === 'function') ? thtRoute_(a, user, p) : null; if(thr) return thr; }   /* 09/11/2026 — TH_Trip.gs: every trip action → the team's own Business Trip file */
