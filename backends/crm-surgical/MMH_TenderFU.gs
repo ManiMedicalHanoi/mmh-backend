@@ -97,6 +97,7 @@ function fuRoute_(action, p){
     if(action === 'fuFcDel') return faDel_(p);
     if(action === 'fuFcSync') return faSyncApi_(p);
     if(action === 'fuFcDiag') return faDiag_(p);
+    if(action === 'fuNews') return fuNews_(p);                    /* MMH_FcNews.gs — gói thầu mới / có kết quả (mục Mới cập nhật) */
     if(action === 'fuRecent') return fuRecent_(p);               /* MMH_FcRecent.gs — cập nhật gần đây (chỉ đọc, khoá file / Admin) */
     if(action === 'fuCrm') return fuCrm_(p);
     if(action === 'fuRemind') return fuRemindApi_(p);
@@ -174,7 +175,7 @@ function fuRowOut_(r){
 function fuList_(p){
   var me = fuMe_(p);
   if(me.err) return { ok:false, code:'AUTH', v:FU.VER, error:me.err, stages:FU.STAGES };
-  fuTick_();
+  fuTick_(); if(typeof faTick_ === 'function') faTick_();   /* trigger đồng bộ Follow up by Account mỗi giờ (tự tạo lại nếu mất) */
   var sh = fuSheet_(), last = sh.getLastRow(), rows = [];
   if(last >= 2){
     sh.getRange(2, 1, last - 1, FU.HDR.length).getValues().forEach(function(r){ if(tfS_(r[1])) rows.push(fuRowOut_(r)); });
@@ -340,11 +341,12 @@ function fuDaily(){
     var t = fuToday_(); if(new Date(t + 'T00:00:00').getDay() === 0) return;          /* Chủ nhật nghỉ */
     var plan = fuPlan_(t), log = fuLogGet_(), n = 0;
     try{ n = fuNotify_(plan); plan.forEach(function(x){ log[x.key] = t; }); fuLogPut_(log); }catch(e){ Logger.log('fuDaily notify: ' + e.message); }
+    var dg = null; try{ if(typeof faNewsDigest_ === 'function') dg = faNewsDigest_(); }catch(e){ Logger.log('fuDaily news: ' + e.message); }   /* MMH_FcNews.gs — tóm tắt gói mới theo địa bàn */
     var w = null;
     if(new Date(t + 'T00:00:00').getDay() === 1 && PropertiesService.getScriptProperties().getProperty('FU_WEEK') !== t){
       w = fuWeekly_(false); PropertiesService.getScriptProperties().setProperty('FU_WEEK', t);
     }
-    PropertiesService.getScriptProperties().setProperty('FU_LAST', JSON.stringify({ at:new Date().toISOString(), notify:n, weekly:w }));
+    PropertiesService.getScriptProperties().setProperty('FU_LAST', JSON.stringify({ at:new Date().toISOString(), notify:n, weekly:w, news:dg }));
   } finally { lock.releaseLock(); }
 }
 /* tự cài trigger fuDaily (1 lần / phiên bản TRIG_V) — gọi khi có người mở Theo dõi thầu */

@@ -292,6 +292,7 @@ function faSync_(opt){
   var auto = fcBuild_(pkgs);
   var lock = LockService.getScriptLock(); lock.waitLock(30000);
   try{
+    if(!opt.dry && typeof faNewsTrack_ === 'function'){ try{ st.news = faNewsTrack_(pkgs); }catch(e){ st.newsErr = String(e && e.message || e).slice(0, 200); } }   /* MMH_FcNews.gs — sổ gói mới + báo gói theo dõi có kết quả */
     var sh = faSheet_(), old = faRead_(sh), byId = {}; old.forEach(function(o){ byId[o.id] = o; });
     var first = !old.length, out = [], seen = {};
     auto.forEach(function(a){
@@ -338,7 +339,7 @@ function faSync_(opt){
     var sum = faSum_(out);
     st.n = out.length; st.by = sum.by; st.val = sum.val; st.ms = Date.now() - t0;
     if(!opt.dry){ faWrite_(sh, out); try{ faPriceSheet_(ss()); }catch(e){} faStatus_(st); try{ CacheService.getScriptCache().remove('fa_list'); }catch(e){} }
-    return { ok:true, dry:!!opt.dry, n:out.length, by:sum.by, val:sum.val, src:st.src, ms:st.ms, first:first };
+    return { ok:true, dry:!!opt.dry, n:out.length, by:sum.by, val:sum.val, src:st.src, ms:st.ms, first:first, news:st.news || st.newsErr || null };
   } finally { lock.releaseLock(); }
 }
 function faSum_(rows){
@@ -352,8 +353,15 @@ function faStatus_(st){ try{ PropertiesService.getScriptProperties().setProperty
 function faSyncTrig(){ try{ faSync_({}); }catch(e){ faStatus_({ at:Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd HH:mm'), err:String(e && e.message || e) }); } }
 function faTick_(){
   try{
-    var P = PropertiesService.getScriptProperties(); if(P.getProperty('FA_TRIG') === FA.TRIG_V) return;
-    ScriptApp.getProjectTriggers().forEach(function(tr){ if(tr.getHandlerFunction() === 'faSyncTrig') ScriptApp.deleteTrigger(tr); });
+    /* 11/11/2026: không chỉ tin cờ FA_TRIG — đồng bộ cuối cũ hơn 3 giờ ⇒ kiểm lại trigger thật (≤ 1 lần / giờ) và tạo lại nếu mất */
+    var P = PropertiesService.getScriptProperties(), C = CacheService.getScriptCache();
+    var st = {}; try{ st = JSON.parse(P.getProperty('FA_SYNC') || '{}'); }catch(e){}
+    var age = st.at ? (Date.now() - new Date(String(st.at).replace(' ', 'T') + ':00+07:00').getTime()) / 36e5 : 99;
+    if(P.getProperty('FA_TRIG') === FA.TRIG_V && age < 3) return;
+    if(C.get('fa_tick')) return; C.put('fa_tick', '1', 3600);
+    var have = ScriptApp.getProjectTriggers().filter(function(tr){ return tr.getHandlerFunction() === 'faSyncTrig'; });
+    if(have.length === 1 && P.getProperty('FA_TRIG') === FA.TRIG_V) return;
+    have.forEach(function(tr){ ScriptApp.deleteTrigger(tr); });
     ScriptApp.newTrigger('faSyncTrig').timeBased().everyHours(1).create();
     P.setProperty('FA_TRIG', FA.TRIG_V);
   }catch(e){ Logger.log('faTick_: ' + e.message); }
