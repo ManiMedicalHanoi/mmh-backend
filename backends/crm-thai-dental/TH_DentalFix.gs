@@ -20,6 +20,10 @@
  *  v1.1 (09/11/2026, user request): Type action "Event" added next to "Co-visiting with distributor" (THD_TYPE_ACTIONS) — in
  *  MASTER LIST + every dropdown + the app list (master_). File already fixed with f1 ⇒ f2 only runs the master + dropdowns steps.
  *
+ *  v1.3 (11/11/2026, KPI FY68 file filled by Owen san after the meeting of 4 Nov 2026 — Nguyen Ha asked to apply it): f3 ⇒
+ *  Type action "Event/Co-visiting with distributor" · ACCOUNT TRACKING column M "Key account" · KPI tab rebuilt + synced (thdKpiRebuild_).
+ *  action thdFix&op=f3 runs only these steps, op=kpi only the KPI tab.
+ *
  *  v1.2 (09/11/2026, user review of the real file): CUSTOMER TASK also held the team's office work and business-trip days
  *  ("Thailand office/MMH/BKK/Central", "Businesstrip/MMH/Vientiane/Laos" …) because step ⑤ of the layout copied EVERY row of the
  *  old sheet WEEK, and step ③ added those "accounts" to CUSTOMER CODE ("Added from WEEK"). They are not customers:
@@ -30,9 +34,10 @@
  *                        (cells emptied, row kept ⇒ the codes of the other customers do not move) · everything backed up first in
  *                        the hidden sheets "OLD · Internal tasks (moved)" / "OLD · Internal accounts (removed)".
  *************************************************************************************************/
-var THDFIX = { VER: 'f2', PROP: 'THD_FIX', LOG: 'THD_FIX_LOG' };
-/* Type actions the Dental Thailand team always has (MASTER LIST ▸ Type action, dropdown of CUSTOMER TASK, app) */
-var THD_TYPE_ACTIONS = ['Co-visiting with distributor', 'Event'];
+var THDFIX = { VER: 'f3', PROP: 'THD_FIX', LOG: 'THD_FIX_LOG' };
+/* Type actions the Dental Thailand team always has (MASTER LIST ▸ Type action, dropdown of CUSTOMER TASK, app)
+   f3 (11/11/2026, KPI FY68 file of Owen san, meeting 4 Nov 2026): "Event/Co-visiting with distributor" — counts for KPI C4-01 like "Co-visiting with distributor" */
+var THD_TYPE_ACTIONS = ['Co-visiting with distributor', 'Event', 'Event/Co-visiting with distributor'];
 var THD_OLDNAME = { 'CUSTOMER TASK': 'CUSTOMER VISITING', 'OTHERS TASK': 'ALL TASK' };
 var THD_NEWNAME = { 'CUSTOMER VISITING': 'CUSTOMER TASK', 'ALL TASK': 'OTHERS TASK' };
 /* profile columns that must all be filled (TABS.adp fields) — monthly results / amounts actual are NOT required */
@@ -210,11 +215,14 @@ function thdFixRun_(force){
   var P = props_();
   if(!force && P.getProperty(THDFIX.PROP) === THDFIX.VER) return null;
   if(!force && !thdFixReady_()) return null;
-  var log = [], light = !force && P.getProperty(THDFIX.PROP) === 'f1';   /* f1 done ⇒ only the new Type action */
+  var log = [], prev = P.getProperty(THDFIX.PROP), light = !force && (prev === 'f1' || prev === 'f2');   /* f1 / f2 done ⇒ only the new steps */
   function step(nm, fn){ try{ log.push(nm + ': ' + fn()); }catch(e){ log.push(nm + ': ⚠ ' + (e && e.message || e)); } }
   if(light){
     step('master', function(){ var a = thdMasterAdd_(); return a.length ? 'added ' + a.join(', ') : 'ok'; });
     step('dropdowns', function(){ return thdDvFix_() + ' column(s) now cover the whole list'; });
+    step('keyacc', thdKeyAccCol_);
+    step('guide', thdGuideKpi_);
+    step('kpi', thdKpiRebuild_);
     try{ bump_(['master']); }catch(e){}
     P.setProperty(THDFIX.PROP, THDFIX.VER);
     P.setProperty(THDFIX.LOG, Utilities.formatDate(new Date(), tz_(), 'dd/MM/yyyy HH:mm') + ' · ' + THDFIX.VER + ' · ' + log.join(' | '));
@@ -227,19 +235,50 @@ function thdFixRun_(force){
   step('ptest', thdPtLink_);
   step('adp', thdAdpCols_);
   step('stamp', function(){ return adpStamp_() + ' row(s) time-logged'; });
-  step('kpi', function(){ k68Setup_(ss_(), CFG.SH_KPI, CFG.KEY); bump_(['kpi']); return 'KPI tab rebuilt (C2-02 from ADP, CUSTOMER TASK)'; });
+  step('keyacc', thdKeyAccCol_);
+  step('guide', thdGuideKpi_);
+  step('kpi', thdKpiRebuild_);
   P.setProperty(THDFIX.PROP, THDFIX.VER);
   P.setProperty(THDFIX.LOG, Utilities.formatDate(new Date(), tz_(), 'dd/MM/yyyy HH:mm') + ' · ' + log.join(' | '));
   try{ bump_(); }catch(e){}
   return log;
 }
 function thdFixNow(){ var r = thdFixRun_(true); try{ SpreadsheetApp.getUi().alert((r || []).join('\n')); }catch(e){} return r; }
+/* f3 (11/11/2026) — ACCOUNT TRACKING ▸ column M "Key account" (Yes / No): the distributor key accounts defined by Yong (KPI C2-02) */
+/* f3 — sheet GUIDE ▸ part D (KPI) with the rules of 4 Nov 2026 */
+var THD_GUIDE_KPI = [["Yong: F4-00 turnover (40%) · C2-01 new key accounts (20%) · C2-02 key account profiling % (10%) · C4-01 co-visits (20%)", "Yong: F4-00 turnover (40%) · C2-01 new key accounts (20%) · C2-02 visits to distributor key accounts (10%, ACCOUNT TRACKING ▸ Key account = Yes) · C4-01 co-visits incl. Event/Co-visiting (20%) · L3-21 KBI (10%, KPI file)"], ["Man: F4-00 (25%) · C4-03 co-visiting days (15%) · C11-02 T&E events led by MMH (25%) · C11-03 product test pass rate (25%, sheet PRODUCT TEST)", "Man: F4-00 (25%) · C4-03 co-visiting days, at least 5 co-visits a day (15%) · C11-02 T&E events led by MMH — PRODUCT PRESENTATION (25%) · C11-03 product test pass rate, target 60% (25%, sheet PRODUCT TEST) · L3-22 KBI (10%)"], ["Sui: F4-00 (20%) · C14-00 T&E events KOL + MMH + exhibitions (20%) · C16-00 new product categories (30%) · C17-07 product content published (20%)", "Sui: F4-00 (20%) · C14-00 T&E events KOL + MMH + exhibitions (20%) · C16-00 participants in T&E events (30%) · C17-07 product content published (20%) · L3-20 KBI (10%)"], ["Targets come from the KPI file. Turnover and events come from the KPI file (Turnover report · 2. Thailand - Dental Event Report). C16-00 / C17-07: typed in the KPI file. C11-03 = sheet PRODUCT TEST (Pass ÷ tests). C2-02 = sheet ADP (complete profiles ÷ customers of the PIC).", "KPI file of 4 Nov 2026 (Owen san). Targets come from the KPI file. Turnover, events (C11-02 · C14-00) and participants (C16-00) come from the KPI file (Turnover report · 2. Thailand - Dental Event Report + PRODUCT PRESENTATION). C17-07: typed in the KPI file. C11-03 = sheet PRODUCT TEST (Pass ÷ tests). C2-02 = CUSTOMER TASK visits to the key accounts of ACCOUNT TRACKING."]];
+function thdGuideKpi_(){
+  var g = ss_().getSheetByName('GUIDE'); if(!g) return 'no GUIDE sheet';
+  var n = 0; THD_GUIDE_KPI.forEach(function(x){ n += g.createTextFinder(x[0]).matchCase(true).matchEntireCell(true).replaceAllWith(x[1]); });
+  return n + ' line(s) updated';
+}
+function thdKeyAccCol_(){ var s = acmSheet_(); return 'ACCOUNT TRACKING ▸ ' + (acmKeyCol_(s) ? 'column M "Key account" ready' : 'no sheet'); }
+/* f3 — KPI tab rebuilt with the rules of the KPI FY68 file of 4 Nov 2026 (C2-02 key-account visits · C4-01 both co-visit types ·
+   C4-03 days with ≥ 5 co-visits · C11-02 / C14-00 / C16-00 from the KPI file) then synced with the KPI file */
+function thdKpiRebuild_(){
+  k68Setup_(ss_(), CFG.SH_KPI, CFG.KEY); bump_(['kpi']); SpreadsheetApp.flush();
+  var r = null; try{ r = k68SyncFix_(ss_().getSheetByName(CFG.SH_KPI), true); }catch(e){ r = { ok: false, error: String(e && e.message || e) }; }
+  return 'KPI tab rebuilt (' + K68_LAYOUT + ') · sync: ' + (r && r.ok ? (r.message || 'ok') : (r && (r.error || r.error2)) || '?');
+}
+/* op=kpitab — READ ONLY: rows of the KPI tab (code · PIC · key · 12 targets · 12 actuals, errors shown as text) */
+function thdKpiTab_(){
+  var s = ss_().getSheetByName(CFG.SH_KPI); if(!s) return { ok: false, error: 'no KPI tab' };
+  var v = s.getRange(1, 1, s.getLastRow(), K68.NC).getDisplayValues(), out = [];
+  v.forEach(function(r){ var t = str_(r[0]); if(!/^kpi:|^months$/.test(t)) return;
+    out.push([t, r[K68.code - 1], r[K68.pic - 1], r[K68.name - 1].slice(0, 60), r[K68.unit - 1]].concat(['T'], r.slice(K68.t0 - 1, K68.t0 + 11), ['A'], r.slice(K68.a0 - 1, K68.a0 + 11)).join(' | ')); });
+  var at = acmSheet_(), keys = 0;
+  try{ var lr = at.getLastRow(); if(lr > 1) keys = at.getRange(2, 13, lr - 1, 1).getValues().filter(function(x){ return acmYes_(x[0]); }).length; }catch(e){}
+  return { ok: true, layout: str_(v[0][0]), rows: out, keyAccounts: keys, types: (master_().typeAction || []).filter(function(x){ return /co-visit|event/i.test(x); }) };
+}
 /* action thdFix&key=<8 last chars of the Sheet id>[&op=run] — status / run now (workflow Kiểm tra) */
 function thdFixApi_(p){
   var key = str_(p.key), id = ss_().getId();
   if(!key || key !== id.slice(-8)) return { ok: false, error: 'key?' };
   var r = null;
   if(str_(p.op) === 'run') r = thdFixRun_(true);
+  if(str_(p.op) === 'f3') r = (props_().setProperty(THDFIX.PROP, 'f2'), thdFixRun_(false));   /* only the f3 steps */
+  if(str_(p.op) === 'kpi') r = [thdKpiRebuild_()];
+  if(str_(p.op) === 'kpitab') return thdKpiTab_();
   if(str_(p.op) === 'internal') return { ok: true, dry: true, scan: thdIntScan_() };
   if(str_(p.op) === 'internalRun') return { ok: true, moved: thdIntMove_(), scan: thdIntScan_() };
   var cm = codeMap_(), sample = readTab_('customer').slice(0, 5).map(function(c){ return str_(c.code) + ' · ' + str_(c.name); });

@@ -1887,22 +1887,25 @@ function mtPdf_(q){
  * ═══════════════════════════════════════════════════════════════════════════════════════════ */
 var K68_SPEC = {"thai":{"title":"THAILAND SURGICAL SALES TEAM","lang":"en","pics":[{"pic":"Dao","role":"Head of Surgical Sales & Marketing – Thailand / Myanmar","rows":[{"code":"F1-00","key":"turnover","name":"Turnover to distributors – Surgical Thailand / Myanmar","unit":"USD","agg":"SUM","w":0.4,"t":[46961.0,102749.0,316826.0,51814.0,106552.0,323867.0,100301.0,120792.0,316826.0,92251.0,127487.0,343574.0]},{"code":"F6-03","key":"turnover","name":"New & relaunched products – Hook + Micro Forceps – Surgical TH / MM","unit":"USD","agg":"SUM","w":0.1,"t":[36971.0,15851.0,0.0,41824.0,15850.0,0.0,60295.0,22191.0,0.0,62236.0,25360.0,0.0]},{"code":"C13-00","key":"event_hub","name":"T&E events led by KOLs & exhibitions – team total","unit":"Times","agg":"SUM","w":0.3,"t":[6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0]},{"code":"C11-01","key":"event_hub","name":"T&E events led by MMH members – team total","unit":"Times","agg":"SUM","w":0.1,"t":[2.0,2.0,2.0,2.0,2.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0]}]},{"pic":"Miew","role":"Surgical – Sale Representative (Manipler)","rows":[{"code":"F1-01","key":"turnover","name":"Turnover to distributors – Manipler, Novatech distributor","unit":"USD","agg":"SUM","w":0.4,"t":[0.0,37567.0,0.0,0.0,40508.0,0.0,0.0,40760.0,0.0,0.0,41165.0,0.0]},{"code":"C11-01a","key":"event_hub","name":"T&E events led by MMH members – Manipler","unit":"Times","agg":"SUM","w":0.15,"t":[2.0,2.0,2.0,2.0,2.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0]},{"code":"C4-02","key":"visit_all","name":"Customer visits – Manipler, Surgical Thailand","unit":"Times","agg":"SUM","w":0.2,"t":[30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0,30.0]},{"code":"C2-03","key":"newacct_all","name":"New accounts & new SKU listings – Manipler","unit":"Accounts","agg":"SUM","w":0.15,"t":[null,null,null,null,null,null,null,null,null,null,null,null]}]}]}};
 /* ⭐ Thailand Dental — rows of sheet 5A (KPI Weight Input) of MMH KPI FY68, KBI (L3-xx) not tracked in the CRM.
+   11/11/2026 — KPI file of Owen san (meeting 4 Nov 2026): C2-02 = visits to distributor key accounts (was profiling coverage) ·
+   C16-00 = participants in T&E events (was new product categories) · C4-01 counts "Event/Co-visiting with distributor" too ·
+   C4-03 = days with at least 5 co-visits · C11-02 / C14-00 add the PRODUCT PRESENTATION sessions (KPI Sync Center).
    Targets are left empty here: the KPI Sync Center writes the monthly targets of 3. Detail KPI into the tab (file KPI → CRM). */
 K68_SPEC.thaid = {"title":"THAILAND DENTAL SALES TEAM","lang":"en","pics":[
  {"pic":"Yong","role":"Thailand Dental - Commercial Lead","rows":[
   {"code":"F4-00","key":"turnover","name":"Turnover to distributors – Dental & MMG Thailand (team, cumulative)","unit":"USD","agg":"LAST","w":0.4,"t":null},
   {"code":"C2-01","key":"newacct_key","name":"New key accounts (DSO, dental university, hospital) – Dental Thailand","unit":"Accounts","agg":"SUM","w":0.2,"t":null},
-  {"code":"C2-02","key":"profiling","name":"Key account profiling coverage – top 20% of the 3 distributors' accounts","unit":"%","agg":"LAST","w":0.1,"t":null},
-  {"code":"C4-01","key":"covisit","name":"Co-visits with distributor sales reps – commercial support","unit":"Times","agg":"SUM","w":0.2,"t":null}]},
+  {"code":"C2-02","key":"kavisit","name":"Visits to distributor key accounts (ACCOUNT TRACKING ▸ Key account = Yes)","unit":"Times","agg":"SUM","w":0.1,"t":null},
+  {"code":"C4-01","key":"covisit","name":"Co-visits with distributor sales reps – commercial support (incl. Event/Co-visiting)","unit":"Times","agg":"SUM","w":0.2,"t":null}]},
  {"pic":"Man","role":"Thailand Dental - Training & Education Lead","rows":[
   {"code":"F4-00","key":"turnover","name":"Turnover to distributors – Dental & MMG Thailand (team, cumulative)","unit":"USD","agg":"LAST","w":0.25,"t":null},
-  {"code":"C4-03","key":"covisit_day","name":"Co-visiting days with distributor sales reps – field training","unit":"Days","agg":"SUM","w":0.15,"t":null},
-  {"code":"C11-02","key":"event_hub","name":"T&E events led by MMH members – product presentation / case demo","unit":"Times","agg":"SUM","w":0.25,"t":null},
+  {"code":"C4-03","key":"covisit_day","name":"Co-visiting days with distributor sales reps – field training (≥ 5 visits / day)","unit":"Days","agg":"SUM","w":0.15,"t":null},
+  {"code":"C11-02","key":"event_hub","name":"T&E events led by MMH members – product presentation / case demo (PRODUCT PRESENTATION + event file)","unit":"Times","agg":"SUM","w":0.25,"t":null},
   {"code":"C11-03","key":"test_rate","name":"Product knowledge test pass rate – distributor sales reps (sheet PRODUCT TEST)","unit":"%","agg":"LAST","w":0.25,"t":null}]},
  {"pic":"Sui","role":"Thailand Dental - Marketing Lead","rows":[
   {"code":"F4-00","key":"turnover","name":"Turnover to distributors – Dental & MMG Thailand (team, cumulative)","unit":"USD","agg":"LAST","w":0.2,"t":null},
   {"code":"C14-00","key":"event_hub","name":"T&E events led by KOLs, MMH members & exhibitions – Dental Thailand","unit":"Times","agg":"SUM","w":0.2,"t":null},
-  {"code":"C16-00","key":"manual","name":"New product categories launched (first distributor order)","unit":"Categories","agg":"SUM","w":0.3,"t":null},
+  {"code":"C16-00","key":"event_hub","name":"Participants in T&E events – Dental Thailand","unit":"Participants","agg":"SUM","w":0.3,"t":null},
   {"code":"C17-07","key":"manual","name":"Product content items published – Dental Thailand","unit":"Content items","agg":"SUM","w":0.2,"t":null}]}]};
 
 var K68_MASTER_SHEET = '3. Detail KPI';
@@ -1910,7 +1913,7 @@ var K68_N  = 20000;   /* số dòng quét ở tab viếng thăm / khách hàng *
 var K68_N2 = 6000;    /* số dòng quét ở tab thuyết trình / đơn hàng */
 var K68_SRC = {
   vi: { wk: '6. WEEKLY REPORT',     cu: 'CUSTOMER CODE', pr: 'PRODUCT PRESENTATION', od: '3. SALE ORDER' },
-  en: { wk: 'CUSTOMER TASK', cu: 'CUSTOMER CODE', pr: 'PRODUCT PRESENTATION', od: '', na: 'NEW ACCOUNT & SKU', pt: 'PRODUCT TEST', adp: 'ADP' }
+  en: { wk: 'CUSTOMER TASK', cu: 'CUSTOMER CODE', pr: 'PRODUCT PRESENTATION', od: '', na: 'NEW ACCOUNT & SKU', pt: 'PRODUCT TEST', adp: 'ADP', at: 'ACCOUNT TRACKING' }
 };
 /* cột cố định của tab KPI */
 var K68 = { tag: 1, code: 2, pic: 3, name: 4, unit: 5, w: 6, agg: 7, tFY: 8, t0: 9, aFY: 21, a0: 22,
@@ -1919,7 +1922,7 @@ var K68 = { tag: 1, code: 2, pic: 3, name: 4, unit: 5, w: 6, agg: 7, tFY: 8, t0:
 var K68_SET = { fy: 'C4', rate: 'D5', photo: 'D6', comp1: 'D7', comp2: 'E7', jz1: 'D8', jz2: 'E8', link: 'D9', cur: 'D10', sync: 'D11' };
 var K68_MANUAL = { turnover: 1, manual: 1, event_hub: 1 };   /* v1.4 — event counts come from the KPI Hub (Marketing Offline file) */
 /* ⭐ phiên bản bố cục tab KPI — tab dựng bằng code cũ (khác nhãn này) sẽ TỰ dựng lại khi đồng bộ, giữ ô nhập tay */
-var K68_LAYOUT = 'k68v6d3';   /* 02/11/2026: C2-02 = sheet ADP (profiles completed ÷ customers of the PIC) · sheet CUSTOMER TASK ⇒ tab rebuilds once */   /* was 'k68v6d2' —   /* Dental Thái 30/10/2026: C4-03 = số ngày có co-visit (không cần xác nhận ≥ 5 lượt) · C11-03 = sheet PRODUCT TEST ⇒ tab tự dựng lại 1 lần, giữ ô nhập tay */   /* v1.9 — C2-03 counts approved cases of sheet 23 ⇒ the tab rebuilds itself once, typed cells kept */   /* v1.4 — event codes now pulled from the KPI Hub: the tab rebuilds itself once, typed cells kept */
+var K68_LAYOUT = 'k68v6d4';   /* 11/11/2026: KPI file of 4 Nov 2026 (C2-02 key-account visits · C16-00 participants · C4-01 both types · C4-03 ≥ 5 visits) ⇒ tab rebuilds once */   /* was 'k68v6d3' —    /* 02/11/2026: C2-02 = sheet ADP (profiles completed ÷ customers of the PIC) · sheet CUSTOMER TASK ⇒ tab rebuilds once */   /* was 'k68v6d2' —   /* Dental Thái 30/10/2026: C4-03 = số ngày có co-visit (không cần xác nhận ≥ 5 lượt) · C11-03 = sheet PRODUCT TEST ⇒ tab tự dựng lại 1 lần, giữ ô nhập tay */   /* v1.9 — C2-03 counts approved cases of sheet 23 ⇒ the tab rebuilds itself once, typed cells kept */   /* v1.4 — event codes now pulled from the KPI Hub: the tab rebuilds itself once, typed cells kept */
 
 var K68_TXT = {
   vi: {
@@ -2005,8 +2008,9 @@ var K68_TXT = {
       event_hub: 'Thailand Surgical Marketing Offline file (REPORT_EVENT) · counted by the KPI Hub by event type (sheet 4B)',
       event_kol_team: 'CUSTOMER TASK · Type action = Event + Task Status ≠ Not Started / Cancel + date ≤ today (KOL-led events & exhibitions, whole team) by Start date',
       profiling: 'ADP · different accounts of the PIC whose profile row is complete (account · PIC · ABCD focus · case info · analysis · objective · tactic · key action · target) — column AH "Profile completed" = date it became complete — up to the end of the month ÷ different customers of the PIC in CUSTOMER CODE · cumulative',
-      covisit: 'CUSTOMER TASK · Sales PIC + Start date in month + Type action = Co-visiting with distributor + Task Status ≠ Not Started / Cancel + date ≤ today',
-      covisit_day: 'CUSTOMER TASK · number of DAYS (Start date) in the month with a co-visit of the PIC (Type action = Co-visiting with distributor, not Cancel / Not Started) — no confirmation needed',
+      covisit: 'CUSTOMER TASK · Sales PIC + Start date in month + Type action = Co-visiting with distributor or Event/Co-visiting with distributor + Task Status ≠ Not Started / Cancel + date ≤ today',
+      covisit_day: 'CUSTOMER TASK · number of DAYS (Start date) in the month on which the PIC has at least 5 visits of Type action = Co-visiting with distributor (not Cancel / Not Started, date ≤ today) — a day with fewer than 5 visits does not count',
+      kavisit: 'CUSTOMER TASK · visits of the PIC (Type action = Visiting, Co-visiting with distributor or Event/Co-visiting with distributor, not Cancel / Not Started, date ≤ today) to the accounts marked Key account = Yes in sheet ACCOUNT TRACKING (distributor key accounts defined by Yong) · detailed rule to be confirmed',
       test_rate: 'PRODUCT TEST · Result = Pass ÷ tests with a result (Sales PIC), from the start of the FY to the end of the month — cumulative',
       newacct_key: 'NEW ACCOUNT & SKU · approved cases by PIC + Month · Account type = DSO / University / Hospital (key accounts) · evidence = distributor confirmation',
       supp_amt: '3. SALE ORDER · Amount ÷ exchange rate (D5)', supp_comp: '3. SALE ORDER · Composite quantity', supp_jizai: '3. SALE ORDER · JIZAI quantity'
@@ -2049,18 +2053,18 @@ var K68_GROUPS = {
   thaid: [
     ['F4',     'Turnover – Dental & MMG Thailand (shared by the team)', ['F4-00'], 'avg'],
     ['C2-01',  'New key accounts (DSO · university · hospital)', ['C2-01']],
-    ['C2-02',  'Key account profiling coverage (%)', ['C2-02']],
+    ['C2-02',  'Visits to distributor key accounts', ['C2-02']],
     ['C4-01',  'Co-visits with distributor sales reps', ['C4-01']],
     ['C4-03',  'Co-visiting days – field training', ['C4-03']],
     ['C11-02', 'T&E events led by MMH members', ['C11-02']],
     ['C11-03', 'Product knowledge test pass rate (%)', ['C11-03']],
     ['C14',    'T&E events – KOLs, MMH & exhibitions', ['C14-00']],
-    ['C16',    'New product categories launched', ['C16-00']],
+    ['C16',    'Participants in T&E events', ['C16-00']],
     ['C17-07', 'Product content items published', ['C17-07']]]
 };
 /* Dental: source text of the event codes / typed codes */
-K68_TXT.en.src.event_hub = '2. Thailand - Dental Event Report (REPORT_EVENT) · counted by the KPI Sync Center (by WHO leads: KOL / MMH member / exhibition — sheet 4B) · this row shows the number of the KPI file';
-K68_TXT.en.src.manual = 'Typed in the MMH KPI FY68 file (or here when the KPI file is still empty) — C16-00 first distributor orders · C17-07 content published';
+K68_TXT.en.src.event_hub = 'Counted by the KPI Sync Center, this row shows the number of the KPI file · C14-00 = events of 2. Thailand - Dental Event Report (REPORT_EVENT, KOL / MMH member / exhibition) + PRODUCT PRESENTATION sessions not in the event file · C11-02 = MMH-led events + PRODUCT PRESENTATION sessions (Actual > 0) · C16-00 = sum of Actual Participant of the counted events';
+K68_TXT.en.src.manual = 'Typed in the MMH KPI FY68 file (or here when the KPI file is still empty) — C17-07 content items published (Thailand Dental - Digital Plan FY68)';
 
 /* ── tiện ích ── */
 function k68Col_(n){ var s = ''; while(n > 0){ var m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; }
@@ -2178,12 +2182,24 @@ function k68Build_(sh, team, keep){
     }
     if(key === 'event_kol_team') return '=COUNTIFS(' + rg('wk', 'N') + ',"Event",' + dates + ')';
     /* Dental Thailand (4. Rule nhóm 4) — C4-01: visits with Type action "Co-visiting with distributor" */
-    if(key === 'covisit') return '=COUNTIFS(' + rg('wk', 'G') + ',' + pic + ',' + rg('wk', 'N') + ',"Co-visit*",' + dates + ')';
-    /* C4-03: number of DAYS (start date) with a co-visit of the PIC in the month — no confirmation needed (user 30/10/2026: the ≥ 5 visits check is not applied) */
+    /* C4-01 (KPI file 4 Nov 2026): "Co-visiting with distributor" + "Event/Co-visiting with distributor" (customers approached at events) */
+    if(key === 'covisit') return '=COUNTIFS(' + rg('wk', 'G') + ',' + pic + ',' + rg('wk', 'N') + ',"Co-visit*",' + dates + ')+COUNTIFS(' + rg('wk', 'G') + ',' + pic + ',' + rg('wk', 'N') + ',"Event/Co-visit*",' + dates + ')';
+    /* C4-03 (KPI file 4 Nov 2026, rule of sheet 4. Rule): number of DAYS in the month on which the PIC has AT LEAST 5 co-visits
+       (Type action "Co-visiting with distributor") — a day with fewer than 5 visits does not count (replaces the rule of 30/10/2026: any co-visit day) */
     if(key === 'covisit_day'){
       var E = rg('wk', 'E'), G = rg('wk', 'G'), Nn = rg('wk', 'N'), R = rg('wk', 'R');
-      return '=IFERROR(COUNTUNIQUE(FILTER(' + E + ',' + G + '=' + pic + ',LEFT(' + Nn + ',8)="Co-visit",' + E + '>=' + md + ',' + E + '<EDATE(' + md + ',1),' + E + '<=TODAY(),' +
-             R + '<>"Not Started",LEFT(' + R + ',6)<>"Cancel")),0)';
+      return '=IFERROR(SUMPRODUCT(--(COUNTIFS(' + G + ',' + pic + ',' + Nn + ',"Co-visit*",' + R + ',"<>Not Started",' + R + ',"<>Cancel*",' + E + ',UNIQUE(FILTER(' + E + ',' + G + '=' + pic +
+             ',LEFT(' + Nn + ',8)="Co-visit",' + E + '>=' + md + ',' + E + '<EDATE(' + md + ',1),' + E + '<=TODAY(),' + R + '<>"Not Started",LEFT(' + R + ',6)<>"Cancel")))>=5)),0)';
+    }
+    /* C2-02 (KPI file 4 Nov 2026, replaces the profiling coverage): visits of the PIC to the distributor KEY ACCOUNTS = accounts with
+       "Key account" = Yes in sheet ACCOUNT TRACKING (list defined by Yong). Visit = Visiting / Co-visiting / Event/Co-visiting, not Cancel / Not Started, date ≤ today.
+       Account cell of CUSTOMER TASK = "name/type/province/area" ⇒ the name before the first "/" is matched with column B of ACCOUNT TRACKING. */
+    if(key === 'kavisit'){
+      var E2 = rg('wk', 'E'), G2 = rg('wk', 'G'), H2 = rg('wk', 'H'), N2b = rg('wk', 'N'), R2 = rg('wk', 'R'), AT = k68Q_(SRC.at);
+      var KA = 'FILTER(' + AT + '$B$2:$B$5000,' + AT + '$M$2:$M$5000="Yes")';
+      return '=IFERROR(ROWS(FILTER(' + E2 + ',' + G2 + '=' + pic + ',' + E2 + '>=' + md + ',' + E2 + '<EDATE(' + md + ',1),' + E2 + '<=TODAY(),' + R2 + '<>"Not Started",LEFT(' + R2 + ',6)<>"Cancel",' +
+             '((' + N2b + '="Visiting")+(LEFT(' + N2b + ',8)="Co-visit")+(LEFT(' + N2b + ',14)="Event/Co-visit"))>0,' +
+             'ISNUMBER(MATCH(TRIM(IFERROR(REGEXEXTRACT(' + H2 + '&"","^[^/]*"),"")),' + KA + ',0)))),0)';
     }
     /* C11-03: product knowledge test pass rate of distributor sales reps — sheet PRODUCT TEST (sales fill it in):
        tests of the PIC from the start of the FY to the end of the month, Pass ÷ tests with a result (cumulative ⇒ agg LAST) */
