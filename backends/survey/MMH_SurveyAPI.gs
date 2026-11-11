@@ -1,5 +1,5 @@
 /**
- * MMH Survey API v2.9 (09/11/2026; v2.9: câu sàng lọc tự tách trang — các câu sau nằm ở trang "(tiếp)"; v2.8: formDump / formEdit — đọc + sửa tại chỗ form đã có, giữ link (MMH_SurveyEdit.gs); v2.1: action docText (đọc chữ tài liệu Drive cho Claude); v2.0: bài kiểm tra có trang làm bài đếm ngược + mốc đạt + email kết quả (MMH_SurveyQuiz.gs); v1.2: người trả lời = ai có link (Drive reader + view published), action share; v1.1: câu sàng lọc — mọi lựa chọn đều gắn điều hướng, form lỗi giữa chừng tự vào Thùng rác) — tạo Google Form KHẢO SÁT / BÀI KIỂM TRA từ 1 bản mô tả JSON.
+ * MMH Survey API v3.0 (11/11/2026; v3.0: khảo sát bác sĩ tự có khối "Quyền riêng tư và bảo vệ dữ liệu cá nhân" (đồng ý xử lý dữ liệu — bắt buộc) ở ĐẦU form, trước thông tin cá nhân — spec.consent; v2.9: câu sàng lọc tự tách trang — các câu sau nằm ở trang "(tiếp)"; v2.8: formDump / formEdit — đọc + sửa tại chỗ form đã có, giữ link (MMH_SurveyEdit.gs); v2.1: action docText (đọc chữ tài liệu Drive cho Claude); v2.0: bài kiểm tra có trang làm bài đếm ngược + mốc đạt + email kết quả (MMH_SurveyQuiz.gs); v1.2: người trả lời = ai có link (Drive reader + view published), action share; v1.1: câu sàng lọc — mọi lựa chọn đều gắn điều hướng, form lỗi giữa chừng tự vào Thùng rác) — tạo Google Form KHẢO SÁT / BÀI KIỂM TRA từ 1 bản mô tả JSON.
  * Claude (phiên Claude Code) soạn câu hỏi theo yêu cầu + tài liệu ⇒ gọi web app này ⇒ trả link ngay trong chat.
  * Bộ mô tả + quy tắc soạn: kho mmh-library ▸ surveys/ (README.md, specs/*.json, tools/survey.py).
  *
@@ -15,6 +15,7 @@
  *   title, intro (lời mở đầu, xưng "Quý bác sĩ"), minutes (thời gian trả lời / làm bài),
  *   passPercent (quiz, mặc định 70), shuffle (quiz), confirmation,
  *   info: true | false | [{t,q,required}],   // mặc định: Họ và tên* · Số điện thoại* · Bệnh viện / phòng khám
+ *   consent: true | false | {title, text, agree, optional:[…]},  // khảo sát bác sĩ mặc định có (SV_CONSENT), bài kiểm tra / nhân sự mặc định không
  *   share: "view" | "edit" | "none",       // Form + Sheet cho mọi người có link (mặc định "view"); người TRẢ LỜI luôn = ai có link
  *   audience: "doctor" | "staff",          // phần thông tin chung mặc định (survey = doctor, quiz = staff)
  *   quiz: passScore (mốc đạt theo ĐIỂM, vd. 10 / 12 câu), minutes + countdown (trang làm bài đếm ngược, hết giờ tự nộp),
@@ -27,7 +28,7 @@
  *       low, high, lowLabel, highLabel (scale), rows, cols (grid),
  *       correct (quiz: chỉ số đáp án đúng, từ 0), points, explanation }
  */
-var SV = { VER: '2.9', PAGE: 'https://manimedicalhanoi.github.io/Training-Hub/quiz/', URL: 'https://script.google.com/macros/s/AKfycbx8l7u4j2tFDpfsg8IFsEcuXNrTbrLVRA_SoZ2Iisqprfm1ipL4z2NfDudVKuI1paFQPg/exec', KEY: 'mmh-sv-7Qk2pX9w', LOG_PROP: 'SV_LOG_ID', FOLDER_PROP: 'SV_FOLDER_ID', FOLDER: 'MMH Survey · Form tạo tự động' };
+var SV = { VER: '3.0', PAGE: 'https://manimedicalhanoi.github.io/Training-Hub/quiz/', URL: 'https://script.google.com/macros/s/AKfycbx8l7u4j2tFDpfsg8IFsEcuXNrTbrLVRA_SoZ2Iisqprfm1ipL4z2NfDudVKuI1paFQPg/exec', KEY: 'mmh-sv-7Qk2pX9w', LOG_PROP: 'SV_LOG_ID', FOLDER_PROP: 'SV_FOLDER_ID', FOLDER: 'MMH Survey · Form tạo tự động' };
 
 function doGet(e) {
   var p = e && e.parameter || {};
@@ -102,6 +103,21 @@ var SV_INFO_STAFF = [
     'Back Office — Stock Team', 'Back Office — Accounting & Import-Export', 'Back Office — Purchasing & Sales Support',
     'Thailand Dental Sales & Marketing', 'Thailand Surgical Sales & Marketing', 'BOD'] }
 ];
+// Đồng ý xử lý dữ liệu cá nhân (Luật BVDLCN 91/2025/QH15, NĐ 356/2025/NĐ-CP) — người dùng yêu cầu 11/11/2026: mọi khảo sát, ở ĐẦU form, trước phần điền thông tin cá nhân
+var SV_CONSENT = {
+  title: 'QUYỀN RIÊNG TƯ VÀ BẢO VỆ DỮ LIỆU CÁ NHÂN',
+  text: 'Công ty TNHH Mani Medical Hà Nội (MMH) thu thập họ tên, số điện thoại và nơi công tác của Quý bác sĩ để tổng hợp kết quả khảo sát và liên hệ lại khi cần. '
+    + 'Thông tin được bảo mật, chỉ dùng trong MMH và xử lý theo Luật Bảo vệ dữ liệu cá nhân số 91/2025/QH15, Nghị định 356/2025/NĐ-CP.\n'
+    + 'Quý bác sĩ có thể xem, chỉnh sửa, yêu cầu xoá dữ liệu hoặc rút lại sự đồng ý bất kỳ lúc nào qua hotline 0965 629 853.',
+  agree: { q: 'Xác nhận đồng ý xử lý dữ liệu cá nhân', v: 'Tôi đã đọc và đồng ý cho MMH xử lý dữ liệu cá nhân cho các mục đích nêu trên.' },
+  optional: [{ q: 'Nhận thông tin từ MMH (không bắt buộc)', v: 'Tôi đồng ý nhận thông tin về sản phẩm, đào tạo và sự kiện từ MMH.' }]
+};
+function svConsentQs_(c) {
+  c = Object.assign({}, SV_CONSENT, typeof c === 'object' && c ? c : {});
+  var out = [{ t: 'header', q: c.title, help: c.text }, { t: 'checkbox', q: c.agree.q, options: [c.agree.v], required: true }];
+  (c.optional || []).forEach(function (o) { out.push({ t: 'checkbox', q: o.q, options: [o.v], required: false }); });
+  return out;
+}
 function svUnz_(z) { return JSON.parse(Utilities.ungzip(Utilities.newBlob(Utilities.base64DecodeWebSafe(z), 'application/x-gzip')).getDataAsString('UTF-8')); }
 
 var SV_PART = null;
@@ -130,6 +146,9 @@ function svCreate_(spec) {
   var staff = spec.audience ? spec.audience !== 'doctor' : quiz;
   var info = spec.info === false ? [] : (Array.isArray(spec.info) ? spec.info : (staff ? SV_INFO_STAFF : SV_INFO_DOCTOR));
   var count = 0, pts = 0, nav = [], pages = {}, infoItems = [], qItems = [];
+  // Quyền riêng tư (v3.0): trước thông tin cá nhân; khảo sát bác sĩ mặc định có, bài kiểm tra / nhân sự chỉ khi spec.consent
+  var consent = spec.consent === undefined ? !staff : !!spec.consent;
+  if (consent) svConsentQs_(spec.consent).forEach(function (q) { svAdd_(form, q, false, nav); if (q.t !== 'header') count++; });
   if (info.length) {
     form.addSectionHeaderItem().setTitle(spec.infoTitle || 'THÔNG TIN CHUNG');
     info.forEach(function (q) { var r = svAdd_(form, q, false, nav); count++; if (r.it) infoItems.push({ id: r.it.getId(), t: q.t || 'text', q: q.q, required: q.required === undefined ? true : !!q.required, options: q.options || null }); });
