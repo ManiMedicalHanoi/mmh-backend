@@ -1,9 +1,9 @@
 /*************************************************************************************************
- * TH_AccountMap.gs — v1.2 (09/11/2026 · v1.1 district from the address · v1.2 one spelling per district) · CRM Thailand Dental — Account tracking + Thailand map (user request)
+ * TH_AccountMap.gs — v1.3 (11/11/2026 · v1.1 district from the address · v1.2 one spelling per district · v1.3 column M Key account) · CRM Thailand Dental — Account tracking + Thailand map (user request)
  *
  * Sheet "ACCOUNT TRACKING" (English, visible, 1 row per account of CUSTOMER CODE, filled automatically):
  *   A Code · B Account name · C Account type · D Province · E District · F Distributor · G Distributor sales rep ·
- *   H Latitude · I Longitude · J Location source · K Updated · L Updated by
+ *   H Latitude · I Longitude · J Location source · K Updated · L Updated by · M Key account (v1.3: Yes = distributor key account defined by Yong — KPI C2-02)
  *   · District: taken once from the note of CUSTOMER CODE ("District: …", the old Customer list column) — then edited in the app / sheet.
  *   · Distributor / Distributor sales rep: chosen in the app (Yong: territory of the 3 distributors and their sales reps).
  *   · Latitude / Longitude: the map of the app finds them (OpenStreetMap hospitals / dental clinics, then address search) ⇒ "osm" / "search";
@@ -13,8 +13,8 @@
 var ACM = {
   SH: 'ACCOUNT TRACKING', HDR: 1, DATA: 2,
   COLS: ['Code', 'Account name', 'Account type', 'Province', 'District', 'Distributor', 'Distributor sales rep',
-         'Latitude', 'Longitude', 'Location source', 'Updated', 'Updated by'],
-  F: ['code', 'name', 'type', 'province', 'district', 'dist', 'dsr', 'lat', 'lng', 'src', 'at', 'by'],
+         'Latitude', 'Longitude', 'Location source', 'Updated', 'Updated by', 'Key account'],
+  F: ['code', 'name', 'type', 'province', 'district', 'dist', 'dsr', 'lat', 'lng', 'src', 'at', 'by', 'key'],
   DISTRIBUTORS: ['DDI', 'Promptdent', 'VRP', 'Siamdent']
 };
 function acmSheet_(){
@@ -23,14 +23,32 @@ function acmSheet_(){
     s = book.insertSheet(ACM.SH);
     s.getRange(1, 1, 1, ACM.COLS.length).setValues([ACM.COLS]).setFontWeight('bold').setBackground('#003047').setFontColor('#FFFFFF').setWrap(true);
     s.setFrozenRows(1); s.setFrozenColumns(2);
-    [90, 260, 110, 130, 140, 120, 170, 90, 90, 110, 130, 100].forEach(function(w, i){ try{ s.setColumnWidth(i + 1, w); }catch(e){} });
+    [90, 260, 110, 130, 140, 120, 170, 90, 90, 110, 130, 100, 100].forEach(function(w, i){ try{ s.setColumnWidth(i + 1, w); }catch(e){} });
     try{ s.getRange(1, 5).setNote('District of the account (Bangkok: the distributor splits the territory by district).'); }catch(e){}
     try{ s.getRange(1, 7).setNote('Sales rep of the distributor who covers this account.'); }catch(e){}
     try{ s.getRange(1, 10).setNote('pin = placed by hand · osm = OpenStreetMap hospital / clinic · search = address search · province = province centre (approximate).'); }catch(e){}
     try{ s.getRange(2, 6, 1000, 1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(ACM.DISTRIBUTORS, true).setAllowInvalid(true).build()); }catch(e){}
   }
+  acmKeyCol_(s);
   return s;
 }
+/* v1.3 (11/11/2026) — column M "Key account" on a sheet created before: header, note, Yes / No dropdown (once per sheet) */
+var _ACM_KEY = false;
+function acmKeyCol_(s){
+  if(_ACM_KEY) return true;
+  try{
+    var h = s.getRange(1, 13);
+    if(str_(h.getValue()) !== 'Key account'){
+      if(s.getMaxColumns() < 13) s.insertColumnsAfter(s.getMaxColumns(), 13 - s.getMaxColumns());
+      h.setValue('Key account').setFontWeight('bold').setBackground('#003047').setFontColor('#FFFFFF').setWrap(true);
+      try{ h.setNote('Yes = distributor key account (list defined by Yong). KPI C2-02 counts Yong\'s visits to these accounts.'); }catch(e){}
+      try{ s.setColumnWidth(13, 100); }catch(e){}
+      try{ s.getRange(2, 13, Math.max(1000, s.getMaxRows() - 1), 1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['Yes', 'No'], true).setAllowInvalid(true).build()); }catch(e){}
+    }
+    _ACM_KEY = true; return true;
+  }catch(e){ return false; }
+}
+function acmYes_(v){ return /^(y|yes|x|true|1|✓)$/i.test(str_(v)); }
 function acmDistrictOf_(note){ var m = /District\s*:\s*([^·\n]+)/i.exec(String(note || '')); return m ? acmDisClean_(m[1]) : ''; }
 /* v1.2 — one spelling per district: no house number, no "District" / "Amphoe" / "Khet", Muang ⇒ Mueang (filters of the app group by this text) */
 function acmDisClean_(d){ return String(d || '').replace(/^[\s\d\/,.-]+/, '').replace(/\s+(district|amphoe)\s*$/i, '').replace(/^(khet|amphoe|amphur)\s+/i, '').replace(/^Muang\b/i, 'Mueang').replace(/\s+/g, ' ').trim(); }
@@ -70,7 +88,7 @@ function acmSync_(){
   cust.forEach(function(c){
     var code = str_(c.code), name = str_(c.name); if(!name) return;
     var r = (code && byCode[code]) || byName[picKey_(name) + '|' + picKey_(c.province)];
-    if(!r){ add.push([code, name, str_(c.type), str_(c.province), acmDistrictOf_(c.note) || acmDistrictAddr_(c.address, c.province), '', '', '', '', '', '', '']); return; }
+    if(!r){ add.push([code, name, str_(c.type), str_(c.province), acmDistrictOf_(c.note) || acmDistrictAddr_(c.address, c.province), '', '', '', '', '', '', '', '']); return; }
     var want = [code || str_(r.code), name, str_(c.type), str_(c.province)];
     if(want[0] !== str_(r.code) || want[1] !== str_(r.name) || want[2] !== str_(r.type) || want[3] !== str_(r.province)){
       s.getRange(r._row, 1, 1, 4).setValues([want]); upd++;
@@ -101,7 +119,7 @@ function acmFind_(s, code, name){
   return rows.filter(function(r){ return code && str_(r.code) === code; })[0] || rows.filter(function(r){ return name && picKey_(r.name) === picKey_(name); })[0] || null;
 }
 function acmNum_(v){ var n = parseFloat(v); return isFinite(n) ? Math.round(n * 1e6) / 1e6 : ''; }
-/* acctSave: {code | name} + any of district · dist · dsr · lat · lng (+ src: pin | clear) */
+/* acctSave: {code | name} + any of district · dist · dsr · key (Yes / No) · lat · lng (+ src: pin | clear) */
 function acmSave(user, p){
   var code = str_(p.code), name = str_(p.name);
   if(!code && !name) return { ok: false, error: 'Missing account.' };
@@ -112,13 +130,14 @@ function acmSave(user, p){
     if(!r) return { ok: false, error: 'Account not found in CUSTOMER CODE.' };
     var set = function(f, v){ s.getRange(r._row, ACM.F.indexOf(f) + 1).setValue(v); };
     ['district', 'dist', 'dsr'].forEach(function(f){ if(p[f] !== undefined) set(f, f === 'district' ? acmDisClean_(p[f]) : str_(p[f])); });
+    if(p.key !== undefined) set('key', acmYes_(p.key) ? 'Yes' : (str_(p.key) ? 'No' : ''));
     if(str_(p.src) === 'clear'){ set('lat', ''); set('lng', ''); set('src', ''); }
     else if(p.lat !== undefined && p.lng !== undefined && acmNum_(p.lat) !== '' && acmNum_(p.lng) !== ''){
       set('lat', acmNum_(p.lat)); set('lng', acmNum_(p.lng)); set('src', str_(p.src) || 'pin');
     }
     set('at', new Date()); set('by', str_(user && user.pic));
     SpreadsheetApp.flush();
-    try{ log_(user.pic, 'update', 'ACCOUNT TRACKING', r.name, ['district', 'dist', 'dsr', 'lat'].filter(function(f){ return p[f] !== undefined; }).join(', '), r._row); }catch(e){}
+    try{ log_(user.pic, 'update', 'ACCOUNT TRACKING', r.name, ['district', 'dist', 'dsr', 'key', 'lat'].filter(function(f){ return p[f] !== undefined; }).join(', '), r._row); }catch(e){}
     return { ok: true, row: acmRead_(s).filter(function(x){ return x._row === r._row; }).map(function(x){ return ACM.F.map(function(f){ return x[f]; }).concat([x._row]); })[0] };
   } finally { L.releaseLock(); }
 }

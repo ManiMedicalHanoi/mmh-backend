@@ -529,7 +529,7 @@ function kscPlan() {
     steps.push({ id: 'crm:' + l.team, title: kscLabel_('crm:' + l.team), file: l.link ? 'File CRM (_CRM_LINKS)' : '(chưa có link ở _CRM_LINKS)', sheet: l.tab, codes: 'Các mã trong tab KPI của CRM' });
   });
   steps.push({ id: 'th_surg', title: kscLabel_('th_surg'), file: '4. Thailand - Surgical - Marketing Offline', sheet: KSC_THEV.SHEET, codes: 'C13-00 · C11-01 · C11-01a' });
-  steps.push({ id: 'th_dent', title: kscLabel_('th_dent'), file: '2. Thailand - Dental Event Report', sheet: KSC_THEV.SHEET, codes: 'C14-00 · C11-02' });
+  steps.push({ id: 'th_dent', title: kscLabel_('th_dent'), file: '2. Thailand - Dental Event Report + CRM Dental Thái (PRODUCT PRESENTATION)', sheet: KSC_THEV.SHEET, codes: 'C14-00 · C11-02 · C16-00' });
   steps.push({ id: 'status', title: 'Ghi trạng thái nguồn dữ liệu', file: ss.getName(), sheet: KSC.STATUS, codes: 'Toàn bộ mã KPI' });
   return steps;
 }

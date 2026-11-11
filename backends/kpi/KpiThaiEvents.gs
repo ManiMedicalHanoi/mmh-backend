@@ -16,6 +16,11 @@
      · Surgical: C13-00 = KOL + Triển lãm · C11-01 = MMH dẫn · C11-01a = MMH dẫn và Target product có "Manipler".
      · Dental:   C14-00 = mọi sự kiện (KOL + MMH + Triển lãm) · C11-02 = MMH dẫn.
    Ghi vào cột "<tháng> Actual" của 3. Detail KPI (tháng đã tới), tab KPI của CRM Thái tự nhận lại số (dòng event_hub).
+   v1.1 (11/11/2026 — file KPI Dental Thailand của Owen san, họp 04/11/2026, chị Nguyen Ha yêu cầu áp dụng):
+     · C11-02 (Man) = sự kiện MMH dẫn ở file sự kiện + buổi PRODUCT PRESENTATION của CRM Dental Thái (Actual > 0, ngày ≤ hôm nay)
+       KHÔNG trùng ngày với 1 sự kiện của file sự kiện (trùng ngày ⇒ cùng 1 buổi, tính 1 lần).
+     · C14-00 (Sui) = mọi sự kiện của file sự kiện + các buổi PRODUCT PRESENTATION không trùng ngày ("these events also count in C14-00").
+     · C16-00 (Sui, thay "New product categories") = tổng cột Actual Participant của các sự kiện được tính (rule tạm, chờ xác nhận).
    ════════════════════════════════════════════════════════════════════ */
 var KSC_THEV = {
   SHEET     : 'REPORT_EVENT',
@@ -31,21 +36,58 @@ var KSC_THEV = {
     'C13-00' : ['th_surg', function (e) { return e.kind !== 'mmh'; }],
     'C11-01' : ['th_surg', function (e) { return e.kind === 'mmh'; }],
     'C11-01a': ['th_surg', function (e) { return e.kind === 'mmh' && /manipler/.test(e.prodKey); }],
-    'C14-00' : ['th_dent', function (e) { return true; }],
-    'C11-02' : ['th_dent', function (e) { return e.kind === 'mmh'; }]
+    'C14-00' : ['th_dent', function (e) { return true; }, { pres: true }],
+    'C11-02' : ['th_dent', function (e) { return e.kind === 'mmh'; }, { pres: true }],
+    'C16-00' : ['th_dent', function (e) { return true; }, { sum: 'pp' }]
   },
   RULES: {
     'C13-00' : 'Số sự kiện Surgical Thái do KOL dẫn (cột KOL/PIC không phải "MMH …") cộng triển lãm (Exhibition, Booth activity) · REPORT_EVENT theo Month · Action Status = As planned / Additional / Change schedule.',
     'C11-01' : 'Số sự kiện Surgical Thái do thành viên MMH dẫn (cột KOL/PIC = "MMH …", không phải triển lãm) · REPORT_EVENT theo Month · Action Status = As planned / Additional / Change schedule.',
     'C11-01a': 'Như C11-01, chỉ sự kiện có Target product chứa Manipler.',
-    'C14-00' : 'Số sự kiện Dental Thái (KOL dẫn, MMH dẫn và triển lãm) · REPORT_EVENT theo Month · Action Status = As planned / Additional / Change schedule.',
-    'C11-02' : 'Số sự kiện Dental Thái do thành viên MMH dẫn (cột KOL/PIC = "MMH …", không phải triển lãm) · REPORT_EVENT theo Month · Action Status = As planned / Additional / Change schedule.'
-  }
+    'C14-00' : 'Số sự kiện Dental Thái (KOL dẫn, MMH dẫn và triển lãm) · REPORT_EVENT theo Month · Action Status = As planned / Additional / Change schedule · cộng các buổi PRODUCT PRESENTATION của CRM Dental Thái (Actual > 0) không trùng ngày với sự kiện nào của file sự kiện.',
+    'C11-02' : 'Buổi giới thiệu sản phẩm / demo / case demo do thành viên MMH dẫn: sự kiện Dental Thái có KOL/PIC = "MMH …" (không phải triển lãm, Action Status = As planned / Additional / Change schedule) + buổi PRODUCT PRESENTATION của CRM Dental Thái (Actual > 0, ngày ≤ hôm nay) không trùng ngày với sự kiện của file sự kiện · theo tháng.',
+    'C16-00' : 'Số người tham dự sự kiện T&E Dental Thái = tổng cột Actual Participant của các sự kiện được tính (REPORT_EVENT theo Month, Action Status = As planned / Additional / Change schedule) · rule tạm, chờ xác nhận chi tiết.'
+  },
+  /* v1.1 — buổi PRODUCT PRESENTATION của CRM Dental Thái (cột cố định B…M: No · Account · PIC · Province · Area · FY · Month · Day · Folder · Review · Target · Actual) */
+  PRES: { team: 'thaid', sheet: 'PRODUCT PRESENTATION', row0: 4, col0: 2, n: 12 }
 };
 function kscThevId_(src) {
   var f = KSC_THEV.FILES[src], v = '';
   try { v = PropertiesService.getScriptProperties().getProperty(f.prop) || ''; } catch (e) {}
   return v || f.id;
+}
+/* ngày bắt đầu của 1 sự kiện (Date · 20261007 · "20261021-23" · dd/MM/yyyy) ⇒ yyyy-MM-dd */
+function kscThevDay_(v) {
+  if (kscIsDate_(v) && !isNaN(v.getTime())) return Utilities.formatDate(v, KSC.TZ, 'yyyy-MM-dd');
+  var s = String(v == null ? '' : v).trim(), m;
+  if ((m = /^(\d{4})(\d{2})(\d{2})/.exec(s.replace(/\.0+$/, '')))) return m[1] + '-' + m[2] + '-' + m[3];
+  if ((m = /^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})/.exec(s))) return m[3] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[1]).slice(-2);
+  if ((m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s))) return m[1] + '-' + m[2] + '-' + m[3];
+  return '';
+}
+/* v1.1 — buổi PRODUCT PRESENTATION của CRM Dental Thái: đã diễn ra (ngày ≤ hôm nay) và có Actual > 0 */
+function kscThevPres_(ctx) {
+  var P = KSC_THEV.PRES, link = null, today = Utilities.formatDate(new Date(), KSC.TZ, 'yyyy-MM-dd');
+  kscLinks_(ctx.ss).forEach(function (l) { if (l.team === P.team) link = l; });
+  if (!link || !link.id) return { err: 'chưa có link file CRM ' + P.team, rows: [] };
+  var css = SpreadsheetApp.openById(link.id), sh = css.getSheetByName(P.sheet);
+  if (!sh) return { err: 'file CRM không có sheet ' + P.sheet, rows: [] };
+  var lr = sh.getLastRow(); if (lr < P.row0) return { rows: [], url: kscUrl_(css, sh) };
+  var V = sh.getRange(P.row0, P.col0, lr - P.row0 + 1, P.n).getValues(), out = [];
+  V.forEach(function (x, i) {
+    var acc = String(x[1] || '').trim(); if (!acc) return;
+    var day = kscThevDay_(x[7]), ym = kscYm_(null, x[6]) || (day ? Number(day.slice(0, 4) + day.slice(5, 7)) : 0);
+    var act = kscNum_(x[11]) || 0;
+    if (!ym || (day && day > today) || !(act > 0)) return;
+    out.push({ row: P.row0 + i, ym: ym, day: day, acc: acc.split('/')[0].trim(), pic: String(x[2] || '').trim(), actual: act });
+  });
+  var url = ''; try { url = kscUrl_(css, sh); } catch (e) {}
+  return { rows: out, url: url, file: css.getName() };
+}
+/* buổi PRODUCT PRESENTATION không trùng ngày với sự kiện được tính nào của file sự kiện (trùng ngày ⇒ cùng 1 buổi, đã tính ở file sự kiện) */
+function kscThevPresOnly_(pres, events) {
+  var days = {}; events.forEach(function (e) { if (e.counted) { var d = kscThevDay_(e.date); if (d) days[d] = 1; } });
+  return pres.filter(function (x) { return !(x.day && days[x.day]); });
 }
 function kscThevKind_(typeKey, kolKey) {
   if (KSC_THEV.EXHIBIT_RE.test(typeKey)) return 'exh';
@@ -91,9 +133,20 @@ function kscThev_(ctx, src, why) {
   var fyRows = X.rows.filter(function (r) { return L.months.indexOf(r.ym) >= 0; });
   if (!fyRows.length) { out.status = 'error'; out.codes = []; out.msg = 'File "' + ss.getName() + '" ▸ ' + KSC_THEV.SHEET + ' chưa có sự kiện nào thuộc ' + L.fy + ' ⇒ chưa ghi số.'; return out; }
   var months = L.months.filter(function (m) { return m <= ctx.curYm; }), data = {};
+  /* v1.1 — Dental: buổi PRODUCT PRESENTATION của CRM (C11-02 · C14-00) */
+  var PR = null, presOnly = [];
+  if (codes.some(function (c) { return (KSC_THEV.CODES[c][2] || {}).pres; })) {
+    try { PR = kscThevPres_(ctx); } catch (eP) { PR = { err: String(eP && eP.message || eP), rows: [] }; }
+    presOnly = kscThevPresOnly_(PR.rows || [], X.rows);
+  }
   codes.forEach(function (c) {
-    var fn = KSC_THEV.CODES[c][1]; data[c] = {};
-    months.forEach(function (m) { data[c][m] = fyRows.filter(function (e) { return e.ym === m && e.counted && fn(e); }).length; });
+    var fn = KSC_THEV.CODES[c][1], o = KSC_THEV.CODES[c][2] || {}; data[c] = {};
+    months.forEach(function (m) {
+      var ev = fyRows.filter(function (e) { return e.ym === m && e.counted && fn(e); });
+      var v = o.sum ? ev.reduce(function (a, e) { return a + (Number(e[o.sum]) || 0); }, 0) : ev.length;
+      if (o.pres) v += presOnly.filter(function (x) { return x.ym === m; }).length;
+      data[c][m] = v;
+    });
     out.rules[c] = KSC_THEV.RULES[c];
     out.codeUrls[c] = out.url || '';
   });
@@ -105,7 +158,8 @@ function kscThev_(ctx, src, why) {
     var n = function (k) { return ev.filter(function (e) { return e.kind === k; }).length; };
     return m + ': ' + ev.length + ' sự kiện (KOL ' + n('kol') + ' · MMH ' + n('mmh') + ' · triển lãm ' + n('exh') + ')';
   }).join(' | ');
-  return kscResult_(out, st, 'File "' + ss.getName() + '" · ' + fyRows.length + ' dòng ' + L.fy + ' · ' + last + (skip ? ' · ' + skip + ' dòng không tính (Action Status khác)' : ''));
+  var prMsg = PR ? ' · PRODUCT PRESENTATION: ' + (PR.err ? '⚠ ' + PR.err : (PR.rows || []).length + ' buổi đã diễn ra, ' + presOnly.length + ' buổi không trùng ngày sự kiện') : '';
+  return kscResult_(out, st, 'File "' + ss.getName() + '" · ' + fyRows.length + ' dòng ' + L.fy + ' · ' + last + (skip ? ' · ' + skip + ' dòng không tính (Action Status khác)' : '') + prMsg);
 }
 function kscThevSrcOf_(code) { var x = KSC_THEV.CODES[code]; return x ? x[0] : ''; }
 function kscThevRule_(code) { return KSC_THEV.RULES[code] || ''; }
@@ -117,13 +171,18 @@ function kscThevExplain_(code, X, R, reach, A) {
   X.label = KSC_THEV.FILES[src].label; X.sheet = KSC_THEV.SHEET;
   if (Y.err) return ['Chưa đọc được file sự kiện (' + Y.err + ').'];
   try { X.url = kscUrl_(ss, Y.sheet); } catch (eu) {}
-  var fn = KSC_THEV.CODES[code][1], KIND = { kol: 'KOL', mmh: 'MMH', exh: 'triển lãm' };
+  var fn = KSC_THEV.CODES[code][1], o = KSC_THEV.CODES[code][2] || {}, KIND = { kol: 'KOL', mmh: 'MMH', exh: 'triển lãm' };
   var ev = Y.rows.filter(function (e) { return R.eff.indexOf(e.ym) >= 0 && e.counted && fn(e); }), out = [];
-  out.push((ev.length ? ev.length + ' sự kiện' : 'Chưa có sự kiện nào được tính') + reach + (ev.length ? ':' : '.'));
+  var pr = [];
+  if (o.pres) { try { var ctx0 = { ss: SpreadsheetApp.getActive() }; pr = kscThevPresOnly_(kscThevPres_(ctx0).rows || [], Y.rows).filter(function (x) { return R.eff.indexOf(x.ym) >= 0; }); } catch (eP) {} }
+  if (o.sum) out.push((ev.length ? kscFmtNum_(ev.reduce(function (a, e) { return a + (Number(e.pp) || 0); }, 0)) + ' người tham dự ở ' + ev.length + ' sự kiện' : 'Chưa có sự kiện nào được tính') + reach + (ev.length ? ':' : '.'));
+  else out.push((ev.length + pr.length ? (ev.length + pr.length) + ' buổi' + (pr.length ? ' (' + ev.length + ' sự kiện + ' + pr.length + ' buổi PRODUCT PRESENTATION)' : '') : 'Chưa có sự kiện nào được tính') + reach + (ev.length + pr.length ? ':' : '.'));
   ev.slice(0, 12).forEach(function (e) {
     out.push('• ' + kscMoffDate_(e.date, e.ym) + ': ' + (String(e.name || '').replace(/^\s*\d{8}(-\d{1,2})?\s*/, '') || '(chưa ghi tên)') +
       ' (' + (e.type || 'chưa ghi loại') + ' · ' + KIND[e.kind] + (e.kol ? ' · ' + e.kol : '') + ')' + (e.pp ? ', ' + kscFmtNum_(e.pp) + ' người tham dự' : ''));
   });
   if (ev.length > 12) out.push('và ' + (ev.length - 12) + ' sự kiện khác.');
+  pr.slice(0, 8).forEach(function (x) { out.push('• ' + (x.day ? x.day.slice(8, 10) + '/' + x.day.slice(5, 7) : String(x.ym)) + ': PRODUCT PRESENTATION · ' + x.acc + (x.pic ? ' · ' + x.pic : '') + ', ' + kscFmtNum_(x.actual) + ' người tham dự'); });
+  if (pr.length > 8) out.push('và ' + (pr.length - 8) + ' buổi PRODUCT PRESENTATION khác.');
   return out;
 }

@@ -59,6 +59,7 @@ function rkvRoute0_(p) {
   if (a === 'rhKpiMailSend') return rkvMail_(p, 'send');
   if (a === 'rhSeSend') return rkvSeSend_(p);                     /* ⭐ 23/10/2026: email tự đánh giá quý (file Word) */
   if (a === 'rhKpiSent') return rkvSent_(p);                       /* ⭐ v1.5 (09/11/2026): người dùng bấm "Đã gửi" (tự gửi từ email của mình) ⇒ thống kê gửi báo cáo */
+  if (a === 'thdKpi') return kscThdApi_(p);                    /* 11/11/2026: KPI Dental Thailand theo file 04/11/2026 của Owen san (KpiThdFix.gs) */
   if (a === 'trDiag') return kscTrainDiag_(p);                   /* 09/11/2026: chẩn đoán KPI đào tạo (chỉ đọc, KpiTrainDiag.gs) */
   if (a === 'rpLog') return rplApi_(p);                           /* ⭐ 23/10/2026: thống kê gửi báo cáo (MMH_ReportLog.gs) */
   return {ok: false, error: 'Không tìm thấy chức năng: ' + a};

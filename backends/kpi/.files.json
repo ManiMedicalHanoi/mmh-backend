@@ -3,5 +3,6 @@
   "Mã.gs",
   "KpiSyncCenter.gs",
   "RH_KpiView.gs",
-  "MMH_MailDomain.gs"
+  "MMH_MailDomain.gs",
+  "KpiThdFix.gs"
 ]
