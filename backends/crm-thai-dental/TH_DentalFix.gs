@@ -248,8 +248,16 @@ function thdFixNow(){ var r = thdFixRun_(true); try{ SpreadsheetApp.getUi().aler
 /* f3 — sheet GUIDE ▸ part D (KPI) with the rules of 4 Nov 2026 */
 var THD_GUIDE_KPI = [["Yong: F4-00 turnover (40%) · C2-01 new key accounts (20%) · C2-02 key account profiling % (10%) · C4-01 co-visits (20%)", "Yong: F4-00 turnover (40%) · C2-01 new key accounts (20%) · C2-02 visits to distributor key accounts (10%, ACCOUNT TRACKING ▸ Key account = Yes) · C4-01 co-visits incl. Event/Co-visiting (20%) · L3-21 KBI (10%, KPI file)"], ["Man: F4-00 (25%) · C4-03 co-visiting days (15%) · C11-02 T&E events led by MMH (25%) · C11-03 product test pass rate (25%, sheet PRODUCT TEST)", "Man: F4-00 (25%) · C4-03 co-visiting days, at least 5 co-visits a day (15%) · C11-02 T&E events led by MMH — PRODUCT PRESENTATION (25%) · C11-03 product test pass rate, target 60% (25%, sheet PRODUCT TEST) · L3-22 KBI (10%)"], ["Sui: F4-00 (20%) · C14-00 T&E events KOL + MMH + exhibitions (20%) · C16-00 new product categories (30%) · C17-07 product content published (20%)", "Sui: F4-00 (20%) · C14-00 T&E events KOL + MMH + exhibitions (20%) · C16-00 participants in T&E events (30%) · C17-07 product content published (20%) · L3-20 KBI (10%)"], ["Targets come from the KPI file. Turnover and events come from the KPI file (Turnover report · 2. Thailand - Dental Event Report). C16-00 / C17-07: typed in the KPI file. C11-03 = sheet PRODUCT TEST (Pass ÷ tests). C2-02 = sheet ADP (complete profiles ÷ customers of the PIC).", "KPI file of 4 Nov 2026 (Owen san). Targets come from the KPI file. Turnover, events (C11-02 · C14-00) and participants (C16-00) come from the KPI file (Turnover report · 2. Thailand - Dental Event Report + PRODUCT PRESENTATION). C17-07: typed in the KPI file. C11-03 = sheet PRODUCT TEST (Pass ÷ tests). C2-02 = CUSTOMER TASK visits to the key accounts of ACCOUNT TRACKING."]];
 function thdGuideKpi_(){
+  /* f3.1 — the GUIDE of the real file was built with older wording ⇒ match each KPI line by its START, replace the whole cell */
   var g = ss_().getSheetByName('GUIDE'); if(!g) return 'no GUIDE sheet';
-  var n = 0; THD_GUIDE_KPI.forEach(function(x){ n += g.createTextFinder(x[0]).matchCase(true).matchEntireCell(true).replaceAllWith(x[1]); });
+  var lr = g.getLastRow(), lc = Math.min(g.getLastColumn(), 6); if(lr < 1) return 'GUIDE empty';
+  var rg = g.getRange(1, 1, lr, lc), v = rg.getValues(), f = rg.getFormulas(), n = 0;
+  var rep = THD_GUIDE_KPI.map(function(x){ return [x[0].split(/[:.(]/)[0] + (/^[A-Z][a-z]+:/.test(x[0]) ? ': F4-00' : ''), x[1]]; });
+  rep.push(['3. Co-visits with a distributor sales rep', '3. Co-visits with a distributor sales rep: Type action = "Co-visiting with distributor" or "Event/Co-visiting with distributor" (KPI C4-01 Yong = co-visits of both types · C4-03 Man = days with at least 5 co-visits).']);
+  for(var i = 0; i < lr; i++) for(var j = 0; j < lc; j++){
+    var t = String(v[i][j] || ''); if(!t || f[i][j]) continue;
+    rep.forEach(function(x){ if(t.indexOf(x[0]) === 0 && t !== x[1]){ g.getRange(i + 1, j + 1).setValue(x[1]); t = x[1]; n++; } });
+  }
   return n + ' line(s) updated';
 }
 function thdKeyAccCol_(){ var s = acmSheet_(); return 'ACCOUNT TRACKING ▸ ' + (acmKeyCol_(s) ? 'column M "Key account" ready' : 'no sheet'); }
@@ -279,6 +287,7 @@ function thdFixApi_(p){
   if(str_(p.op) === 'f3') r = (props_().setProperty(THDFIX.PROP, 'f2'), thdFixRun_(false));   /* only the f3 steps */
   if(str_(p.op) === 'kpi') r = [thdKpiRebuild_()];
   if(str_(p.op) === 'kpitab') return thdKpiTab_();
+  if(str_(p.op) === 'guide') r = [thdGuideKpi_()];
   if(str_(p.op) === 'internal') return { ok: true, dry: true, scan: thdIntScan_() };
   if(str_(p.op) === 'internalRun') return { ok: true, moved: thdIntMove_(), scan: thdIntScan_() };
   var cm = codeMap_(), sample = readTab_('customer').slice(0, 5).map(function(c){ return str_(c.code) + ' · ' + str_(c.name); });

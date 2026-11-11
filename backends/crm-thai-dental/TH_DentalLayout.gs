@@ -463,7 +463,7 @@ var THD_STEP = {
       ['A. GENERAL RULES'],
       ['1. Type only into white cells. BLUE text cells are formulas — do not overwrite them. Every dropdown comes from MASTER LIST.'],
       ['2. Customer code (column B of sheet 1) = Area + Province + Account type + row number (codes in CODE MAP). Check account name = Account name / Account type / Province / Area.'],
-      ['3. Co-visits with a distributor sales rep: Type action = "Co-visiting with distributor" (KPI C4-01 Yong = co-visits · C4-03 Man = days with a co-visit, no confirmation needed).'],
+      ['3. Co-visits with a distributor sales rep: Type action = "Co-visiting with distributor" or "Event/Co-visiting with distributor" (KPI C4-01 Yong = co-visits of both types · C4-03 Man = days with at least 5 co-visits).'],
       ['4. New KEY accounts (DSO / dental university / hospital) are recorded in the app ▸ New accounts & SKU (sheet NEW ACCOUNT & SKU) with the distributor confirmation (KPI C2-01).'],
       [''],
       ['B. SHEETS'],

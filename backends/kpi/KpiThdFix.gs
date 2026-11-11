@@ -9,6 +9,8 @@
      · run  — ghi: 3. Detail KPI (tên · đơn vị · cách cộng · file tham chiếu · Target 12 tháng + FY), 2. MMH KPI (C16),
               3B. KPI Source Map, 4. Rule (khối DENTAL THAILAND). Số Actual cũ của C2-02 (tỷ lệ % của KPI cũ) bị xoá.
      · sync — đọc lại nguồn Sự kiện Dental Thái + CRM Thailand Dental và GHI ĐÈ cả tháng đã chốt (1 lần, như menu 🔓)
+     · clear&codes=C11-03 — xoá số Actual (không phải công thức) của mã Dental Thái mà nguồn CRM đang TRỐNG (số cũ từ dữ liệu mẫu của
+       file CRM nháp, 30/10/2026 — CRM trống thì lượt đồng bộ không ghi đè được)
    Trọng số (5A) đã đúng với file của Owen san ⇒ không đổi. KBI (L3-20/21/22) không đổi.
    ════════════════════════════════════════════════════════════════════ */
 var KTD = {
@@ -87,6 +89,7 @@ function kscThdApi_(p) {
   if (String(p.key || '') !== KTD.KEY.slice(-8)) return { ok: false, error: 'key' };
   var op = String(p.op || 'status'), ss = SpreadsheetApp.getActive() || SpreadsheetApp.openById(KTD.KEY);
   if (op === 'sync') return ktdSync_(ss);
+  if (op === 'clear') return ktdClear_(ss, String(p.codes || ''));
   if (op === 'status') return ktdStatus_(ss);
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(30000)) return { ok: false, error: 'busy' };
@@ -205,5 +208,27 @@ function ktdSync_(ss) {
   } finally { P.deleteProperty('KSC_UNLOCK'); lock.releaseLock(); }
   try { CacheService.getScriptCache().remove('rkv:data:n'); } catch (eC) {}
   var st = ktdStatus_(ss); out.rows = st.rows;
+  return out;
+}
+
+/* ── xoá Actual cũ của mã Dental Thái khi tab KPI của CRM trống ở tháng đó ── */
+function ktdClear_(ss, codes) {
+  var list = codes.split(/[,\s]+/).filter(function (c) { return /^C\d/.test(c) && KTD.DETAIL[c]; }), out = { ok: true, cleared: [] };
+  if (!list.length) return { ok: false, error: 'codes?' };
+  var ctx = kscCtx_(ss), L = ctx.L, link = null;
+  kscLinks_(ss).forEach(function (l) { if (l.team === 'thaid') link = l; });
+  if (!link) return { ok: false, error: 'no CRM link thaid' };
+  var css = SpreadsheetApp.openById(link.id), sh = kscCrmTab_(css, link), v = sh.getRange(1, 1, sh.getLastRow(), 41).getValues(), crm = {}, months = null;
+  v.forEach(function (r) { var t = String(r[0] || '').trim(); if (t === 'months') months = r.slice(8, 20).map(function (x) { return Math.round(Number(x) || 0); }); if (/^kpi:/.test(t)) crm[String(r[1]).trim()] = r.slice(21, 33); });
+  list.forEach(function (code) {
+    var r = L.rows[code], cv = crm[code]; if (r == null || !cv || !months) return;
+    months.forEach(function (m, j) {
+      var c = L.aCol[m]; if (c == null || m > ctx.curYm) return;
+      if (String(cv[j] || '').trim() !== '') return;                           /* CRM có số ⇒ để lượt đồng bộ ghi */
+      var val = L.V[r][c]; if (L.F[r][c] || val === '' || val === null) return;
+      ctx.sh.getRange(r + 1, c + 1).setValue(''); out.cleared.push(code + ' ' + m + ': ' + val + ' → trống');
+    });
+  });
+  if (out.cleared.length) { SpreadsheetApp.flush(); kscLog_(ss, 'KpiThdFix', 'clear', out.cleared.join(' · ')); try { CacheService.getScriptCache().remove('rkv:data:n'); } catch (e) {} }
   return out;
 }
