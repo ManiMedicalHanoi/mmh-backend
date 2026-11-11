@@ -114,7 +114,7 @@ function ehNotify_(ss, me, N, opt){
 function ehTaskLine_(t, ev, withEv){
   var today = ehIso_(new Date()), due = ehS_(t.due), late = due && due < today ? ehDays_(due, today) : 0;
   var parts = [(withEv && ev ? ehS_(ev.name) + ' · ' : '') + 'hạn ' + ehD2_(due) + (late ? ' — trễ ' + late + ' ngày' : due === today ? ' — hôm nay' : '')];
-  if (ehS_(t.proof)) parts.push('khi xong cần nộp ' + (EH_PROOF_VI[ehS_(t.proof)] || ehS_(t.proof)));
+  if (ehS_(t.proof)) parts.push('khi xong nộp ' + (EH_PROOF_VI[ehS_(t.proof)] || ehS_(t.proof)) + ' hoặc ghi kết quả bằng chữ');   /* v1.7 */
   if (ehS_(t.priority) === 'Cao') parts.push('ưu tiên cao');
   var url = EH.APP_URL + '#t-' + encodeURIComponent(ehS_(t.id));
   return { text: '- ' + ehS_(t.title) + ' (' + parts.join(' · ') + ')\n  ' + url,
