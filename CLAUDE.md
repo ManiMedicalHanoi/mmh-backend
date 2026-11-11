@@ -430,3 +430,10 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   **RH_Users** ⇒ "Email này chưa được cấp quyền". `rhEnsureUsers_()` thêm người thiếu / mở khoá theo `RH_ENSURE.USERS` (manithailand = Dao, …1 = Sui, …2 = Yong, …3 = Man, …4 = Miew; Dept "Sales & Marketing TH"),
   tự chạy 1 lần khi các email này xin mã (Script Property `RH_ENSURE_V`). Rà soát mọi người dùng: workflow **Kiểm tra** ▸ ping `training?action=rhUsersDiag&key=<8 ký tự cuối Script ID>&full=1`
   (`&op=ensure` chạy cấp quyền ngay; trả `missing` / `locked` / `duplicate` + danh sách phần trước @ · PIC · vai trò · khoá/mở · lần đăng nhập cuối).
+- **10–11/11/2026 — Tender Map: cập nhật gần đây + sổ gói mới + thông báo (crm-surgical, người dùng: "thầu mới cập nhật không hiển thị, không biết lúc nào gói mình theo dõi ra kết quả")**:
+  `MMH_FcRecent.gs` ▸ `fuRecent` (khoá file / Admin, CHỈ ĐỌC, không email): `part=sum|fu|fa|loc|src` — Sales cập nhật gì, ở tỉnh nào, giờ sửa cuối 3 file nguồn. Gọi: workflow Kiểm tra ▸ ping
+  `crm-surgical?action=fuRecent&key=<8 ký tự cuối ID Sheet>&days=30&part=sum&full=1`. `MMH_FcNews.gs`: mỗi lượt đồng bộ Follow up by Account (`faSync_`) ⇒ `faNewsTrack_` ghi sổ ẨN **TENDER MAP · GÓI MỚI**
+  (1 dòng / gói theo nguồn + TBMT; lượt đầu = "gốc", không báo; cùng TBMT ở nguồn khác ⇒ "trùng", không tính mới; gói NPP Pending ⇒ Win / Fail = đổi kết quả). Gói mới / đổi kết quả ở cơ sở đang theo dõi
+  (gói Theo dõi thầu đang chạy, dòng Follow up by Account có giai đoạn) ⇒ RH_Notify NGAY (App "Theo dõi thầu", kind `result`, link `?new=1#Tỉnh/Cơ sở`) tới PIC địa bàn + người theo dõi; còn lại ⇒ tóm tắt hằng ngày
+  trong `fuDaily` (`faNewsDigest_`, kind `news`, ≤ 12 tháng). Action `fuNews` (phiên công ty, `days`) cho mục "Mới cập nhật" của app. `faTick_` nay kiểm trigger thật khi đồng bộ cuối > 3 giờ (11/11/2026: trigger
+  mỗi giờ chưa từng chạy vì chỉ tin cờ `FA_TRIG`), gọi thêm ở `fuList` / `fuNews`.
