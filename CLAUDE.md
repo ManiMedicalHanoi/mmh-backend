@@ -461,3 +461,8 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   khoá = sheet + from + số dòng × số cột ⇒ thêm dòng đọc lại ngay; `fresh=1` bỏ đệm; kết quả từ đệm có `cached:true`). Đo thật (workflow Kiểm tra ▸ ping, nay in **thời gian + dung lượng**, nhiều lệnh cách nhau " ; "):
   winMap Hùng Vĩ 4,3–5,4 s / 276 KB · iCare 3,7 s / 99 KB · kqttMap 3,3–4,2 s / 284 KB · lệnh rỗng Training Hub 3,3 s (≈ 2,7 s là thời gian khởi động của Google).
   crm-surgical `MMH_TenderFU.gs` v1.10: `fuSave` gói MỚI trùng (cùng cơ sở: fid hoặc `fuNk_` tên + tỉnh; và cùng số TBMT hoặc gói đang theo dõi cùng loại SP) ⇒ `{ code:'DUP', case }` (`fuDupOf_`), `force=1` bỏ qua.
+- **11/11/2026 — CRM Working Map (app CRM v36.4) + cơ hội thầu / mua sắm (`MMH_Opp.gs` GIỐNG HỆT ở crm-dental · crm-eyeless · crm-thai · crm-thai-dental)**: Working Map ĐỌC `visitFeed` / `customerIndex` / `tfTrips` của từng backend CRM
+  (+ `fuVisits` / `fuList` / `fuSave` của crm-surgical — Surgical VN dùng Theo dõi thầu sẵn có, `acctList` của crm-thai-dental, `rhKpi` của kpi, `winMap` / `kqttMap` của tender-hungvi / tender-icare).
+  Nhóm còn lại: action `oppList` / `oppSave` (phiên `tk` qua `tmWho_`; sales chỉ thấy / sửa cơ hội của mình, lead / HOD / Director / Admin cả nhóm; `rid` chống gửi trùng) ⇒ sheet **CƠ HỘI THẦU · MUA SẮM** (VN) / **OPPORTUNITIES** (Thái),
+  GHI NỐI TIẾP (cùng ID, Lần + 1; xoá = dòng mới cột Đã xoá = x). Giai đoạn cùng số với crm-surgical (1–10 thầu, 11–19 mua sắm tư nhân). Sản phẩm JSON `[{g, code, qty, price, cur}]`: theo nhóm chỉ cần SL,
+  có mã chi tiết bắt buộc đơn giá; doanh số dự kiến USD theo tỷ giá CỐ ĐỊNH `OPP.RATE` (26.700 VND · 33 THB — người dùng chốt VND 11/11/2026). Không thêm dịch vụ Google.

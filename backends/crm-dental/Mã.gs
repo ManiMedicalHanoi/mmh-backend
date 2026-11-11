@@ -480,6 +480,8 @@ function handle(e, method){
       if (_rid && WRITE_ACTIONS[action]) idemEnd_(_rid, out);
       return reply(out, callback);
     }
+    /* ⭐ 11/11/2026 — MMH_Opp.gs: cơ hội thầu / mua sắm cho Working Map (oppList / oppSave, phiên tk) */
+    if (/^opp[A-Z]/.test(String(action)) && typeof oppRoute_ === 'function'){ out = oppRoute_(String(action), p) || { ok:false, error:'Unknown action: ' + action }; return reply(out, callback); }
     if (/^kr[A-Z]/.test(String(action))) return reply(krRoute_(String(action), user, p), callback);
     /* ⭐ 10/10/2026 — MMH_SalesTasks.gs: Công việc khác của nhóm ở sheet ALL TASK của file này (app gửi at=1) */
     if (S(p.at) === '1' && typeof stRoute_ === 'function'){
