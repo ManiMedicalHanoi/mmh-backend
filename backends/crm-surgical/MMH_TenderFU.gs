@@ -40,6 +40,8 @@
      · 9 Tạm dừng theo dõi · 10 Không tham dự (số 6 bỏ trống; dòng cũ đọc lại theo tên giai đoạn cũ ⇒ số mới, FU_LEGACY). Sheet đổi tên
      "Follow up by Account · Nhật ký" (vẫn ghi nối tiếp); 2 cột mới "Bắt đầu dự kiến (tháng)" + "Hiệu lực (tháng)" để tính doanh số;
      lưu gói ⇒ cập nhật ngay sheet "Follow up by Account" (MMH_FcAccount.gs ▸ faCaseUpsert_). Action fuFc* = Follow up by Account.
+   v1.10 (11/11/2026, người dùng: chống lưu trùng): fuSave gói MỚI ở cơ sở đã có gói cùng số TBMT / gói đang theo dõi cùng loại sản phẩm ⇒ { code:'DUP', case }
+     (fuDupOf_); app hỏi "Gộp vào gói có sẵn" (gửi lại với case) hoặc "Vẫn tạo gói mới" (force=1).
    · fuCrm — chi tiết cơ sở trên Tender Map hiện dữ liệu CRM Surgical: mã / PIC địa bàn, lượt gặp 12 tháng, người liên hệ (CBC, không SĐT), đơn hàng 12 tháng.
      Cần phiên email công ty như fuList.
    ════════════════════════════════════════════════════════════════════════════════════════ */
@@ -216,6 +218,9 @@ function fuSave_(p){
         if(id && tfS_(V[i][1]) === id) rev = Math.max(rev, (+V[i][2] || 1) + 1);
       }
       if(id && rev === 1) return { ok:false, error:'Không tìm thấy gói đang theo dõi ' + id + '.' };
+      /* v1.10 (11/11/2026, người dùng: chống lưu trùng dữ liệu) — gói MỚI ở cơ sở đã có gói cùng số TBMT, hoặc gói đang theo dõi cùng loại sản phẩm
+         ⇒ DUP (app hỏi: gộp vào gói có sẵn / vẫn tạo gói mới — force=1). App đã báo ngay khi chọn cơ sở; đây là lưới chặn khi 2 người nhập cùng lúc. */
+      if(!id && String(p.force || '') !== '1'){ var dp = fuDupOf_(V, p, hosp, items); if(dp) return dp; }
     } else if(id) return { ok:false, error:'Không tìm thấy gói đang theo dõi ' + id + '.' };
     if(!id) id = 'FU' + Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyMMdd') + '-' + Math.random().toString(36).slice(2, 6).toUpperCase();
     var qty = items.reduce(function(a, it){ return a + it.qty; }, 0);
@@ -228,6 +233,28 @@ function fuSave_(p){
     sh.getRange(sh.getLastRow() + 1, 1, 1, row.length).setValues([row]);
     return { ok:true, rec:fuRowOut_(row), cols:FU.COLS };
   } finally { lock.releaseLock(); }
+}
+
+/* gói có sẵn trùng với gói mới: cùng cơ sở (mã danh mục fid, hoặc tên chuẩn hoá + tỉnh) và (cùng số TBMT, hoặc đang theo dõi cùng loại sản phẩm) */
+function fuDupOf_(V, p, hosp, items){
+  var last = {}, fid = tfS_(p.fid), hk = fuNk_(hosp), pk = fuPk_(p.prov), tb = tfS_(p.tbmt).replace(/\s+/g, '').toUpperCase(), kinds = {};
+  items.forEach(function(it){ kinds[it.kind || 'dao'] = 1; }); if(!Object.keys(kinds).length) kinds.dao = 1;
+  V.forEach(function(r){ var cid = tfS_(r[1]); if(!cid) return; if(!last[cid] || (+r[2] || 1) >= (+last[cid][2] || 1)) last[cid] = r; });
+  var hit = null;
+  Object.keys(last).forEach(function(cid){
+    if(hit) return; var r = last[cid];
+    if(/^TEST/i.test(tfS_(r[3]))) return;
+    var same = (fid && tfS_(r[5]) === fid) || (fuNk_(r[6]) === hk && (!pk || fuPk_(r[7]) === pk)); if(!same) return;
+    var rtb = tfS_(r[10]).replace(/\s+/g, '').toUpperCase(), rk = {};
+    try{ (JSON.parse(tfS_(r[19]) || '[]') || []).forEach(function(it){ rk[(it && it.kind) || 'dao'] = 1; }); }catch(e){}
+    if(!Object.keys(rk).length) rk.dao = 1;
+    var ov = Object.keys(kinds).some(function(k){ return rk[k]; });
+    if((tb && rtb === tb) || (ov && fuOpen_(+r[15] || 0))) hit = r;
+  });
+  if(!hit) return null;
+  var at = hit[0] instanceof Date ? Utilities.formatDate(hit[0], 'Asia/Ho_Chi_Minh', 'dd/MM/yyyy') : tfS_(hit[0]).slice(0, 10);
+  return { ok:false, code:'DUP', 'case':tfS_(hit[1]), stageName:tfS_(hit[16]), pkg:tfS_(hit[9]), pic:tfS_(hit[3]),
+    error:'Cơ sở này đã có gói đang theo dõi: ' + (tfS_(hit[9]) || tfS_(hit[1])) + ' · ' + tfS_(hit[16]) + ' (cập nhật ' + at + ' bởi ' + tfS_(hit[3]) + '). Gộp cập nhật vào gói đó, hoặc chọn "Vẫn tạo gói mới".' };
 }
 
 /* ═════════════ v1.3 — NHẮC VIỆC (RH_Notify + email thứ Hai) ═════════════ */

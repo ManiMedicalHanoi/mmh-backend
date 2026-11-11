@@ -10,7 +10,36 @@
  * Dòng gộp ô (Hospital trống mà có Product code) lấy thông tin gói từ dòng trên.
  * Cột dò theo tên tiêu đề ở CONFIG.HEADER_ROW; cột trùng tên: lần 1 = phần chào thầu, lần 2 = phần trúng.
  **************************************************************************************************/
-var WM_VER = '1.0';
+var WM_VER = '1.1';
+
+/* ★ v1.1 (11/11/2026, người dùng: Tender Map tải lâu) — ĐỆM kết quả 10 phút (CacheService, nén gzip, chia mảnh ≤ 90.000 ký tự).
+   Khoá = tên sheet + tham số + số dòng × số cột của sheet ⇒ NPP thêm dòng / cột = đọc lại ngay; sửa ô có sẵn hiện sau ≤ 10 phút
+   (nút Tải lại của app gửi fresh=1 ⇒ bỏ đệm). CacheService / Utilities không cần cấp quyền mới. Kết quả từ đệm có cached:true. */
+var WM_TTL = 600;
+function wmCached_(name, p, sig, build) {
+  var sc = CacheService.getScriptCache(), key = 'wmc|' + name + '|' + sig;
+  if (String((p && p.fresh) || '') !== '1') { var hit = wmCacheGet_(sc, key); if (hit) { hit.cached = true; return hit; } }
+  var out = build();
+  try { wmCachePut_(sc, key, out, WM_TTL); } catch (e) {}
+  return out;
+}
+function wmCacheGet_(sc, key) {
+  try {
+    var h = JSON.parse(sc.get(key) || 'null'); if (!h || !h.n) return null;
+    var ks = []; for (var i = 0; i < h.n; i++) ks.push(key + '|' + i);
+    var m = sc.getAll(ks), z = '';
+    for (var j = 0; j < h.n; j++) { var c = m[key + '|' + j]; if (c == null) return null; z += c; }
+    return JSON.parse(Utilities.ungzip(Utilities.newBlob(Utilities.base64Decode(z), 'application/x-gzip')).getDataAsString());
+  } catch (e) { return null; }
+}
+function wmCachePut_(sc, key, obj, ttl) {
+  var z = Utilities.base64Encode(Utilities.gzip(Utilities.newBlob(JSON.stringify(obj), 'application/json')).getBytes());
+  var CH = 90000, n = Math.ceil(z.length / CH), m = {};
+  if (!n || n > 25) return;
+  for (var i = 0; i < n; i++) m[key + '|' + i] = z.substr(i * CH, CH);
+  sc.putAll(m, ttl);
+  sc.put(key, JSON.stringify({ n: n }), ttl);
+}
 
 function wmPayload_(p) {
   p = p || {};
@@ -18,8 +47,12 @@ function wmPayload_(p) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sh = ss.getSheetByName(CONFIG.SHEET_NAME);
   if (!sh) throw new Error('Không tìm thấy sheet "' + CONFIG.SHEET_NAME + '"');
-  var tz = ss.getSpreadsheetTimeZone() || 'Asia/Ho_Chi_Minh';
   var lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
+  return wmCached_('wm', p, CONFIG.SHEET_NAME + '|' + from + '|' + lastRow + 'x' + lastCol, function () { return wmBuild_(ss, sh, from, lastRow, lastCol); });
+}
+
+function wmBuild_(ss, sh, from, lastRow, lastCol) {
+  var tz = ss.getSpreadsheetTimeZone() || 'Asia/Ho_Chi_Minh';
   var base = { ok: true, v: WM_VER, npp: CONFIG.NPP, region: CONFIG.REGION, sheet: CONFIG.SHEET_NAME, from: from,
                exported: Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd HH:mm'), rows: [] };
   if (lastRow < CONFIG.START_ROW) return base;

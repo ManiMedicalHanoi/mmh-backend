@@ -176,9 +176,9 @@ function rhSame(a, b) {
   return d === 0;
 }
 
-function rhIssue(u, email) {
+function rhIssue(u, email, authAt) {   // ★ v3.43: a = thời điểm đăng nhập gốc (gia hạn phiên rhAuthRenew giữ nguyên)
   var now = Date.now(), exp = now + RH_AUTH.TOKEN_DAYS * 86400000;
-  var data = rhB64(JSON.stringify({e: u.local, p: u.pic, s: u.session, i: now, x: exp}));
+  var data = rhB64(JSON.stringify({e: u.local, p: u.pic, s: u.session, i: now, x: exp, a: authAt || now}));
   return {token: data + '.' + rhSig(data), exp: exp};
 }
 
@@ -283,7 +283,7 @@ function apiRhAuthVerify(p) {
     sc.remove('rhUsers');
   } catch (e) {}
   hubLog('INFO', 'rhAuthVerify', u.pic + ' đăng nhập Report Hub (' + email + ')', '');
-  return {ok:true, token: iss.token, exp: iss.exp, user: rhPublicUser(u, email)};
+  return {ok:true, token: iss.token, exp: iss.exp, user: rhPublicUser(u, email), hasPw: typeof rhPwHas_ === 'function' ? rhPwHas_(u) : false};
 }
 
 /** ★ v3.34 (28/10/2026) — LINK ĐĂNG NHẬP trong email xin xác nhận đơn hàng (CRM v10.18 orderRequest ▸ ordLinkTicket_).
@@ -314,7 +314,7 @@ function apiRhAuthLink(p) {
 function apiRhAuthMe(p) {
   var r = rhCheck(p.tk);
   if (r.err) return {ok:false, code:'AUTH', error: r.err};
-  return {ok:true, user: rhPublicUser(r.u), exp: r.t.x};
+  return {ok:true, user: rhPublicUser(r.u), exp: r.t.x, hasPw: typeof rhPwHas_ === 'function' ? rhPwHas_(r.u) : false};
 }
 
 // ---------------------------------------------------------------------------
@@ -338,7 +338,7 @@ function rhIsTop(u) { return !!u && (u.admin || u.level === 'director'); }
 function rhAdminRow(u) {
   return {local: u.local, email: u.local + '@' + HUB.SEND_DOMAIN, pic: u.pic, level: u.level, admin: !!u.admin, active: !!u.active,
           dept: u.dept, title: u.title, perms: u.perms || {}, lastLogin: u.lastLogin || '', logins: u.logins || 0,
-          lastEmail: u.lastEmail || '', session: u.session};
+          lastEmail: u.lastEmail || '', session: u.session, pw: typeof rhPwHas_ === 'function' ? rhPwHas_(u) : false};
 }
 
 function apiRhAdminList(p) {
