@@ -17,6 +17,8 @@
  *    (nút "Nhắc tôi" của Report Hub / CRM — Sales thấy việc follow-up ngay trên CRM).
  * ⑥ Report Hub: việc của sự kiện (trừ Sales) ⇒ sub-task CHỈ ĐỌC "H:<id việc>" dưới Key task có TÊN TRÙNG tên sự kiện
  *    (Event_Sync.gs ▸ evsSync gọi ehHubSubs_) ⇒ báo cáo tuần Report Hub tự có tiến độ sự kiện, không phải nhập 2 lần.
+ *    ⛔ 11/11/2026: ĐÃ TẮT theo yêu cầu người dùng (Event_Sync.gs v2.3 ▸ EVS_HUB = false, sub H: cũ được gỡ) — việc app Sự kiện
+ *    không còn hiện / khoá trên Report Hub. Hàm ehHubSubs_ giữ lại, không còn ai gọi.
  * Không dùng dịch vụ mới (SpreadsheetApp / Properties / Cache / Lock / mmhMail_) ⇒ không phải cấp quyền lại.
  *************************************************************************************************/
 var EH_FLOW_VER = '2';   /* 2: trạng thái "Vướng" (bản đầu) ⇒ "Pending" */
@@ -209,7 +211,7 @@ function ehFlowSubj_(K, items, evs){
   return '';
 }
 
-/* ══════════ ⑥ REPORT HUB: việc sự kiện ⇒ sub "H:" dưới Key task trùng tên (Event_Sync.gs ▸ evsSync) ══════════ */
+/* ══════════ ⑥ REPORT HUB: việc sự kiện ⇒ sub "H:" dưới Key task trùng tên — ĐÃ TẮT 11/11/2026 (Event_Sync.gs v2.3 EVS_HUB = false) ══════════ */
 function ehHubSubs_(idx){
   var out = { subs: {}, keyNk: {} };
   if (!PropertiesService.getScriptProperties().getProperty('EH_BOOK')) return out;

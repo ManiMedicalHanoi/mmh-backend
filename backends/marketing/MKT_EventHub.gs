@@ -21,9 +21,11 @@
  * v1.5 (03/11/2026): lập kế hoạch muộn = dồn hạn (không tự Bỏ qua) · đóng sự kiện · biên bản họp ⇒ việc · trạng thái Pending · cập nhật tuần (CHECKINS) ·
  *       mốc quan trọng · số liệu follow-up khách · nhắc theo bậc · việc sự kiện ⇒ sub Report Hub — xem MKT_EventHubFlow.gs.
  * v1.6 (09/11/2026): tải app nhanh — đệm dữ liệu lớn chia mảnh, giữ đệm nóng, không mở Sheet khi trúng đệm — MKT_EventHubFast.gs.
+ * v1.7 (11/11/2026, người dùng yêu cầu): việc cần "bằng chứng" (file / ảnh / link) chuyển Xong được khi có KẾT QUẢ BẰNG CHỮ (cột TASKS.result,
+ *       người phụ trách tự ghi) — không bắt buộc tải file khi chỉ cần chữ. Việc app KHÔNG còn đẩy sang Report Hub (Event_Sync.gs v2.3).
  *************************************************************************************************/
 var EH = {
-  VER: '1.6',
+  VER: '1.7',
   ROOT: '1maHn2DD34aJBaNnH4q9Di0YH2wMurYuZ',     /* thư mục Drive "Event FY68" */
   BOOK_NAME: 'MMH · Event Hub FY68 (dữ liệu app Sự kiện MKT)',
   FILES_NAME: 'Event Hub · Tệp tải lên',
@@ -39,7 +41,8 @@ var EH = {
              'folderId', 'folderUrl', 'src', 'offlineName', 'dateWarn', 'note', 'updatedAt', 'updatedBy',
              'cover', 'target', 'actual', 'budgetPlan', 'budgetActual', 'sample', 'closedAt', 'closedBy', 'closeNote', 'latePlan'],   /* v1.5: đóng sự kiện, lập kế hoạch muộn */
     TASKS: ['id', 'eventId', 'parentId', 'group', 'title', 'role', 'pic', 'due', 'offset', 'unit', 'dueManual', 'status', 'proof', 'hint', 'note', 'order',
-            'doneAt', 'updatedAt', 'updatedBy', 'createdBy', 'priority', 'sample', 'block', 'milestone', 'noteId', 'fuTotal', 'fuDone', 'fuOrder'],   /* v1.5 */
+            'doneAt', 'updatedAt', 'updatedBy', 'createdBy', 'priority', 'sample', 'block', 'milestone', 'noteId', 'fuTotal', 'fuDone', 'fuOrder',   /* v1.5 */
+            'result'],   /* v1.7: kết quả bằng chữ — thay được file / link khi chuyển Xong */
     FILES: ['id', 'eventId', 'taskId', 'kind', 'name', 'url', 'driveId', 'mime', 'size', 'by', 'at', 'note', 'thumb', 'sample'],
     COMMENTS: ['id', 'eventId', 'taskId', 'by', 'at', 'text', 'mentions', 'sample'],
     MEETINGS: ['id', 'eventId', 'date', 'title', 'attendees', 'content', 'actions', 'by', 'at', 'updatedAt', 'updatedBy', 'sample'],   /* v1.4 — biên bản họp */
@@ -674,7 +677,7 @@ function ehSave_(p){
       return { ok:true, deleted: tasks2.filter(function(t){ return t.id === tk.id || ehS_(t.parentId) === tk.id; }).map(function(t){ return t.id; }) };
     }
     if (!boss && !mine) return { ok:false, code:'PERM', error:'Bạn không phụ trách việc này.' };
-    var bossKeys = ['title', 'pic', 'due', 'proof', 'role', 'priority', 'milestone'], anyKeys = ['status', 'note', 'block', 'fuTotal', 'fuDone', 'fuOrder'], ch2 = [], st0 = ehS_(tk.status);
+    var bossKeys = ['title', 'pic', 'due', 'proof', 'role', 'priority', 'milestone'], anyKeys = ['status', 'note', 'block', 'fuTotal', 'fuDone', 'fuOrder', 'result'], ch2 = [], st0 = ehS_(tk.status);
     (boss ? bossKeys.concat(anyKeys) : anyKeys).forEach(function(k){ if (k in d && ehS_(d[k]) !== ehS_(tk[k])){ ch2.push(k); tk['_old_' + k] = tk[k]; tk[k] = ehS_(d[k]); } });
     if ('due' in d && ch2.indexOf('due') >= 0) tk.dueManual = 'x';
     if (ehS_(tk.status) === 'Vướng') tk.status = 'Pending';   /* app bản cũ còn gửi "Vướng" */
@@ -685,9 +688,9 @@ function ehSave_(p){
     if (ch2.indexOf('status') >= 0){
       if (tk.status === 'Xong'){
         var need = ehS_(tk.proof);
-        if (need){
+        if (need && !ehS_(tk.result)){   /* v1.7: có kết quả bằng chữ ⇒ đủ, không bắt tải file */
           var fl = ehRead_(ss, 'FILES').filter(function(f){ return ehS_(f.taskId) === tk.id && (need !== 'image' || ehS_(f.kind) === 'image' || /^image\//.test(ehS_(f.mime))); });
-          if (!fl.length) return { ok:false, code:'PROOF', error: need === 'link' ? 'Dán link bài đăng / kết quả trước khi chuyển Xong.' : 'Tải file ' + (need === 'image' ? 'ảnh' : 'ấn phẩm / tài liệu') + ' lên trước khi chuyển Xong.' };
+          if (!fl.length) return { ok:false, code:'PROOF', error: (need === 'link' ? 'Dán link' : 'Tải ' + (need === 'image' ? 'ảnh' : 'file')) + ' hoặc ghi kết quả bằng chữ trước khi chuyển Xong.' };
         }
         tk.doneAt = now;
       } else tk.doneAt = '';

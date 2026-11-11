@@ -552,10 +552,21 @@ function vsFormulaSourceRow(sh, fromRow, col){
   }
   return 0;
 }
+/* 11/11/2026: đọc công thức B…Q của ≤ 400 dòng phía trên 1 LẦN (trước: getFormula từng ô — cột công thức mảng thì quét đủ 400 dòng
+   × 6 cột ≈ 2.400 lệnh / lần chèn ⇒ 1 lượt đồng bộ sự kiện giữ khoá ghi ~13 phút). Bỏ qua cả công thức mảng MAP / BYROW / SCAN
+   (chép xuống dòng dưới sẽ đè vùng tràn ⇒ #REF!). Cách chép (copyTo) giữ nguyên. */
 function vsFillDownFormulas(sh, fromRow, startRow, count){
   if (!count || count < 1) return;
+  var min = Math.max(WEEKLY_DATA_ROW, fromRow - 400);
+  if (fromRow < min) return;
+  var F = [];
+  try { F = sh.getRange(min, 2, fromRow - min + 1, 16).getFormulas(); } catch (e) { F = []; }
   [2, 3, 4, 13, 16, 17].forEach(function(c){
-    var src = vsFormulaSourceRow(sh, fromRow, c);
+    var ix = c - 2, src = 0;
+    for (var i = F.length - 1; i >= 0 && !src; i--) {
+      var f = F[i][ix];
+      if (f && !/ARRAYFORMULA|BYROW\(|MAP\(|SCAN\(/i.test(f)) src = min + i;
+    }
     if (!src) return;
     try { sh.getRange(src, c).copyTo(sh.getRange(startRow, c, count, 1)); } catch (e) {}
   });

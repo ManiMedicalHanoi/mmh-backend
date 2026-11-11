@@ -1,5 +1,5 @@
 /*************************************************************************************************
- * MMH REPORT HUB — Event_Sync.gs   (v2.2 · 03/11/2026 · việc app Sự kiện MKT ⇒ sub H: · v2.1: dọn dòng sub lỗi do v1 chèn lặp, ghi lỗi thì xoá dòng vừa chèn)
+ * MMH REPORT HUB — Event_Sync.gs   (v2.3 · 11/11/2026 · BỎ liên kết việc app Sự kiện MKT ⇒ Report Hub + dọn sub H: · v2.2: sub H: · v2.1: dọn dòng sub lỗi do v1 chèn lặp)
  * ─────────────────────────────────────────────────────────────────────────────────────────────
  * v2.0 (người dùng yêu cầu 15/10/2026) — BỎ việc tự tạo Key task từ file MKT Offline:
  *  ① Dọn 1 lần (Script Property EVS_CLEAN_V2): xoá các key "Marketing-Event" do hệ thống tự tạo (cột U "EK:…") cùng
@@ -15,6 +15,13 @@
  *     Đổi tên key khác tên sự kiện ⇒ sub bài đăng tự gỡ; đặt lại đúng tên ⇒ tự gắn lại.
  * v2.2 (03/11/2026): thêm sub CHỈ ĐỌC "H:<id việc>" = việc của app Sự kiện MKT (MKT_EventHubFlow.gs ▸ ehHubSubs_, trừ việc của Sales)
  *     dưới Key task trùng tên sự kiện ⇒ báo cáo tuần Report Hub tự có tiến độ sự kiện (tên việc · người làm · hạn · trạng thái · tệp đã nộp).
+ * v2.3 (11/11/2026, người dùng yêu cầu) — BỎ HẲN liên kết v2.2: việc của app Sự kiện MKT KHÔNG còn đẩy vào Report Hub (EVS_HUB = false).
+ *     Lý do: mỗi lượt đồng bộ chèn lại ~24 sub mà lượt sau không nhận ra ⇒ 1 key có gần 2.000 sub lặp ("Key visual / poster sự kiện"… quá hạn),
+ *     nhân sự phải vào app Sự kiện bấm Xong mới đổi được trạng thái trên Report Hub; mỗi lượt giữ khoá ghi ~13 phút (chép công thức từng ô).
+ *     evsHubPurge_ (mỗi lượt, rẻ): xoá mọi dòng sub do app Sự kiện đẩy vào — cột U "H:…", hoặc cột V {s:"eventhub"}, hoặc Kết quả bắt đầu
+ *     "App Sự kiện MKT · " (bản lặp mất dấu U) — sao lưu vào sheet ẩn "EVS_Removed", báo cáo ở Script Property EVS_HUB_PURGE (eventSync mode=status).
+ *     evsAdopt: sub bài đăng E: mất dấu cột U (cùng key · cùng tên · cùng PIC · Kết quả "Status: …") ⇒ ghi lại dấu, KHÔNG chèn thêm dòng.
+ *     Chép công thức dòng mới: vsFillDownFormulas đọc công thức 1 lần (Kết nối file sales.gs v2.x) thay vì ~2.400 lần đọc từng ô.
  * Chạy: trigger onChange 2 file MKT (tự cài) + 10 phút/lần + action=eventSync (app gọi sau khi thêm / sửa key).
  *************************************************************************************************/
 
@@ -25,6 +32,7 @@ var EVS_BACK     = 2;          // tháng hiện tại − 2 …
 var EVS_FWD      = 6;          // … + 6 tháng
 var EVS_BUDGET   = 240000;
 var EVS_CHUNK    = 40;
+var EVS_HUB      = false;      /* v2.3 (11/11/2026): false = KHÔNG đẩy việc app Sự kiện MKT vào Report Hub (người dùng yêu cầu bỏ liên kết) */
 /* PIC key sự kiện theo Segment (KPI C12: Dental — Thuong, Surgical/Eyeless — Trang) · PIC bài đăng = Digital */
 var EVS_PIC_DENTAL = 'Thuong', EVS_PIC_SURG = 'Trang', EVS_POST_PIC = 'Minh Trang';
 
@@ -236,7 +244,7 @@ function evsBuildSubs_(posts, keyNk){
 /* ── Quét "Weekly new": key (theo tên đã chuẩn hoá), sub bài đăng E:, key EK: cũ ── */
 function evsScan_(sh){
   var dr = (typeof WEEKLY_DATA_ROW !== 'undefined') ? WEEKLY_DATA_ROW : 7, last = sh.getLastRow();
-  var idx = { keys:{}, byNk:{}, subs:{}, blockEnd:{}, manual:{}, keyRows:[], ek:[] };
+  var idx = { keys:{}, byNk:{}, subs:{}, blockEnd:{}, manual:{}, keyRows:[], ek:[], loose:{} };
   if (last < dr) return idx;
   var n = last - dr + 1, w = evsColMeta_() - 1, v = sh.getRange(dr, 2, n, w).getValues();
   var iK = evsColKey_() - 2, iM = evsColMeta_() - 2, cur = null;
@@ -258,7 +266,11 @@ function evsScan_(sh){
     if (cur && has){
       idx.blockEnd[cur.row] = row;
       if (u.indexOf('E:') === 0 || u.indexOf('H:') === 0) idx.subs[u] = { row:row, parentNk:cur.nk, parentRow:cur.row, hash:meta.h || '' };   /* H: = việc app Sự kiện MKT (v2.2) */
-      else if (g) idx.manual[cur.row]++;
+      else if (g){
+        idx.manual[cur.row]++;
+        /* v2.3: dòng sub bài đăng mất dấu cột U (Kết quả do đồng bộ ghi bắt đầu "Status: ") ⇒ để evsSync nhận lại thay vì chèn thêm */
+        if (!u && /^Status: /.test(evsS_(v[i][7]))) (idx.loose[cur.row] = idx.loose[cur.row] || []).push({ row:row, g:evsNorm_(g), h:evsS_(v[i][6]) });
+      }
     }
   }
   return idx;
@@ -401,6 +413,53 @@ function evsJunkClean_(sh, posts, force){
   return { n:dels.length };
 }
 
+/* ══════════════ ③ v2.3 (11/11/2026): GỠ sub do app Sự kiện MKT đẩy vào (mỗi lượt — rẻ: 1 lần đọc B…V) ══════════════
+ * Dòng bị gỡ = dòng sub (cột F trống) có: cột U bắt đầu "H:" · hoặc cột V {s:"eventhub"} · hoặc Kết quả (I) bắt đầu "App Sự kiện MKT · "
+ * (bản lặp đã mất dấu cột U). Sao lưu nguyên dòng B…V vào "EVS_Removed" rồi xoá; key cha giữ nguyên (người dùng tự cập nhật). */
+var EVS_HUB_RE = /^App Sự kiện MKT · /;
+function evsHubRow_(f, r, iK, iM){
+  if (f) return false;
+  if (evsS_(r[iK]).indexOf('H:') === 0) return 'u';
+  var m = evsS_(r[iM]);
+  if (m.indexOf('eventhub') >= 0){ try { if ((JSON.parse(m) || {}).s === 'eventhub') return 'v'; } catch(e){} }
+  return EVS_HUB_RE.test(evsS_(r[7])) ? 'i' : false;   /* r[7] = cột I (Task result) */
+}
+function evsHubPurge_(sh){
+  var dr = (typeof WEEKLY_DATA_ROW !== 'undefined') ? WEEKLY_DATA_ROW : 7, last = sh.getLastRow();
+  if (last < dr) return null;
+  var w = evsColMeta_() - 1, v = sh.getRange(dr, 2, last - dr + 1, w).getValues(), iK = evsColKey_() - 2, iM = evsColMeta_() - 2;
+  var dels = [], rows = [], now = new Date(), by = { u:0, v:0, i:0 }, keys = {}, cur = null;
+  for (var i = 0; i < v.length; i++){
+    var r = v[i], f = evsS_(r[4]);
+    if (f){ cur = { no:evsS_(r[0]), title:f }; continue; }
+    var k = evsHubRow_(f, r, iK, iM); if (!k) continue;
+    by[k]++; dels.push(dr + i);
+    rows.push([now, dr + i].concat(r.map(function(x){ return x instanceof Date ? evsIso_(x) : x; })));
+    var kk = cur ? (cur.no || '?') : '?', K = keys[kk] = keys[kk] || { title:cur ? cur.title.slice(0, 120) : '', n:0, names:{} };
+    K.n++; var nm = evsS_(r[5]).replace(/\s*\(\d+\)$/, '').slice(0, 80); K.names[nm] = (K.names[nm] || 0) + 1;
+  }
+  if (!dels.length) return null;
+  try {
+    var ss = sh.getParent(), bk = ss.getSheetByName('EVS_Removed');
+    if (!bk){ bk = ss.insertSheet('EVS_Removed'); bk.appendRow(['Xoá lúc', 'Dòng cũ', 'B…V của dòng (No · … · cột U · cột V)']); try { bk.hideSheet(); } catch(e){} }
+    bk.getRange(bk.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
+  } catch(e){ return { n:0, error:'Không sao lưu được — chưa xoá: ' + (e.message || e) }; }   /* không sao lưu được ⇒ không xoá */
+  evsDelRows_(sh, dels);
+  SpreadsheetApp.flush();
+  try { if (typeof touchVersion === 'function') touchVersion(); } catch(e){}
+  try { if (typeof _SH_CACHE !== 'undefined') _SH_CACHE = {}; } catch(e){}
+  var top = Object.keys(keys).map(function(no){
+    var K = keys[no], names = Object.keys(K.names).sort(function(a, b){ return K.names[b] - K.names[a]; }).slice(0, 5).map(function(n){ return n + ' ×' + K.names[n]; });
+    return { no:no, title:K.title, n:K.n, top:names };
+  }).sort(function(a, b){ return b.n - a.n; });
+  var msg = 'Gỡ liên kết app Sự kiện MKT: xoá ' + dels.length + ' sub (có dấu H: ' + by.u + ' · dấu cột V ' + by.v + ' · mất dấu ' + by.i + ') ở ' + top.length + ' key' +
+            (top[0] ? ' — nhiều nhất key ' + top[0].no + ' (' + top[0].n + ')' : '') + ' · đã sao lưu sheet EVS_Removed';
+  try { if (typeof logActivity === 'function') logActivity('System', 'delete', msg, '', ''); } catch(e){}
+  var rep = { at:Date.now(), n:dels.length, by:by, keys:top.slice(0, 15), message:msg };
+  try { PropertiesService.getScriptProperties().setProperty('EVS_HUB_PURGE', JSON.stringify(rep).slice(0, 8500)); } catch(e){}
+  return rep;
+}
+
 /* ══════════════ ĐỒNG BỘ CHÍNH (v2.0: chỉ sub bài đăng dưới key người dùng đặt đúng tên sự kiện) ══════════════ */
 function evsSync(opt){
   opt = opt || {};
@@ -411,6 +470,7 @@ function evsSync(opt){
     var sh = shWeekly(); if (!sh) return { ok:false, error:'Không thấy sheet Weekly new' };
     if (sh.getMaxColumns() < evsColMeta_()) sh.insertColumnsAfter(sh.getMaxColumns(), evsColMeta_() - sh.getMaxColumns());
     try { var cl = evsCleanV2_(sh, false); if (cl) rep.clean = cl.message || 'ok'; } catch(e){ rep.errors.push('Dọn key cũ: ' + (e.message || e)); }
+    if (!EVS_HUB){ try { var hp = evsHubPurge_(sh); if (hp) rep.hubPurge = hp.n || hp.error; } catch(e){ rep.errors.push('Gỡ việc app Sự kiện: ' + (e.message || e)); } }   /* v2.3 */
 
     var posts, postsOk = true;
     try { posts = evsReadPosts_(); } catch(e){ posts = {}; postsOk = false; rep.errors.push('File Digital: ' + (e.message || e)); }
@@ -419,7 +479,7 @@ function evsSync(opt){
     Object.keys(idx.byNk).forEach(function(nk){ if (posts[nk]) keyNk[nk] = idx.byNk[nk]; });
     var W = evsBuildSubs_(posts, keyNk);
     /* v2.2: việc app Sự kiện MKT ⇒ sub "H:" (lỗi đọc ⇒ không xoá / không sửa sub H: cũ) */
-    var hubOk = typeof ehHubSubs_ === 'function';
+    var hubOk = EVS_HUB && typeof ehHubSubs_ === 'function';   /* v2.3: EVS_HUB = false ⇒ không đẩy (dòng H: cũ đã gỡ ở evsHubPurge_) */
     if (hubOk){ try { var HB = ehHubSubs_(idx); Object.keys(HB.subs).forEach(function(k){ W[k] = HB.subs[k]; }); Object.keys(HB.keyNk).forEach(function(nk){ keyNk[nk] = idx.byNk[nk]; }); rep.hub = Object.keys(HB.subs).length; }
                 catch(e){ hubOk = false; rep.errors.push('App Sự kiện MKT: ' + (e.message || e)); } }
 
@@ -438,6 +498,19 @@ function evsSync(opt){
       if (!cur || cur.hash === w.hash) return;
       var er = evsWrite_(sh, cur.row, [w]);
       if (er) rep.errors.push('Sub "' + w.subTask + '": ' + er); else rep.subsUpd++;
+    });
+
+    /* ③a v2.3: sub đã có trên sheet nhưng mất dấu cột U (cùng key · cùng tên · cùng PIC) ⇒ ghi lại cho đúng, KHÔNG chèn thêm dòng */
+    var taken = {};
+    Object.keys(W).forEach(function(sk){
+      if (idx.subs[sk]) return;
+      var w = W[sk], k = idx.byNk[w.parent], L = k && idx.loose[k.row]; if (!L) return;
+      var nm = evsNorm_(w.subTask), hit = L.filter(function(x){ return !taken[x.row] && x.g === nm && x.h === w.pic; })[0];
+      if (!hit) return;
+      taken[hit.row] = 1;
+      var er = evsWrite_(sh, hit.row, [w]);
+      if (er) rep.errors.push('Nhận lại sub "' + w.subTask + '": ' + er);
+      else { idx.subs[sk] = { row:hit.row, parentNk:w.parent, parentRow:k.row, hash:w.hash }; rep.adopted = (rep.adopted || 0) + 1; }
     });
 
     /* ③ chèn sub mới ngay dưới block của key cùng tên */
@@ -468,7 +541,7 @@ function evsSync(opt){
     SpreadsheetApp.flush();
 
     /* ④ % + trạng thái key theo sub */
-    if (rep.subsNew + rep.subsUpd + rep.subsDel){
+    if (rep.subsNew + rep.subsUpd + rep.subsDel + (rep.adopted || 0)){
       var fresh = evsScan_(sh);
       Object.keys(keyNk).forEach(function(nk){
         var k = fresh.byNk[nk]; if (!k || fresh.blockEnd[k.row] <= k.row) return;
@@ -480,8 +553,9 @@ function evsSync(opt){
     }
     rep.keys = Object.keys(keyNk).length; rep.posts = Object.keys(W).length;
     rep.seconds = Math.round((Date.now() - T0) / 1000);
-    rep.message = 'Bài đăng sự kiện — ' + rep.keys + ' key sự kiện · ' + rep.posts + ' bài đăng + việc app Sự kiện (' + (rep.hub || 0) + ') · sub mới ' + rep.subsNew +
-      ' · sửa ' + rep.subsUpd + ' · xoá ' + rep.subsDel + ' · ' + rep.seconds + 's' + (rep.clean ? ' · ' + rep.clean : '') + (rep.junk ? ' · dọn ' + rep.junk + ' dòng lỗi' : '') +
+    rep.message = 'Bài đăng sự kiện — ' + rep.keys + ' key sự kiện · ' + rep.posts + ' bài đăng' + (EVS_HUB ? ' + việc app Sự kiện (' + (rep.hub || 0) + ')' : '') + ' · sub mới ' + rep.subsNew +
+      ' · sửa ' + rep.subsUpd + ' · xoá ' + rep.subsDel + (rep.adopted ? ' · nhận lại ' + rep.adopted + ' dòng mất dấu' : '') + (rep.hubPurge ? ' · gỡ ' + rep.hubPurge + ' sub app Sự kiện' : '') +
+      ' · ' + rep.seconds + 's' + (rep.clean ? ' · ' + rep.clean : '') + (rep.junk ? ' · dọn ' + rep.junk + ' dòng lỗi' : '') +
       (rep.errors.length ? ' · ' + rep.errors.slice(0, 4).join(' | ') : '');
     try { PropertiesService.getScriptProperties().setProperty('EVS_LAST', JSON.stringify({ at:Date.now(), msg:rep.message })); } catch(e){}
     return rep;
@@ -553,8 +627,10 @@ function evsApiSync(user, p){
   p = p || {};
   if (String(p.mode || '') === 'status'){
     var last = {}; try { last = JSON.parse(PropertiesService.getScriptProperties().getProperty('EVS_LAST') || '{}'); } catch(e){}
+    var hp = {}; try { hp = JSON.parse(PropertiesService.getScriptProperties().getProperty('EVS_HUB_PURGE') || '{}'); } catch(e){}
     var cl = {}; try { cl = JSON.parse(PropertiesService.getScriptProperties().getProperty('EVS_CLEAN_V2') || '{}'); } catch(e){}
-    return { ok:true, ver:'2.0', last:last, clean:cl };
+    if (String(p.detail || '') !== '1') cl = { at:cl.at, removedKeys:cl.removedKeys, keptKeys:cl.keptKeys };   /* v2.3: gọn để đọc được kết quả gỡ */
+    return { ok:true, ver:'2.3', hub:EVS_HUB, last:last, hubPurge:hp, clean:cl };
   }
   if (!p.force && typeof throttleOk === 'function' && !throttleOk('evs_api', 20))
     return { ok:true, skipped:true, message:'Vừa đồng bộ — đợi vài giây.' };
