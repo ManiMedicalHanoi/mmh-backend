@@ -288,6 +288,7 @@ function thdFixApi_(p){
   if(str_(p.op) === 'kpi') r = [thdKpiRebuild_()];
   if(str_(p.op) === 'kpitab') return thdKpiTab_();
   if(str_(p.op) === 'guide') r = [thdGuideKpi_()];
+  if(str_(p.op) === 'guideAll') r = [THD_STEP.guide()];   /* GUIDE = help text only ⇒ rewrite the whole sheet with the current wording */
   if(str_(p.op) === 'internal') return { ok: true, dry: true, scan: thdIntScan_() };
   if(str_(p.op) === 'internalRun') return { ok: true, moved: thdIntMove_(), scan: thdIntScan_() };
   var cm = codeMap_(), sample = readTab_('customer').slice(0, 5).map(function(c){ return str_(c.code) + ' · ' + str_(c.name); });
