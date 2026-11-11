@@ -299,6 +299,8 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   **Sửa form đã có, giữ link (09/11/2026, `MMH_SurveyEdit.gs`, v2.8)**: `formDump` (key, formId, off, n — đọc từng câu: id, loại, lựa chọn, điều hướng) · `formEdit` (key, formId, `pz` = gzip base64url JSON
   `[ops]`, `dry=1` xem trước): `form` / `set` / `add` (cả trang `{t:"page"}`) / `delete` / `move` / `renumber`; sửa tại chỗ ⇒ giữ id câu, câu trả lời cũ không mất; nhật ký tab EDIT của sheet nhật ký.
   Gọi từ phiên Claude: workflow **Kiểm tra** ▸ ping `survey?action=formDump&key=…&formId=…&full=1` (≤ 6000 ký tự ⇒ đọc từng đoạn `off` / `n`). Form tạo bằng `Mã.gs` (VOS 2026) cũng sửa được (cùng chủ sở hữu).
+  **v3.0 (11/11/2026, người dùng yêu cầu)**: khảo sát bác sĩ tự có khối **Quyền riêng tư và bảo vệ dữ liệu cá nhân** ở ĐẦU form, trước thông tin cá nhân (`SV_CONSENT` / `svConsentQs_`: đoạn giải thích · ☐ đồng ý xử lý dữ liệu — bắt buộc · ☐ nhận thông tin từ MMH — không bắt buộc);
+  `spec.consent` false = bỏ, object = đổi chữ; quiz / nhân sự mặc định không. Form cũ thêm bằng `formEdit` (`add` trước câu đầu, `num:false`).
   ⚠️ Câu sàng lọc ("Không làm ⇒ chuyển phần sau") phải nằm 1 mình 1 trang — v2.9 `svCreate_` tự thêm trang "<Phần> (tiếp)" sau câu có `go`. `smoke: false` (backends.json) — đổi phạm vi quyền ⇒ chủ script chạy `svCapQuyen` trong trình soạn.
 - **03/11/2026 — App Sự kiện MKT v2.4 / Event Hub v1.5 (`marketing/MKT_EventHubFlow.gs`, người dùng: việc lập kế hoạch / follow-up / báo cáo tiến độ sự kiện bị miss)**:
   ① lập kế hoạch muộn: `ehTasksFor_` không tự "Bỏ qua" việc có hạn mẫu đã qua nữa ⇒ `ehCompress_` dồn hạn (dueManual `nén`, EVENTS.latePlan); dữ liệu cũ chuyển 1 lần (`ehFlowMigrate_`, `EH_FLOW_V`).
