@@ -10,7 +10,7 @@
  * ⇒ người cập nhật file chèn / đổi vị trí cột vẫn chạy. Kỳ của dòng = cột Month (mm/yyyy), trống ⇒ ngày quyết định.
  * Ngày quyết định đôi khi bị đảo ngày ↔ tháng (dữ liệu dán từ nguồn khác) ⇒ chọn cách đọc khớp cột Month.
  **************************************************************************************************/
-var KQ_VER = '1.0';
+var KQ_VER = '1.1';   // ★ 11/11/2026 — đệm 10 phút theo số dòng × cột (wmCached_ ở MMH_WinMap.gs), fresh=1 bỏ đệm
 var KQ_COLS = ['tbmt', 'buyer', 'pname', 'pcode', 'brand', 'mfr', 'country', 'unit', 'qty', 'price', 'method', 'pub', 'decNo', 'dec',
                'bidders', 'loc', 'month', 'region', 'tier', 'prov', 'ktype', 'dur', 'exp', 'row'];
 
@@ -20,6 +20,11 @@ function kqttPayload_(p) {
   var ss = SpreadsheetApp.openById(SYNC.DEST_SS_ID);
   var sh = resolveSheetByGid_(ss, SYNC.DEST_GID) || ss.getSheetByName(SYNC.DEST_SHEET_NAME);
   if (!sh) throw new Error('Không tìm thấy sheet "' + SYNC.DEST_SHEET_NAME + '" trong file tender tổng');
+  var lastRow0 = sh.getLastRow(), lastCol0 = sh.getLastColumn();
+  return wmCached_('kq', p, sh.getSheetId() + '|' + from + '|' + lastRow0 + 'x' + lastCol0, function () { return kqBuild_(ss, sh, from); });
+}
+
+function kqBuild_(ss, sh, from) {
   var tz = ss.getSpreadsheetTimeZone() || 'Asia/Ho_Chi_Minh';
   var out = { ok: true, v: KQ_VER, sheet: sh.getName(), from: from, cols: KQ_COLS, rows: [], n: 0,
               exported: Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd HH:mm') };
