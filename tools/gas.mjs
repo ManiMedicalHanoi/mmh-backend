@@ -539,6 +539,9 @@ async function cmdDiff(key, version) {
 
 /* Gọi thử URL /exec của các backend, in từng bước chuyển hướng + mã + đầu nội dung (để hiểu kết quả "gọi thử") */
 async function cmdPing(arg) {
+  /* nhiều lệnh cách nhau bằng " ; " ⇒ gọi lần lượt (đo thời gian / dung lượng từng lệnh) */
+  const parts = String(arg || '').split(/\s+;\s+/).filter(Boolean);
+  if (parts.length > 1) { for (const x of parts) await cmdPing(x); return; }
   const cfg = loadCfg();
   say('### Gọi thử URL /exec');
   /* "training?action=fileMeta&sid=…" ⇒ gọi đúng lệnh đó (kiểm lỗi riêng 1 action); không có "?" ⇒ ping như cũ */
@@ -549,15 +552,16 @@ async function cmdPing(arg) {
     const b = cfg[k];
     if (!b.url) { say(`- ${b.name}: không có web app (chỉ menu trong Sheet).`); continue; }
     let u = b.url + (q || b.smokeQuery || '?action=ping');
-    const hops = [];
+    const hops = [], t0 = Date.now();
     try {
       for (let i = 0; i < 5; i++) {
         const r = await fetch(u, { redirect: 'manual', signal: AbortSignal.timeout(60000) });
         const loc = r.headers.get('location');
         hops.push(`${r.status} ${new URL(u).host}${new URL(u).pathname.replace(/\/s\/[^/]+/, '/s/…').slice(0, 40)}`);
         if (loc && r.status >= 300 && r.status < 400) { u = new URL(loc, u).href; continue; }
-        const t = (await r.text()).replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-        say(`- ${b.name}${q ? ' ' + q.slice(0, 60) : ''}: ${hops.join(' → ')} · ${r.headers.get('content-type') || ''} · «${t.slice(0, /[?&]full=1/.test(q) ? 6000 : 300)}»`);
+        const raw = await r.text(), ms = Date.now() - t0;
+        const t = raw.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+        say(`- ${b.name}${q ? ' ' + q.slice(0, 60) : ''}: ${hops.join(' → ')} · ${r.headers.get('content-type') || ''} · ${ms} ms · ${Math.round(raw.length / 1024)} KB · «${t.slice(0, /[?&]full=1/.test(q) ? 6000 : 300)}»`);
         break;
       }
     } catch (e) { say(`- ${b.name}: ${hops.join(' → ')} ✗ ${e.message}`); }
