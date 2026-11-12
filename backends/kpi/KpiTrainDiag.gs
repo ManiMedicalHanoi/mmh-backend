@@ -20,11 +20,8 @@ function kscTrainDiag_(p) {
   });
   var raw = [];
   tss.getSheets().forEach(function (s) {
-    if (!KSC_TRAIN.REPORT_RE.test(kscNorm_(s.getName()))) return;
-    var lr = s.getLastRow(), lc = Math.min(s.getLastColumn(), 80); if (lr < 2) return;
-    var V = s.getRange(1, 1, lr, lc).getValues(), hr = -1, H = [];
-    for (var i = 0; i < Math.min(lr, 10) && hr < 0; i++) { var h = V[i].map(kscNorm_); if (h.indexOf('training type') >= 0 && h.indexOf('trainer') >= 0) { hr = i; H = h; } }
-    if (hr < 0) return;
+    var hd = kscTrainHeader_(s); if (!hd) return;                    /* 12/11/2026: cùng cách nhận sheet với bộ đếm (tên bị đổi vẫn nhận) */
+    var lr = hd.lr, lc = hd.lc, hr = hd.hr, V = s.getRange(1, 1, lr, lc).getValues(), H = V[hr].map(kscNorm_);
     var want = ['month', 'actual date', 'training type', 'training category', 'training topic', 'trainer', 'target audience', 'status', 'session id'];
     for (var r = hr + 1; r < lr; r++) {
       var o = {}, hay = '';
