@@ -134,6 +134,10 @@ const CONFIG = {
   DOMAINS: ['manimedicalhanoi.com', 'mani.inc'],
   SEND_DOMAIN: 'manimedicalhanoi.com'   // 08/10/2026: đổi từ mani.inc (hay bị chặn / spam)
 };
+/* ★ 12/11/2026 — sheet buổi đào tạo bị đổi tên ⇒ dùng tên Training Hub tự tìm lại (RH_ReportSheet.gs) */
+try { Object.defineProperty(CONFIG.SHEETS, 'REPORT', { get: function () { try { return hubReportSheetName_(); } catch (e) { return 'Training Report FY67'; } } }); } catch (e) {}
+try { Object.defineProperty(CONFIG.SHEETS, 'OVERVIEW', { get: function () { try { return hubOverviewSheetName_(); } catch (e) { return 'Training Report FY67  Calendar'; } } }); } catch (e) {}
+try { Object.defineProperty(CONFIG.SHEETS, 'PLAN', { get: function () { try { return hubPlanSheetName_(); } catch (e) { return 'Training Plan FY67'; } } }); } catch (e) {}
 
 // ★ v3.8: CC_EMAIL_LIST - ONLY @mani.inc domain
 const CC_EMAIL_LIST = [
@@ -1962,6 +1966,7 @@ var TFM_CONFIG = {
   // Dừng an toàn trước giới hạn 6 phút của Apps Script (mili giây)
   TIME_BUDGET_MS: 4.5 * 60 * 1000
 };
+try { Object.defineProperty(TFM_CONFIG, 'SHEET_NAME', { get: function () { try { return hubReportSheetName_(); } catch (e) { return 'Training Report FY67'; } } }); } catch (e) {}   // ★ 12/11/2026
 
 
 // ============================================================

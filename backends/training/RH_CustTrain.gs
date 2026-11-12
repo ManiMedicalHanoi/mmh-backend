@@ -155,7 +155,7 @@ function hubMigrate1013_() {
       ms.getRange(3 + bi, 2).setValue(TE.CAT); notes.push('Master!B' + (3 + bi) + ' = Customer Training');
     }
     /* cột T&E ở sheet Training Report */
-    hubTeCols_(hubSheet(HUB.SHEETS.REPORT, false), true);
+    hubTeCols_(hubReportSheetRaw(), true);
   });
   hubCacheClear('meta');
   P.setProperty('HUB_MIG_VER', TE.VER);

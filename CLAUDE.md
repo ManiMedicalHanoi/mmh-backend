@@ -466,3 +466,9 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   Nhóm còn lại: action `oppList` / `oppSave` (phiên `tk` qua `tmWho_`; sales chỉ thấy / sửa cơ hội của mình, lead / HOD / Director / Admin cả nhóm; `rid` chống gửi trùng) ⇒ sheet **CƠ HỘI THẦU · MUA SẮM** (VN) / **OPPORTUNITIES** (Thái),
   GHI NỐI TIẾP (cùng ID, Lần + 1; xoá = dòng mới cột Đã xoá = x). Giai đoạn cùng số với crm-surgical (1–10 thầu, 11–19 mua sắm tư nhân). Sản phẩm JSON `[{g, code, qty, price, cur}]`: theo nhóm chỉ cần SL,
   có mã chi tiết bắt buộc đơn giá; doanh số dự kiến USD theo tỷ giá CỐ ĐỊNH `OPP.RATE` (26.700 VND · 33 THB — người dùng chốt VND 11/11/2026). Không thêm dịch vụ Google.
+- **12/11/2026 — Training Hub v3.45: sheet buổi đào tạo bị đổi tên (`training/RH_ReportSheet.gs`)**: sáng 12/11 sheet "Training Report FY67" của Training Master bị đổi thành "Training Report "
+  (cùng lúc "… FY67  Calendar" ⇒ "Training Report Calendar", "Training Plan FY67" ⇒ "Training Plan FY 67") ⇒ mọi lệnh buổi đào tạo báo "Không tìm thấy sheet" (CRM T&E, lịch Report Hub, Training Hub) và KPI đào tạo = 0.
+  `hubReportSheetName_()`: Script Property `HUB_REPORT_SHEET` ⇒ tên cũ ⇒ dò sheet đúng bố cục Hub (dòng 3: F Training Type · G Category · H Topic · J Trainer · L Status; nhiều sheet ⇒ nhiều Session ID nhất) — `hubReportSheetRaw`,
+  `hubMigrate1013_`, `tclValidate_`, Mã.gs (`CONFIG.SHEETS.REPORT / OVERVIEW / PLAN`, `TFM_CONFIG.SHEET_NAME` = getter) đều dùng. KPI (`kscTrainHeader_`): tên "Training Report FYxx" hoặc có chữ "training report" (trừ Calendar),
+  hoặc tên khác đúng bố cục có cột Session ID (bỏ HUB_ / RH_ / _ / "KPI …"). Chẩn đoán (chỉ đọc): workflow Kiểm tra ▸ ping `training?action=teDiag&key=<8 ký tự cuối Script ID>&full=1`
+  (`&part=sheets|te|log`, `&who=<PIC>`) + `kpi?action=trDiag&key=…&who=<tên>&full=1`.

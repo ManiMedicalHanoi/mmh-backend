@@ -91,8 +91,9 @@ function tclSync_(why) {
 /* ô Target Audience (cột K) của mọi sheet "Training Report FYxx" ⇒ danh sách thả xuống = cột M của Customer list */
 function tclValidate_(ss, optRange) {
   var n = 0;
+  var cur0 = ''; try { cur0 = hubReportSheetName_(); } catch (e) {}   // 12/11/2026: sheet buổi đào tạo có thể đã đổi tên
   ss.getSheets().forEach(function (sh) {
-    if (!TCL.REPORT_RE.test(hubNorm(sh.getName()).toLowerCase())) return;
+    if (!TCL.REPORT_RE.test(hubNorm(sh.getName()).toLowerCase()) && sh.getName() !== cur0) return;
     var lc = Math.min(sh.getLastColumn(), 40), top = sh.getRange(1, 1, Math.min(10, sh.getMaxRows()), lc).getValues(), hr = -1, col = -1;
     for (var i = 0; i < top.length && hr < 0; i++) for (var j = 0; j < top[i].length; j++) if (hubKey(top[i][j]) === 'targetaudience') { hr = i + 1; col = j + 1; break; }
     if (hr < 0) return;

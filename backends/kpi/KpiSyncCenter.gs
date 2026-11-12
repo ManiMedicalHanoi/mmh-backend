@@ -280,6 +280,7 @@ var KSC_MKT = {
 /* Rule đếm KPI đào tạo (Training Master) */
 var KSC_TRAIN = {
   REPORT_RE : /^training report fy\d+$/,
+  SKIP_RE   : /^(hub_|rh_|_|kpi )|calendar/,                 // 12/11/2026: sheet kỹ thuật / lịch / tab KPI — không phải sheet buổi đào tạo
   DONE      : ['completed', 'complete', 'done', 'finished', 'hoan thanh', 'da hoan thanh'],
   ALIAS     : { 'minh viet': 'Viet' },
   OUT_PREFIX: 'KPI TRAINING ',
@@ -452,7 +453,7 @@ function kscEditMatters_(src, sheet) {
   var n = kscNorm_(sheet);
   if (!n) return true;
   if (/^_/.test(n)) return false;                                  // sheet kỹ thuật (log, _KPI_SRC…)
-  if (src === 'training') return KSC_TRAIN.REPORT_RE.test(n);
+  if (src === 'training') return kscIsTrainReport_(n) || !KSC_TRAIN.SKIP_RE.test(n);   // 12/11: sheet buổi đào tạo có thể bị đổi tên
   if (src === 'kbi') return n === kscNorm_(KSC_KBI.SHEET);
   if (src === 'moff') return KSC_MOFF.WATCH.map(kscNorm_).indexOf(n) >= 0;
   if (src === 'bo') return n !== kscNorm_(KSC_BO.TAB);
@@ -817,17 +818,31 @@ function kscTrainPeople_(tss) {
   }
   return map;
 }
+/* 12/11/2026 — sheet "Training Report FY67" bị đổi tên ⇒ KPI đào tạo = 0 (không thấy sheet nào). Nay nhận:
+   ① tên "Training Report FYxx" như cũ hoặc tên có chữ "training report" (trừ lịch Calendar) ·
+   ② tên khác (không phải sheet kỹ thuật HUB_ / RH_ / _ / tab KPI) nhưng đúng bố cục Training Hub: tiêu đề có Training Type + Trainer + Session ID. */
+function kscIsTrainReport_(n) { n = kscNorm_(n); return KSC_TRAIN.REPORT_RE.test(n) || (/training report/.test(n) && !/calendar/.test(n)); }
+function kscTrainHeader_(s) {
+  var nm = kscNorm_(s.getName()), byName = kscIsTrainReport_(nm);
+  if (!byName && KSC_TRAIN.SKIP_RE.test(nm)) return null;
+  var lr = s.getLastRow(), lc = Math.min(s.getLastColumn(), 80); if (lr < 2 || lc < 2) return null;    // 13/10: tới 80 cột (cột T&E ở cuối sheet)
+  var top = s.getRange(1, 1, Math.min(lr, 10), lc).getValues();
+  for (var i = 0; i < top.length; i++) {
+    var h = top[i].map(kscNorm_);
+    if (h.indexOf('training type') >= 0 && h.indexOf('trainer') >= 0) {
+      if (!byName && h.indexOf('session id') < 0) return null;
+      var C = {}; h.forEach(function (x, k) { if (x && C[x] == null) C[x] = k; });
+      return { hr: i, C: C, lr: lr, lc: lc, byName: byName };
+    }
+  }
+  return null;
+}
 function kscTrainSessions_(tss, people) {
   var list = [], seen = {}, sheets = [], budget = { n: KGS.PDF_MAX_LOOKUPS };
   tss.getSheets().forEach(function (s) {
-    if (!KSC_TRAIN.REPORT_RE.test(kscNorm_(s.getName()))) return;
-    var lr = s.getLastRow(), lc = Math.min(s.getLastColumn(), 80); if (lr < 2) return;      // 13/10: tới 80 cột (cột T&E ở cuối sheet)
-    var V = s.getRange(1, 1, lr, lc).getValues(), hr = -1, C = {}, RT = null;
-    for (var i = 0; i < Math.min(lr, 10) && hr < 0; i++) {
-      var h = V[i].map(kscNorm_);
-      if (h.indexOf('training type') >= 0 && h.indexOf('trainer') >= 0) { hr = i; h.forEach(function (x, k) { if (x && C[x] == null) C[x] = k; }); }
-    }
-    if (hr < 0) return;
+    var hd = kscTrainHeader_(s); if (!hd) return;
+    var lr = hd.lr, lc = hd.lc, hr = hd.hr, C = hd.C, RT = null;
+    var V = s.getRange(1, 1, lr, lc).getValues();
     sheets.push(s.getName());
     function g(row, key) { return C[key] == null ? '' : row[C[key]]; }
     function folderUrl(r) {                                          /* link thư mục buổi (ô Training Folder: rich text / công thức / chữ) */
