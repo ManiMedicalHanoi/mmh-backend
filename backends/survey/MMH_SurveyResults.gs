@@ -265,6 +265,15 @@ function rsRoute_(a, p) {
       var lk = LockService.getScriptLock(); lk.waitLock(20000);
       try { return rsOut_(rsTick_(), p); } finally { lk.releaseLock(); }
     }
+    if (a === 'rsDiag') {  // kiểm tra từ workflow Kiểm tra (khoá): đọc 1 link ⇒ CHỈ số đếm từng câu, không trả câu trả lời / thông tin cá nhân
+      var want2 = PropertiesService.getScriptProperties().getProperty('SV_KEY') || SV.KEY;
+      if (p.key !== want2) return rsOut_({ ok: false, error: 'KEY' }, p);
+      var rr = rsResolve_(p.link), dd = rsData_({ id: rr.id, formId: rr.formId, sheetId: rr.sheetId, by: '' }, { priv: false, pic: '' });
+      return rsOut_({ ok: true, id: rr.id, title: dd.title, n: dd.n, last: dd.last, q: dd.questions.map(function (q, i) {
+        var c = 0; dd.answers.forEach(function (x) { if (x[1][i] != null) c++; });
+        return q.k + '|' + q.t + '|' + c + '|' + q.q.slice(0, 40) + (q.pii ? '|pii' : '');
+      }) }, p);
+    }
     var me = rsWho_(p.tk);
     if (me.err) return rsOut_({ ok: false, code: 'AUTH', error: me.err }, p);
     if (a === 'rsList') {
