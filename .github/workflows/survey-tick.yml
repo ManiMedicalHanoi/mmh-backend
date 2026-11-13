@@ -1,28 +1,27 @@
 name: Khảo sát — quét câu trả lời mới
-# App "Kết quả khảo sát" (Training-Hub/khao-sat/): mỗi giờ 7h–21h (giờ Việt Nam), thứ Hai – thứ Bảy, gọi survey ?action=rsTick
-# ⇒ máy chủ đếm câu trả lời từng khảo sát, có câu trả lời mới thì ghi thông báo vào RH_Notify (nút "Nhắc tôi" của Report Hub / CRM)
-# cho người bấm "Theo dõi". Máy chủ Apps Script survey không có quyền tạo trigger nên lịch chạy ở đây. Chạy tay: Actions ▸ Run workflow.
+# App MMH Survey (MMH Wiki ▸ /mmh-library/survey/): 20 phút / lần từ 7h đến 21h (giờ Việt Nam), thứ Hai – thứ Bảy.
+# Gọi survey ?action=rsTick ⇒ máy chủ đếm câu trả lời từng khảo sát; có câu trả lời mới ⇒ ghi RH_Notify (nút "Nhắc tôi" của Report Hub / CRM)
+# và trả danh sách máy đã bật thông báo ⇒ gửi thông báo đẩy (tools/push/survey-push.mjs). Máy chủ Apps Script không tạo được trigger / không gửi được
+# Web Push nên lịch + bước gửi chạy ở đây. Chạy tay: Actions ▸ Run workflow.
 on:
   schedule:
-    - cron: '7 0-14 * * 1-6'
+    - cron: '*/20 0-14 * * 1-6'
   workflow_dispatch:
 permissions: { contents: read }
+concurrency: { group: survey-tick, cancel-in-progress: false }
 jobs:
   tick:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 6
     steps:
       - uses: actions/checkout@v4
         with:
           sparse-checkout: |
             backends.json
             backends/survey/MMH_SurveyAPI.gs
+            tools/push
           sparse-checkout-cone-mode: false
-      - name: Gọi rsTick
-        run: |
-          URL=$(node -e "console.log(require('./backends.json').survey.url)")
-          KEY=$(grep -o "KEY: '[^']*'" backends/survey/MMH_SurveyAPI.gs 2>/dev/null | head -1 | cut -d"'" -f2)
-          [ -n "$KEY" ] || KEY='mmh-sv-7Qk2pX9w'
-          OUT=$(curl -sSL --max-time 150 "$URL?action=rsTick&key=$KEY" || true)
-          echo "$OUT" | head -c 800; echo
-          echo "### Quét khảo sát" >> "$GITHUB_STEP_SUMMARY"; echo "\`$(echo "$OUT" | head -c 300)\`" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm i --no-save --no-audit --no-fund --prefix tools/push web-push@3.6.7
+      - run: node tools/push/survey-push.mjs

@@ -1,5 +1,6 @@
 /**
- * MMH_SurveyResults.gs v1.0 (13/11/2026) — app "Kết quả khảo sát" (Training-Hub/khao-sat/): xem kết quả mọi khảo sát Google Form,
+ * MMH_SurveyResults.gs v1.1 (13/11/2026; v1.1: app đổi tên MMH Survey, chuyển sang MMH Wiki /mmh-library/survey/; số câu trả lời 14 ngày + câu trả lời gần nhất (giờ · bệnh viện)
+ *   cho biểu đồ; thông báo đẩy Web Push: rsPush lưu đăng ký của từng máy, rsTick trả `jobs` để workflow gửi, rsPushGone gỡ máy hết hạn) — app MMH Survey: xem kết quả mọi khảo sát Google Form,
  * thống kê theo từng câu hỏi (số người, %), thêm khảo sát mới bằng link, thông báo khi có câu trả lời mới.
  * Người dùng yêu cầu 13/11/2026.
  *
@@ -19,9 +20,10 @@
  * Họ tên / số điện thoại / email chỉ trả cho Admin / Giám đốc / Trưởng bộ phận và người thêm khảo sát.
  */
 var RS = {
-  VER: '1.0', TAB: 'KẾT QUẢ KHẢO SÁT',
+  VER: '1.1', TAB: 'KẾT QUẢ KHẢO SÁT', PUSH_TAB: 'THÔNG BÁO ĐẨY',
+  PUSH_HEAD: ['PIC', 'Endpoint', 'p256dh', 'auth', 'Thiết bị', 'Đăng ký lúc'],
   HEAD: ['Id', 'Form ID', 'Sheet ID', 'Tiêu đề', 'Thêm bởi', 'Thêm lúc', 'Theo dõi', 'Đã báo (số câu trả lời)', 'Ẩn'],
-  APP: 'https://manimedicalhanoi.github.io/Training-Hub/khao-sat/',
+  APP: 'https://manimedicalhanoi.github.io/mmh-library/survey/',
   SEED: ['1r5CwavKqJMGtPN78QC2Ig92-ByOn7zNZ_2ugq-ZOAZQ', '1c7jwBaP96NVMIQCdpRZ4cZNn9BWjLDatCdCQ0G2p1x8'],
   OWNER: 'mmh.product@manimedicalhanoi.com',
   PII: /h[ọo]\s*(v[àa]\s*)?t[êe]n|s[ốo]\s*đi[ệe]n\s*tho[ạa]i|đi[ệe]n\s*tho[ạa]i|\bsđt\b|e-?mail/i,
@@ -138,18 +140,32 @@ function rsRespSheet_(ss, formId) {
   return hit || all[0];
 }
 function rsCount_(e) {
-  var c = CacheService.getScriptCache(), k = 'rsc_' + e.id;
+  var c = CacheService.getScriptCache(), k = 'rsc2_' + e.id;
   try { var h = c.get(k); if (h) return JSON.parse(h); } catch (x) {}
-  var out = { n: 0, last: '' };
+  var out = { n: 0, last: '', today: 0, days: [], recent: [] }, ts = [], hosp = [];
   if (e.sheetId) {
-    var sh = rsRespSheet_(SpreadsheetApp.openById(e.sheetId), e.formId), lr = sh.getLastRow();
+    var sh = rsRespSheet_(SpreadsheetApp.openById(e.sheetId), e.formId), lr = sh.getLastRow(), lc = sh.getLastColumn();
     out.n = Math.max(0, lr - 1);
-    if (lr > 1) { var v = sh.getRange(lr, 1).getValue(); out.last = v instanceof Date ? v.toISOString() : rsS_(v); }
+    if (lr > 1) {
+      var head = sh.getRange(1, 1, 1, Math.max(1, lc)).getValues()[0], hc = -1;
+      head.forEach(function (t, i) { if (hc < 0 && i > 0 && /bệnh viện|phòng khám|cơ sở công tác|nơi công tác/i.test(rsS_(t))) hc = i; });
+      ts = sh.getRange(2, 1, lr - 1, 1).getValues().map(function (r) { return r[0] instanceof Date ? r[0].getTime() : 0; });
+      if (hc >= 0) hosp = sh.getRange(2, hc + 1, lr - 1, 1).getValues().map(function (r) { return rsS_(r[0]).slice(0, 60); });
+    }
   } else if (e.formId) {
     var rs = FormApp.openById(e.formId).getResponses(); out.n = rs.length;
-    if (rs.length) out.last = rs[rs.length - 1].getTimestamp().toISOString();
+    ts = rs.map(function (r) { return r.getTimestamp().getTime(); });
   }
-  try { c.put(k, JSON.stringify(out), 90); } catch (x) {}
+  if (ts.length) {
+    var lastT = Math.max.apply(null, ts); if (lastT) out.last = new Date(lastT).toISOString();
+    var tz = 'Asia/Ho_Chi_Minh', today = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd'), day = {};
+    ts.forEach(function (t) { if (t) { var d = Utilities.formatDate(new Date(t), tz, 'yyyy-MM-dd'); day[d] = (day[d] || 0) + 1; } });
+    out.today = day[today] || 0;
+    for (var i = 13; i >= 0; i--) out.days.push(day[Utilities.formatDate(new Date(Date.now() - i * 864e5), tz, 'yyyy-MM-dd')] || 0);
+    var idx = ts.map(function (t, j) { return j; }).sort(function (a, b) { return ts[b] - ts[a]; }).slice(0, 6);
+    out.recent = idx.map(function (j) { return [ts[j], hosp[j] || '']; });
+  }
+  try { c.put(k, JSON.stringify(out), 60); } catch (x) {}
   return out;
 }
 
@@ -224,19 +240,40 @@ function rsCacheGet_(c, k) {
   } catch (x) { return null; }
 }
 
+/* ---------- thông báo đẩy (Web Push) — mỗi máy bật thông báo 1 dòng; workflow GitHub gửi bằng khoá VAPID ---------- */
+function rsPushSheet_() {
+  var ss = svLogSheet_().getParent(), sh = ss.getSheetByName(RS.PUSH_TAB);
+  if (!sh) { sh = ss.insertSheet(RS.PUSH_TAB); sh.getRange(1, 1, 1, RS.PUSH_HEAD.length).setValues([RS.PUSH_HEAD]).setFontWeight('bold').setBackground('#EFEDE7'); sh.setFrozenRows(1); }
+  return sh;
+}
+function rsPushRead_() {
+  var sh = rsPushSheet_(), last = sh.getLastRow(); if (last < 2) return [];
+  return sh.getRange(2, 1, last - 1, RS.PUSH_HEAD.length).getValues().map(function (r, i) { return { row: i + 2, pic: rsS_(r[0]), ep: rsS_(r[1]), p256dh: rsS_(r[2]), auth: rsS_(r[3]) }; })
+    .filter(function (x) { return x.ep; });
+}
+function rsPushDel_(eps) {
+  var sh = rsPushSheet_(), L = rsPushRead_(), n = 0;
+  L.filter(function (x) { return eps.indexOf(x.ep) >= 0; }).sort(function (a, b) { return b.row - a.row; }).forEach(function (x) { sh.deleteRow(x.row); n++; });
+  return n;
+}
+
 /* ---------- thông báo câu trả lời mới ⇒ RH_Notify (nút "Nhắc tôi" của Report Hub / CRM) ---------- */
 function rsTick_() {
-  var rows = [], L = rsRead_(), now = new Date(), changed = 0;
+  var rows = [], jobs = [], L = rsRead_(), now = new Date(), changed = 0, subs = null;
   L.forEach(function (e) {
     if (e.hidden) return;
     var n; try { n = rsCount_(e).n; } catch (x) { return; }
     if (e.told == null) { e.told = n; rsWriteRow_(e); return; }
     if (n > e.told) {
-      var d = n - e.told;
+      var d = n - e.told, rc = [];
+      try { rc = rsCount_(e).recent.slice(0, Math.min(d, 6)).map(function (x) { return x[1]; }).filter(function (x) { return x; }); } catch (x) {}
+      var body = '+' + d + ' câu trả lời mới · tổng ' + n + (rc.length ? ' · ' + rc.slice(0, 3).join(', ') : '');
+      if (subs == null) { try { subs = rsPushRead_(); } catch (x) { subs = []; } }
+      subs.forEach(function (sb) { if (e.watch.indexOf(sb.pic) >= 0) jobs.push({ ep: sb.ep, p256dh: sb.p256dh, auth: sb.auth, title: e.title, body: body, url: RS.APP + '#s=' + encodeURIComponent(e.id), tag: e.id }); });
       e.watch.forEach(function (pic) {
         if (!pic) return;
         rows.push(['N' + Utilities.getUuid().replace(/-/g, '').slice(0, 12), now, pic, 'Khảo sát', 'new', e.title.slice(0, 300),
-          '+' + d + ' câu trả lời mới · tổng ' + n, RS.APP + '#s=' + encodeURIComponent(e.id), 'Kết quả khảo sát', '', '', '']);
+          body, RS.APP + '#s=' + encodeURIComponent(e.id), 'Kết quả khảo sát', '', '', '']);
       });
       e.told = n; rsWriteRow_(e); changed++;
     } else if (n < e.told) { e.told = n; rsWriteRow_(e); }
@@ -248,7 +285,7 @@ function rsTick_() {
       sh.getRange(sh.getLastRow() + 1, 1, rows.length, RS.NOTIFY_HEAD.length).setValues(rows);
     } catch (x) { console.warn('rsTick_ RH_Notify: ' + x.message); }
   }
-  return { ok: true, surveys: L.length, changed: changed, notified: rows.length };
+  return { ok: true, surveys: L.length, changed: changed, notified: rows.length, jobs: jobs };
 }
 function rsTickLazy_() {
   var c = CacheService.getScriptCache(); if (c.get('rs_tick')) return; c.put('rs_tick', '1', 600);
@@ -259,6 +296,12 @@ function rsTickLazy_() {
 /* ---------- route (gọi từ svHandle_, TRƯỚC bước kiểm khoá) ---------- */
 function rsRoute_(a, p) {
   try {
+    if (a === 'rsPushGone') {
+      var wg = PropertiesService.getScriptProperties().getProperty('SV_KEY') || SV.KEY;
+      if (p.key !== wg) return rsOut_({ ok: false, error: 'KEY' }, p);
+      var eps = []; try { eps = JSON.parse(p.eps || '[]'); } catch (x) {}
+      return rsOut_({ ok: true, removed: rsPushDel_(eps) }, p);
+    }
     if (a === 'rsTick') {
       var want = PropertiesService.getScriptProperties().getProperty('SV_KEY') || SV.KEY;
       if (p.key !== want) return rsOut_({ ok: false, error: 'KEY' }, p);
@@ -277,15 +320,25 @@ function rsRoute_(a, p) {
     var me = rsWho_(p.tk);
     if (me.err) return rsOut_({ ok: false, code: 'AUTH', error: me.err }, p);
     if (a === 'rsList') {
-      rsSeed_(me); rsTickLazy_();
+      rsSeed_(me);
       var items = rsRead_().filter(function (e) { return !e.hidden; }).map(function (e) {
         var c = { n: 0, last: '' }, err = '';
         try { c = rsCount_(e); } catch (x) { err = 'Không đọc được: ' + x.message; }
-        return { id: e.id, title: e.title, n: c.n, last: c.last, by: e.by, at: e.at, watch: e.watch.indexOf(me.pic) >= 0, watchers: e.watch.length,
+        return { id: e.id, title: e.title, n: c.n, last: c.last, today: c.today || 0, days: c.days || [], recent: (c.recent || []).slice(0, 4), by: e.by, at: e.at, watch: e.watch.indexOf(me.pic) >= 0, watchers: e.watch.length,
           formUrl: e.formId ? 'https://docs.google.com/forms/d/' + e.formId + '/edit' : '', sheetUrl: e.sheetId ? 'https://docs.google.com/spreadsheets/d/' + e.sheetId + '/edit' : '',
           canDel: me.admin || me.pic === e.by, err: err };
       });
       return rsOut_({ ok: true, v: RS.VER, me: { pic: me.pic, priv: me.priv, admin: me.admin }, owner: RS.OWNER, items: items }, p);
+    }
+    if (a === 'rsPush') {
+      var sub = {}; try { sub = JSON.parse(p.sub || '{}'); } catch (x) {}
+      var ep = rsS_(sub.endpoint); if (!/^https:\/\//.test(ep)) return rsOut_({ ok: false, error: 'Đăng ký thông báo không hợp lệ.' }, p);
+      rsPushDel_([ep]);
+      if (p.op !== 'del') {
+        var ks = sub.keys || {};
+        rsPushSheet_().appendRow([me.pic, ep, rsS_(ks.p256dh), rsS_(ks.auth), rsS_(p.dev).slice(0, 80), new Date()]);
+      }
+      return rsOut_({ ok: true, on: p.op !== 'del' }, p);
     }
     var L = rsRead_(), e = null;
     if (p.id) L.forEach(function (x) { if (x.id === p.id) e = x; });
