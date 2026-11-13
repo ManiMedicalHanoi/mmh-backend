@@ -3,7 +3,7 @@
  * action rsDelTest (khoá SV_KEY, gọi từ workflow Kiểm tra):
  *   link  = link sửa form / link Sheet kết quả (như app MMH Survey)
  *   match = từ / cụm từ có trong tên bệnh viện / cơ sở (nguyên từ, không phân biệt hoa thường), vd. ABC ⇒ "Bệnh viện ABC", "BV abc"
- *   col=all ⇒ tìm ở mọi cột (trừ họ tên / SĐT / email); không có link ⇒ liệt kê ở mọi khảo sát của app.
+ *   col=all ⇒ tìm ở mọi cột (trừ họ tên / SĐT / email), col=any ⇒ cả cột họ tên (giá trị cột cá nhân hiện '(ẩn)'); không có link ⇒ liệt kê ở mọi khảo sát của app.
  *   run=1 ⇒ xoá thật: câu trả lời trong Google Form + dòng tương ứng trong Sheet kết quả (cùng tên + giờ nộp lệch ≤ 2 phút).
  *   Không run ⇒ chỉ liệt kê (giờ nộp + tên cơ sở), không trả họ tên / SĐT.
  */
@@ -29,11 +29,11 @@ function rsDelTest_(p) {
     var sh = rsRespSheet_(SpreadsheetApp.openById(sheetId), formId), lr = sh.getLastRow(), lc = sh.getLastColumn(), del = [];
     if (lr > 1) {
       var head = sh.getRange(1, 1, 1, lc).getValues()[0], hc = [];
-      head.forEach(function (h, i) { if (i > 0 && (p.col === 'all' ? !/họ.*tên|điện thoại|email/i.test(rsS_(h)) : HOS.test(rsS_(h)))) hc.push(i); });
+      head.forEach(function (h, i) { if (i > 0 && (p.col === 'any' ? true : p.col === 'all' ? !/họ.*tên|điện thoại|email/i.test(rsS_(h)) : HOS.test(rsS_(h)))) hc.push(i); });
       sh.getRange(2, 1, lr - 1, lc).getValues().forEach(function (row, i) {
         var hit = hc.filter(function (c) { return same(row[c]); }); if (!hit.length) return;
         var t = row[0] instanceof Date ? row[0].getTime() : 0; if (t) times.push(t);
-        del.push(i + 2); out.sheet.push((t ? fmt(t) : 'dòng ' + (i + 2)) + ' · ' + rsS_(head[hit[0]]).slice(0, 30) + ': ' + rsS_(row[hit[0]]).slice(0, 60));
+        del.push(i + 2); out.sheet.push((t ? fmt(t) : 'dòng ' + (i + 2)) + ' · ' + rsS_(head[hit[0]]).slice(0, 30) + ': ' + (/họ.*tên|điện thoại|email/i.test(rsS_(head[hit[0]])) ? '(ẩn)' : rsS_(row[hit[0]]).slice(0, 60)) + (hc.some(function (c) { return HOS.test(rsS_(head[c])); }) ? ' · cơ sở: ' + rsS_(row[hc.filter(function (c) { return HOS.test(rsS_(head[c])); })[0]]).slice(0, 60) : ''));
       });
     }
   }
