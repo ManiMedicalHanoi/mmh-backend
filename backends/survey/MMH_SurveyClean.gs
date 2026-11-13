@@ -17,30 +17,32 @@ function rsDelTest_(p) {
   var HOS = /bệnh viện|phòng khám|cơ sở công tác|nơi công tác/i, same = function (v) { var t = ' ' + rsS_(v).replace(/[^\p{L}\p{N}]+/gu, ' ').toLowerCase() + ' '; return t.indexOf(' ' + m + ' ') >= 0; };
   var tz = 'Asia/Ho_Chi_Minh', fmt = function (t) { return Utilities.formatDate(new Date(t), tz, 'dd/MM/yyyy HH:mm:ss'); };
   var out = { ok: true, run: p.run === '1', form: [], sheet: [] }, times = [];
-  if (formId) {
-    var form = FormApp.openById(formId);
-    form.getResponses().forEach(function (r) {
-      var hit = r.getItemResponses().some(function (ir) { return HOS.test(ir.getItem().getTitle()) && same(ir.getResponse()); });
-      if (!hit) return;
-      var t = r.getTimestamp().getTime(); times.push(t); out.form.push(fmt(t) + ' · ' + r.getItemResponses().filter(function (ir) { return HOS.test(ir.getItem().getTitle()); }).map(function (ir) { return rsS_(ir.getResponse()).slice(0, 60); }).join(' / '));
-      if (out.run) form.deleteResponse(r.getId());
-    });
-  }
+  // 1) Sheet kết quả (nhanh): dòng có tên cơ sở khớp ⇒ giờ nộp
   if (sheetId) {
-    var sh = rsRespSheet_(SpreadsheetApp.openById(sheetId), formId), lr = sh.getLastRow(), lc = sh.getLastColumn();
+    var sh = rsRespSheet_(SpreadsheetApp.openById(sheetId), formId), lr = sh.getLastRow(), lc = sh.getLastColumn(), del = [];
     if (lr > 1) {
       var head = sh.getRange(1, 1, 1, lc).getValues()[0], hc = [];
       head.forEach(function (h, i) { if (i > 0 && HOS.test(rsS_(h))) hc.push(i); });
-      var V = sh.getRange(2, 1, lr - 1, lc).getValues(), del = [];
-      V.forEach(function (row, i) {
-        if (!hc.some(function (c) { return same(row[c]); })) return;
-        var t = row[0] instanceof Date ? row[0].getTime() : 0;
-        if (formId && times.length && !times.some(function (x) { return Math.abs(x - t) <= 120000; })) return;  // chỉ dòng khớp câu trả lời form
-        del.push(i + 2); out.sheet.push(t ? fmt(t) : 'dòng ' + (i + 2));
+      sh.getRange(2, 1, lr - 1, lc).getValues().forEach(function (row, i) {
+        var hit = hc.filter(function (c) { return same(row[c]); }); if (!hit.length) return;
+        var t = row[0] instanceof Date ? row[0].getTime() : 0; if (t) times.push(t);
+        del.push(i + 2); out.sheet.push((t ? fmt(t) : 'dòng ' + (i + 2)) + ' · ' + rsS_(row[hit[0]]).slice(0, 60));
       });
-      if (out.run) del.sort(function (a, b) { return b - a; }).forEach(function (r) { sh.deleteRow(r); });
     }
   }
+  // 2) Form: câu trả lời cùng giờ nộp (≤ 5 giây); không có Sheet ⇒ đọc câu trả lời form (chậm)
+  if (formId) {
+    var form = FormApp.openById(formId), fr = [];
+    if (sheetId) {
+      if (times.length) form.getResponses(new Date(Math.min.apply(null, times) - 60000)).forEach(function (r) {
+        var t = r.getTimestamp().getTime(); if (times.some(function (x) { return Math.abs(x - t) <= 5000; })) fr.push(r);
+      });
+    } else form.getResponses().forEach(function (r) {
+      if (r.getItemResponses().some(function (ir) { return HOS.test(ir.getItem().getTitle()) && same(ir.getResponse()); })) fr.push(r);
+    });
+    fr.forEach(function (r) { out.form.push(fmt(r.getTimestamp().getTime())); if (out.run) form.deleteResponse(r.getId()); });
+  }
+  if (out.run && del && del.length) del.sort(function (a, b) { return b - a; }).forEach(function (r) { sh.deleteRow(r); });
   if (out.run && E) { try { CacheService.getScriptCache().remove('rsc2_' + E.id); } catch (x) {} }
   return out;
 }
