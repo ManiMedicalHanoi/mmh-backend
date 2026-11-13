@@ -301,6 +301,10 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   Gọi từ phiên Claude: workflow **Kiểm tra** ▸ ping `survey?action=formDump&key=…&formId=…&full=1` (≤ 6000 ký tự ⇒ đọc từng đoạn `off` / `n`). Form tạo bằng `Mã.gs` (VOS 2026) cũng sửa được (cùng chủ sở hữu).
   **v3.0 (11/11/2026, người dùng yêu cầu)**: khảo sát bác sĩ tự có khối **Quyền riêng tư và bảo vệ dữ liệu cá nhân** ở ĐẦU form, trước thông tin cá nhân (`SV_CONSENT` / `svConsentQs_`: đoạn giải thích · ☐ đồng ý xử lý dữ liệu — bắt buộc · ☐ nhận thông tin từ MMH — không bắt buộc);
   `spec.consent` false = bỏ, object = đổi chữ; quiz / nhân sự mặc định không. Form cũ thêm bằng `formEdit` (`add` trước câu đầu, `num:false`).
+  **App Kết quả khảo sát (13/11/2026, `MMH_SurveyResults.gs`, v3.1, app `Training-Hub/khao-sat/`)**: phiên email `tk` (`rsWho_` = `dwWho_`) — `rsList` · `rsAdd` (link sửa form / link Sheet kết quả / forms.gle) · `rsData` (thống kê
+  theo FORM HIỆN TẠI: câu trùng tiêu đề + nhóm gộp làm một, bỏ đuôi "(chuyển sang …)"; họ tên / SĐT / email chỉ Admin / Director / HOD + người thêm) · `rsWatch` · `rsRemove`. Danh sách: tab **KẾT QUẢ KHẢO SÁT** của file nhật ký
+  (2 khảo sát VOS 2026 + Glôcôm / DKVM tự thêm lần đầu). Form / Sheet của người khác phải chia sẻ cho mmh.product (tài khoản chạy máy chủ). Thông báo: `rsTick` (khoá) ⇒ RH_Notify (App "Khảo sát", kind `new`) cho người Theo dõi —
+  workflow **Khảo sát — quét câu trả lời mới** gọi mỗi giờ 7h–21h T2–T7 (máy chủ không có quyền tạo trigger); mở app cũng quét (≤ 1 lần / 10 phút).
   ⚠️ Câu sàng lọc ("Không làm ⇒ chuyển phần sau") phải nằm 1 mình 1 trang — v2.9 `svCreate_` tự thêm trang "<Phần> (tiếp)" sau câu có `go`. `smoke: false` (backends.json) — đổi phạm vi quyền ⇒ chủ script chạy `svCapQuyen` trong trình soạn.
 - **03/11/2026 — App Sự kiện MKT v2.4 / Event Hub v1.5 (`marketing/MKT_EventHubFlow.gs`, người dùng: việc lập kế hoạch / follow-up / báo cáo tiến độ sự kiện bị miss)**:
   ① lập kế hoạch muộn: `ehTasksFor_` không tự "Bỏ qua" việc có hạn mẫu đã qua nữa ⇒ `ehCompress_` dồn hạn (dueManual `nén`, EVENTS.latePlan); dữ liệu cũ chuyển 1 lần (`ehFlowMigrate_`, `EH_FLOW_V`).

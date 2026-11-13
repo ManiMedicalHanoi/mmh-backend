@@ -1,5 +1,5 @@
 /**
- * MMH Survey API v3.0 (11/11/2026; v3.0: khảo sát bác sĩ tự có khối "Quyền riêng tư và bảo vệ dữ liệu cá nhân" (đồng ý xử lý dữ liệu — bắt buộc) ở ĐẦU form, trước thông tin cá nhân — spec.consent; v2.9: câu sàng lọc tự tách trang — các câu sau nằm ở trang "(tiếp)"; v2.8: formDump / formEdit — đọc + sửa tại chỗ form đã có, giữ link (MMH_SurveyEdit.gs); v2.1: action docText (đọc chữ tài liệu Drive cho Claude); v2.0: bài kiểm tra có trang làm bài đếm ngược + mốc đạt + email kết quả (MMH_SurveyQuiz.gs); v1.2: người trả lời = ai có link (Drive reader + view published), action share; v1.1: câu sàng lọc — mọi lựa chọn đều gắn điều hướng, form lỗi giữa chừng tự vào Thùng rác) — tạo Google Form KHẢO SÁT / BÀI KIỂM TRA từ 1 bản mô tả JSON.
+ * MMH Survey API v3.1 (13/11/2026; v3.1: app Kết quả khảo sát — rsList / rsAdd / rsData / rsWatch / rsRemove / rsTick (MMH_SurveyResults.gs); v3.0: khảo sát bác sĩ tự có khối "Quyền riêng tư và bảo vệ dữ liệu cá nhân" (đồng ý xử lý dữ liệu — bắt buộc) ở ĐẦU form, trước thông tin cá nhân — spec.consent; v2.9: câu sàng lọc tự tách trang — các câu sau nằm ở trang "(tiếp)"; v2.8: formDump / formEdit — đọc + sửa tại chỗ form đã có, giữ link (MMH_SurveyEdit.gs); v2.1: action docText (đọc chữ tài liệu Drive cho Claude); v2.0: bài kiểm tra có trang làm bài đếm ngược + mốc đạt + email kết quả (MMH_SurveyQuiz.gs); v1.2: người trả lời = ai có link (Drive reader + view published), action share; v1.1: câu sàng lọc — mọi lựa chọn đều gắn điều hướng, form lỗi giữa chừng tự vào Thùng rác) — tạo Google Form KHẢO SÁT / BÀI KIỂM TRA từ 1 bản mô tả JSON.
  * Claude (phiên Claude Code) soạn câu hỏi theo yêu cầu + tài liệu ⇒ gọi web app này ⇒ trả link ngay trong chat.
  * Bộ mô tả + quy tắc soạn: kho mmh-library ▸ surveys/ (README.md, specs/*.json, tools/survey.py).
  *
@@ -28,7 +28,7 @@
  *       low, high, lowLabel, highLabel (scale), rows, cols (grid),
  *       correct (quiz: chỉ số đáp án đúng, từ 0), points, explanation }
  */
-var SV = { VER: '3.0', PAGE: 'https://manimedicalhanoi.github.io/Training-Hub/quiz/', URL: 'https://script.google.com/macros/s/AKfycbx8l7u4j2tFDpfsg8IFsEcuXNrTbrLVRA_SoZ2Iisqprfm1ipL4z2NfDudVKuI1paFQPg/exec', KEY: 'mmh-sv-7Qk2pX9w', LOG_PROP: 'SV_LOG_ID', FOLDER_PROP: 'SV_FOLDER_ID', FOLDER: 'MMH Survey · Form tạo tự động' };
+var SV = { VER: '3.1', PAGE: 'https://manimedicalhanoi.github.io/Training-Hub/quiz/', URL: 'https://script.google.com/macros/s/AKfycbx8l7u4j2tFDpfsg8IFsEcuXNrTbrLVRA_SoZ2Iisqprfm1ipL4z2NfDudVKuI1paFQPg/exec', KEY: 'mmh-sv-7Qk2pX9w', LOG_PROP: 'SV_LOG_ID', FOLDER_PROP: 'SV_FOLDER_ID', FOLDER: 'MMH Survey · Form tạo tự động' };
 
 function doGet(e) {
   var p = e && e.parameter || {};
@@ -57,6 +57,7 @@ function svHandle_(p, body) {
       if (a === 'qStart') return svOut_(Object.assign({ ok: true }, svQuizStart(fq, b2.info || {})));
       return svOut_(svQuizSubmit(fq, b2.token, b2.info || {}, b2.answers || {}, !!b2.auto));
     }
+    if (/^rs(List|Add|Data|Watch|Remove|Tick)$/.test(a)) return rsRoute_(a, Object.assign({}, p, body || {}));  // app Kết quả khảo sát (MMH_SurveyResults.gs) — phiên email tk, không cần khoá
     var key = (body && body.key) || p.key || '';
     var want = PropertiesService.getScriptProperties().getProperty('SV_KEY') || SV.KEY;
     if (key !== want) return svOut_({ ok: false, error: 'KEY' });
