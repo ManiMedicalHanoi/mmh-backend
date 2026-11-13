@@ -2,19 +2,19 @@
  * MMH_SurveyClean.gs — xoá câu trả lời THỬ (test) của một khảo sát (13/11/2026, người dùng: "xoá dòng bệnh viện ABC, đấy là dòng test").
  * action rsDelTest (khoá SV_KEY, gọi từ workflow Kiểm tra):
  *   link  = link sửa form / link Sheet kết quả (như app MMH Survey)
- *   match = tên bệnh viện / cơ sở ĐÚNG Y (không phân biệt hoa thường, bỏ khoảng trắng thừa), vd. ABC
+ *   match = từ / cụm từ có trong tên bệnh viện / cơ sở (nguyên từ, không phân biệt hoa thường), vd. ABC ⇒ "Bệnh viện ABC", "BV abc"
  *   run=1 ⇒ xoá thật: câu trả lời trong Google Form + dòng tương ứng trong Sheet kết quả (cùng tên + giờ nộp lệch ≤ 2 phút).
  *   Không run ⇒ chỉ liệt kê (giờ nộp + tên cơ sở), không trả họ tên / SĐT.
  */
 function rsDelTest_(p) {
   var want = PropertiesService.getScriptProperties().getProperty('SV_KEY') || SV.KEY;
   if (p.key !== want) return { ok: false, error: 'KEY' };
-  var m = rsS_(p.match).replace(/\s+/g, ' ').toLowerCase();
+  var m = rsS_(p.match).replace(/[^\p{L}\p{N}]+/gu, ' ').trim().toLowerCase();
   if (!m) return { ok: false, error: 'Thiếu match (tên cơ sở cần xoá).' };
   var rr = rsResolve_(p.link), E = null;
   rsRead_().forEach(function (e) { if (!E && ((rr.formId && e.formId === rr.formId) || (rr.sheetId && e.sheetId === rr.sheetId))) E = e; });
   var formId = rr.formId || (E && E.formId), sheetId = rr.sheetId || (E && E.sheetId);
-  var HOS = /bệnh viện|phòng khám|cơ sở công tác|nơi công tác/i, same = function (v) { return rsS_(v).replace(/\s+/g, ' ').toLowerCase() === m; };
+  var HOS = /bệnh viện|phòng khám|cơ sở công tác|nơi công tác/i, same = function (v) { var t = ' ' + rsS_(v).replace(/[^\p{L}\p{N}]+/gu, ' ').toLowerCase() + ' '; return t.indexOf(' ' + m + ' ') >= 0; };
   var tz = 'Asia/Ho_Chi_Minh', fmt = function (t) { return Utilities.formatDate(new Date(t), tz, 'dd/MM/yyyy HH:mm:ss'); };
   var out = { ok: true, run: p.run === '1', form: [], sheet: [] }, times = [];
   if (formId) {
@@ -22,7 +22,7 @@ function rsDelTest_(p) {
     form.getResponses().forEach(function (r) {
       var hit = r.getItemResponses().some(function (ir) { return HOS.test(ir.getItem().getTitle()) && same(ir.getResponse()); });
       if (!hit) return;
-      var t = r.getTimestamp().getTime(); times.push(t); out.form.push(fmt(t));
+      var t = r.getTimestamp().getTime(); times.push(t); out.form.push(fmt(t) + ' · ' + r.getItemResponses().filter(function (ir) { return HOS.test(ir.getItem().getTitle()); }).map(function (ir) { return rsS_(ir.getResponse()).slice(0, 60); }).join(' / '));
       if (out.run) form.deleteResponse(r.getId());
     });
   }
