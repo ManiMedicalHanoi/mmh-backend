@@ -302,6 +302,7 @@ function rsRoute_(a, p) {
       var eps = []; try { eps = JSON.parse(p.eps || '[]'); } catch (x) {}
       return rsOut_({ ok: true, removed: rsPushDel_(eps) }, p);
     }
+    if (a === 'rsDelTest') return rsOut_(rsDelTest_(p), p);  // MMH_SurveyClean.gs — xoá câu trả lời thử (khoá)
     if (a === 'rsTick') {
       var want = PropertiesService.getScriptProperties().getProperty('SV_KEY') || SV.KEY;
       if (p.key !== want) return rsOut_({ ok: false, error: 'KEY' }, p);
