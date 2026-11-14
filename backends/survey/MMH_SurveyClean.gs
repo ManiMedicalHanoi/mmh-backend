@@ -44,9 +44,13 @@ function rsDelTest_(p) {
       if (times.length) form.getResponses(new Date(Math.min.apply(null, times) - 60000)).forEach(function (r) {
         var t = r.getTimestamp().getTime(); if (times.some(function (x) { return Math.abs(x - t) <= 5000; })) fr.push(r);
       });
-    } else form.getResponses().forEach(function (r) {
-      if (r.getItemResponses().some(function (ir) { return HOS.test(ir.getItem().getTitle()) && same(ir.getResponse()); })) fr.push(r);
-    });
+    }
+    if (!fr.length) {  // Sheet không có (form không ghi vào Sheet / Sheet thiếu dòng) ⇒ đọc câu bệnh viện của từng câu trả lời form
+      var hi = form.getItems().filter(function (it) { return HOS.test(rsS_(it.getTitle())); });
+      form.getResponses().forEach(function (r) {
+        if (hi.some(function (it) { var ir = r.getResponseForItem(it); return ir && same(ir.getResponse()); })) fr.push(r);
+      });
+    }
     fr.forEach(function (r) { out.form.push(fmt(r.getTimestamp().getTime())); if (out.run) form.deleteResponse(r.getId()); });
   }
   if (out.run && del && del.length) del.sort(function (a, b) { return b - a; }).forEach(function (r) { sh.deleteRow(r); });
