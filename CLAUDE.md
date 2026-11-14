@@ -479,3 +479,6 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   `hubMigrate1013_`, `tclValidate_`, Mã.gs (`CONFIG.SHEETS.REPORT / OVERVIEW / PLAN`, `TFM_CONFIG.SHEET_NAME` = getter) đều dùng. KPI (`kscTrainHeader_`): tên "Training Report FYxx" hoặc có chữ "training report" (trừ Calendar),
   hoặc tên khác đúng bố cục có cột Session ID (bỏ HUB_ / RH_ / _ / "KPI …"). Chẩn đoán (chỉ đọc): workflow Kiểm tra ▸ ping `training?action=teDiag&key=<8 ký tự cuối Script ID>&full=1`
   (`&part=sheets|te|log`, `&who=<PIC>`) + `kpi?action=trDiag&key=…&who=<tên>&full=1`.
+- **14/11/2026 — Khang phụ trách Manipler khu vực Đà Nẵng (người dùng yêu cầu)**: dao / chỉ khâu Đà Nẵng cũ vẫn Viet Ha. crm-surgical `MMH_TenderFU.gs` v1.11 `FU.XTRA` + `fuXtra_`:
+  gói Theo dõi thầu ở Đà Nẵng cũ mà mọi mã là ghim da ⇒ PIC phụ trách địa bàn = Khang (`fuOwner_`, `fuSave` cột own); Follow up by Account (`faDerive_`) dòng loại GHIM ở Đà Nẵng cũ ⇒ PIC Khang
+  (trừ dòng đã sửa PIC tay). App: CRM v36.7 (`PIC_EXTRA`: Khang chọn được account Đà Nẵng khi lên kế hoạch, Product group tự chọn Manipler), Tender Map v25 (`TERR[1].x`).
