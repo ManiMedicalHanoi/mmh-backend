@@ -183,7 +183,7 @@ function faDerive_(o){
   var t = o.type || fcType_(o.code), pr = faPriceOf_(o.code, t);
   o.type = t; o.kindName = FC_KIND_NAME[fcKind_(t)] || 'Dao';
   o.man = faStr_(o.man);
-  if(!o.pic || o.man.indexOf('pic') < 0) o.pic = fuTerrOf_(o.prov, o.hosp, '') || o.pic || '';
+  if(!o.pic || o.man.indexOf('pic') < 0) o.pic = fuXtra_(o.prov, o.hosp, '', [fcKind_(t)]) || fuTerrOf_(o.prov, o.hosp, '') || o.pic || '';   /* v1.11: Manipler Đà Nẵng cũ ⇒ Khang */
   var c = fcCalc_(o, pr.per);
   o.end = c.end; o.per = Math.round(c.per * 100) / 100; o.price = pr.per; o.valMonth = Math.round(c.valMonth); o.n = c.n; o.qtyFy = Math.round(c.qtyFy);
   o.valFy = Math.round(c.valFy); o.months = c.months.map(function(x){ return Math.round(x * 10) / 10; });

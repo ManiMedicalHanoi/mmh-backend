@@ -40,13 +40,16 @@
      · 9 Tạm dừng theo dõi · 10 Không tham dự (số 6 bỏ trống; dòng cũ đọc lại theo tên giai đoạn cũ ⇒ số mới, FU_LEGACY). Sheet đổi tên
      "Follow up by Account · Nhật ký" (vẫn ghi nối tiếp); 2 cột mới "Bắt đầu dự kiến (tháng)" + "Hiệu lực (tháng)" để tính doanh số;
      lưu gói ⇒ cập nhật ngay sheet "Follow up by Account" (MMH_FcAccount.gs ▸ faCaseUpsert_). Action fuFc* = Follow up by Account.
+   v1.11 (14/11/2026, người dùng yêu cầu): Khang phụ trách thêm **Manipler (ghim da) khu vực Đà Nẵng cũ** — dao / chỉ khâu Đà Nẵng cũ vẫn Viet Ha.
+     Gói ở Đà Nẵng cũ mà MỌI mã là ghim da (`items[].kind = ghim`) ⇒ PIC phụ trách địa bàn = Khang (`fuXtra_`, cả dòng cũ đã ghi Viet Ha) ⇒ nhắc việc / email thứ Hai tới Khang.
+     Tender Map v25 + CRM v36.7 cùng luật.
    v1.10 (11/11/2026, người dùng: chống lưu trùng): fuSave gói MỚI ở cơ sở đã có gói cùng số TBMT / gói đang theo dõi cùng loại sản phẩm ⇒ { code:'DUP', case }
      (fuDupOf_); app hỏi "Gộp vào gói có sẵn" (gửi lại với case) hoặc "Vẫn tạo gói mới" (force=1).
    · fuCrm — chi tiết cơ sở trên Tender Map hiện dữ liệu CRM Surgical: mã / PIC địa bàn, lượt gặp 12 tháng, người liên hệ (CBC, không SĐT), đơn hàng 12 tháng.
      Cần phiên email công ty như fuList.
    ════════════════════════════════════════════════════════════════════════════════════════ */
 var FU = {
-  VER: '1.9',
+  VER: '1.11',
   KINDS: ['dao', 'chi', 'ghim', 'hook', 'forcep'],      /* v1.8 — loại sản phẩm của 1 dòng: dao · chỉ khâu · ghim da · Hook · Micro Forceps */
   MAP_URL: 'https://manimedicalhanoi.github.io/Tender-Result/map/',
   SOON_DAYS: 3, STALE_DAYS: 30, TRIG_V: 'fu1',
@@ -87,7 +90,20 @@ function fuTerrOf_(prov, addr, ll){
   return FU._tn[k] ? FU.TERR_N : FU.TERR_S;
 }
 /* người nhận nhắc việc của 1 gói = PIC phụ trách địa bàn (app ghi sẵn ở cột "PIC phụ trách địa bàn"); không có ⇒ đoán theo tỉnh; không rõ tỉnh ⇒ người cập nhật cuối */
-function fuOwner_(c){ return (c.own && (c.own === FU.TERR_N || c.own === FU.TERR_S) ? c.own : '') || fuTerrOf_(c.prov, c.addr, c.ll) || c.pic; }
+/* v1.11 — phụ trách thêm theo loại sản phẩm: Khang = ghim da (Manipler) ở Đà Nẵng cũ. kinds = mảng loại SP của gói. Trả PIC hoặc '' */
+FU.XTRA = [{ pic:'Khang', prov:'danang', terr:'Viet Ha', kind:'ghim' }];
+function fuKindsOf_(c){
+  var it = c && c.itemsJson; try{ if(typeof it === 'string') it = JSON.parse(it || '[]'); }catch(e){ it = []; }
+  return (Array.isArray(it) ? it : []).map(function(x){ return (x && x.kind) || 'dao'; });
+}
+function fuXtra_(prov, addr, ll, kinds){
+  if(!kinds || !kinds.length) return '';
+  var k = fuPk_(prov), t = fuTerrOf_(prov, addr, ll);
+  for(var i = 0; i < FU.XTRA.length; i++){ var x = FU.XTRA[i];
+    if(k === x.prov && t === x.terr && kinds.every(function(y){ return y === x.kind; })) return x.pic; }
+  return '';
+}
+function fuOwner_(c){ return fuXtra_(c.prov, c.addr, c.ll, fuKindsOf_(c)) || (c.own && (c.own === FU.TERR_N || c.own === FU.TERR_S) ? c.own : '') || fuTerrOf_(c.prov, c.addr, c.ll) || c.pic; }
 
 function fuRoute_(action, p){
   try{
@@ -228,7 +244,7 @@ function fuSave_(p){
     var row = [new Date(), id, rev, fuTxt_(me.pic, 60), me.local, fuTxt_(p.fid, 40), fuTxt_(hosp, 200), fuTxt_(p.prov, 60), fuTxt_(p.addr, 300),
       fuTxt_(p.pkg, 300), fuTxt_(p.tbmt, 60), fuTxt_(p.ptype, 120), fuTxt_(txt, 2000), qty, fuNum_(p.value), stage, FU.STAGES[stage],
       due, fuTxt_(p.note, 3000), JSON.stringify(items), rid, fuTxt_(p.src || 'Tender Map', 40), fuTxt_(p.ll, 40),
-      fuTxt_((p.own === FU.TERR_N || p.own === FU.TERR_S) ? p.own : fuTerrOf_(p.prov, p.addr, p.ll), 40),
+      fuTxt_(fuXtra_(p.prov, p.addr, p.ll, items.map(function(it){ return it.kind || 'dao'; })) || ((p.own === FU.TERR_N || p.own === FU.TERR_S) ? p.own : fuTerrOf_(p.prov, p.addr, p.ll)), 40),
       (/^\d{4}-\d{2}/.test(tfS_(p.start)) ? tfS_(p.start).slice(0, 7) : ''), Math.max(0, Math.min(60, parseInt(p.dur, 10) || 0))];
     sh.getRange(sh.getLastRow() + 1, 1, 1, row.length).setValues([row]);
     return { ok:true, rec:fuRowOut_(row), cols:FU.COLS };
