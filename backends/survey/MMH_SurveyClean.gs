@@ -53,3 +53,28 @@ function rsDelTest_(p) {
   if (out.run && E) { try { CacheService.getScriptCache().remove('rsc2_' + E.id); } catch (x) {} }
   return out;
 }
+
+/**
+ * rsAgg (khoá SV_KEY, workflow Kiểm tra): số đếm TỔNG HỢP từng câu của 1 khảo sát — KHÔNG trả họ tên / SĐT / email.
+ *   link, off, n (đọc từng đoạn câu hỏi, ≤ 6000 ký tự / lần ping). Câu chọn: "lựa chọn=số"; câu tự ghi: giá trị gộp (bỏ dấu cách thừa) + số lần, ≤ 30 giá trị.
+ */
+function rsAgg_(p) {
+  var want = PropertiesService.getScriptProperties().getProperty('SV_KEY') || SV.KEY;
+  if (p.key !== want) return { ok: false, error: 'KEY' };
+  var rr = rsResolve_(p.link), E = null;
+  rsRead_().forEach(function (e) { if (!E && ((rr.formId && e.formId === rr.formId) || (rr.sheetId && e.sheetId === rr.sheetId))) E = e; });
+  if (!E) return { ok: false, error: 'Khảo sát chưa có trong app' };
+  var d = rsData_(E, { priv: false, pic: '' }), off = +p.off || 0, n = +p.n || 12, PII = /họ.*tên|điện thoại|email/i;
+  var out = d.questions.slice(off, off + n).map(function (q) {
+    if (q.pii || PII.test(q.q)) return q.k + '|pii';
+    var c = {}, m = 0;
+    d.answers.forEach(function (row) {
+      var v = row[1][q.k]; if (v == null || v === '' || (Array.isArray(v) && !v.length)) return; m++;
+      if (q.t === 'grid' || q.t === 'checkgrid') { (q.rows || []).forEach(function (rn, ri) { var x = v[ri]; if (x == null) return; (Array.isArray(x) ? x : [x]).forEach(function (y) { var kk = rsS_(rn).slice(0, 30) + '>' + y; c[kk] = (c[kk] || 0) + 1; }); }); return; }
+      (Array.isArray(v) ? v : [v]).forEach(function (y) { var kk = rsS_(y).replace(/\s+/g, ' ').slice(0, 70); c[kk] = (c[kk] || 0) + 1; });
+    });
+    var ks = Object.keys(c).sort(function (a, b) { return c[b] - c[a]; }).slice(0, q.t === 'text' ? 30 : 40);
+    return q.k + '|' + q.t + '|' + rsS_(q.sec).slice(0, 25) + '|' + rsS_(q.grp).slice(0, 50) + '|' + rsS_(q.q).slice(0, 90) + '|n=' + m + '|' + ks.map(function (k) { return k + '=' + c[k]; }).join(' ; ');
+  });
+  return { ok: true, title: d.title, n: d.n, total: d.questions.length, q: out };
+}
