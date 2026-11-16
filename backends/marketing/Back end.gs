@@ -229,6 +229,7 @@ function dispatch(action, user, p){
       case 'evList':        out = (typeof evsApiList==='function') ? evsApiList(user, p) : { ok:false, error:'Thiếu Event_Sync.gs v2.0' }; break;   /* ⭐ 15/10/2026: gợi ý tên key sự kiện */
       case 'rpLog':         out = (typeof rplApi_==='function') ? rplApi_(p) : { ok:false, error:'Thiếu MMH_ReportLog.gs' }; break;   /* ⭐ 23/10/2026: thống kê gửi báo cáo */
       case 'version':       out = dataVersion(); break;   /* ⭐ v5.11: dấu vân tay dữ liệu */
+      case 'wkDiag':        out = (typeof wkDiag_==='function') ? wkDiag_(p) : { ok:false, error:'Thiếu MMH_WkDiag.gs' }; break;   /* ⭐ 16/11/2026: chẩn đoán tốc độ đọc WEEKLY (chỉ đọc) */
       case 'sheets':        out = sheetInfo(); break;    /* ⭐ v5.12: kiểm tra đang đọc đúng sheet nào */
       case 'boot':          out = boot(user); break;
       /* ⭐ v10: tải NHẸ — chỉ danh sách task + vân tay (nhanh hơn boot 3–5 lần) */

@@ -233,6 +233,7 @@ function dispatch(action, user, p){
       case 'roster':        out = { ok:true, source:SOURCE, picList: rosterList() }; break;   /* danh bạ cho màn đăng nhập — không cần quyền */
       case 'rpLog':         out = (typeof rplApi_==='function') ? rplApi_(p) : { ok:false, error:'Thiếu MMH_ReportLog.gs' }; break;   /* ⭐ 23/10/2026: thống kê gửi báo cáo */
       case 'version':       out = dataVersion(); break;   /* ⭐ v5.11: dấu vân tay dữ liệu */
+      case 'wkDiag':        out = (typeof wkDiag_==='function') ? wkDiag_(p) : { ok:false, error:'Thiếu MMH_WkDiag.gs' }; break;   /* ⭐ 16/11/2026: chẩn đoán tốc độ đọc WEEKLY (chỉ đọc) */
       case 'sheets':        out = sheetInfo(); break;    /* ⭐ v5.12: kiểm tra đang đọc đúng sheet nào */
       case 'debugLayout':   out = debugLayout(); break;   /* ⭐ v5.2: tự kiểm tra map cột */
       case 'boot':          out = boot(user); break;
