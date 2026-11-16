@@ -20,10 +20,11 @@
  * API (khoá = 8 ký tự cuối SS_ID): ?action=wkCompact&key=…&op=status | plan | run | stop | verify
  *   verify: chỉ đọc — đối chiếu TỪNG dòng có việc của bản sao lưu với sheet hiện tại (thiếu / đổi / mới), chỉ trả số đếm + số No.
  *   plan [&min=50&tail=200]: chỉ đọc — kế hoạch xoá.  run: bắt đầu dọn (chạy nền bằng trigger, không có quyền trigger ⇒ chạy ngay ≤ 45 giây / lượt, gọi lại run để chạy tiếp).
- * Tự động: warmCache gọi wkcAuto_ — tối đa 1 lần / ngày, 19:00–21:00, khi có khoảng trống ≥ WKC.AUTO_RUN dòng.        */
+ * Tự động: warmCache gọi wkcAuto_ — CHỈ Marketing (WKC.AUTO_SRC), tối đa 1 lần / ngày, 19:00–21:00, khi có khoảng trống ≥ WKC.AUTO_RUN dòng.        */
 var WKC = {
   VER: '1.0', P: 'WKC_STATE', MIN_RUN: 50, KEEP_GAP: 1, KEEP_TAIL: 200, CHUNK: 2000, PAD: 3, FX_MIN: 20,
   BUDGET: 240000, SYNC_BUDGET: 45000, AUTO_RUN: 1000,
+  AUTO_SRC: { marketing:1 },            /* tự dọn buổi tối CHỈ ở Marketing (người dùng yêu cầu làm gọn sheet Marketing 16/11/2026); Back Office / Management chỉ chạy tay khi được đồng ý */
   SPILL: /ARRAYFORMULA|\bMAP\(|BYROW\(|BYCOL\(|SCAN\(|REDUCE\(|MAKEARRAY\(|LAMBDA\(|FILTER\(|QUERY\(|SORTN?\(|UNIQUE\(|IMPORT(RANGE|DATA|XML|HTML|FEED)|SEQUENCE\(|SPLIT\(|TRANSPOSE\(|FLATTEN\(|GOOGLEFINANCE|IMAGE\(/i
 };
 function wkcCol_(j){ var s = '', n = j + 1; while(n > 0){ var m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; }
@@ -218,6 +219,7 @@ function wkcStart_(by, opts){
 /* ── tự động: 19:00–21:00, ≤ 1 lần / ngày, chỉ khi có khoảng trống lớn ── */
 function wkcAuto_(h){
   try{
+    if(!WKC.AUTO_SRC[SOURCE]) return;
     if(h !== 19 && h !== 20) return;
     if(!throttleOk('wkc_auto', 20 * 3600)) return;
     var S0 = wkcGet_(); if(S0 && S0.state === 'running') return;
