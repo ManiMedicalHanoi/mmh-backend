@@ -297,6 +297,21 @@ function wkcVerify_(p){
     else missing.push(String(r[0]) + (r[5] ? '' : ' (key)'));
   });
   var added = 0; Object.keys(cur).forEach(function(k){ if(cur[k] > 0) added += cur[k]; });
+  /* chi tiết dòng không khớp: cùng số No ở sheet hiện tại khác cột nào (chỉ tên cột) + nhật ký thao tác (ActivityLog) từ lúc bắt đầu dọn */
+  var detail = [];
+  if(String(p.detail || '') === '1' && missing.length){
+    var byNo = {}; B.forEach(function(r){ (byNo[String(r[0])] = byNo[String(r[0])] || []).push(r); });
+    var names = ['No','FY','Month','Type','Key','Sub','PIC','Result','Start','Planned','Revised','Lead','Status','%','Actual','Behavior','Prio','PrioMail','S','T','U','V','W','X'];
+    var log = []; try{ var al = ss().getSheetByName('ActivityLog'); if(al && al.getLastRow() > 1){ var n0 = Math.min(400, al.getLastRow() - 1); log = al.getRange(al.getLastRow() - n0 + 1, 1, n0, 6).getValues(); } }catch(e){}
+    var since = String(p.since || S.started || '');
+    rest.forEach(function(r){
+      var no = String(r[0]), k = idOf(r); if(missing.indexOf(no) < 0 && missing.indexOf(no + ' (key)') < 0) return;
+      var same0 = (byNo[no] || []).map(function(c){ var df = []; for(var j = 0; j < c.length; j++) if(JSON.stringify(c[j]) !== JSON.stringify(r[j])) df.push(names[j] || ('c' + j)); return df; });
+      var acts = log.filter(function(L){ var ts = L[0] instanceof Date ? L[0].toISOString() : String(L[0]); return String(L[5]) === no && ts >= since; })
+                    .map(function(L){ return [(L[0] instanceof Date ? L[0].toISOString() : String(L[0])).slice(0, 19), String(L[1]), String(L[2])]; });
+      detail.push({ no:no, nowSameNo:same0, acts:acts });
+    });
+  }
   return { ok:true, ver:WKC.VER, source:SOURCE, backupRows:A.length, currentRows:B.length, same:same, changed:changed, changedNo:changedNo,
-           missing:missing.length, missingNo:missing.slice(0, 40), added:added, ms:Date.now() - t0 };
+           missing:missing.length, missingNo:missing.slice(0, 40), added:added, detail:detail, ms:Date.now() - t0 };
 }
