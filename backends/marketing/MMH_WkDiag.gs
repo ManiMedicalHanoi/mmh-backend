@@ -1,6 +1,6 @@
 /* ══════════════ MMH_WkDiag.gs — chẩn đoán tốc độ đọc sheet WEEKLY (CHỈ ĐỌC, không ghi gì) ══════════════
  * GIỐNG HỆT ở marketing / backoffice / management.
- * ?action=wkDiag&key=<8 ký tự cuối SS_ID>&part=fg|cols|disp|build|cache  — chỉ trả SỐ ĐẾM + thời gian (không trả nội dung việc / tên người).
+ * ?action=wkDiag&key=<8 ký tự cuối SS_ID>&part=fg|gap|cols|disp|build|cache  — chỉ trả SỐ ĐẾM + thời gian (không trả nội dung việc / tên người).
  * Chia phần vì cả gói > 60 giây (giới hạn gọi thử của workflow).
  * Gọi qua workflow Kiểm tra ▸ ping "<backend>?action=wkDiag&key=…&full=1".                                   */
 function wkDiag_(p){
@@ -8,7 +8,7 @@ function wkDiag_(p){
   var T = {}, t0 = Date.now();
   function tic(k, f){ var a = Date.now(); var r = f(); T[k] = Date.now() - a; return r; }
   var sh = shWeekly(); if(!sh) return { ok:false, error:'no sheet' };
-  var part = String(p.part || 'fg'), out = { ok:true, source:SOURCE, ver:'1.1', part:part };
+  var part = String(p.part || 'fg'), out = { ok:true, source:SOURCE, ver:'1.2', part:part };
   function on(x){ return part === x || part === 'all'; }
   out.maxRows = sh.getMaxRows(); out.maxCols = sh.getMaxColumns();
   out.lastRow = tic('lastRow', function(){ return sh.getLastRow(); });
@@ -31,6 +31,36 @@ function wkDiag_(p){
   out.blankTail = last - lastC; out.blankRunsTop = runs.slice(0, 12);
   out.blankRuns100 = runs.filter(function(x){ return x >= 100; }).length;
   out.contentPer1000 = blocks;
+  /* ①b khoảng trống: lấy mẫu vài cửa sổ trong các khoảng ≥ 50 dòng — ô có giá trị không phải công thức, công thức (R1C1), ghi chú */
+  if(on('gap')){
+    var gaps = [], st0 = 0;
+    for(var g = 0; g <= fg.length; g++){
+      var hv = g < fg.length && (String(fg[g][0] || '').trim() || String(fg[g][1] || '').trim());
+      if(g < fg.length && !hv){ if(!st0) st0 = WEEKLY_DATA_ROW + g; continue; }
+      if(st0){ var ln = WEEKLY_DATA_ROW + g - st0; if(ln >= 50) gaps.push([st0, ln]); st0 = 0; }
+    }
+    out.gaps = gaps;
+    var W = Math.max(50, Math.min(800, +p.win || 400)), mc = sh.getMaxColumns(), letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+    var vals = {}, fml = {}, notes = 0, ws = 0, tru = 0, sampled = 0, wins = [];
+    gaps.forEach(function(gp){
+      var pts = gp[1] <= W ? [gp[0]] : [gp[0], gp[0] + Math.floor(gp[1] / 2) - Math.floor(W / 2), gp[0] + gp[1] - W];
+      pts.forEach(function(a){
+        var len = Math.min(W, gp[0] + gp[1] - a), rg = sh.getRange(a, 1, len, mc);
+        var V = rg.getValues(), F = rg.getFormulasR1C1(), N = rg.getNotes(); wins.push([a, len]); sampled += len;
+        for(var i2 = 0; i2 < len; i2++) for(var j2 = 0; j2 < mc; j2++){
+          var L = letters[j2] || ('c' + j2);
+          if(N[i2][j2]) notes++;
+          if(F[i2][j2]){ var k2 = L + ' ' + String(F[i2][j2]).slice(0, 90); fml[k2] = (fml[k2] || 0) + 1; continue; }
+          var v2 = V[i2][j2];
+          if(v2 === '' || v2 === null || v2 === false) continue;
+          if(v2 === true){ tru++; }
+          if(typeof v2 === 'string' && !v2.trim()){ ws++; continue; }
+          vals[L] = (vals[L] || 0) + 1;
+        }
+      });
+    });
+    out.gapSample = { windows:wins, rows:sampled, plainValueCells:vals, formulas:fml, notes:notes, whitespaceCells:ws, trueCells:tru };
+  }
   /* ② đọc toàn bộ như readWeeklyRaw / liveSig_ */
   var vw = Math.min(24, sh.getMaxColumns()) - 1;
   if(on('disp')){
