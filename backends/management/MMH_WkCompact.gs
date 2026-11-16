@@ -17,7 +17,8 @@
  *   ⑤ Xong: đếm lại dòng có việc + so dấu nội dung (cột B..X của mọi dòng có việc) trước / sau ⇒ báo cáo WKC_STATE.
  * Số No là công thức / giá trị theo thứ tự Key task ⇒ không đổi; app ghi theo No + tên việc (resolveRow) ⇒ dòng dời vẫn đúng.
  *
- * API (khoá = 8 ký tự cuối SS_ID): ?action=wkCompact&key=…&op=status | plan | run | stop
+ * API (khoá = 8 ký tự cuối SS_ID): ?action=wkCompact&key=…&op=status | plan | run | stop | verify
+ *   verify: chỉ đọc — đối chiếu TỪNG dòng có việc của bản sao lưu với sheet hiện tại (thiếu / đổi / mới), chỉ trả số đếm + số No.
  *   plan [&min=50&tail=200]: chỉ đọc — kế hoạch xoá.  run: bắt đầu dọn (chạy nền bằng trigger, không có quyền trigger ⇒ chạy ngay ≤ 45 giây / lượt, gọi lại run để chạy tiếp).
  * Tự động: warmCache gọi wkcAuto_ — tối đa 1 lần / ngày, 19:00–21:00, khi có khoảng trống ≥ WKC.AUTO_RUN dòng.        */
 var WKC = {
@@ -257,7 +258,45 @@ function wkcApi_(p){
     if(S1 && S1.state === 'running') return { ok:true, ver:WKC.VER, running:true, state:wkcStatusSlim_(S1.sync ? wkcStep_(WKC.SYNC_BUDGET) : S1) };
     var r = wkcStart_('api', { min:p.min, tail:p.tail }); r.state = wkcStatusSlim_(r.state); return r;
   }
+  if(op === 'verify') return wkcVerify_(p);
   if(op === 'stop'){ var S2 = wkcGet_(); if(S2){ S2.stop = true; wkcPut_(S2); } return { ok:true, stopped:true }; }
   return { ok:false, error:'op' };
 }
 function wkcStatusSlim_(S){ if(!S) return S; var o = {}; for(var k in S) if(k !== 'dels') o[k] = S[k]; return o; }
+
+/* ── đối chiếu bản sao lưu ⇔ sheet hiện tại (chỉ đọc) ── */
+function wkcRows_(sh){
+  var D = WEEKLY_DATA_ROW, last = sh.getLastRow(); if(last < D) return [];
+  var pl = wkcPlan_(sh, {}), vw = Math.min(24, sh.getMaxColumns()) - 1, out = [];
+  (pl.segs || []).forEach(function(s){
+    var V = sh.getRange(s[0], 2, s[1] - s[0] + 1, vw).getValues();
+    for(var i = 0; i < V.length; i++){
+      if(!(String(V[i][4] == null ? '' : V[i][4]).trim() || String(V[i][5] == null ? '' : V[i][5]).trim())) continue;
+      out.push(V[i].map(function(x){ return x instanceof Date ? x.toISOString() : x; }));
+    }
+  });
+  return out;
+}
+function wkcVerify_(p){
+  var S = wkcGet_() || {}, bid = String(p.backup || (S.backup && S.backup.id) || '');
+  if(!bid) return { ok:false, error:'Chưa có bản sao lưu' };
+  var t0 = Date.now(), bss = SpreadsheetApp.openById(bid), bsh = null, gid = shWeekly().getSheetId();
+  bss.getSheets().forEach(function(x){ if(x.getSheetId() === gid) bsh = x; });
+  if(!bsh) bsh = bss.getSheetByName(shWeekly().getName());
+  if(!bsh) return { ok:false, error:'Bản sao lưu không có sheet Weekly' };
+  var A = wkcRows_(bsh), B = wkcRows_(wkcSheet_());
+  function idOf(r){ return JSON.stringify([r[4], r[5], r[6], r[8]]); }            /* Key · Sub · PIC · Start */
+  function fullOf(r){ return JSON.stringify(r); }
+  var cur = {}, curFull = {};
+  B.forEach(function(r){ var k = idOf(r); cur[k] = (cur[k] || 0) + 1; curFull[fullOf(r)] = (curFull[fullOf(r)] || 0) + 1; });
+  var same = 0, changed = 0, missing = [], changedNo = [], rest = [];
+  A.forEach(function(r){ var f = fullOf(r); if(curFull[f]){ curFull[f]--; cur[idOf(r)]--; same++; } else rest.push(r); });
+  rest.forEach(function(r){
+    var k = idOf(r);
+    if(cur[k] > 0){ cur[k]--; changed++; if(changedNo.length < 40) changedNo.push(String(r[0])); }   /* cùng việc, khác ô khác (có người sửa) */
+    else missing.push(String(r[0]) + (r[5] ? '' : ' (key)'));
+  });
+  var added = 0; Object.keys(cur).forEach(function(k){ if(cur[k] > 0) added += cur[k]; });
+  return { ok:true, ver:WKC.VER, source:SOURCE, backupRows:A.length, currentRows:B.length, same:same, changed:changed, changedNo:changedNo,
+           missing:missing.length, missingNo:missing.slice(0, 40), added:added, ms:Date.now() - t0 };
+}
