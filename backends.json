@@ -257,5 +257,11 @@
     "scriptId": "1O1fLyoFiUXk-vSi_OYOr4XSusnqbt0o8RZ-r0SugyBn7dcn_yrBEpA_4",
     "sheetId": "1B3KifUWTc_l5G6fCrHl22T3Msb125W8VzU6sTy20WZA",
     "note": "File Business Trip riêng của nhóm Thái (sheet MMH Travel report: tiêu đề dòng 4, dữ liệu từ dòng 6; Master: tỉnh C, thành viên E, Name I → email J–M). CRM nhóm Thái ghi đề xuất / báo cáo công tác vào đây (09/11/2026)."
+  },
+  "dental-tskt": {
+    "name": "Cấu hình hàng nha khoa Mani (TSKT hồ sơ thầu nha khoa — script gắn Sheet)",
+    "scriptId": "1_PfU9KafT9V5hilGPkrZBLLYGfABimsK3kOJTsFdip7LoKIzSYOZrnxq",
+    "sheetId": "1QEI90DJAli8hY5OAU5GSKssxhCkGoV9cXmdLXnycv0I",
+    "note": "File Sheet 'Cấu hình hàng nha khoa Mani' (sheet Dental Product: thông số kỹ thuật hồ sơ thầu). Script gắn Sheet, không có web app ⇒ deploy chỉ đẩy code + lưu phiên bản; chạy bằng menu MMH trong Sheet."
   }
 }
