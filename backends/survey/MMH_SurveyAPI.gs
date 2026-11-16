@@ -34,7 +34,7 @@ function doGet(e) {
   var p = e && e.parameter || {};
   if (p.q) { var fq = svQuizFromCode_(p.q); return fq ? svQuizPage_(fq) : HtmlService.createHtmlOutput('<p style="font-family:sans-serif;padding:24px">Link bài kiểm tra không đúng hoặc đã bị xoá.</p>'); }
   if (p.t) return svQuizPage_(p.t);           // trang làm bài (đếm ngược, chấm điểm, email kết quả) — MMH_SurveyQuiz.gs
-  if (p.b) return svBuilderPage_(p.k || '');  // trang tạo form từ link (dự phòng khi Claude không gọi được máy chủ)
+  if (p.b && !p.action) return svBuilderPage_(p.k || '');  // trang tạo form từ link (dự phòng khi Claude không gọi được máy chủ); có action ⇒ lệnh API (vd. pqMeta&b=…)
   return svHandle_(p, null);
 }
 function doPost(e) {
