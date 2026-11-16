@@ -1,13 +1,15 @@
 /* ══════════════ MMH_WkDiag.gs — chẩn đoán tốc độ đọc sheet WEEKLY (CHỈ ĐỌC, không ghi gì) ══════════════
  * GIỐNG HỆT ở marketing / backoffice / management.
- * ?action=wkDiag&key=<8 ký tự cuối SS_ID>  — chỉ trả SỐ ĐẾM + thời gian (không trả nội dung việc / tên người).
+ * ?action=wkDiag&key=<8 ký tự cuối SS_ID>&part=fg|cols|disp|build|cache  — chỉ trả SỐ ĐẾM + thời gian (không trả nội dung việc / tên người).
+ * Chia phần vì cả gói > 60 giây (giới hạn gọi thử của workflow).
  * Gọi qua workflow Kiểm tra ▸ ping "<backend>?action=wkDiag&key=…&full=1".                                   */
 function wkDiag_(p){
   if(String(p.key || '') !== String(SS_ID).slice(-8)) return { ok:false, error:'key' };
   var T = {}, t0 = Date.now();
   function tic(k, f){ var a = Date.now(); var r = f(); T[k] = Date.now() - a; return r; }
   var sh = shWeekly(); if(!sh) return { ok:false, error:'no sheet' };
-  var out = { ok:true, source:SOURCE, ver:'1.0' };
+  var part = String(p.part || 'fg'), out = { ok:true, source:SOURCE, ver:'1.1', part:part };
+  function on(x){ return part === x || part === 'all'; }
   out.maxRows = sh.getMaxRows(); out.maxCols = sh.getMaxColumns();
   out.lastRow = tic('lastRow', function(){ return sh.getLastRow(); });
   out.lastCol = sh.getLastColumn();
@@ -31,9 +33,13 @@ function wkDiag_(p){
   out.contentPer1000 = blocks;
   /* ② đọc toàn bộ như readWeeklyRaw / liveSig_ */
   var vw = Math.min(24, sh.getMaxColumns()) - 1;
+  if(on('disp')){
+    tic('readBOdisplay', function(){ return sh.getRange(WEEKLY_DATA_ROW, 2, n, 14).getDisplayValues().length; });
+    tic('readBOvalues', function(){ return sh.getRange(WEEKLY_DATA_ROW, 2, n, 14).getValues().length; });
+    if(lastC >= WEEKLY_DATA_ROW) tic('readBXtoLastContent', function(){ return sh.getRange(WEEKLY_DATA_ROW, 2, lastC - WEEKLY_DATA_ROW + 1, vw).getValues().length; });
+  }
+  if(on('cols')){
   var all = tic('readBX', function(){ return sh.getRange(WEEKLY_DATA_ROW, 2, n, vw).getValues(); });
-  tic('readBOdisplay', function(){ return sh.getRange(WEEKLY_DATA_ROW, 2, n, 14).getDisplayValues().length; });
-  if(lastC >= WEEKLY_DATA_ROW) tic('readBXtoLastContent', function(){ return sh.getRange(WEEKLY_DATA_ROW, 2, lastC - WEEKLY_DATA_ROW + 1, vw).getValues().length; });
   /* ô có giá trị ở các dòng KHÔNG có Key / Sub (theo cột B..X) */
   var colNames = 'BCDEFGHIJKLMNOPQRSTUVWX'.split(''), nonEmptyBlank = {}, noNo = 0;
   for(var q = 0; q < all.length; q++){
@@ -50,6 +56,8 @@ function wkDiag_(p){
     for(var x = 0; x < fm7.length; x++) if(/ARRAYFORMULA|BYROW\(|MAP\(|SCAN\(/i.test(fm7[x])) ac.push(colNames[x]);
     out.arrayFormulaCols = ac;
   }catch(e){ out.probeErr = String(e); }
+  }
+  if(on('build')){
   /* ③ dựng danh sách như readWeeklyRaw + kích thước gói trả về */
   var keys = tic('readWeeklyRaw', function(){ return readWeeklyRaw(); });
   var subs = 0, objs = 0, fsz = {}, st = {}, fy = {}, src = {}, ym = {}, oldDone = 0, today = todayISO();
@@ -73,11 +81,14 @@ function wkDiag_(p){
   out.doneOlder6m = oldDone; out.cut6m = cut; out.today = today;
   tic('md5', function(){ return Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, js).length; });
   tic('tmWalk', function(){ return (typeof tmWalk_ === 'function') ? tmWalk_(JSON.parse(js), 0).length : 0; });
+  }
+  if(on('cache')){
   /* ④ bộ nhớ đệm */
   _DV = null; var dv = tic('dataVersion', function(){ return dataVersion().v; });
   out.v = dv;
   tic('cacheGetWk', function(){ var h = cGetBig('wk_' + dv); out.cacheHit = !!h; return 0; });
   try{ var c = CacheService.getScriptCache(); out.wkChunks = +(c.get('wk_' + dv + '_n') || 0); out.warm = warmActive(); }catch(e){}
+  }
   out.ms = T; out.totalMs = Date.now() - t0;
   return out;
 }
