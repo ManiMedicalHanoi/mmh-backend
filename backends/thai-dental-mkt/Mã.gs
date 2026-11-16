@@ -69,6 +69,7 @@ function evRoute_(p){
     case 'ping':      return { ok:true, app:'thai-dental-event', ver:'1.1', sheet: evSS_().getName() };
     case 'list':      return evList_(p);
     case 'customers': return evCustomers_(p);
+    case 'kpiDiag':   return evKpiDiag_(p);   /* read only — C16-00 check (EV_KpiDiag.gs) */
     case 'save':      return evOnce_(p, function(){ return evSave_(p); });
     case 'delete':    return evOnce_(p, function(){ return evDelete_(p); });
     case 'followup':  return evOnce_(p, function(){ return evFollowup_(p); });
