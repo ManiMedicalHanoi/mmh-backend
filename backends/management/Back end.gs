@@ -215,7 +215,7 @@ function handle(e, method){
   }
   return reply(out, callback);
 }
-var MGMT_OPEN = { ping:1, version:1, wkDiag:1, roster:1, myTasks:1, tripSync:1, tfPending:1, tfDecide:1, tfLog:1, tfVer:1, tfTrips:1 };   /* tf*: tự kiểm phiên email (MMH_TripFlow.gs) */
+var MGMT_OPEN = { ping:1, version:1, wkDiag:1, wkCompact:1, roster:1, myTasks:1, tripSync:1, tfPending:1, tfDecide:1, tfLog:1, tfVer:1, tfTrips:1 };   /* tf*: tự kiểm phiên email (MMH_TripFlow.gs) */
 var RHX_ONCE = { tfDecide:1, tripPropose:1, mailSend:1, tripReport:1, tripUpdate:1, tripDelete:1 };
 var RHX_ACTIONS = { tripSync:1, tripMaster:1, tripPropose:1, mailSend:1, tripInfo:1, tripReport:1, tripUpdate:1, tripDelete:1 };   /* ⭐ v12.8: xem / báo cáo / sửa / xoá công tác */
 function dispatch(action, user, p){
@@ -233,6 +233,7 @@ function dispatch(action, user, p){
       case 'roster':        out = { ok:true, source:SOURCE, picList: rosterList() }; break;   /* danh bạ cho màn đăng nhập — không cần quyền */
       case 'rpLog':         out = (typeof rplApi_==='function') ? rplApi_(p) : { ok:false, error:'Thiếu MMH_ReportLog.gs' }; break;   /* ⭐ 23/10/2026: thống kê gửi báo cáo */
       case 'version':       out = dataVersion(); break;   /* ⭐ v5.11: dấu vân tay dữ liệu */
+      case 'wkCompact':     out = (typeof wkcApi_==='function') ? wkcApi_(p) : { ok:false, error:'Thiếu MMH_WkCompact.gs' }; break;   /* ⭐ 16/11/2026: dọn dòng trống WEEKLY (khoá key) */
       case 'wkDiag':        out = (typeof wkDiag_==='function') ? wkDiag_(p) : { ok:false, error:'Thiếu MMH_WkDiag.gs' }; break;   /* ⭐ 16/11/2026: chẩn đoán tốc độ đọc WEEKLY (chỉ đọc) */
       case 'sheets':        out = sheetInfo(); break;    /* ⭐ v5.12: kiểm tra đang đọc đúng sheet nào */
       case 'debugLayout':   out = debugLayout(); break;   /* ⭐ v5.2: tự kiểm tra map cột */
@@ -669,6 +670,7 @@ function warmCache(force){
   var tz = Session.getScriptTimeZone() || 'Asia/Ho_Chi_Minh';
   var h = +Utilities.formatDate(new Date(), tz, 'H');
   var props = PropertiesService.getScriptProperties();
+  try{ if(typeof wkcAuto_ === 'function') wkcAuto_(h); }catch(e){}   /* ⭐ 16/11/2026: MMH_WkCompact.gs — 19:00–21:00, ≤ 1 lần / ngày, dọn khoảng trống ≥ 1.000 dòng */
   if(force !== true && (h < 6 || h >= 21)){               /* ban đêm: chỉ đánh dấu còn sống, không đọc sheet */
     props.setProperty('WARM_AT', String(Date.now())); return;
   }
@@ -795,7 +797,8 @@ function doneStampOnEdit(e){
   }
 }
 function onChangeTouch(e){
-  try{ doneStampOnEdit(e); }catch(err){}   /* ⭐ v12.4 — chạy TRƯỚC khi đổi vân tay (cần trạng thái cũ) */
+  var _wkc = false; try{ _wkc = (typeof wkcIsBusy_ === 'function') && wkcIsBusy_(); }catch(err){}   /* ⭐ 16/11/2026: đang dọn dòng trống (MMH_WkCompact.gs) ⇒ số dòng có thể vừa dời, không tự đóng dấu ngày */
+  if(!_wkc){ try{ doneStampOnEdit(e); }catch(err){} }   /* ⭐ v12.4 — chạy TRƯỚC khi đổi vân tay (cần trạng thái cũ) */
   touchVersion();
 }
 /* ⚠️ CHẠY TAY 1 LẦN trong Apps Script (chọn hàm installTriggers → Run) để bật cập nhật real-time */
