@@ -538,6 +538,22 @@ async function cmdDiff(key, version) {
 }
 
 /* Gọi thử URL /exec của các backend, in từng bước chuyển hướng + mã + đầu nội dung (để hiểu kết quả "gọi thử") */
+/* ping …&grep=<PIC>: tìm mọi đối tượng có "pic":"<PIC>" trong JSON trả về ⇒ số lượng + 60 dòng đầu (sắp theo start) */
+function grepPic(raw, pic) {
+  const needle = `"pic":${JSON.stringify(pic)}`, rows = [];
+  let i = raw.indexOf(needle);
+  while (i >= 0) {
+    const a = raw.lastIndexOf('{"row":', i), w = raw.slice(a >= 0 ? a : Math.max(0, i - 600), i + 900);
+    const f = (k) => { const m = new RegExp(`"${k}":"((?:[^"\\\\]|\\\\.)*)"`).exec(w); return m ? m[1] : ''; };
+    rows.push([f('no'), f('start'), f('planned'), f('revised'), f('status'), (f('subTask') || f('keyTask')).slice(0, 70)]);
+    i = raw.indexOf(needle, i + needle.length);
+  }
+  rows.sort((x, y) => (x[1] || '0') < (y[1] || '0') ? 1 : -1);
+  const months = {};
+  rows.forEach((r) => { const m = (r[1] || r[2] || '').slice(0, 7) || '(trống)'; months[m] = (months[m] || 0) + 1; });
+  return `  grep "${pic}": ${rows.length} mục · theo tháng bắt đầu: ${Object.keys(months).sort().map((m) => m + '=' + months[m]).join(' ')}\n` +
+    rows.slice(0, 60).map((r) => `    ${r[0]} · ${r[1]} → ${r[2]}${r[3] ? ' (' + r[3] + ')' : ''} · ${r[4]} · ${r[5]}`).join('\n');
+}
 async function cmdPing(arg) {
   /* nhiều lệnh cách nhau bằng " ; " ⇒ gọi lần lượt (đo thời gian / dung lượng từng lệnh) */
   const parts = String(arg || '').split(/\s+;\s+/).filter(Boolean);
@@ -546,8 +562,11 @@ async function cmdPing(arg) {
   say('### Gọi thử URL /exec');
   /* "training?action=fileMeta&sid=…" ⇒ gọi đúng lệnh đó (kiểm lỗi riêng 1 action); không có "?" ⇒ ping như cũ */
   const qi = String(arg || '').indexOf('?');
-  const q = qi >= 0 ? String(arg).slice(qi) : '';
+  let q = qi >= 0 ? String(arg).slice(qi) : '';
   if (qi >= 0) arg = String(arg).slice(0, qi);
+  /* "&grep=<PIC>" (chỉ ở công cụ, không gửi lên máy chủ) ⇒ đếm + liệt kê việc có "pic":"<PIC>" trong dữ liệu trả về (no · start · planned · status · tên) */
+  let grep = '';
+  q = q.replace(/[?&]grep=([^&]*)/, (m, v) => { grep = decodeURIComponent(v.replace(/\+/g, ' ')); return m[0] === '?' ? '?' : ''; }).replace(/^\?&/, '?').replace(/^\?$/, '');
   for (const k of pickKeys(cfg, arg)) {
     const b = cfg[k];
     if (!b.url) { say(`- ${b.name}: không có web app (chỉ menu trong Sheet).`); continue; }
@@ -562,6 +581,7 @@ async function cmdPing(arg) {
         const raw = await r.text(), ms = Date.now() - t0;
         const t = raw.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
         say(`- ${b.name}${q ? ' ' + q.slice(0, 60) : ''}: ${hops.join(' → ')} · ${r.headers.get('content-type') || ''} · ${ms} ms · ${Math.round(raw.length / 1024)} KB · «${t.slice(0, /[?&]full=1/.test(q) ? 6000 : 300)}»`);
+        if (grep) say(grepPic(raw, grep));
         break;
       }
     } catch (e) { say(`- ${b.name}: ${hops.join(' → ')} ✗ ${e.message}`); }
