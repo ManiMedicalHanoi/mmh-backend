@@ -861,11 +861,13 @@ var NAMES_WEEKLY  = ['TASK TRACKER','Task tracker','Weekly new','Weekly'];   // 
 var NAMES_MONTHLY = ['MONTH','Monthly'];
 var NAMES_MASTER  = ['MASTER NAME','Master name','Master'];
 
+var _SS = null;   /* ⭐ 16/11/2026: mở bảng tính 1 lần / lượt chạy (như Back Office) — trước đây mỗi lần gọi ss() lại openById */
 function ss(){
+  if(_SS) return _SS;
   try{
-    if(SS_ID) return SpreadsheetApp.openById(SS_ID);
+    if(SS_ID){ _SS = SpreadsheetApp.openById(SS_ID); return _SS; }
   }catch(e){}
-  return SpreadsheetApp.getActiveSpreadsheet();   // dự phòng: bảng tính đang gắn script
+  return SpreadsheetApp.getActiveSpreadsheet();   // dự phòng: bảng tính đang gắn script (không nhớ — lần sau thử mở lại theo ID)
 }
 var _SH_CACHE = {};
 function resolveSheet(key, gid, names){
@@ -924,8 +926,16 @@ function readTypeOptions(){
     return out.length ? out : TYPE_OPTIONS;
   }catch(e){ return TYPE_OPTIONS; }
 }
+/* ⭐ 16/11/2026: trước đây MỖI ô ngày gọi ss().getSpreadsheetTimeZone() (mở lại file + hỏi múi giờ) ⇒ ~10.000 lần gọi máy chủ mỗi lần đọc sheet.
+   Nay hỏi múi giờ 1 lần / lượt chạy + nhớ kết quả theo giá trị ngày (cùng 1 ngày ⇒ cùng chuỗi). Kết quả giữ nguyên như cũ. */
+var _D2S_TZ = null, _D2S_MEMO = {};
 function d2s(v){
-  if(v instanceof Date){ return Utilities.formatDate(v, ss().getSpreadsheetTimeZone(), 'yyyy-MM-dd'); }
+  if(v instanceof Date){
+    var t = v.getTime(), hit = _D2S_MEMO[t];
+    if(hit !== undefined) return hit;
+    if(!_D2S_TZ) _D2S_TZ = ss().getSpreadsheetTimeZone();
+    return (_D2S_MEMO[t] = Utilities.formatDate(v, _D2S_TZ, 'yyyy-MM-dd'));
+  }
   return v == null ? '' : String(v);
 }
 function s2d(s){

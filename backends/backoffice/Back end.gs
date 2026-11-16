@@ -870,8 +870,16 @@ function readTypeOptions(wk){
     return bo.length ? bo : TYPE_OPTIONS;
   }catch(e){ return TYPE_OPTIONS; }
 }
+/* ⭐ 16/11/2026: trước đây MỖI ô ngày gọi ss().getSpreadsheetTimeZone() (mở lại file + hỏi múi giờ) ⇒ ~10.000 lần gọi máy chủ mỗi lần đọc sheet.
+   Nay hỏi múi giờ 1 lần / lượt chạy + nhớ kết quả theo giá trị ngày (cùng 1 ngày ⇒ cùng chuỗi). Kết quả giữ nguyên như cũ. */
+var _D2S_TZ = null, _D2S_MEMO = {};
 function d2s(v){
-  if(v instanceof Date){ return Utilities.formatDate(v, ss().getSpreadsheetTimeZone(), 'yyyy-MM-dd'); }
+  if(v instanceof Date){
+    var t = v.getTime(), hit = _D2S_MEMO[t];
+    if(hit !== undefined) return hit;
+    if(!_D2S_TZ) _D2S_TZ = ss().getSpreadsheetTimeZone();
+    return (_D2S_MEMO[t] = Utilities.formatDate(v, _D2S_TZ, 'yyyy-MM-dd'));
+  }
   return v == null ? '' : String(v);
 }
 function s2d(s){
