@@ -490,3 +490,7 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   Tự động: `warmCache` ▸ `wkcAuto_` CHỈ Marketing (`WKC.AUTO_SRC`), 19–21h, ≤ 1 lần / ngày, khi có khoảng ≥ 1.000 dòng. Back Office (đuôi 2.329 dòng trống) / Management (1.014) CHƯA dọn — chờ người dùng đồng ý. Đang dọn ⇒ `onChangeTouch` không tự đóng dấu ngày (cờ `wkc_on`). Thử: harness Node giả lập sheet (dòng "bẫy" + sửa đồng thời).
   Đã chạy 16/11/2026: Marketing 25.426 → 2.471 dòng (xoá 22.959 dòng trống, giữ 3 dòng có dữ liệu rơi vào vùng xoá; `verify` với bản sao lưu: không mất dòng nào, khác biệt = người dùng sửa / xoá trong lúc đó).
   Cùng đợt: `d2s` (3 backend) trước gọi `ss().getSpreadsheetTimeZone()` cho TỪNG ô ngày ⇒ ~10.000 lần gọi máy chủ / lần đọc — nay hỏi múi giờ 1 lần + nhớ theo giá trị ngày; `ss()` Marketing / Management nhớ bảng tính đã mở (như Back Office).
+- **16/11/2026 — Rà soát TSKT nha khoa (`dental-tskt`, script GẮN Sheet "Cấu hình hàng nha khoa Mani" `1QEI90DJ…`, không có web app)**: menu **MMH ▸ Áp dụng rà soát TSKT**
+  (`TSKT_Apply.gs`, @OnlyCurrentDoc) ghi lại cột F (Thông số kỹ thuật) + G (Nguồn) của sheet **Dental Product** theo MANI General Dental Catalog 2026 (high-res, mmh-library) + IFU,
+  thêm O–Q ảnh tham chiếu (over-grid, alt title `TSKT-ref …`, chạy lại thì xoá ảnh cũ trước), R kết quả, S ghi chú. Chỉ ghi khi cột E (Chủng loại) khớp dữ liệu (dòng đã dời ⇒ bỏ qua, báo trong toast).
+  Dữ liệu `TSKT_Data.gs` + ảnh `img_s<dòng>_<n>.html` (base64 JPEG) sinh tự động — không sửa tay. Lần đầu chạy: người dùng bấm menu ▸ cấp quyền.
