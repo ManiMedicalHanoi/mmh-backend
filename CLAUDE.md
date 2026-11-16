@@ -482,3 +482,9 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
 - **14/11/2026 — Khang phụ trách Manipler khu vực Đà Nẵng (người dùng yêu cầu)**: dao / chỉ khâu Đà Nẵng cũ vẫn Viet Ha. crm-surgical `MMH_TenderFU.gs` v1.11 `FU.XTRA` + `fuXtra_`:
   gói Theo dõi thầu ở Đà Nẵng cũ mà mọi mã là ghim da ⇒ PIC phụ trách địa bàn = Khang (`fuOwner_`, `fuSave` cột own); Follow up by Account (`faDerive_`) dòng loại GHIM ở Đà Nẵng cũ ⇒ PIC Khang
   (trừ dòng đã sửa PIC tay). App: CRM v36.7 (`PIC_EXTRA`: Khang chọn được account Đà Nẵng khi lên kế hoạch, Product group tự chọn Manipler), Tender Map v25 (`TERR[1].x`).
+- **16/11/2026 — Dọn dòng trống sheet WEEKLY (`MMH_WkCompact.gs` + `MMH_WkDiag.gs`, GIỐNG HỆT ở marketing / backoffice / management)**: `wkDiag` (chỉ đọc, `key` = 8 ký tự cuối SS_ID, `part=fg|gap|cols|disp|build|cache`) cho thấy
+  "WEEKYLY new" Marketing 25.426 dòng nhưng chỉ 2.218 dòng có việc — 21.405 dòng trống ở giữa (chỉ còn công thức M / Q) ⇒ đọc / ghi chậm (5–41 giây). `wkCompact` (`op=status|plan[&check=1]|run|stop`):
+  chỉ xoá khoảng ≥ 50 dòng không có Key / Sub, dòng TRỐNG THẬT trên mọi cột (không giá trị, không ghi chú, công thức = công thức dòng mẫu của cột, không công thức mảng), giữ 1 dòng đầu khoảng
+  + 200 dòng cuối sheet + 3 dòng đệm sát dòng có dữ liệu; SAO LƯU CẢ FILE sang Drive trước (lỗi ⇒ không xoá); xoá từ dưới lên dưới khoá ghi, đọc lại trước mỗi lần xoá, số dòng sheet đổi ⇒ đọc lại;
+  xong so dấu nội dung các dòng có việc trước / sau (`same`). Trạng thái Script Property `WKC_STATE`. Chạy nền bằng trigger `wkcJob` (Management không có quyền trigger ⇒ gọi `run` nhiều lần).
+  Tự động: `warmCache` ▸ `wkcAuto_` 19–21h, ≤ 1 lần / ngày, khi có khoảng ≥ 1.000 dòng. Đang dọn ⇒ `onChangeTouch` không tự đóng dấu ngày (cờ `wkc_on`). Thử: harness Node giả lập sheet (dòng "bẫy" + sửa đồng thời).
