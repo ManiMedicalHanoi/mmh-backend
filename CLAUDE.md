@@ -488,3 +488,5 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   + 200 dòng cuối sheet + 3 dòng đệm sát dòng có dữ liệu; SAO LƯU CẢ FILE sang Drive trước (lỗi ⇒ không xoá); xoá từ dưới lên dưới khoá ghi, đọc lại trước mỗi lần xoá, số dòng sheet đổi ⇒ đọc lại;
   xong so dấu nội dung các dòng có việc trước / sau (`same`). Trạng thái Script Property `WKC_STATE`. Chạy nền bằng trigger `wkcJob` (Management không có quyền trigger ⇒ gọi `run` nhiều lần).
   Tự động: `warmCache` ▸ `wkcAuto_` 19–21h, ≤ 1 lần / ngày, khi có khoảng ≥ 1.000 dòng. Đang dọn ⇒ `onChangeTouch` không tự đóng dấu ngày (cờ `wkc_on`). Thử: harness Node giả lập sheet (dòng "bẫy" + sửa đồng thời).
+  Đã chạy 16/11/2026: Marketing 25.426 → 2.471 dòng (xoá 22.959 dòng trống, giữ 3 dòng có dữ liệu rơi vào vùng xoá; `verify` với bản sao lưu: không mất dòng nào, khác biệt = người dùng sửa / xoá trong lúc đó).
+  Cùng đợt: `d2s` (3 backend) trước gọi `ss().getSpreadsheetTimeZone()` cho TỪNG ô ngày ⇒ ~10.000 lần gọi máy chủ / lần đọc — nay hỏi múi giờ 1 lần + nhớ theo giá trị ngày; `ss()` Marketing / Management nhớ bảng tính đã mở (như Back Office).

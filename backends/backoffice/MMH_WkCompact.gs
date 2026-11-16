@@ -307,9 +307,10 @@ function wkcVerify_(p){
     rest.forEach(function(r){
       var no = String(r[0]), k = idOf(r); if(missing.indexOf(no) < 0 && missing.indexOf(no + ' (key)') < 0) return;
       var same0 = (byNo[no] || []).map(function(c){ var df = []; for(var j = 0; j < c.length; j++) if(JSON.stringify(c[j]) !== JSON.stringify(r[j])) df.push(names[j] || ('c' + j)); return df; });
-      var acts = log.filter(function(L){ var ts = L[0] instanceof Date ? L[0].toISOString() : String(L[0]); return String(L[5]) === no && ts >= since; })
+      var par = no.split('.')[0];
+      var acts = log.filter(function(L){ var ts = L[0] instanceof Date ? L[0].toISOString() : String(L[0]); var sn = String(L[5]); return (sn === no || sn === par) && ts >= since; })
                     .map(function(L){ return [(L[0] instanceof Date ? L[0].toISOString() : String(L[0])).slice(0, 19), String(L[1]), String(L[2])]; });
-      detail.push({ no:no, nowSameNo:same0, acts:acts });
+      detail.push({ no:no, src:String(r[19] || '').slice(0, 3), flag:String(r[21] || '').slice(0, 8), status:String(r[12] || ''), nowSameNo:same0, acts:acts });
     });
   }
   return { ok:true, ver:WKC.VER, source:SOURCE, backupRows:A.length, currentRows:B.length, same:same, changed:changed, changedNo:changedNo,
