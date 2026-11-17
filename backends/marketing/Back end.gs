@@ -207,8 +207,8 @@ function handle(e, method){
   }
   return reply(out, callback);
 }
-var RHX_ONCE = { tfDecide:1, tripPropose:1, mailSend:1, tripReport:1, tripUpdate:1, tripDelete:1 };
-var RHX_ACTIONS = { tripSync:1, tripMaster:1, tripPropose:1, mailSend:1, tripInfo:1, tripReport:1, tripUpdate:1, tripDelete:1 };   /* ⭐ v12.8: xem / báo cáo / sửa / xoá công tác */
+var RHX_ONCE = { tfDecide:1, tripPropose:1, mailSend:1, tripReport:1, tripReportSent:1, tripUpdate:1, tripDelete:1 };
+var RHX_ACTIONS = { tripSync:1, tripMaster:1, tripPropose:1, mailSend:1, tripInfo:1, tripReport:1, tripReportSent:1, tripUpdate:1, tripDelete:1 };   /* ⭐ v12.8: xem / báo cáo / sửa / xoá công tác */
 function dispatch(action, user, p){
     var out;
     if(action === 'salesTasksDrop' && typeof smDrop_ === 'function') return smDrop_(user, p);   /* ⭐ 10/10/2026: MMH_SalesMove.gs */
