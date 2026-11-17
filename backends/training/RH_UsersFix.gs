@@ -14,19 +14,21 @@
  */
 
 var RH_ENSURE = {
-  VER: 'th1',
+  VER: 'th2',
   /** [phần trước @, PIC (đúng tên trong CRM / Report Hub), level, Dept, Title] */
   USERS: [
     ['manithailand',  'Dao',  'lead', 'Sales & Marketing TH', 'Thailand Surgical Team Leader'],
     ['manithailand4', 'Miew', 'pic',  'Sales & Marketing TH', 'Thailand Surgical Sales PIC'],
     ['manithailand2', 'Yong', 'pic',  'Sales & Marketing TH', 'Thailand Dental - Commercial Lead'],
     ['manithailand3', 'Man',  'pic',  'Sales & Marketing TH', 'Thailand Dental - Training & Education Lead'],
-    ['manithailand1', 'Sui',  'pic',  'Sales & Marketing TH', 'Thailand Dental - Marketing Lead']
+    ['manithailand1', 'Sui',  'pic',  'Sales & Marketing TH', 'Thailand Dental - Marketing Lead'],
+    /* 17/11/2026 — Owen san: manager of the Thailand Dental team (e-mail @mani.inc ⇒ full address) */
+    ['owen-yth@mani.inc', 'Owen', 'lead', 'Sales & Marketing TH', 'Thailand Dental Manager']
   ]
 };
 
 function rhEnsureLocals_() {
-  return RH_ENSURE.USERS.map(function(x){ return x[0]; });
+  return RH_ENSURE.USERS.map(function(x){ return hubPrefix(x[0]); });
 }
 
 /** Thêm / mở khoá người trong RH_ENSURE.USERS. Trả {added:[], unlocked:[], ok:[], skipped:[]} */
@@ -39,7 +41,7 @@ function rhEnsureUsers_() {
       var local = e[0], pic = e[1], hit = -1, picOther = '';
       for (var i = 0; i < vals.length; i++) {
         var l = hubPrefix(vals[i][0]);
-        if (l === local) { hit = i; break; }
+        if (l === hubPrefix(local)) { hit = i; break; }
         if (l && hubKeyV(vals[i][1]) === hubKeyV(pic)) picOther = l;
       }
       if (hit >= 0) {
@@ -53,7 +55,7 @@ function rhEnsureUsers_() {
         return;
       }
       if (picOther) { out.skipped.push(pic + ' (tên đã dùng cho ' + picOther + ')'); return; }
-      sh.appendRow([local + '@' + HUB.SEND_DOMAIN, pic, e[2], false, true, 1, '', 0, '',
+      sh.appendRow([(local.indexOf('@') > 0 ? local : local + '@' + HUB.SEND_DOMAIN), pic, e[2], false, true, 1, '', 0, '',
         'Cấp quyền nhóm Thái · ' + hubFmt(new Date(), 'dd/MM/yyyy HH:mm'), e[3], e[4], '{}']);
       try { sh.getRange(sh.getLastRow(), 4, 1, 2).insertCheckboxes(); } catch (er) {}
       vals.push([local + '@' + HUB.SEND_DOMAIN, pic]);

@@ -99,11 +99,14 @@ var CFG = {
   CACHE_TTL: 21600
 };
 var MAIL_HA = 'nt.ha@manimedicalhanoi.com', MAIL_HOA = 'vtt.hoa@manimedicalhanoi.com', MAIL_SHUHEI = 's-takahashi@mani.inc';
+var MAIL_OWEN = 'owen-yth@mani.inc';
 var USERS = {
   'Yong':      { email: 'manithailand2@manimedicalhanoi.com', title: 'Thailand Dental - Commercial Lead', role: 'pic', team: CFG.TEAM_LABEL },
   'Man':       { email: 'manithailand3@manimedicalhanoi.com', title: 'Thailand Dental - Training & Education Lead', role: 'pic', team: CFG.TEAM_LABEL },
   'Sui':       { email: 'manithailand1@manimedicalhanoi.com', title: 'Thailand Dental - Marketing Lead', role: 'pic', team: CFG.TEAM_LABEL },
   'Dao':       { email: 'manithailand@manimedicalhanoi.com',  title: 'Head of Sales & Marketing – Thailand', role: 'lead', team: CFG.TEAM_LABEL },
+  /* 17/11/2026 — Owen san = manager of the Thailand Dental team (sees / updates the whole team, receives every weekly / monthly report) */
+  'Owen':      { email: 'owen-yth@mani.inc',                  title: 'Thailand Dental Manager',     role: 'lead', team: CFG.TEAM_LABEL },
   'Nguyen Ha': { email: 'nt.ha@manimedicalhanoi.com',         title: 'Director',                    role: 'manager', team: 'Management' },
   'Tuyen':     { email: 'tt.tuyen@manimedicalhanoi.com',      title: 'Head of Sales & Marketing VN', role: 'manager', team: 'Management' },
   'Hoa':       { email: 'vtt.hoa@manimedicalhanoi.com',       title: 'Human Resources',             role: 'manager', team: 'Management' },
@@ -119,8 +122,9 @@ var WRITE_ACTIONS = { acctSave:1, acctGeo:1, weeklyReport:1, monthlyReport:1, tr
                       deleteRow:1, deleteAccount:1, addKey:1, addSub:1, naSave:1, naSubmit:1, naDecide:1, naDelete:1 };
 /* who receives the weekly / monthly report of each PIC */
 function mailRule_(pic){
-  /* Dental (same routing as the old "MMH Report" menu of the Dental Action file): To Shuhei · Cc Ha + Hoa */
-  return { to: [MAIL_SHUHEI], cc: [MAIL_HA, MAIL_HOA] };
+  /* 17/11/2026 (user request) — To Owen san (manager of the Dental team) + Shuhei · Cc Ha + Hoa + the sender (a copy in his / her own mailbox) */
+  var me = (USERS[pic] || {}).email || '';
+  return { to: [MAIL_OWEN, MAIL_SHUHEI], cc: [MAIL_HA, MAIL_HOA].concat(me ? [me] : []) };
 }
 
 /* ══════════════ TAB DEFINITIONS (column B = offset 0) ══════════════ */
@@ -614,7 +618,7 @@ function saveWeekly_(user, p){
   } finally { L.releaseLock(); }
   bump_(['weekly']);
   log_(user.pic, isNew ? 'add' : 'update', 'weekly', parseAcc_(d.account || '').name || ('row ' + row), (d.typeAction || '') + (d.status ? ' · ' + d.status : ''), row);
-  try{ out.sync = vsSync_(false); }catch(e){ out.syncError = e.message; }
+  try{ out.sync = thdSyncSoon_(); }catch(e){ out.syncError = e.message; }   /* 17/11/2026 — TH_DentalCare.gs: mirror in the background */
   out.ok = true; out.row = row; out.message = isNew ? 'Task added to sheet CUSTOMER TASK' : 'Task updated';
   return out;
 }
@@ -758,7 +762,7 @@ function deleteRow_(user, p){
   bump_(tab === 'customer' || tab === 'cbc' ? ['customer', 'cbc'] : [tab]);
   log_(user.pic, 'delete', tab, parseAcc_(hit.account || hit.name || hit.contact || '').name || ('row ' + row), '', row);
   var out = { ok: true, message: 'Row deleted from ' + TABS[tab].sh, photosDeleted: 0 };
-  if(tab === 'weekly'){ try{ out.sync = vsSync_(false); }catch(e){} }
+  if(tab === 'weekly'){ try{ out.sync = thdSyncSoon_(); }catch(e){} }   /* 17/11/2026 — TH_DentalCare.gs */
   return out;
 }
 
@@ -1381,6 +1385,7 @@ function route_(p){
   if(/^trip(Master|Propose)2$/.test(a)) return tripRoute_(a, user, p);  /* v1.16 */
   switch(a){
     case 'thdSample': return thdSampleApi_(p);
+    case 'thdCare': return thdCareApi_(p);                               /* 17/11/2026 — TH_DentalCare.gs (diagnostics) */
     case 'thdFix': return thdFixApi_(p);                                 /* 02/11/2026 — TH_DentalFix.gs */                           /* 30/10/2026 — dữ liệu mẫu thử KPI (TH_DentalSample.gs) */
     case 'rpLog': return rplApi_(p);                                      /* ⭐ 23/10/2026: thống kê gửi báo cáo (MMH_ReportLog.gs) */
     case 'kpiPush': return { ok: true, kpiPush: k68PushQuick_() };       /* v1.9 */
@@ -3807,6 +3812,12 @@ function wkApplyRule_(d, prev, lang){
     return L('Hoạt động bắt đầu ngày ' + start.split('-').reverse().join('/') + ' — chưa diễn ra nên chưa thể chuyển sang Completed / 100%. Hãy để Not Started và cập nhật khi đã thực hiện.',
              'This activity starts on ' + start.split('-').reverse().join('/') + ' — it has not happened yet, so it cannot be Completed / 100%. Keep it Not Started and update it once done.');
   var wasDone = !!(prev && /complet/i.test(String(prev.status || '')));
+  /* 17/11/2026 — as the VN CRMs (v10.22): the app sends finKeep = the date the user keeps (the planned date, not today) ⇒ keep it, only clamp to [start, today] */
+  if(d.finKeep && d.finish){
+    var fk = wkIso_(d.finish);
+    if(fk > today) fk = today; if(start && fk < start) fk = start;
+    d.finish = fk; return '';
+  }
   /* hoàn thành sớm hơn ngày kết thúc dự kiến ⇒ Finish date = ngày bấm Completed; việc quá hạn giữ nguyên ngày cũ */
   if(!wasDone && fin && fin > today) d.finish = today;
   return '';
