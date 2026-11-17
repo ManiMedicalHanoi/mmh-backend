@@ -171,6 +171,10 @@ function runWrite(action, p, fn){
     SpreadsheetApp.flush();
   } finally { try{ lock.releaseLock(); }catch(e){} }
   if(out && out.ok){ touchVersion(); out.v = dataVersion().v; }
+  /* ⭐ 17/11/2026 (tăng tốc): ghi xong (đã nhả khoá) ⇒ dựng sẵn bản đệm danh sách theo vân tay mới (~1–2 giây, đo thật).
+     Mọi máy đang mở app thấy vân tay đổi sẽ lấy bản đệm này ngay thay vì cùng đọc lại cả sheet. Người ghi không phải chờ
+     (app cập nhật giao diện trước, lệnh ghi chạy nền). Lệnh xoá / chuyển đã có readWeekly ngay dưới. */
+  if(out && out.ok && !/^(deleteKey|deleteSub|deleteRow|moveSub)$/.test(action) && !/Month/.test(action)){ try{ readWeekly(); }catch(e){} }
   /* ⭐ v10.1: xoá dòng làm số No thay đổi ⇒ trả luôn danh sách mới để web đổi theo NGAY */
   if(out && (out.ok || out.stale) && /^(deleteKey|deleteSub|deleteRow|moveSub)$/.test(action)){
     try{ out.keyTasks = readWeekly(); }catch(e){}
@@ -233,7 +237,7 @@ function dispatch(action, user, p){
       case 'ping':          try{ if(typeof rhDateFix_==='function') rhDateFix_(); }catch(_e){}   /* ⭐ 13/10 chuẩn hoá ngày */
                                      out = { ok:true, pong:true, pic:user.pic, source:SOURCE }; break;
       case 'rpLog':         out = (typeof rplApi_==='function') ? rplApi_(p) : { ok:false, error:'Thiếu MMH_ReportLog.gs' }; break;   /* ⭐ 23/10/2026: thống kê gửi báo cáo */
-      case 'version':       out = dataVersion(); break;   /* ⭐ v5.11: dấu vân tay dữ liệu */
+      case 'version':       out = dataVersionQuick_(); break;   /* ⭐ v5.11: dấu vân tay dữ liệu */
       case 'wkCompact':     out = (typeof wkcApi_==='function') ? wkcApi_(p) : { ok:false, error:'Thiếu MMH_WkCompact.gs' }; break;   /* ⭐ 16/11/2026: dọn dòng trống WEEKLY (khoá key) */
       case 'wkDiag':        out = (typeof wkDiag_==='function') ? wkDiag_(p) : { ok:false, error:'Thiếu MMH_WkDiag.gs' }; break;   /* ⭐ 16/11/2026: chẩn đoán tốc độ đọc WEEKLY (chỉ đọc) */
       case 'sheets':        out = sheetInfo(); break;    /* ⭐ v5.12: kiểm tra đang đọc đúng sheet nào */
@@ -504,6 +508,16 @@ var _DV = null;   /* vân tay dữ liệu — tính 1 lần cho mỗi request */
 function touchVersion(){
   _DV = null;
   try{ PropertiesService.getScriptProperties().setProperty('DATA_VERSION', String(Date.now())); }catch(e){}
+  /* ⭐ 17/11/2026 (tăng tốc): bỏ "dấu nội dung" + vân tay nhanh đang đệm ⇒ vân tay mới tính ngay theo nội dung đã ghi.
+     Trước đây dấu nội dung đệm 60 giây ⇒ sửa qua web làm vân tay đổi 2 LẦN (ngay lúc ghi + ~60 giây sau)
+     ⇒ mọi máy đang mở app tải lại cả danh sách 2 lần, lần sau còn hiện "Có cập nhật mới" với chính người vừa sửa. */
+  try{ var _c = CacheService.getScriptCache(), _w = shWeekly(); _c.removeAll(['dvq', 'lsig_' + (_w ? _w.getLastRow() : 0)]); }catch(e){}
+}
+/* ⭐ 17/11/2026 (tăng tốc): lệnh "version" mọi máy hỏi 12–20 giây / lần ⇒ đệm 15 giây (không mở bảng tính khi trúng đệm).
+   Ghi qua web ⇒ touchVersion xoá đệm ⇒ đổi ngay; sửa thẳng trên Sheet ⇒ thấy sau ≤ 60 + 15 giây. */
+function dataVersionQuick_(){
+  try{ var c = CacheService.getScriptCache(), hit = c.get('dvq'); if(hit) return JSON.parse(hit);
+       var d = dataVersion(); c.put('dvq', JSON.stringify(d), 15); return d; }catch(e){ return dataVersion(); }
 }
 function dataVersion(){
   if(_DV) return _DV;
@@ -979,8 +993,21 @@ function readWeekly(){
   var key = 'wk_' + dataVersion().v;
   var hit = cGetBig(key);
   if(hit) return hit;
+  /* ⭐ 17/11/2026 (tăng tốc): vân tay vừa đổi ⇒ mọi máy đang mở app cùng hỏi "weekly" một lúc; trước đây MỖI lượt tự đọc lại cả sheet
+     (10–20 lượt đọc nặng chồng nhau ⇒ ai cũng chờ, lệnh sửa / xoá đến lúc đó cũng chậm theo). Nay lượt đầu đọc, các lượt khác chờ bản đệm (≤ 12 giây). */
+  var c = null, bk = 'wkb_' + key;
+  try{ c = CacheService.getScriptCache(); }catch(e){}
+  if(c){
+    try{
+      if(c.get(bk)){
+        for(var i = 0; i < 40; i++){ Utilities.sleep(300); hit = cGetBig(key); if(hit) return hit; if(!c.get(bk)) break; }
+      }
+      c.put(bk, '1', 30);
+    }catch(e){}
+  }
   var r = readWeeklyRaw();
   cPutBig(key, r, cacheTtl());
+  try{ if(c) c.remove(bk); }catch(e){}
   return r;
 }
 function normNo(v){
