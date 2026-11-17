@@ -8,6 +8,20 @@
 function dfDiag_(p){
   if (String(p.key || '') !== ScriptApp.getScriptId().slice(-8)) return { ok:false, error:'key?' };
   var op = String(p.op || 'status');
+  if (op === 'probe'){                                          /* ghi thử 1 ô Start (dòng `row`, mặc định 5) = ngày đảo, đọc lại ngay */
+    var sp = sh('weekly'), rw = parseInt(p.row, 10) || 5, cl = sp.getRange(rw, COL.weekly.start), tzp = ss().getSpreadsheetTimeZone(), v0 = cl.getValue(), res = { ok:true, row:rw };
+    var fmtp = function(v){ return v instanceof Date ? Utilities.formatDate(v, tzp, 'yyyy-MM-dd HH:mm') : typeof v + ':' + String(v); };
+    res.before = fmtp(v0) + ' · hiện ' + cl.getDisplayValue() + ' · f=' + cl.getFormula();
+    try { var dv = cl.getDataValidation(); res.dv = dv ? (String(dv.getCriteriaType()) + ' ' + JSON.stringify(dv.getCriteriaValues()).slice(0, 120) + ' reject=' + !dv.getAllowInvalid()) : 'không'; } catch(e){ res.dv = 'lỗi ' + e.message; }
+    if (v0 instanceof Date && v0.getDate() <= 12){
+      var nv = new Date(v0.getFullYear(), v0.getDate() - 1, v0.getMonth() + 1);
+      try { cl.setValue(nv); SpreadsheetApp.flush(); res.wrote = fmtp(nv); } catch(e){ res.err = String(e.message || e); }
+      res.after = fmtp(sp.getRange(rw, COL.weekly.start).getValue()) + ' · hiện ' + sp.getRange(rw, COL.weekly.start).getDisplayValue();
+    }
+    try { res.user = Session.getEffectiveUser().getEmail().split('@')[0]; } catch(e){ res.user = '?'; }
+    try { res.ranges = ss().getNamedRanges().length; res.sheetId = sp.getSheetId(); res.file = ss().getName(); } catch(e){}
+    return res;
+  }
   if (op === 'run'){
     var r = crmDateFix_(), s0 = sh('weekly'), tz0 = ss().getSpreadsheetTimeZone();
     SpreadsheetApp.flush();
