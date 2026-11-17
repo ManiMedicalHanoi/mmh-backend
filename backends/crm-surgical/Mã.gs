@@ -7608,7 +7608,7 @@ function dfFixTab_(s, row0, cols, monthCol, tzOld, tzNew, force, st){
       var fix = iso, why = '';
       if (!(v instanceof Date)) why = 'text';
       else if (Utilities.formatDate(v, tzOld, 'HH:mm:ss') !== '00:00:00') why = 'time';
-      else if (!/[dy]/i.test(String(NF[i][0] || ''))) why = 'text';   /* ngày đúng nhưng ô định dạng số ⇒ hiện "45901" */
+      else if (NF[i][0] && !/[dy]/i.test(String(NF[i][0]))) why = 'text';   /* ngày đúng nhưng ô định dạng số ⇒ hiện "45901" */
       if (spec.swap){ var sw = dfSwap_(iso, ym); if (sw){ fix = sw; why = 'swap'; } }
       if (sNew && sNew[i]){                                                      /* Finish: theo Start cùng dòng (Start vừa đảo ⇒ Finish trùng ngày cũ đổi theo) */
         if (sOld[i] && sNew[i] !== sOld[i] && iso === sOld[i]){ fix = sNew[i]; why = 'swap'; }
