@@ -544,3 +544,7 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   Nay mọi chỗ ghi ô ngày đi qua `wV_` / `wRow_` (Date ⇒ số ngày, giữ giờ phút): `writeRowKeepFormulas_`, `writeBlockKeepFormulas_`, saveWeekly, `wkHeal_`, điền ngày đơn, `dfFixTab_`; ALL TASK `stW_`.
   **Ghi ngày mới: KHÔNG setValue(s) đối tượng Date — dùng `wV_`.** Chẩn đoán / sửa: `crm-surgical/MMH_DateDiag.gs` ▸ ping `crm-surgical?action=dfDiag&key=<8 ký tự cuối Script ID>&full=1`
   (`op=rows&from=&n=` xem từng dòng · `op=run` chạy crmDateFix_ · `op=probe2` thử 3 cách ghi 1 ô).
+- **17/11/2026 — Sửa / xoá trên Report Hub hay khựng (marketing / backoffice / management `Back end.gs`, GIỐNG HỆT 3 nơi)**: đo thật — `version` (mọi máy hỏi 12–20 giây / lần) Marketing 7,0 s,
+  đọc thẳng cả sheet chỉ 0,9–1,7 s ⇒ nghẽn do số lượt gọi chồng nhau. ① `touchVersion` xoá đệm `lsig_<dòng cuối>` + `dvq` ⇒ vân tay đổi 1 lần / lần ghi (trước đổi 2 lần: lúc ghi + ~60 s sau khi dấu nội dung hết đệm
+  ⇒ mọi máy tải lại 2 lần, người vừa sửa thấy "Có cập nhật mới"). ② `version` = `dataVersionQuick_` (đệm `dvq` 15 giây, không mở bảng tính khi trúng). ③ `readWeekly` chống dồn đọc: cờ `wkb_<khoá>` 30 giây,
+  lượt khác chờ bản đệm ≤ 12 giây. ④ `runWrite` ghi xong (đã nhả khoá) ⇒ `readWeekly()` dựng sẵn bản đệm theo vân tay mới (trừ xoá / chuyển — đã có sẵn, và Monthly). App Report Hub v19.8: lệnh SỬA thành công ⇒ đối chiếu sau 8 giây (gộp), không tải lại sau mỗi ô.
