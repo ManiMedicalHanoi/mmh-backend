@@ -23,6 +23,16 @@ function dfDiag_(p){
     return res;
   }
   if (op === 'deep' || op === 'deepfix') return dfDeep_(p);
+  if (op === 'probe3'){                                          /* thử đúng đường ghi của app (writeRowKeepFormulas_ ▸ wFmt_ + wRow_) trên 1 dòng PIC "Test" */
+    var s3 = sh('weekly'), r3 = parseInt(p.row, 10) || 521, W3 = COL.weekly, lc = s3.getLastColumn(), cur3 = s3.getRange(r3, 1, 1, lc).getValues()[0], tz3 = ss().getSpreadsheetTimeZone(), R3 = { ok:true, row:r3 };
+    if (!/^test/i.test(String(cur3[W3.pic - 1]))) return { ok:false, error:'chỉ thử trên dòng PIC Test' };
+    var F3 = s3.getRange(r3, 1, 1, lc).getFormulas()[0], lock3 = {}; for (var f3 in COL.weekly) if (F3[COL.weekly[f3] - 1]) lock3[f3] = 1;
+    var sh3 = function(){ SpreadsheetApp.flush(); return s3.getRange(r3, W3.start, 1, 2).getValues()[0].map(function(v){ return v instanceof Date ? Utilities.formatDate(v, tz3, 'yyyy-MM-dd') : typeof v + ' ' + v; }); };
+    R3.before = sh3();
+    cur3[W3.start - 1] = s2d(String(p.d || '2025-11-05')); cur3[W3.finish - 1] = s2d(String(p.d || '2025-11-05'));
+    writeRowKeepFormulas_(s3, r3, cur3, lc, lock3, COL.weekly); R3.wrote = String(p.d || '2025-11-05'); R3.after = sh3();
+    return R3;
+  }
   if (op === 'cell'){                                            /* 1 ô Start/Finish: định dạng, kiểu giá trị; fix=1 ⇒ đặt định dạng ngày + ghi chữ yyyy-mm-dd */
     var sc = sh('weekly'), rc = parseInt(p.row, 10) || 334, rr = sc.getRange(rc, COL.weekly.start, 1, 2), tzc = ss().getSpreadsheetTimeZone(), Rc = { ok:true, row:rc };
     var show = function(){ SpreadsheetApp.flush(); return { v:rr.getValues()[0].map(function(v){ return v instanceof Date ? 'Date ' + Utilities.formatDate(v, tzc, 'yyyy-MM-dd') : typeof v + ' ' + v; }), f:rr.getNumberFormats()[0], d:rr.getDisplayValues()[0] }; };
