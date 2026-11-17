@@ -538,3 +538,9 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   bản gốc PDF + `working-calendar.json` ở mmh-library ▸ `Lịch làm việc MMH/`, năm mới thêm cả 2 nơi). Báo cáo tuần phải gửi TRONG ngày làm việc cuối của tuần (00:00 → 23:59, `RPL.WEEK_FROM`): trước đó = "Gửi sớm", sau = "Muộn".
   KPI tháng (FM01) / KPI quý (FM02) KHÔNG còn tính hạn (`RPL.COUNT = { week:1 }` ⇒ `rplDue_` trả '' ⇒ "Không tính") — PIC tự gửi từ hộp thư. `rpLog ▸ rule` thêm `weekFrom` + `count`.
   marketing `ehHoli_` (app Sự kiện MKT) đọc ngày nghỉ MỌI năm trong `RPL_CAL` (trước chỉ 2026).
+- **17/11/2026 — CRM v10.27: ngày bị ĐẢO dd/mm ↔ mm/dd khi máy chủ ghi (crm-dental / surgical / eyeless `Mã.gs`, `MMH_SalesTasks.gs` v1.4, `MMH_OrderDiag.gs`)**: thử thật trên file Surgical (vùng vi_VN, định dạng `dd/mm/yyyy`):
+  `setValue(Date 06/05/2025)` ⇒ đọc lại 05/06/2025 (cả Date 12:00); ghi **số ngày (serial)** hoặc chữ `yyyy-mm-dd` thì đúng. Hậu quả: mọi lần app lưu task (ghi lại cả dòng) đảo mọi ô ngày ≤ 12 của dòng,
+  và `crmDateFix_` (v10.12) sửa xong lại bị đảo ngược ⇒ trên Surgical chưa từng có tác dụng (CRM_DATEFIX_LOG trống, trigger 02:00 không cài được từ web app — thiếu quyền script.scriptapp).
+  Nay mọi chỗ ghi ô ngày đi qua `wV_` / `wRow_` (Date ⇒ số ngày, giữ giờ phút): `writeRowKeepFormulas_`, `writeBlockKeepFormulas_`, saveWeekly, `wkHeal_`, điền ngày đơn, `dfFixTab_`; ALL TASK `stW_`.
+  **Ghi ngày mới: KHÔNG setValue(s) đối tượng Date — dùng `wV_`.** Chẩn đoán / sửa: `crm-surgical/MMH_DateDiag.gs` ▸ ping `crm-surgical?action=dfDiag&key=<8 ký tự cuối Script ID>&full=1`
+  (`op=rows&from=&n=` xem từng dòng · `op=run` chạy crmDateFix_ · `op=probe2` thử 3 cách ghi 1 ô).

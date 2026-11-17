@@ -28,6 +28,8 @@ function stIso_(v){
   return '';
 }
 function stDate_(iso){ var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || '')); return m ? new Date(+m[1], +m[2] - 1, +m[3]) : ''; }
+/* v1.4 (17/11/2026): ghi ô ngày bằng số ngày (Date bị đảo ngày ↔ tháng ở file vùng vi_VN) */
+function stW_(iso){ var d = stDate_(iso); return d ? (Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - Date.UTC(1899, 11, 30)) / 864e5 : ''; }
 function stPct_(v){ if(v === '' || v == null) return 0; if(typeof v === 'number'){ var n = (v > 0 && v <= 1) ? Math.round(v * 100) : Math.round(v); return Math.max(0, Math.min(100, n)); }
   var m = /(-?\d+(?:\.\d+)?)/.exec(String(v)); if(!m) return 0; var x = parseFloat(m[1]); return Math.max(0, Math.min(100, Math.round(/%/.test(String(v)) || x > 1 ? x : x * 100))); }
 function stNorm_(s){ return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd').toLowerCase().replace(/\s+/g, ' ').trim(); }
@@ -82,7 +84,7 @@ function stRenumber_(){
     var st = stIso_(r[8]), pl = stIso_(r[9]), rv = stIso_(r[10]), dl = rv || pl, done = /complet/i.test(stS_(r[12]));
     var lead = (st && dl) ? Math.round((stDate_(dl) - stDate_(st)) / 86400000) : '';
     var beh = done ? ((rv && pl && rv > pl) ? 'Late' : 'On Time') : ((dl && dl < today && !/cancel/i.test(stS_(r[12]))) ? 'Overdue' : '');
-    out.push((F || G) ? [no, st ? stFy_(st) : '', st ? +stYm_(st) : '', r[3], r[4], r[5], r[6], r[7], r[8], r[9], r[10], lead, r[12], r[13], done && dl ? stDate_(dl) : '', beh]
+    out.push((F || G) ? [no, st ? stFy_(st) : '', st ? +stYm_(st) : '', r[3], r[4], r[5], r[6], r[7], r[8], r[9], r[10], lead, r[12], r[13], done && dl ? stW_(dl) : '', beh]
                       : r.map(function(){ return ''; }));
   });
   sh.getRange(ST.DATA, 2, n, 16).setValues(out);
@@ -104,9 +106,9 @@ function stLastRow_(){ var a = stRead_().all; return a.length ? a[a.length - 1].
 function stWrite_(row, o){
   var sh = stSheet_(), put = function(c, v){ if(v !== undefined) sh.getRange(row, c).setValue(v); };
   put(5, o.type); put(6, o.keyTask); put(7, o.subTask); put(8, o.pic); put(9, o.result);
-  put(10, o.start === undefined ? undefined : (stDate_(stIso_(o.start)) || ''));
-  put(11, o.planned === undefined ? undefined : (stDate_(stIso_(o.planned)) || ''));
-  put(12, o.revised === undefined ? undefined : (stDate_(stIso_(o.revised)) || ''));
+  put(10, o.start === undefined ? undefined : (stW_(stIso_(o.start)) || ''));
+  put(11, o.planned === undefined ? undefined : (stW_(stIso_(o.planned)) || ''));
+  put(12, o.revised === undefined ? undefined : (stW_(stIso_(o.revised)) || ''));
   put(14, o.status); put(15, o.progress === undefined ? undefined : Math.max(0, Math.min(100, Number(o.progress) || 0)) / 100);
 }
 function stFix_(st, pg){
@@ -249,15 +251,15 @@ function stImport_(me, p){
       var cur = stRead_().keys.filter(function(x){ return x.row && sig(x.keyTask, x.pic, x.start) === sig(k.keyTask, k.pic, k.start); })[0];
       var rows = [];
       if(!cur){
-        rows.push([ '', '', '', stS_(k.type), stS_(k.keyTask), '', stS_(k.pic), stS_(k.result), stDate_(stIso_(k.start)) || '', stDate_(stIso_(k.planned)) || '',
-                    stDate_(stIso_(k.revised)) || '', '', stS_(k.status) || 'To Do', stPct_(k.progress) / 100 ]);
+        rows.push([ '', '', '', stS_(k.type), stS_(k.keyTask), '', stS_(k.pic), stS_(k.result), stW_(stIso_(k.start)) || '', stW_(stIso_(k.planned)) || '',
+                    stW_(stIso_(k.revised)) || '', '', stS_(k.status) || 'To Do', stPct_(k.progress) / 100 ]);
         addK++;
       }
       var have = {}; ((cur && cur.subs) || []).forEach(function(s){ have[sig(s.subTask, s.pic, s.start)] = 1; });
       (k.subs || []).forEach(function(s){
         var nm = stS_(s.name || s.subTask); if(!nm || have[sig(nm, s.pic, s.start)]) return;
-        rows.push([ '', '', '', '', '', nm, stS_(s.pic), stS_(s.result), stDate_(stIso_(s.start)) || '', stDate_(stIso_(s.planned)) || '',
-                    stDate_(stIso_(s.revised)) || '', '', stS_(s.status) || 'To Do', stPct_(s.progress) / 100 ]);
+        rows.push([ '', '', '', '', '', nm, stS_(s.pic), stS_(s.result), stW_(stIso_(s.start)) || '', stW_(stIso_(s.planned)) || '',
+                    stW_(stIso_(s.revised)) || '', '', stS_(s.status) || 'To Do', stPct_(s.progress) / 100 ]);
         addS++;
       });
       if(!rows.length) return;

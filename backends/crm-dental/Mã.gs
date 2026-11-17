@@ -513,7 +513,7 @@ function handle(e, method){
     if (action === 'kpiLate') return reply(kpiLate_(user, p), callback);               /* ⭐ v10.4 */
 
     switch (action) {
-      case 'ping'            : out = { ok:true, pong:true, source:TEAM(), app:appName_(), pic:user.pic, ver:'10.26', photoShot:true, orderSafe:true, orderDelete:true, cbcEnsure:true, suppApproved:true, orderNotes:true, orderHeal:true, orderLink:true, orderEdit:true, rpStatus:true, sandbox:true, careGate:true, visitDone:true, rate:K68_RATE_DEF, dateFix:props_().getProperty('CRM_DATEFIX_LOG') || '', orderApproval:true, presentTpl:true, migrate:props_().getProperty('CRM_LAYOUT_V') || '', meeting:true, trip2:true, kpi68:true, tenderPrice:true, custLog:true, deleteAccount:true, na:true, kr:true, idem:true, kpiPush:true }; break;
+      case 'ping'            : out = { ok:true, pong:true, source:TEAM(), app:appName_(), pic:user.pic, ver:'10.27', photoShot:true, orderSafe:true, orderDelete:true, cbcEnsure:true, suppApproved:true, orderNotes:true, orderHeal:true, orderLink:true, orderEdit:true, rpStatus:true, sandbox:true, careGate:true, visitDone:true, rate:K68_RATE_DEF, dateFix:props_().getProperty('CRM_DATEFIX_LOG') || '', orderApproval:true, presentTpl:true, migrate:props_().getProperty('CRM_LAYOUT_V') || '', meeting:true, trip2:true, kpi68:true, tenderPrice:true, custLog:true, deleteAccount:true, na:true, kr:true, idem:true, kpiPush:true }; break;
       case 'boot'            : out = boot(user); break;
       case 'master'          : out = { ok:true, master: readMaster() }; break;
       case 'customerIndex'   : out = { ok:true, rows: customerIndex() }; break;
@@ -628,7 +628,7 @@ function writeRowKeepFormulas_(s, row, cur, lastCol, lock, map){
     if (skip[c]) { c++; continue; }
     var from = c;
     while (c <= lastCol && !skip[c]) c++;
-    s.getRange(row, from, 1, c - from).setValues([cur.slice(from - 1, c - 1)]);
+    s.getRange(row, from, 1, c - from).setValues(wRow_([cur.slice(from - 1, c - 1)]));
   }
 }
 
@@ -723,6 +723,14 @@ function s2d(s){
   var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s));
   return m ? new Date(+m[1], +m[2] - 1, +m[3]) : String(s);
 }
+/* ⭐ v10.27 (17/11/2026) — GHI NGÀY BẰNG SỐ NGÀY (serial). File CRM Surgical (vùng vi_VN): ghi đối tượng Date bằng setValue(s) bị ĐẢO ngày ↔ tháng
+   khi ngày ≤ 12 (thử thật: ghi 06/05/2025 ⇒ đọc lại 05/06/2025); ghi số ngày / chữ yyyy-mm-dd thì đúng. Mọi chỗ ghi ô ngày đi qua wV_ / wRow_
+   (giữ cả giờ phút nếu có). Đọc vẫn nhận Date như cũ. */
+function wV_(v){
+  if (!(v instanceof Date) || isNaN(v)) return v;
+  return (Date.UTC(v.getFullYear(), v.getMonth(), v.getDate(), v.getHours(), v.getMinutes(), v.getSeconds()) - Date.UTC(1899, 11, 30)) / 864e5;
+}
+function wRow_(a){ return a.map(function(r){ return Array.isArray(r) ? r.map(wV_) : wV_(r); }); }
 function num(v){
   if (v === '' || v === null || v === undefined) return 0;
   if (typeof v === 'number') return v;
@@ -1423,7 +1431,7 @@ function writeBlockKeepFormulas_(s, startRow, matrix, lastCol, lockF, map){
     while (c <= lastCol && !skip[c]) c++;
     var block = [];
     for (var i = 0; i < nR; i++) block.push(matrix[i].slice(from - 1, c - 1));
-    s.getRange(startRow, from, nR, c - from).setValues(block);
+    s.getRange(startRow, from, nR, c - from).setValues(wRow_(block));
   }
 }
 /* ── Nhật ký đơn hàng ── */
@@ -1705,7 +1713,7 @@ function saveWeekly(user, p){
     try {
       var _sw = sh('weekly'), _ef = _sw.getRange(out.row, COL.weekly.start, 1, 2).getValues()[0];
       if (S(data.start) && !(_ef[0] instanceof Date)){
-        _sw.getRange(out.row, COL.weekly.start, 1, 2).setValues([[s2d(data.start), s2d(S(data.finish) || data.start)]]);
+        _sw.getRange(out.row, COL.weekly.start, 1, 2).setValues(wRow_([[s2d(data.start), s2d(S(data.finish) || data.start)]]));
         logAct(user, 'anomaly', 'weekly', 'Start date trống sau khi ghi — đã ghi lại', 'E=' + S(_ef[0]) + ' · start=' + S(data.start), out.row);
         try { flushLog_(); } catch(eF){}
       }
@@ -6905,7 +6913,7 @@ function ordNoHeal_(force){
     if (map.day) dfix.forEach(function(f){
       var v = s.getRange(f.row, 1, 1, Math.max(map.orderNo, map.name, map.day)).getValues()[0];
       if (S(v[map.orderNo - 1]) !== f.no || normName_(v[map.name - 1]) !== normName_(f.name) || S(v[map.day - 1])) return;   /* sheet đã đổi ⇒ bỏ qua */
-      s.getRange(f.row, map.day).setValue(s2d(f.day));
+      s.getRange(f.row, map.day).setValue(wV_(s2d(f.day)));
       n++;
     });
     if (n){ SpreadsheetApp.flush(); bumpVersion(bumpTabsFor_('order')); _RAW = {}; _ORDSUPP = null; }
@@ -7480,7 +7488,7 @@ function wkHealFlush_(noLock){
         var cur = s.getRange(r._row, 1, 1, W.account).getValues()[0];
         if (cur[W.start - 1] instanceof Date || S(cur[W.start - 1])) return;                       /* đã có ngày */
         if (normName_(cur[W.pic - 1]) !== normName_(r.pic) || wkAccKey_(cur[W.account - 1]) !== wkAccKey_(r.account)) return;
-        s.getRange(r._row, W.start, 1, 2).setValues([[s2d(r.start), s2d(r.finish || r.start)]]);
+        s.getRange(r._row, W.start, 1, 2).setValues(wRow_([[s2d(r.start), s2d(r.finish || r.start)]]));
         if (!S(cur[W.month - 1])) s.getRange(r._row, W.month).setValue(ymOfIso_(r.start));
         if (!S(cur[W.fy - 1])) s.getRange(r._row, W.fy).setValue(fyOfIso_(r.start));
         n++;
@@ -7504,7 +7512,7 @@ function wkHealFlush_(noLock){
    Múi giờ file khác múi giờ script ⇒ đổi về múi giờ script và ghi lại ngày theo đúng ngày đang hiện.
    Chạy 1 lần sau khi deploy (ping / boot) + mỗi đêm 02:00 (sửa ô gõ tay mới). Chạy tay: crmDateFixNow(); kết quả ở Script Property CRM_DATEFIX_LOG.
    ════════════════════════════════════════════════════════════════════════════════════════════════ */
-var DF_KEY = 'CRM_DATEFIX_V', DF_VER = '1';
+var DF_KEY = 'CRM_DATEFIX_V', DF_VER = '2';   /* v10.27: chạy lại 1 lần sau khi ghi ngày bằng số ngày */
 function dfPad_(n){ return ('0' + n).slice(-2); }
 function dfMk_(y, mo, d){
   if (y < 1990 || y > 2100 || mo < 1 || mo > 12 || d < 1 || d > 31) return '';
@@ -7561,7 +7569,7 @@ function dfFixTab_(s, row0, cols, monthCol, tzOld, tzNew, force, st){
         }
       }
       if (why || force){
-        out[i] = [Utilities.parseDate(fix, tzNew, 'yyyy-MM-dd')]; ch[i] = 1; nCh++; nw[i] = fix;
+        out[i] = [wV_(s2d(fix))]; ch[i] = 1; nCh++; nw[i] = fix;
         st[why || 'tz'] = (st[why || 'tz'] || 0) + 1;
         if (why === 'swap' && st.ex.length < 12) st.ex.push(s.getName() + ' dòng ' + (row0 + i) + ': ' + iso + ' → ' + fix);
       }
