@@ -13,6 +13,7 @@
  *  Gọi: workflow "Kiểm tra" ▸ ping = training?action=rhExtTrain&key=<8 ký tự cuối Script ID>&op=status|run&full=1
  *    · status: buổi đã ghi chưa (Script Property EXT1117_SID), dòng, thư mục, file trong thư mục
  *    · run   : ghi buổi (chỉ 1 lần; đã ghi ⇒ trả về buổi cũ, không ghi thêm)
+ *    · fix   : chép định dạng ngày của dòng buổi trước vào ô E (dòng mới hiển thị kèm giờ ⇒ đọc không ra ngày), giờ W / X dạng chữ
  *  Không dùng dịch vụ Google mới.
  * ============================================================================
  */
@@ -53,7 +54,11 @@ function apiRhExtTrain(p) {
     if (!r.ok) return r;
     P.setProperty(EXT1117.PROP, r.sid);
     hubLog('INFO', 'rhExtTrain', r.sid + ' row ' + r.row + ' (Completed)', EXT1117.topic);
-  } else if (op !== 'run' && op !== 'status') return {ok: false, error: 'op = status | run'};
+  } else if (op === 'fix') {
+    var sid0 = P.getProperty(EXT1117.PROP); if (!sid0) return {ok: false, error: 'Chưa ghi buổi.'};
+    var fx = ext1117Fix_(sid0); if (!fx.ok) return fx;
+    var st = ext1117Status_(sid0, op); st.fix = fx; return st;
+  } else if (op !== 'run' && op !== 'status') return {ok: false, error: 'op = status | run | fix'};
   return ext1117Status_(P.getProperty(EXT1117.PROP), op);
 }
 
@@ -80,13 +85,33 @@ function ext1117Write_() {
   });
 }
 
+/** Dòng mới chưa có định dạng ngày ⇒ ô E hiển thị cả giờ, hệ thống đọc không ra ngày: chép định dạng ô E / W / X của dòng buổi trước. */
+function ext1117Fix_(sid) {
+  return hubWithLock(function(){
+    var sh = hubReportSheet(), C = HUB.COL, row = 0, last = sh.getLastRow();
+    var ids = sh.getRange(HUB.DATA_START_ROW, C.SID, last - HUB.DATA_START_ROW + 1, 1).getValues();
+    for (var i = 0; i < ids.length; i++) if (hubNorm(ids[i][0]) === sid) { row = HUB.DATA_START_ROW + i; break; }
+    if (!row) return {ok: false, error: 'Không thấy dòng của ' + sid};
+    var before = {e: sh.getRange(row, C.DATE).getDisplayValue(), w: sh.getRange(row, C.TIME_FROM).getDisplayValue(), x: sh.getRange(row, C.TIME_TO).getDisplayValue()};
+    var ref = 0;
+    for (var r = row - 1; r >= HUB.DATA_START_ROW; r--) { if (hubToDate(sh.getRange(r, C.DATE).getDisplayValue())) { ref = r; break; } }
+    var fmt = ref ? sh.getRange(ref, C.DATE).getNumberFormat() : 'dd/MM/yyyy';
+    sh.getRange(row, C.DATE).setNumberFormat(fmt || 'dd/MM/yyyy');
+    sh.getRange(row, C.TIME_FROM, 1, 2).setNumberFormat('@').setValues([[EXT1117.timeFrom, EXT1117.timeTo]]);
+    SpreadsheetApp.flush();
+    hubCacheClear('sessions');
+    return {ok: true, row: row, ref: ref, fmt: fmt, before: before,
+            after: {e: sh.getRange(row, C.DATE).getDisplayValue(), w: sh.getRange(row, C.TIME_FROM).getDisplayValue(), x: sh.getRange(row, C.TIME_TO).getDisplayValue()}};
+  });
+}
+
 function ext1117Status_(sid, op) {
   if (!sid) return {ok: true, op: op, done: false};
   hubCacheClear('sessions');
   var s = hubFindSession(sid);
   if (!s) return {ok: true, op: op, done: true, sid: sid, missing: true};
   var out = {ok: true, op: op, done: true, sid: sid, row: s.row, date: s.date, type: s.type, category: s.category, topic: s.topic,
-             trainer: s.trainer, status: s.status, audience: hubNorm(s.audience).substring(0, 200), folderUrl: s.folderUrl || '',
+             trainer: s.trainer, status: s.status, timeFrom: s.timeFrom, timeTo: s.timeTo, audience: hubNorm(s.audience).substring(0, 200), folderUrl: s.folderUrl || '',
              assessment: s.assessment, assessmentResult: s.assessmentResult, files: []};
   try {
     var src = hubSessionSource(s);
