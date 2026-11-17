@@ -1,5 +1,5 @@
 /*************************************************************************************************
- * MMH_OrderDelete.gs — XOÁ ĐƠN HÀNG (cả đơn) · v1.0 (04/11/2026)
+ * MMH_OrderDelete.gs — XOÁ ĐƠN HÀNG (cả đơn) · v1.1 (17/11/2026: đơn chưa có số mà dòng đã dời ⇒ tìm lại theo account + PIC + ngày / tháng) · v1.0 (04/11/2026)
  * GIỐNG HỆT ở crm-dental / crm-surgical / crm-eyeless (sửa 1 nơi ⇒ chép sang 2 nơi kia).
  *
  * Lỗi cũ: deleteRow chỉ cho sales xoá ở tab weekly / cbc / customer ⇒ PIC bấm "Xoá đơn" luôn bị từ chối
@@ -40,6 +40,13 @@ function deleteOrder(user, p){
       var o = byRow[row];
       if (o && same(o, no, nm)){ seed.push(o); return; }
       if (no){ all.forEach(function(x){ if (same(x, no, nm)) seed.push(x); }); return; }
+      /* v1.1 (17/11/2026) — đơn CHƯA CÓ SỐ mà số dòng đã dời (Phuong: xoá mãi không được, báo "dữ liệu đã thay đổi"):
+         tìm lại theo account + PIC (+ ngày đặt / tháng nếu app gửi _day / _mon) trong các dòng không số — chỉ nhận khi ra đúng 1 đơn */
+      var day = S(it && it._day).slice(0, 10), pic = normName_(it && it._pic), mon = S(it && it._mon).replace(/\D/g, '');
+      var cand = all.filter(function(x){ return !S(x.orderNo) && normName_(x.name) === normName_(nm) && (!pic || normName_(x.pic) === pic)
+        && (!day || (wkIso_(x.day) || S(x.day)).slice(0, 10) === day) && (!mon || S(ordYm_(x)) === mon); });
+      var grp = {}; cand.forEach(function(x){ grp[ordK2_(x)] = 1; });
+      if (cand.length && Object.keys(grp).length === 1){ cand.forEach(function(x){ if (seed.indexOf(x) < 0) seed.push(x); }); return; }
       stale = true;
     });
     if (!seed.length){
