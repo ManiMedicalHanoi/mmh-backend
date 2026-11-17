@@ -581,6 +581,7 @@ function ehRoute_(action, user, p){
     if (action === 'ehSample') return ehSample_(p);
     if (action === 'ehDaily') return ehDailyApi_(p);
     if (action === 'ehLink') return ehLinkApi_(p);   /* v1.2 — MKT_EventHubLink.gs */
+    if (action === 'ehDriveDiag') return ehDriveDiag_(p);   /* 17/11/2026 — rà Drive (chỉ đọc), MKT_EventHubDiag.gs */
     if (action === 'ehUpload') return ehOnce_(p, function(){ return ehUpload_(p); });
     if (action === 'ehSync'){
       if (String(p.mode || '') === 'status'){ var last = {}; try { last = JSON.parse(PropertiesService.getScriptProperties().getProperty('EH_LAST') || '{}'); } catch(e){} return { ok:true, ver:EH.VER, last:last }; }
