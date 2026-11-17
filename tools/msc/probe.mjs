@@ -138,21 +138,23 @@ try {
     return out;
   }), 15000) || [];
   say('   file trên tab:', JSON.stringify(names));
-  for (const nm of names.slice(0, 3)) {
-    /* bấm biểu tượng tải cạnh tên file nếu có, không thì bấm tên */
+  /* dò PDF: cấu trúc phần tử + mọi yêu cầu mạng ngay sau khi bấm */
+  for (const nm of names.filter(n => /\.pdf$/i.test(n)).slice(0, 2)) {
     const host = pg.getByText(nm, { exact: true }).first();
-    const icon = host.locator('xpath=ancestor-or-self::*[self::a or self::button or self::div][1]').locator('svg, i, img').last();
-    await dl(nm + ' (biểu tượng)', (await icon.count()) ? icon : host);
-    await dl(nm + ' (tên)', host);
+    const html = await host.evaluate(e => { let x = e; for (let i = 0; i < 3 && x.parentElement; i++) x = x.parentElement; return x.outerHTML.replace(/\s+/g, ' ').slice(0, 1500); }).catch(() => '');
+    say('   HTML quanh "' + nm + '":', html);
+    const reqs = []; const on = q => reqs.push(q.method() + ' ' + q.resourceType() + ' ' + q.url().slice(0, 250) + (q.postData() ? ' · gửi ' + q.postData().slice(0, 300) : ''));
+    ctx.on('request', on);
+    await dl(nm, host);
+    await pg.waitForTimeout(3000);
+    ctx.off('request', on);
+    say('   yêu cầu sau khi bấm:\n     ' + reqs.filter(u => !/google|recaptcha|analytics|ngsp/.test(u)).join('\n     '));
   }
-  const exs = pg.locator(':is(a,button):text-is("Xuất Excel")');
-  const nEx = await exs.count(); say('   số nút Xuất Excel:', nEx);
-  for (let k = 0; k < Math.min(nEx, 4); k++) { const ex = exs.nth(k); if (!(await ex.isVisible().catch(() => false))) continue; await ex.scrollIntoViewIfNeeded().catch(() => {}); await dl('Xuất Excel #' + (k + 1), ex); }
   say('   file bắt qua mạng:', JSON.stringify(grabbed));
 } catch (e) { say('LỖI:', e.message.split('\n')[0]); }
 
-say('\n=== XHR / fetch trang đã gọi (' + log.length + ') ===');
-for (const x of log) {
+say('\n=== (bỏ in danh sách mạng) ===');
+for (const x of []) {
   if (/\.(js|css|png|svg|woff2?)(\?|$)|js_resolve_modules|egp-portal-home|google-analytics|ngsp\.gov\.vn|get-time-now/.test(x.u)) continue;
   say(`${x.s} ${x.m} ${x.u.slice(0, 220)}`);
   if (x.pd) say('   gửi: ' + short(x.pd, 700));
