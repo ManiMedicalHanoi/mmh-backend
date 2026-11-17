@@ -44,7 +44,7 @@ var PQ_BANK = {
     qs: [
       { c: 1, q: 'Trám răng sau nhanh, lớp dày: gợi ý dòng nào?', o: ['Mani Micro', 'Mani Bulk', 'Mani Flo-V', 'Mani EG'], a: 1, x: 'Mani Bulk đặt một lớp 4 mm, chiếu 20 giây.' },
       { c: 1, q: 'Trám bít hố rãnh, tổn thương cổ răng xoang V: gợi ý dòng nào?', o: ['Mani Flo-V', 'Mani Nano', 'Mani Bulk', 'Mani Micro'], a: 0, x: 'Chảy lỏng độ nhớt cao, không nhỏ giọt, đặt đúng vị trí.' },
-      { c: 1, q: 'Thẩm mỹ răng trước, phòng khám muốn trữ ít màu: gợi ý dòng nào?', o: ['Mani Bulk', 'Mani Flo-V', 'Mani Micro', 'Mani EG'], a: 2, x: 'Smart Shade: màu tự thích ứng với răng xung quanh.' },
+      { c: 1, q: 'Phục hình thẩm mỹ cao vùng răng trước, cần nhiều màu men và dễ đánh bóng: gợi ý dòng nào?', o: ['Mani Bulk', 'Mani Flo-V', 'Mani Micro', 'Mani EG'], a: 2, x: 'Mani Micro: 6 màu men (Bleach 1 đến 3, Incisal Clear, White, Medium), 5 màu ngà, dễ đánh bóng.' },
       { c: 1, q: 'Vùng chịu lực, tái tạo cùi sau điều trị tủy: gợi ý dòng nào?', o: ['Mani Flo-V', 'Mani Nano', 'Mani Bulk', 'Mani Micro'], a: 1, x: 'Mani Nano: mô-đun đàn hồi 16.575 MPa, cản quang 220%.' },
       { c: 1, q: 'Ba dòng composite nào không chứa Bis-GMA?', o: ['Mani Micro, Mani Nano, Mani EG', 'Mani Bulk, Mani Flo-V, Mani EG', 'Mani Nano, Mani Bulk, Mani Micro', 'Cả năm dòng'], a: 1, x: 'Mani Micro và Mani Nano có chứa Bis-GMA.' },
       { c: 2, q: 'Mô-đun đàn hồi cao nghĩa là gì?', o: ['Miếng trám ít biến dạng khi nhai', 'Màu sáng hơn', 'Chảy lỏng hơn', 'Đông nhanh hơn'], a: 0, x: 'Mô-đun đàn hồi thể hiện độ cứng vững của vật liệu.' },
