@@ -22,7 +22,7 @@
  *   plan [&min=50&tail=200]: chỉ đọc — kế hoạch xoá.  run: bắt đầu dọn (chạy nền bằng trigger, không có quyền trigger ⇒ chạy ngay ≤ 45 giây / lượt, gọi lại run để chạy tiếp).
  * Tự động: warmCache gọi wkcAuto_ — CHỈ Marketing (WKC.AUTO_SRC), tối đa 1 lần / ngày, 19:00–21:00, khi có khoảng trống ≥ WKC.AUTO_RUN dòng.        */
 var WKC = {
-  VER: '1.0', P: 'WKC_STATE', MIN_RUN: 50, KEEP_GAP: 1, KEEP_TAIL: 200, CHUNK: 2000, PAD: 3, FX_MIN: 20,
+  VER: '1.1', P: 'WKC_STATE', MIN_RUN: 50, KEEP_GAP: 1, KEEP_TAIL: 200, CHUNK: 2000, PAD: 3, FX_MIN: 20,
   BUDGET: 240000, SYNC_BUDGET: 45000, AUTO_RUN: 1000,
   AUTO_SRC: { marketing:1 },            /* tự dọn buổi tối CHỈ ở Marketing (người dùng yêu cầu làm gọn sheet Marketing 16/11/2026); Back Office / Management chỉ chạy tay khi được đồng ý */
   SPILL: /ARRAYFORMULA|\bMAP\(|BYROW\(|BYCOL\(|SCAN\(|REDUCE\(|MAKEARRAY\(|LAMBDA\(|FILTER\(|QUERY\(|SORTN?\(|UNIQUE\(|IMPORT(RANGE|DATA|XML|HTML|FEED)|SEQUENCE\(|SPLIT\(|TRANSPOSE\(|FLATTEN\(|GOOGLEFINANCE|IMAGE\(/i
@@ -93,11 +93,16 @@ function wkcSig_(sh, plan){
 }
 /* ── sao lưu cả file sang Drive ── */
 function wkcBackup_(){
-  var f = DriveApp.getFileById(SS_ID), it = f.getParents(), folder = it.hasNext() ? it.next() : null;
+  /* v1.1 (17/11/2026): chép vào cùng thư mục bị từ chối (Back Office: "Access denied: DriveApp" — không có quyền thêm file vào thư mục chứa file gốc)
+     ⇒ chép vào My Drive của tài khoản chạy hệ thống; vẫn lỗi ⇒ ném lỗi (không xoá gì). */
+  var f = DriveApp.getFileById(SS_ID), folder = null, where = 'folder';
+  try{ var it = f.getParents(); folder = it.hasNext() ? it.next() : null; }catch(e){ folder = null; }
   var tz = Session.getScriptTimeZone() || 'Asia/Ho_Chi_Minh';
   var nm = '[Sao lưu trước khi dọn dòng trống ' + Utilities.formatDate(new Date(), tz, 'dd/MM/yyyy HH:mm') + '] ' + f.getName();
-  var c = folder ? f.makeCopy(nm, folder) : f.makeCopy(nm);
-  return { id:c.getId(), name:nm, url:c.getUrl() };
+  var c = null;
+  if(folder){ try{ c = f.makeCopy(nm, folder); }catch(e){ c = null; } }
+  if(!c){ c = f.makeCopy(nm); where = 'mydrive'; }
+  return { id:c.getId(), name:nm, url:c.getUrl(), where:where };
 }
 /* ── 1 dòng có xoá được không: '' = được; khác = lý do (cột) ── */
 function wkcRowWhy_(v, f, n, allow){
