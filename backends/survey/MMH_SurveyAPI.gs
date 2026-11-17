@@ -57,7 +57,7 @@ function svHandle_(p, body) {
       if (a === 'qStart') return svOut_(Object.assign({ ok: true }, svQuizStart(fq, b2.info || {})));
       return svOut_(svQuizSubmit(fq, b2.token, b2.info || {}, b2.answers || {}, !!b2.auto));
     }
-    if (/^pq(Meta|Start|Answer|Board|Feedback)$/.test(a)) return svOut_(pqRoute_(a, Object.assign({}, p, body || {})));  // bài kiểm tra đối tác kiểu Kahoot (MMH_PartnerQuiz.gs) — trang Training-Hub/quiz/doi-tac/, công khai
+    if (/^pq(Meta|Start|Answer|Board|BoardAll|Feedback)$/.test(a)) return svOut_(pqRoute_(a, Object.assign({}, p, body || {})));  // bài kiểm tra đối tác kiểu Kahoot (MMH_PartnerQuiz.gs) — trang Training-Hub/quiz/doi-tac/, công khai
     if (/^rs(List|Add|Data|Watch|Remove|Tick|Diag|Push|PushGone|DelTest|Agg)$/.test(a)) return rsRoute_(a, Object.assign({}, p, body || {}));  // app Kết quả khảo sát (MMH_SurveyResults.gs) — phiên email tk, không cần khoá
     var key = (body && body.key) || p.key || '';
     var want = PropertiesService.getScriptProperties().getProperty('SV_KEY') || SV.KEY;
@@ -70,7 +70,7 @@ function svHandle_(p, body) {
     }
     if (a === 'formDump' || a === 'formEdit') return svOut_(svEdRoute_(a, p, body));
     if (a === 'scopes') return svOut_(svScopes_());
-    if (a === 'pqDiag') return svOut_(pqDiag_(p.b || (body || {}).b || ''));
+    if (a === 'pqDiag') return svOut_(pqDiag_(p.b || (body || {}).b || '', p.sum || (body || {}).sum));
     if (a === 'trainerSessions') return svOut_(svTmSessions_(p.email || (body || {}).email, Number(p.back || (body || {}).back || 120), Number(p.ahead || (body || {}).ahead || 60)));
     if (a === 'quizLink') {  // link làm bài dạng mã ngắn cho bài đã tạo (+ đổi danh sách email nhận kết quả nếu gửi notify)
       var qf = p.formId || (body || {}).formId, nt = (body || {}).notify;

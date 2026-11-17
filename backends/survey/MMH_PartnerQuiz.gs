@@ -1,5 +1,8 @@
 /**
- * MMH Partner Quiz v1.1 (17/11/2026; v1.1: đạt từ 6/10 câu, câu góp ý sản phẩm KHÔNG tính điểm pqFeedback, top 3 mỗi phần nhận túi cói — người dùng yêu cầu)
+ * MMH Partner Quiz v1.2 (17/11/2026, người dùng yêu cầu): pqBoardAll = bảng xếp hạng chung (Phần 1 · Phần 2 · tổng 2 phần) cho trang
+ *   quiz/doi-tac/?v=top (ai có link đều xem, không trả SĐT); tab "TỔNG HỢP" trong Sheet kết quả (pqSummary_: tình hình chung, top 10 từng phần,
+ *   xếp hạng chung, theo đại lý / NPP) — ghi lại sau mỗi lượt (≤ 1 lần / 45 giây; lượt bị bỏ qua được ghi bù khi trang xếp hạng hỏi), pqDiag &sum=1 ghi ngay.
+ * v1.1 (17/11/2026; v1.1: đạt từ 6/10 câu, câu góp ý sản phẩm KHÔNG tính điểm pqFeedback, top 3 mỗi phần nhận túi cói — người dùng yêu cầu)
  * v1.0 (16/11/2026) — bài kiểm tra kiểu Kahoot cho đối tác (NPP, đại lý) sau 2 bài đào tạo nha khoa.
  * Trang riêng của MMH (không dùng Kahoot vì Kahoot không bắt nhập thông tin + SĐT trước khi làm — người dùng yêu cầu):
  *   GitHub Pages Training-Hub/quiz/doi-tac/?b=<mã bài>   (mã QR ở cuối video trỏ tới đây)
@@ -16,7 +19,7 @@
  * Kết quả: Google Sheet "MMH · Bài kiểm tra đối tác · Kết quả" (thư mục SV.FOLDER, tab KET_QUA) + email tóm tắt mỗi lượt
  * về chủ thư mục (= tài khoản chạy máy chủ; đổi bằng Script Property PQ_NOTIFY, "-" = tắt email). Ngân hàng câu hỏi: MMH_PartnerQuizBank.gs.
  */
-var PQ = { VER: '1.1', BOOK_PROP: 'PQ_BOOK', BOOK: 'MMH · Bài kiểm tra đối tác · Kết quả', TAB: 'KET_QUA', FB: 3500, TTL: 7200,
+var PQ = { VER: '1.2', SUM_TAB: 'TỔNG HỢP', BOOK_PROP: 'PQ_BOOK', BOOK: 'MMH · Bài kiểm tra đối tác · Kết quả', TAB: 'KET_QUA', FB: 3500, TTL: 7200,
   PAGE: 'https://manimedicalhanoi.github.io/Training-Hub/quiz/doi-tac/',
   HEAD: ['Thời gian nộp', 'Mã bài', 'Bài', 'Họ tên', 'Đại lý / NPP', 'Số điện thoại', 'Số câu đúng', 'Số câu', 'Điểm', 'Đạt', 'Thời gian làm (giây)', 'Chi tiết', 'Mã lượt', 'Góp ý sản phẩm (không tính điểm)'] };
 
@@ -25,6 +28,7 @@ function pqRoute_(a, p) {
   if (a === 'pqStart') return pqStart_(p.b, p.info || {});
   if (a === 'pqAnswer') return pqAnswer_(p.tk, Number(p.i), Number(p.pick), Number(p.ms));
   if (a === 'pqBoard') return pqBoard_(p.b);
+  if (a === 'pqBoardAll') return pqBoardAll_();
   if (a === 'pqFeedback') return pqFeedback_(p.tk, p.text);
   return { ok: false, error: 'ACTION' };
 }
@@ -162,7 +166,8 @@ function pqFinish_(z, s) {
   var rows;
   try {
     pqSheet_().appendRow(row);
-    CacheService.getScriptCache().removeAll(['pq_rows_' + s.b, 'pq_board_' + s.b]);
+    CacheService.getScriptCache().removeAll(['pq_rows_' + s.b, 'pq_board_' + s.b, 'pq_all']);
+    PropertiesService.getScriptProperties().setProperty('PQ_SUM_DIRTY', String(Date.now()));
     rows = pqRows_(s.b);
   } finally { lock.releaseLock(); }
   var best = pqBest_(rows), rank = 0;
@@ -171,6 +176,7 @@ function pqFinish_(z, s) {
   var fin = { score: s.score, nRight: s.right, n: s.ids.length, pass: z.pass, passed: passed, sec: sec, rank: rank, players: best.length,
     best: mine ? mine.score : s.score, top: pqTop_(best) };
   try { pqMail_(z, s, fin); } catch (x) {}
+  try { pqSumMaybe_(); } catch (x) {}
   return fin;
 }
 
@@ -204,6 +210,7 @@ function pqBoard_(b) {
   if (!z) return { ok: false, code: 'QUIZ', error: 'Link bài kiểm tra không đúng.' };
   var c = CacheService.getScriptCache(), k = 'pq_board_' + b, hit = c.get(k);
   if (hit) return JSON.parse(hit);
+  try { pqSumMaybe_(); } catch (x) {}
   var rows = pqRows_(b), best = pqBest_(rows);
   var d0 = new Date(); d0.setHours(0, 0, 0, 0);
   var o = { ok: true, b: b, title: z.title, sub: z.sub, n: z.n, players: best.length, attempts: rows.length,
@@ -241,10 +248,132 @@ function pqFeedback_(tk, text) {
   return { ok: true };
 }
 
-function pqDiag_(b) {
+/* ---------- bảng xếp hạng chung (trang ?v=top) ---------- */
+function pqAll_() {
+  var parts = [], people = {}, order = Object.keys(PQ_BANK);
+  order.forEach(function (b, pi) {
+    var z = PQ_BANK[b], rows = pqRows_(b), best = pqBest_(rows);
+    parts.push({ b: b, title: z.title, sub: z.sub, n: z.n, pass: z.pass, prize: z.prize || '', rows: rows, best: best });
+    best.forEach(function (r) {
+      var o = people[r.phone] || (people[r.phone] = { phone: r.phone, name: r.name, dealer: r.dealer, at: 0, sc: {}, rt: {}, sec: 0 });
+      if (r.at >= o.at) { o.at = r.at; o.name = r.name; o.dealer = r.dealer; }
+      o.sc[b] = r.score; o.rt[b] = r.right; o.sec += r.sec;
+    });
+  });
+  var all = Object.keys(people).map(function (k) {
+    var o = people[k]; o.total = order.reduce(function (t, b) { return t + (o.sc[b] || 0); }, 0); o.done = Object.keys(o.sc).length; return o;
+  }).sort(function (x, y) { return (y.total - x.total) || (y.done - x.done) || (x.sec - y.sec); });
+  return { order: order, parts: parts, all: all };
+}
+
+function pqBoardAll_() {
+  var c = CacheService.getScriptCache(), hit = c.get('pq_all');
+  try { pqSumMaybe_(); } catch (x) {}
+  if (hit) return JSON.parse(hit);
+  var A = pqAll_(), d0 = new Date(); d0.setHours(0, 0, 0, 0);
+  var o = { ok: true, v: PQ.VER, at: Date.now(), players: A.all.length,
+    parts: A.parts.map(function (p) {
+      return { b: p.b, title: p.title, sub: p.sub, n: p.n, pass: p.pass, prize: p.prize, players: p.best.length, attempts: p.rows.length,
+        today: p.rows.filter(function (r) { return r.at >= d0.getTime(); }).length,
+        passed: p.best.filter(function (r) { return r.right >= p.pass; }).length, top: pqTop_(p.best) };
+    }),
+    overall: A.all.slice(0, 15).map(function (o, i) {
+      return { rank: i + 1, name: o.name, dealer: o.dealer, total: o.total, done: o.done,
+        sc: A.order.map(function (b) { return o.sc[b] == null ? null : o.sc[b]; }) };
+    }) };
+  try { c.put('pq_all', JSON.stringify(o), 8); } catch (x) {}
+  return o;
+}
+
+/* ---------- tab TỔNG HỢP trong Sheet kết quả ---------- */
+function pqSumMaybe_() {
+  var P = PropertiesService.getScriptProperties();
+  var dirty = Number(P.getProperty('PQ_SUM_DIRTY') || 0), done = Number(P.getProperty('PQ_SUM_AT') || 0);
+  if (!dirty || dirty <= done) return false;
+  var c = CacheService.getScriptCache();
+  if (c.get('pq_sum_busy')) return false;
+  c.put('pq_sum_busy', '1', 45);
+  pqSummary_();
+  return true;
+}
+
+function pqPart_(p) { return String(p.sub || p.b).replace(/^Bài kiểm tra · /, ''); }
+
+function pqSummary_() {
+  var P = PropertiesService.getScriptProperties(), t0 = Date.now();
+  CacheService.getScriptCache().removeAll(Object.keys(PQ_BANK).map(function (b) { return 'pq_rows_' + b; }));
+  var A = pqAll_(), W = 8, out = [], bold = [], head = [];
+  var row = function (a) { var r = a.slice(0, W); while (r.length < W) r.push(''); out.push(r); return out.length; };
+  var tz = Session.getScriptTimeZone();
+  bold.push(row(['TỔNG HỢP KẾT QUẢ BÀI KIỂM TRA ĐỐI TÁC']));
+  row(['Cập nhật lúc ' + Utilities.formatDate(new Date(), tz, 'HH:mm dd/MM/yyyy') + ' · tự cập nhật sau mỗi lượt làm bài (chậm nhất khoảng 1 phút). Không sửa tay tab này; dữ liệu gốc ở tab ' + PQ.TAB + '.']);
+  row([]);
+  bold.push(row(['1. TÌNH HÌNH CHUNG']));
+  head.push(row(['Bài', 'Số người', 'Số lượt làm', 'Số người đạt', 'Tỷ lệ đạt', 'Điểm TB (lượt cao nhất)', 'Câu đúng TB', 'Đạt từ']));
+  A.parts.forEach(function (p) {
+    var n = p.best.length, ok = p.best.filter(function (r) { return r.right >= p.pass; }).length;
+    var avg = n ? Math.round(p.best.reduce(function (t, r) { return t + r.score; }, 0) / n) : 0;
+    var avgR = n ? Math.round(p.best.reduce(function (t, r) { return t + r.right; }, 0) / n * 10) / 10 : 0;
+    row([pqPart_(p) + ': ' + p.title, n, p.rows.length, ok, n ? Math.round(ok / n * 100) + '%' : '', avg, avgR + '/' + p.n, p.pass + '/' + p.n]);
+  });
+  row(['Tham gia ít nhất 1 phần', A.all.length, '', '', '', '', '', '']);
+  A.parts.forEach(function (p, pi) {
+    row([]);
+    bold.push(row([(pi + 2) + '. TOP 10 · ' + pqPart_(p).toUpperCase() + ': ' + p.title.toUpperCase() + ' (QUÀ: TOP 3 ĐẠT TỪ ' + p.pass + '/' + p.n + ' CÂU)']));
+    head.push(row(['Hạng', 'Họ tên', 'Đại lý / NPP', 'Số điện thoại', 'Câu đúng', 'Điểm', 'Thời gian làm (giây)', 'Quà']));
+    if (!p.best.length) row(['Chưa có lượt làm bài']);
+    p.best.slice(0, 10).forEach(function (r, i) {
+      row([i + 1, r.name, r.dealer, "'" + r.phone, r.right + '/' + r.n, r.score, r.sec, i < 3 && r.right >= p.pass ? 'Túi cói MANI' : '']);
+    });
+  });
+  var k = A.parts.length + 2;
+  row([]);
+  bold.push(row([k + '. XẾP HẠNG CHUNG (TỔNG ĐIỂM CÁC PHẦN, MỖI PHẦN TÍNH LƯỢT CAO NHẤT)']));
+  head.push(row(['Hạng', 'Họ tên', 'Đại lý / NPP', 'Số điện thoại'].concat(A.parts.map(function (p) { return 'Điểm ' + pqPart_(p); })).concat(['Tổng điểm'])));
+  if (!A.all.length) row(['Chưa có lượt làm bài']);
+  A.all.slice(0, 30).forEach(function (o, i) {
+    row([i + 1, o.name, o.dealer, "'" + o.phone].concat(A.order.map(function (b) { return o.sc[b] == null ? '' : o.sc[b]; })).concat([o.total]));
+  });
+  row([]);
+  bold.push(row([(k + 1) + '. THEO ĐẠI LÝ / NHÀ PHÂN PHỐI']));
+  head.push(row(['Đại lý / NPP', 'Số người', 'Số lượt làm', 'Lượt đạt', 'Tỷ lệ lượt đạt', 'Điểm TB mỗi lượt', '', '']));
+  var dl = {};
+  A.parts.forEach(function (p) {
+    p.rows.forEach(function (r) {
+      var key = String(r.dealer).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/[^a-z0-9]+/g, ' ').trim() || '-';
+      var o = dl[key] || (dl[key] = { name: r.dealer, ph: {}, n: 0, ok: 0, sc: 0 });
+      o.ph[r.phone] = 1; o.n++; o.sc += r.score; if (r.right >= p.pass) o.ok++;
+    });
+  });
+  Object.keys(dl).map(function (x) { return dl[x]; }).sort(function (x, y) { return (Object.keys(y.ph).length - Object.keys(x.ph).length) || (y.n - x.n); })
+    .forEach(function (o) { row([o.name, Object.keys(o.ph).length, o.n, o.ok, o.n ? Math.round(o.ok / o.n * 100) + '%' : '', o.n ? Math.round(o.sc / o.n) : '']); });
+  var lock = LockService.getScriptLock(); lock.waitLock(15000);
+  try {
+    var ss = pqBook_(), sh = ss.getSheetByName(PQ.SUM_TAB), fresh = !sh;
+    if (fresh) sh = ss.insertSheet(PQ.SUM_TAB, 0);
+    sh.clear();
+    if (sh.getMaxColumns() < W) sh.insertColumnsAfter(sh.getMaxColumns(), W - sh.getMaxColumns());
+    if (sh.getMaxRows() < out.length + 5) sh.insertRowsAfter(sh.getMaxRows(), out.length + 5 - sh.getMaxRows());
+    sh.getRange(1, 1, out.length, W).setValues(out).setFontFamily('Arial').setFontSize(10).setVerticalAlignment('middle');
+    sh.getRange(1, 1).setFontSize(14).setFontColor('#22384F');
+    sh.getRange(2, 1).setFontColor('#5F7186').setFontStyle('italic');
+    sh.getRangeList(bold.map(function (r) { return 'A' + r; })).setFontWeight('bold').setFontColor('#22384F');
+    sh.getRangeList(head.map(function (r) { return 'A' + r + ':H' + r; })).setFontWeight('bold').setBackground('#EEF3F8').setFontColor('#22384F');
+    if (fresh) {
+      [70, 190, 210, 120, 100, 110, 130, 110].forEach(function (w, i) { sh.setColumnWidth(i + 1, w); });
+      sh.setColumnWidth(1, 230); sh.setHiddenGridlines(true);
+    }
+    P.setProperty('PQ_SUM_AT', String(t0));
+  } finally { lock.releaseLock(); }
+  return { rows: out.length, ms: Date.now() - t0 };
+}
+
+function pqDiag_(b, sum) {
   var out = { ok: true, v: PQ.VER, quizzes: Object.keys(PQ_BANK).map(function (k) { return { b: k, title: PQ_BANK[k].title, bank: PQ_BANK[k].qs.length, n: PQ_BANK[k].n }; }) };
   try { var ss = pqBook_(); out.sheet = ss.getUrl(); } catch (x) { out.sheetErr = x.message; }
   if (b) { var rows = pqRows_(b); out.attempts = rows.length; out.players = pqBest_(rows).length; }
   out.notify = pqNotify_() ? 'có' : 'tắt';
+  if (sum) { try { out.summary = pqSummary_(); var t = pqBook_().getSheetByName(PQ.SUM_TAB); if (t) out.summaryUrl = out.sheet + '#gid=' + t.getSheetId(); } catch (x) { out.sumErr = x.message; } }
+  out.top = PQ.PAGE + '?v=top';
   return out;
 }
