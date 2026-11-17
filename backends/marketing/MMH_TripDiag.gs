@@ -34,7 +34,7 @@ function tripDiag_(p){
           if(fid){
             try{
               var it = DriveApp.getFolderById(fid).getFiles(), fl = [];
-              while(it.hasNext() && fl.length < 15){ var fi = it.next(); if(fi.getDateCreated() >= since) fl.push(f(fi.getDateCreated()) + ' · ' + fi.getName().slice(0, 60) + ' · ' + fi.getOwner().getEmail().split('@')[0]); }
+              while(it.hasNext() && fl.length < 15){ var fi = it.next(); if(fi.getDateCreated() >= since) fl.push(f(fi.getDateCreated()) + ' · ' + fi.getName().slice(0, 60) + ' · ' + (fi.getOwner() ? fi.getOwner().getEmail().split('@')[0] : 'shared drive')); }
               o.newFiles = fl;
             }catch(e){ o.folderErr = String(e.message).slice(0, 80); }
           }

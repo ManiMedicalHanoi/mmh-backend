@@ -128,6 +128,7 @@ function rhxDispatch(action, user, p){
     case 'tripReport':  return rhxTripReport(user, p);      /* ⭐ v12.6 */
     case 'tripUpdate':  return rhxTripUpdate(user, p);      /* ⭐ v12.8 */
     case 'tripDelete':  return rhxTripDelete(user, p);      /* ⭐ v12.8 */
+    case 'tripReportSent': return rhxTripReportSent(user, p);   /* ⭐ v13.0 (17/11/2026): người báo cáo tự gửi email từ hộp thư của mình */
   }
   return null;
 }
@@ -200,7 +201,8 @@ function rhxTripObj_(r, rowNo, rich){
       comment: rhxStr(r[T.COMMENT-1]), folder: link,
       estCost: rhxStr(r[T.ESTCOST-1]), total: rhxNum(r[T.TOTAL-1]), schedule: rhxStr(r[T.SCHEDULE-1]),
       equip: rhxStr(r[T.EQUIP-1]), folderName: rhxStr(r[T.FOLDER_NAME-1]), reportDate: rhxISO(r[T.REPORT_DATE-1]),
-      emailHod: rhxStr(r[T.EMAIL_HOD-1]), emailDir: rhxStr(r[T.EMAIL_DIRECTOR-1])
+      emailHod: rhxStr(r[T.EMAIL_HOD-1]), emailDir: rhxStr(r[T.EMAIL_DIRECTOR-1]),
+      emailPic: rhxStr(r[T.EMAIL_PIC-1]), emailCc: rhxStr(r[T.EMAIL_CC-1])   /* ⭐ v13.0 */
     });
 }
 function rhxReadTripRow_(row){
@@ -609,7 +611,8 @@ function rhxTripInfo(user, p){
     dest:t.dest, co:t.co, purpose:t.purpose, expect:t.expect, estCost:t.estCost, total:t.total, schedule:t.schedule,
     equip:t.equip, folder:t.folder, report:t.report, reportDate:t.reportDate, approval:t.approval, comment:t.comment,
     approved:rhxApproved(t.approval), canReport:rhxCanReport(user, t),
-    canEdit:rhxTripPerm(user, t).canEdit, canDelete:rhxTripPerm(user, t).canDelete } };
+    canEdit:rhxTripPerm(user, t).canEdit, canDelete:rhxTripPerm(user, t).canDelete,
+    mail:(String(p.mail || '') === '1' && t.report && rhxCanReport(user, t)) ? rhxTripMail_(t) : null } };
 }
 /* tạo file Google Doc báo cáo — cùng bố cục generateWordReport của hệ thống Business Trip */
 function rhxReportDoc(t, folderId, ka, kf, fu){
@@ -675,6 +678,62 @@ function rhxHodName(hodEmail){
   if(!x || /^ha$/i.test(x)) return '';                      /* HOD chính là Director → chỉ "Dear Ha-san" */
   return x.charAt(0).toUpperCase() + x.slice(1);
 }
+/* ⭐ v13.0 (17/11/2026, người dùng yêu cầu) — người nhận email báo cáo công tác:
+   To = Director (cột AA; Director tự báo cáo ⇒ Hoa) · CC = HOD (cột Z) + người đi cùng (cột I, tra USER_MAP) + email CC của dòng (cột AB).
+   Người báo cáo không nằm trong danh sách (email do chính họ gửi). Địa chỉ theo miền công ty (mmhAddr_). */
+function rhxReportRcpt_(t){
+  var me = String(rhxEmailOf(t.hubPic) || t.emailPic || '').toLowerCase().trim();
+  var dir = t.emailDir, hod = t.emailHod;
+  if(!rhxValidEmail(dir) || !rhxValidEmail(hod)){ var d = rhxDefaultEmails(t.pic); if(!rhxValidEmail(dir)) dir = d.director; if(!rhxValidEmail(hod)) hod = d.hod; }
+  var to = [], cc = [];
+  if(/^nt\.ha@/i.test(me)) to.push('vtt.hoa@manimedicalhanoi.com');
+  else { if(rhxValidEmail(dir)) to.push(dir); if(rhxValidEmail(hod)) cc.push(hod); }
+  String(t.co || '').split(/[,;\n\/&+]+/).forEach(function(n){
+    n = n.trim(); if(!n || /^(no|none|không|-)$/i.test(n)) return;
+    var e = rhxEmailOf(rhxHubName(n)) || rhxEmailOf(n); if(rhxValidEmail(e)) cc.push(e);
+  });
+  String(t.emailCc || '').split(/[\s,;]+/).forEach(function(e){ if(rhxValidEmail(e)) cc.push(e); });
+  var mm = typeof mmhAddr_ === 'function' ? mmhAddr_ : function(x){ return x; };
+  var key = function(e){ return String(mm(e)).toLowerCase().trim(); }, meK = me ? key(me) : '', seen = {};
+  if(meK) seen[meK] = 1;
+  function uniq(a){ return a.filter(function(e){ var k = key(e); if(!k || seen[k]) return false; seen[k] = 1; return true; }).map(function(e){ return String(mm(e)).trim(); }); }
+  to = uniq(to); cc = uniq(cc);
+  if(!to.length && cc.length) to = [cc.shift()];
+  return { to:to, cc:cc, me:me ? String(mm(me)) : '', hod:hod };
+}
+/* tách cột Report "**I. Key Activities** … **II.** … **III.** …" (giống tripSplitReport của app) */
+function rhxSplitReport_(txt){
+  var o = { ka:'', kf:'', fu:'' }, t = String(txt || ''), m;
+  m = /\*\*\s*I\.\s*Key Activities\s*\*\*([\s\S]*?)(?=\*\*\s*II\.|$)/i.exec(t); if(m) o.ka = m[1].trim();
+  m = /\*\*\s*II\.\s*Key Findings\s*\*\*([\s\S]*?)(?=\*\*\s*III\.|$)/i.exec(t); if(m) o.kf = m[1].trim();
+  m = /\*\*\s*III\.\s*Follow Up Actions\s*\*\*([\s\S]*)$/i.exec(t); if(m) o.fu = m[1].trim();
+  if(!o.ka && !o.kf && !o.fu && t.trim()) o.ka = t.trim();
+  return o;
+}
+/* nội dung email báo cáo dựng từ báo cáo ĐÃ LƯU trên file (mở lại để gửi / nhờ hệ thống gửi thay) */
+function rhxTripMail_(t){
+  var o = rhxSplitReport_(t.report), rc = rhxReportRcpt_(t), subj = rhxReportSubject_(t), to = rc.to, cc = rc.cc;
+  if(typeof tmAny_ === 'function' && tmAny_() && MMH_TEST){ to = [MMH_TEST.email]; cc = []; subj = '[TEST] ' + subj; }
+  return { to:to, cc:cc, subject:subj, html:rhxReportHtml(t, rhxHodName(rc.hod), o.ka, o.kf, o.fu, t.folder), me:rc.me, folder:t.folder || '',
+           ka:o.ka, kf:o.kf, fu:o.fu };
+}
+function rhxReportSubject_(t){ return 'Business Trip Report - ' + t.pic + ' - ' + t.dest + ' - From ' + rhxDMY(t.start) + ' to ' + rhxDMY(t.finish); }
+/* ⭐ v13.0 — người báo cáo bấm "Đã gửi" sau khi tự gửi email ⇒ ghi nhật ký (không gửi gì) */
+function rhxTripReportSent(user, p){
+  var t = rhxFindTrip(p);
+  if(!t) return { ok:false, error:'Không tìm thấy chuyến công tác trên file Business Trip.' };
+  if(!rhxCanReport(user, t)) return { ok:false, error:'Chỉ ' + t.hubPic + ' (hoặc quản lý) được xác nhận báo cáo cho chuyến đi này.' };
+  var to = rhxStr(p.to).slice(0, 400);
+  if(String(p.system || '') === '1'){                     /* không mở được hộp thư ⇒ nhờ hệ thống gửi thay (như trước) */
+    if(!t.report) return { ok:false, error:'Chuyến đi chưa có báo cáo — hãy lưu báo cáo trước.' };
+    var m = rhxTripMail_(t); if(!m.to.length) return { ok:false, error:'Không xác định được email Director.' };
+    mmhMail_({ to:m.to.join(','), cc:m.cc.concat(m.me ? [m.me] : []).join(','), replyTo:m.me || '', subject:m.subject, htmlBody:m.html,
+               name:'Mani Medical Hanoi - Business Trip System' });
+    to = m.to.concat(m.cc).join(', ') + ' (hệ thống gửi thay)';
+  }
+  try{ if(typeof logActivity === 'function') logActivity(user.pic, 'update', 'đã tự gửi email báo cáo công tác ' + t.dest + ' (' + rhxDMY(t.start) + ' → ' + rhxDMY(t.finish) + ')' + (to ? ' tới ' + to : ''), 'Lịch công tác', ''); }catch(e){}
+  return { ok:true, at:Utilities.formatDate(new Date(), rhxTz(), 'dd/MM/yyyy HH:mm') };
+}
 function rhxTripReport(user, p){
   var ka = rhxStr(p.keyActivities), kf = rhxStr(p.keyFindings), fu = rhxStr(p.followUp);
   if(!ka || !kf || !fu) return { ok:false, error:'Vui lòng điền đủ 3 mục: Key Activities, Key Findings, Follow Up Actions.' };
@@ -703,24 +762,28 @@ function rhxTripReport(user, p){
   sh.getRange(row, T.REPORT).setValue(bullet);
   try{ sh.getRange(row, T.REPORT_DATE).setValue(new Date()); }catch(e){}
   SpreadsheetApp.flush();
-  /* 4) email báo cáo: To Director (AA) · CC HOD (Z) */
-  var mailed = false, sendMail = !(p.sendEmail === false || p.sendEmail === 'false' || p.sendEmail === '0' || p.sendEmail === 0);
+  /* 4) email báo cáo — ⭐ v13.0: mailMode=self (mặc định của app mới) ⇒ KHÔNG gửi từ hệ thống, trả nội dung để người báo cáo
+        tự gửi từ hộp thư của mình; app cũ (không gửi mailMode) ⇒ hệ thống gửi như trước, CC thêm người đi cùng + chính người báo cáo. */
+  var mailed = false, mail = null, sendMail = !(p.sendEmail === false || p.sendEmail === 'false' || p.sendEmail === '0' || p.sendEmail === 0);
+  var self = String(p.mailMode || '') === 'self';
   if(sendMail){
-    var dir = t.emailDir, hod = t.emailHod;
-    if(!rhxValidEmail(dir) || !rhxValidEmail(hod)){ var d = rhxDefaultEmails(t.pic); if(!rhxValidEmail(dir)) dir = d.director; if(!rhxValidEmail(hod)) hod = d.hod; }
-    if(rhxValidEmail(dir)){
+    var rc = rhxReportRcpt_(t), html = rhxReportHtml(t, rhxHodName(rc.hod), ka, kf, fu, folder), subj = rhxReportSubject_(t);
+    if(self){
+      var mto = rc.to, mcc = rc.cc;
+      if(typeof tmAny_ === 'function' && tmAny_() && MMH_TEST){ mto = [MMH_TEST.email]; mcc = []; subj = '[TEST] ' + subj; }   /* chế độ TEST: chỉ tới Admin */
+      mail = { to:mto, cc:mcc, subject:subj, html:html, me:rc.me, doc:docLink || '', folder:folder || '' };
+    } else if(rc.to.length){
       try{
-        mmhMail_({ to:dir, cc:(rhxValidEmail(hod) && hod !== dir) ? hod : '', replyTo:rhxEmailOf(t.hubPic) || '',
-          subject:'Business Trip Report - ' + t.pic + ' - ' + t.dest + ' - From ' + rhxDMY(t.start) + ' to ' + rhxDMY(t.finish),
-          htmlBody:rhxReportHtml(t, rhxHodName(hod), ka, kf, fu, folder), name:'Mani Medical Hanoi - Business Trip System' });
+        mmhMail_({ to:rc.to.join(','), cc:rc.cc.concat(rc.me ? [rc.me] : []).join(','), replyTo:rc.me || '',
+          subject:subj, htmlBody:html, name:'Mani Medical Hanoi - Business Trip System' });
         mailed = true;
       }catch(e){ warn.push('Đã lưu báo cáo nhưng gửi email thất bại: ' + e.message); }
     } else warn.push('Không xác định được email Director — chưa gửi email báo cáo.');
   }
   try{ if(typeof logActivity === 'function') logActivity(user.pic, 'complete', 'báo cáo công tác ' + t.dest + ' (' + rhxDMY(t.start) + ' → ' + rhxDMY(t.finish) + ')', 'Lịch công tác', ''); }catch(e){}
   var sync = rhxSyncSoon_(p);
-  return { ok:true, message:'Đã lưu báo cáo công tác' + (docLink ? ' · đã tạo file báo cáo' : '') + (mailed ? ' · đã gửi email báo cáo' : ''),
-           docLink:docLink, folder:folder, mailed:mailed, warn:warn, sync:sync };
+  return { ok:true, message:'Đã lưu báo cáo công tác' + (docLink ? ' · đã tạo file báo cáo' : '') + (mailed ? ' · đã gửi email báo cáo' : '') + (mail ? ' · mời bạn tự gửi email báo cáo' : ''),
+           docLink:docLink, folder:folder, mailed:mailed, mail:mail, warn:warn, sync:sync };
 }
 /* ⭐ v12.9 — web gửi bgSync=1 ⇒ lệnh ghi trả kết quả NGAY; đồng bộ sheet WEEKLY do web gọi "tripSync" chạy nền ngay sau đó
    (người dùng không phải chờ). Web cũ không gửi bgSync ⇒ vẫn đồng bộ luôn như trước. */

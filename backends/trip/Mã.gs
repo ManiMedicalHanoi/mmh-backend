@@ -5445,8 +5445,30 @@ function sendReportEmail(sheet, rowNumber, tripData, docLink, keyActivities, key
     // ✅ TO: DIRECTOR ONLY
     const recipients = directorEmail;
     
-    // ✅ CC: HOD (nếu valid)
-    const ccRecipients = hodValid ? hodEmail : '';
+    // ✅ CC: HOD (nếu valid) + ⭐ 17/11/2026: người đi cùng (cột I, tra email ở sheet Master cột A ⇒ C) — người dùng yêu cầu gửi cả PIC liên quan
+    let ccRecipients = hodValid ? hodEmail : '';
+    try {
+      const ccList = ccRecipients ? [ccRecipients] : [];
+      const seen = {}; seen[String(directorEmail).toLowerCase()] = 1; if (ccRecipients) seen[ccRecipients.toLowerCase()] = 1;
+      let meMail = ''; try { meMail = String(Session.getActiveUser().getEmail() || '').toLowerCase(); } catch (e) {}
+      if (meMail) seen[meMail] = 1;
+      const coNames = String(tripData.coTraveler || '').split(/[,;\n\/&+]+/).map(function (x) { return x.trim().toLowerCase(); })
+        .filter(function (x) { return x && !/^(no|none|không|-)$/i.test(x); });
+      if (coNames.length) {
+        const ms = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONFIG.MASTER_SHEET);
+        const md = ms ? ms.getDataRange().getValues() : [];
+        coNames.forEach(function (n) {
+          for (let i = 1; i < md.length; i++) {
+            const e = String(md[i][2] || '').trim();
+            if (String(md[i][0] || '').trim().toLowerCase() === n && isValidEmail(e)) {
+              if (!seen[e.toLowerCase()]) { seen[e.toLowerCase()] = 1; ccList.push(e); }
+              break;
+            }
+          }
+        });
+      }
+      ccRecipients = ccList.join(',');
+    } catch (ccErr) { Logger.log('⚠️ CC người đi cùng: ' + ccErr.message); }
     
     Logger.log('  TO (Director): ' + recipients);
     Logger.log('  CC (HOD): ' + (ccRecipients || 'None'));
@@ -5524,7 +5546,7 @@ function sendReportEmail(sheet, rowNumber, tripData, docLink, keyActivities, key
         success: true,
         message: 'Report email sent successfully!\n\n' +
                  '📧 TO: Director (' + directorEmail + ')\n' +
-                 '📋 CC: HOD (' + (hodEmail || 'None') + ')'
+                 '📋 CC: ' + (ccRecipients || 'None')
       };
       
     } catch (mailError) {
