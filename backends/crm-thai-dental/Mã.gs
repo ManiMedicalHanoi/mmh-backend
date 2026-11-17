@@ -618,6 +618,7 @@ function saveWeekly_(user, p){
   } finally { L.releaseLock(); }
   bump_(['weekly']);
   log_(user.pic, isNew ? 'add' : 'update', 'weekly', parseAcc_(d.account || '').name || ('row ' + row), (d.typeAction || '') + (d.status ? ' · ' + d.status : ''), row);
+  try{ var tg = menNotify_(user, d, cur, row); if(tg.length) out.tagged = tg; }catch(eM){ out.tagError = String(eM && eM.message || eM); }   /* 17/11/2026 — TH_Mention.gs: @tag ⇒ notice */
   try{ out.sync = thdSyncSoon_(); }catch(e){ out.syncError = e.message; }   /* 17/11/2026 — TH_DentalCare.gs: mirror in the background */
   out.ok = true; out.row = row; out.message = isNew ? 'Task added to sheet CUSTOMER TASK' : 'Task updated';
   return out;
@@ -1218,6 +1219,7 @@ function weeklyHtml_(pic, from, to, other){
   var nf = addDaysIso_(to, 1), nt = addDaysIso_(to, 7), mine = weeklyRows_().filter(function(w){ return picEq_(w.pic, pic); });
   var cur = mine.filter(function(w){ return spanHit_(w.start, w.finish, from, to); });
   var nxt = mine.filter(function(w){ return spanHit_(w.start, w.finish, nf, nt); });
+  try{ cur = cur.concat(menTagged_(pic, from, to)); nxt = nxt.concat(menTagged_(pic, nf, nt)); }catch(eM){}   /* 17/11/2026 — TH_Mention.gs: tasks where a colleague tagged this PIC */
   var oc = (other && other[pic] && other[pic].cur) || otherFromSheet_(pic, from, to);
   var on = (other && other[pic] && other[pic].next) || otherFromSheet_(pic, nf, nt);
   /* v1.16 — same layout as the Vietnam teams (shared wrBody_, English) */
