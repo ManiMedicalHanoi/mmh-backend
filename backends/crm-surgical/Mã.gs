@@ -2880,6 +2880,7 @@ function sendWeeklyReport(user, p){
   var all = readTab('weekly');
   var otherBag = parseOther_(p);
   var otherTotal = 0;
+  var phIn = phcNoteIn_(p, user);                                     /* ⭐ 17/11/2026 — MMH_PhotoCheck.gs: giải trình ảnh < 15 phút */
 
   var targets = [];
   if (option === 'all'){
@@ -2900,6 +2901,7 @@ function sendWeeklyReport(user, p){
     var g2 = weeklyGroups(all, who, nextFrom, nextTo);
     var o1 = otherFor_(otherBag, who, 'cur'), o2 = otherFor_(otherBag, who, 'next');
     var html = buildCombinedReportHtml({ pic:who, title:user.title }, thisFrom, thisTo, g1, nextFrom, nextTo, g2, o1, o2);
+    html = html.replace(/(<body[^>]*>)/i, '$1' + phcHtml_(phcDetect_(all, who, thisFrom, thisTo), phcNote_(who, thisFrom)));   /* ⭐ 17/11/2026 */
     var b = HtmlService.createHtmlOutput(html).getBlob().getAs('application/pdf')
               .setName('MMH_' + teamLabel_() + '_Weekly_' + who.replace(/\s+/g, '') + '_' + thisFrom + '.pdf');
     return { ok:true, download:true, otherCount: otherCount_(o1),
@@ -2910,8 +2912,16 @@ function sendWeeklyReport(user, p){
     targets.push({ pic:user.pic, email:user.email, title:user.title, test:true });
   }
 
+  /* ⭐ 17/11/2026 — sales gửi CHÍNH THỨC báo cáo của mình mà có ảnh đi địa bàn < 15 phút ở khách khác nhau ⇒ bắt buộc giải trình */
+  if (option === 'team'){
+    var phc0 = phcDetect_(all, user.pic, thisFrom, thisTo);
+    if (phc0.n && !phcNote_(user.pic, thisFrom))
+      return { ok:false, code:'PHOTO_NOTE', n:phc0.n, chains:phc0.chains,
+               error:'Bạn có ' + phc0.n + ' ảnh cuộc gặp khách hàng cách nhau dưới 15 phút — cần giải trình trước khi gửi báo cáo.' };
+  }
   var sent = [], pdfErrs = [];
   targets.forEach(function(t){
+    var phHtml = phcHtml_(phcDetect_(all, t.pic, thisFrom, thisTo), phcNote_(t.pic, thisFrom));
     var recipient = { pic:t.pic, email:t.email, title:t.title };
     var tKeys = weeklyGroups(all, t.pic, thisFrom, thisTo);
     var nKeys = weeklyGroups(all, t.pic, nextFrom, nextTo);
@@ -2920,7 +2930,7 @@ function sendWeeklyReport(user, p){
     otherTotal += otherCount_(oCur);
     /* ⭐ v10.8 — PDF đính kèm cùng nội dung / bố cục với email */
     var html  = '<html><head><meta charset="utf-8"><style>@page{size:A4 landscape;margin:12mm}body{margin:0}</style></head><body>' +
-                buildCombinedEmailBody(recipient, thisFrom, thisTo, tKeys, nextFrom, nextTo, nKeys, oCur, oNext) + '</body></html>';
+                phHtml + buildCombinedEmailBody(recipient, thisFrom, thisTo, tKeys, nextFrom, nextTo, nKeys, oCur, oNext) + '</body></html>';
     var blob  = HtmlService.createHtmlOutput(html).getBlob().getAs('application/pdf')
                   .setName('MMH_' + teamLabel_() + '_Weekly_' + t.pic.replace(/\s+/g, '') + '_' + thisFrom + '.pdf');
     if (!t.test) { var sv = savePdfToDrive_(blob); if (!sv.ok) pdfErrs.push(t.pic + ': ' + sv.error); }
@@ -2936,7 +2946,7 @@ function sendWeeklyReport(user, p){
     }
     mmhMail_({
       to: toField, cc: ccField, subject: subject,
-      htmlBody: buildCombinedEmailBody(recipient, thisFrom, thisTo, tKeys, nextFrom, nextTo, nKeys, oCur, oNext),
+      htmlBody: phHtml + buildCombinedEmailBody(recipient, thisFrom, thisTo, tKeys, nextFrom, nextTo, nKeys, oCur, oNext),
       attachments: [blob], name: appName_()
     });
     if (!t.test && typeof rplAdd_ === 'function') rplAdd_('week', t.pic, thisFrom, { to:thisTo, by:user.pic, opt:option });   /* ⭐ MMH_ReportLog.gs */
