@@ -127,29 +127,38 @@ try {
     const buf = fs.readFileSync(f);
     say(`   ✅ TẢI ĐƯỢC (${label}): ${d.suggestedFilename()} · ${buf.length} byte · đầu file "${buf.slice(0, 8).toString('latin1').replace(/[^\x20-\x7e]/g, '.')}"`);
   }
-  const tab = 'Kết quả lựa chọn nhà thầu';
-  say('4) Tab: ' + tab);
-  await race(pg.locator(`:is(a,button,li,span,[role=tab]):text-is("${tab}")`).last().click({ timeout: 10000 }).catch(e => say('   không bấm được tab:', e.message.split('\n')[0])), 12000);
-  await pg.waitForTimeout(6000); await closePopups('tab', pg); await shot('4-kq');
-  /* file đính kèm: phần tử LÁ có chữ kết thúc .pdf / .xlsx… (không lấy khối cha) */
-  const names = await race(pg.evaluate(() => {
+  const listFiles = () => race(pg.evaluate(() => {
     const out = [];
-    document.querySelectorAll('a,span,button').forEach(e => { const t = (e.innerText || '').trim(); if (e.offsetParent && /\.(pdf|xlsx?|docx?|zip|rar)$/i.test(t) && t.length < 160 && !out.includes(t)) out.push(t); });
+    document.querySelectorAll('a,span,button,p,div').forEach(e => { if (e.children.length > 2) return; const t = (e.innerText || '').trim(); if (e.offsetParent && /\.(pdf|xlsx?|docx?|zip|rar)$/i.test(t) && t.length < 160 && !out.includes(t)) out.push(t); });
     return out;
-  }), 15000) || [];
-  say('   file trên tab:', JSON.stringify(names));
-  /* dò PDF: cấu trúc phần tử + mọi yêu cầu mạng ngay sau khi bấm */
-  for (const nm of names.filter(n => /\.pdf$/i.test(n)).slice(0, 2)) {
-    const host = pg.getByText(nm, { exact: true }).first();
-    const html = await host.evaluate(e => { let x = e; for (let i = 0; i < 3 && x.parentElement; i++) x = x.parentElement; return x.outerHTML.replace(/\s+/g, ' ').slice(0, 1500); }).catch(() => '');
-    say('   HTML quanh "' + nm + '":', html);
-    const reqs = []; const on = q => reqs.push(q.method() + ' ' + q.resourceType() + ' ' + q.url().slice(0, 250) + (q.postData() ? ' · gửi ' + q.postData().slice(0, 300) : ''));
-    ctx.on('request', on);
-    await dl(nm, host);
-    await pg.waitForTimeout(3000);
-    ctx.off('request', on);
-    say('   yêu cầu sau khi bấm:\n     ' + reqs.filter(u => !/google|recaptcha|analytics|ngsp/.test(u)).join('\n     '));
+  }), 15000).then(x => x || []);
+  async function tryPdf(tag) {
+    const names = await listFiles(); say('   file trên ' + tag + ':', JSON.stringify(names));
+    for (const nm of names.filter(n => /\.pdf$/i.test(n)).slice(0, 2)) {
+      const host = pg.getByText(nm, { exact: true }).first();
+      const html = await host.evaluate(e => { let x = e; for (let i = 0; i < 2 && x.parentElement; i++) x = x.parentElement; return x.outerHTML.replace(/\s+/g, ' ').slice(0, 1200); }).catch(() => '');
+      say('   HTML quanh "' + nm + '":', html);
+      const reqs = []; const on = q => reqs.push(q.method() + ' ' + q.resourceType() + ' ' + q.url().slice(0, 250) + (q.postData() ? ' · gửi ' + q.postData().slice(0, 300) : ''));
+      ctx.on('request', on);
+      await dl(nm, host);
+      await pg.waitForTimeout(2000);
+      ctx.off('request', on);
+      say('   yêu cầu sau khi bấm:\n     ' + reqs.filter(u => !/google|recaptcha|analytics|ngsp|woff/.test(u)).join('\n     '));
+    }
   }
+  say('4a) Tab Thông báo mời thầu');
+  await tryPdf('tab TBMT');
+  const tb = pg.locator(':is(a,button):text-is("Tải TBMT")').first();
+  if (await tb.isVisible({ timeout: 2000 }).catch(() => false)) await dl('Tải TBMT', tb);
+  const tab = 'Kết quả lựa chọn nhà thầu';
+  say('4b) Tab: ' + tab);
+  await race(pg.locator(`:is(a,button,li,span,[role=tab]):text-is("${tab}")`).last().click({ timeout: 10000 }).catch(e => say('   không bấm được tab:', e.message.split('\n')[0])), 12000);
+  await pg.waitForFunction(() => /QuyetDinhPheDuyetKQLCNT|\.pdf/i.test(document.body.innerText) && /Quyết định phê duyệt/.test(document.body.innerText), null, { timeout: 25000 }).catch(() => say('   (chưa thấy file .pdf sau 25 giây)'));
+  await pg.waitForTimeout(1500); await closePopups('tab', pg); await shot('4-kq');
+  await tryPdf('tab KQ');
+  const exs = pg.locator(':is(a,button):text-is("Xuất Excel")');
+  const nEx = await exs.count(); say('   số nút Xuất Excel:', nEx);
+  for (let k = 0; k < Math.min(nEx, 4); k++) { const ex = exs.nth(k); if (!(await ex.isVisible().catch(() => false))) continue; await ex.scrollIntoViewIfNeeded().catch(() => {}); await dl('Xuất Excel #' + (k + 1), ex); }
   say('   file bắt qua mạng:', JSON.stringify(grabbed));
 } catch (e) { say('LỖI:', e.message.split('\n')[0]); }
 
