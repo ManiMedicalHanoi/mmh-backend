@@ -20,6 +20,7 @@ p.on('response', async r => {
   try { const ct = r.headers()['content-type'] || ''; body = /json|text|javascript/.test(ct) ? await r.text() : '[' + ct + ']'; } catch (e) { body = '(không đọc được)'; }
   log.push({ m: q.method(), u: q.url(), s: r.status(), pd: q.postData() || '', b: body.slice(0, 3000) });
 });
+p.on('requestfailed', q => { if (/muasamcong/.test(q.url())) log.push({ m: q.method(), u: q.url(), s: 'FAIL', pd: q.postData() || '', b: (q.failure() || {}).errorText || '' }); });
 p.on('download', d => say('  ⬇ download sự kiện:', d.suggestedFilename(), d.url().slice(0, 200)));
 
 async function closePopups(tag) {
@@ -50,10 +51,20 @@ try {
   say('   tiêu đề:', await p.title());
 
   say('2) Tìm số ' + NO);
-  const box = p.locator('input[placeholder*="Nhập từ kho"], input[placeholder*="IB000202"]').first();
-  await box.click({ timeout: 15000 }); await box.fill(NO); await p.keyboard.press('Enter');
-  await p.waitForTimeout(8000); await closePopups('kết quả tìm'); await shot('2-search'); await texts('kết quả tìm');
-
+  const modals = await p.$$eval('.modal, [role=dialog], [class*="popup"], [class*="Popup"]', els => els.filter(e => e.offsetParent).map(e => (e.innerText || '').trim().slice(0, 200)));
+  say('   popup còn hiện:', JSON.stringify(modals));
+  const ins = await p.$$eval('input', els => els.map(e => ({ id: e.id, ph: e.placeholder, vis: !!e.offsetParent, type: e.type })).filter(x => x.ph));
+  say('   ô nhập:', JSON.stringify(ins));
+  const box = p.locator('input[placeholder*="IB000202"]:visible').first();
+  await box.click({ timeout: 15000 }); await box.fill(NO);
+  await Promise.all([p.waitForLoadState('domcontentloaded').catch(() => {}), p.keyboard.press('Enter')]);
+  await p.waitForTimeout(10000); await closePopups('kết quả tìm'); await shot('2-search'); await texts('kết quả tìm');
+  /* gọi thử API tìm kiếm ngay trong trang (cùng cookie) */
+  for (const path of ['/o/egp-portal-contractor-selection-v2/services/smart/search', '/o/egp-portal-contractor-selection-v2/services/smart/search_prc']) {
+    const body = [{ pageSize: 5, pageNumber: 0, query: [{ index: 'es-contractor-selection', keyWord: NO, matchType: 'all-1', matchFields: ['notifyNo', 'bidName'], filters: [] }] }];
+    const r = await p.evaluate(async ({ path, body }) => { try { const x = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); return x.status + ' ' + (await x.text()).slice(0, 1500); } catch (e) { return 'ERR ' + e.message; } }, { path, body });
+    say('   thử API', path, '⇒', r.replace(/\s+/g, ' '));
+  }
   say('3) Mở gói');
   const link = p.locator(`a:has-text("${NO}"), :text("${NO}")`).first();
   const [np] = await Promise.all([ctx.waitForEvent('page', { timeout: 8000 }).catch(() => null), link.click({ timeout: 15000 }).catch(e => say('   chưa bấm được:', e.message.slice(0, 200)))]);
