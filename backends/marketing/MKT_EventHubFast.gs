@@ -36,7 +36,8 @@ function ehBootBuild_(ss){
   var tpl = ehRead_(ss, 'TEMPLATE').map(ehClean2_);
   return { events: ehRead_(ss, 'EVENTS').map(ehClean2_), tasks: ehRead_(ss, 'TASKS').map(ehClean2_), files: ehRead_(ss, 'FILES').map(ehClean2_),
            log: ehRead_(ss, 'LOG').slice(-400).map(ehClean2_), comments: ehRead_(ss, 'COMMENTS').slice(-800).map(ehClean2_), meetings: ehRead_(ss, 'MEETINGS').map(ehClean2_),
-           checkins: ehRead_(ss, 'CHECKINS').slice(-400).map(ehClean2_), notify: ehRead_(ss, 'NOTIFY').slice(-150).map(ehClean2_), plan: plan, people: ehPeople_(),
+           checkins: ehRead_(ss, 'CHECKINS').slice(-400).map(ehClean2_),
+           partners: ehRead_(ss, 'PARTNERS').map(ehClean2_), pnotice: ehRead_(ss, 'PNOTICE').slice(-500).map(ehClean2_),   /* v1.8 */ notify: ehRead_(ss, 'NOTIFY').slice(-150).map(ehClean2_), plan: plan, people: ehPeople_(),
            roles: EH.ROLES, status: EH.STATUS, groups: tpl.filter(function(t){ return /lớn/i.test(ehS_(t.kind)); }).map(function(t){ return { group: t.group, role: t.role }; }),
            book: ss.getUrl(), filesUrl: ehFilesRoot_().getUrl(), mgrs: ehMgrs_(ss), builtAt: ehNow_() };
 }
