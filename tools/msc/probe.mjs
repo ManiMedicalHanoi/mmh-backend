@@ -21,6 +21,19 @@ p.on('response', async r => {
   try { const ct = r.headers()['content-type'] || ''; body = /json|text|javascript/.test(ct) ? await r.text() : '[' + ct + ']'; } catch (e) { body = '(không đọc được)'; }
   log.push({ m: q.method(), u: q.url(), s: r.status(), pd: q.postData() || '', b: body.slice(0, 3000) });
 });
+const grabbed = [];
+ctx.on('response', async r => {
+  try {
+    const h = r.headers(), ct = h['content-type'] || '', cd = h['content-disposition'] || '';
+    if (!/pdf|spreadsheet|excel|octet-stream|msword|zip/i.test(ct) && !/attachment|filename/i.test(cd)) return;
+    const body = await r.body(); if (!body || body.length < 200) return;
+    let name = (cd.match(/filename\*?=(?:UTF-8'')?"?([^";]+)/i) || [])[1] || r.url().split('/').pop().split('?')[0] || ('file_' + Date.now());
+    try { name = decodeURIComponent(name); } catch (e) {}
+    name = name.replace(/[\\/:*?"<>|]+/g, '_').slice(0, 150);
+    fs.writeFileSync(`${OUT}/resp_${name}`, body); grabbed.push(name);
+    console.log(`   📥 bắt được file qua mạng: ${name} · ${body.length} byte · ${ct} · ${r.url().slice(0, 160)}`);
+  } catch (e) {}
+});
 p.on('requestfailed', q => { if (/muasamcong/.test(q.url())) log.push({ m: q.method(), u: q.url(), s: 'FAIL', pd: q.postData() || '', b: (q.failure() || {}).errorText || '' }); });
 p.on('download', d => say('  ⬇ download sự kiện:', d.suggestedFilename(), d.url().slice(0, 200)));
 
@@ -125,10 +138,17 @@ try {
     return out;
   }), 15000) || [];
   say('   file trên tab:', JSON.stringify(names));
-  for (const nm of names.slice(0, 3)) await dl(nm, pg.getByText(nm, { exact: true }).first());
-  const ex = pg.locator(':is(a,button):text-is("Xuất Excel")').first();
-  if (await ex.isVisible({ timeout: 3000 }).catch(() => false)) { await ex.scrollIntoViewIfNeeded().catch(() => {}); await dl('Xuất Excel', ex); }
-  else say('   không thấy nút Xuất Excel');
+  for (const nm of names.slice(0, 3)) {
+    /* bấm biểu tượng tải cạnh tên file nếu có, không thì bấm tên */
+    const host = pg.getByText(nm, { exact: true }).first();
+    const icon = host.locator('xpath=ancestor-or-self::*[self::a or self::button or self::div][1]').locator('svg, i, img').last();
+    await dl(nm + ' (biểu tượng)', (await icon.count()) ? icon : host);
+    await dl(nm + ' (tên)', host);
+  }
+  const exs = pg.locator(':is(a,button):text-is("Xuất Excel")');
+  const nEx = await exs.count(); say('   số nút Xuất Excel:', nEx);
+  for (let k = 0; k < Math.min(nEx, 4); k++) { const ex = exs.nth(k); if (!(await ex.isVisible().catch(() => false))) continue; await ex.scrollIntoViewIfNeeded().catch(() => {}); await dl('Xuất Excel #' + (k + 1), ex); }
+  say('   file bắt qua mạng:', JSON.stringify(grabbed));
 } catch (e) { say('LỖI:', e.message.split('\n')[0]); }
 
 say('\n=== XHR / fetch trang đã gọi (' + log.length + ') ===');

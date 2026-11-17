@@ -30,8 +30,9 @@ jobs:
       - name: Đẩy file tải được lên nhánh (tạm, để xem)
         if: always()
         run: |
-          ls /tmp/pw/msc-out/*.pdf /tmp/pw/msc-out/*.xls* >/dev/null 2>&1 || exit 0
-          mkdir -p tmp-msc && cp /tmp/pw/msc-out/*.pdf /tmp/pw/msc-out/*.xls* tmp-msc/ 2>/dev/null; cp /tmp/pw/msc-out/*.png tmp-msc/ 2>/dev/null || true
+          shopt -s nullglob; F=(/tmp/pw/msc-out/*.pdf /tmp/pw/msc-out/*.xls* /tmp/pw/msc-out/*.doc* /tmp/pw/msc-out/*.zip /tmp/pw/msc-out/*.png)
+          [ ${#F[@]} -gt 0 ] || exit 0
+          mkdir -p tmp-msc && cp "${F[@]}" tmp-msc/
           git config user.name "msc-probe" && git config user.email "msc-probe@users.noreply.github.com"
           git add tmp-msc && git commit -m "Tạm: file tải thử từ muasamcong" && git push origin HEAD:claude/nice-brown-m3e3tu || true
       - uses: actions/upload-artifact@v4
