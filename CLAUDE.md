@@ -544,6 +544,9 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   Nay mọi chỗ ghi ô ngày đi qua `wV_` / `wRow_` (Date ⇒ số ngày, giữ giờ phút): `writeRowKeepFormulas_`, `writeBlockKeepFormulas_`, saveWeekly, `wkHeal_`, điền ngày đơn, `dfFixTab_`; ALL TASK `stW_`.
   **Ghi ngày mới: KHÔNG setValue(s) đối tượng Date — dùng `wV_`.** Chẩn đoán / sửa: `crm-surgical/MMH_DateDiag.gs` ▸ ping `crm-surgical?action=dfDiag&key=<8 ký tự cuối Script ID>&full=1`
   (`op=rows&from=&n=` xem từng dòng · `op=run` chạy crmDateFix_ · `op=probe2` thử 3 cách ghi 1 ô).
+  Ô đang định dạng Văn bản nhận số ngày thì giữ thành chữ ("45901") ⇒ `wFmt_` đặt định dạng ngày cho ô TRƯỚC khi ghi; `dfIso_` đọc được số ngày dạng chữ (DF_VER 3).
+  `op=deep` / `op=deepfix&run=1`: soát đảo ngày KHÔNG dựa Start Month (app lưu lại thì Start Month theo ngày đã đảo) — bằng chứng ngày ảnh 📷/🕒, ngày tạo dòng (_LOG), thứ tự dòng cùng PIC (±8), Completed ở tương lai.
+  Đã chạy 17/11/2026: lượt 1 (theo Start Month) 836 ô · lượt sâu 10 dòng; 29 ảnh + 54 dòng có nhật ký đều khớp ngày sau sửa.
 - **17/11/2026 — Sửa / xoá trên Report Hub hay khựng (marketing / backoffice / management `Back end.gs`, GIỐNG HỆT 3 nơi)**: đo thật — `version` (mọi máy hỏi 12–20 giây / lần) Marketing 7,0 s,
   đọc thẳng cả sheet chỉ 0,9–1,7 s ⇒ nghẽn do số lượt gọi chồng nhau. ① `touchVersion` xoá đệm `lsig_<dòng cuối>` + `dvq` ⇒ vân tay đổi 1 lần / lần ghi (trước đổi 2 lần: lúc ghi + ~60 s sau khi dấu nội dung hết đệm
   ⇒ mọi máy tải lại 2 lần, người vừa sửa thấy "Có cập nhật mới"). ② `version` = `dataVersionQuick_` (đệm `dvq` 15 giây, không mở bảng tính khi trúng). ③ `readWeekly` chống dồn đọc: cờ `wkb_<khoá>` 30 giây,
