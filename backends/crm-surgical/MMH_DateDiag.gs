@@ -12,7 +12,7 @@ function dfDiag_(p){
   var book = ss(), s = sh('weekly'), W = COL.weekly, tz = book.getSpreadsheetTimeZone(), last = s.getLastRow();
   var out = { ok:true, locale:(function(){ try { return book.getSpreadsheetLocale(); } catch(e){ return '?'; } })(), fileTz:tz, scriptTz:Session.getScriptTimeZone(),
               dfVer:props_().getProperty(DF_KEY) || '', dfLog:props_().getProperty('CRM_DATEFIX_LOG') || '', lastRow:last,
-              daily:ScriptApp.getProjectTriggers().some(function(t){ return t.getHandlerFunction() === 'crmDateFixDaily'; }) };
+              daily:(function(){ try { return ScriptApp.getProjectTriggers().some(function(t){ return t.getHandlerFunction() === 'crmDateFixDaily'; }); } catch(e){ return 'không đọc được trigger'; } })() };
   if (last < DATA_ROW) return out;
   var n = last - DATA_ROW + 1, c0 = W.month, c1 = W.finish;
   var rg = s.getRange(DATA_ROW, c0, n, c1 - c0 + 1), V = rg.getValues(), D = rg.getDisplayValues(), F = rg.getFormulas();
