@@ -300,6 +300,13 @@ async function cmdStatus() {
         if (!local) notes.push('chưa kéo code về');
         else if (diff(await getContent(b.scriptId), local).length) notes.push('⚠️ code trong dự án khác repo');
         if (vs.length >= VERSION_WARN) notes.push('⚠️ gần giới hạn 200 phiên bản — xoá bớt trong Lịch sử dự án');
+        // web app tạo tay trên trình soạn (repo chưa ghi deploymentId) ⇒ in ra để ghi vào backends.json thay vì tạo deployment mới
+        try {
+          for (const o of await listDeployments(b.scriptId)) {
+            if (!liveWebapp(o) || !o.deploymentConfig?.versionNumber) continue;
+            notes.push(`có web app \`${o.deploymentId}\` (phiên bản ${o.deploymentConfig.versionNumber} · ${liveWebapp(o)})`);
+          }
+        } catch (e) { notes.push('không đọc được danh sách deployment'); }
         say(`| ${b.name} (\`${k}\`) | \`${b.scriptId.slice(0, 10)}…\` | HEAD (phiên bản lưu gần nhất: ${last ?? '—'}) | ${vs.length} | ${notes.join('<br>')} |`);
         continue;
       }
