@@ -146,19 +146,37 @@ try {
       say('   yêu cầu sau khi bấm:\n     ' + reqs.filter(u => !/google|recaptcha|analytics|ngsp|woff/.test(u)).join('\n     '));
     }
   }
-  say('4a) Tab Thông báo mời thầu');
-  await tryPdf('tab TBMT');
-  const tb = pg.locator(':is(a,button):text-is("Tải TBMT")').first();
-  if (await tb.isVisible({ timeout: 2000 }).catch(() => false)) await dl('Tải TBMT', tb);
-  const tab = 'Kết quả lựa chọn nhà thầu';
-  say('4b) Tab: ' + tab);
-  await race(pg.locator(`:is(a,button,li,span,[role=tab]):text-is("${tab}")`).last().click({ timeout: 10000 }).catch(e => say('   không bấm được tab:', e.message.split('\n')[0])), 12000);
-  await pg.waitForFunction(() => /QuyetDinhPheDuyetKQLCNT|\.pdf/i.test(document.body.innerText) && /Quyết định phê duyệt/.test(document.body.innerText), null, { timeout: 25000 }).catch(() => say('   (chưa thấy file .pdf sau 25 giây)'));
-  await pg.waitForTimeout(1500); await closePopups('tab', pg); await shot('4-kq');
-  await tryPdf('tab KQ');
-  const exs = pg.locator(':is(a,button):text-is("Xuất Excel")');
-  const nEx = await exs.count(); say('   số nút Xuất Excel:', nEx);
-  for (let k = 0; k < Math.min(nEx, 4); k++) { const ex = exs.nth(k); if (!(await ex.isVisible().catch(() => false))) continue; await ex.scrollIntoViewIfNeeded().catch(() => {}); await dl('Xuất Excel #' + (k + 1), ex); }
+  /* PDF đi qua Agent (localhost:1234) ⇒ tìm trong mã JS của trang địa chỉ máy chủ thật để gọi thẳng bằng fileId */
+  say('4) Tìm đường tải file trong mã JS của trang');
+  const srcs = await pg.$$eval('script[src]', els => els.map(e => e.src)).catch(() => []);
+  const seen = new Set(); let hits = [];
+  for (const u of srcs) {
+    if (seen.has(u) || !/muasamcong/.test(u)) continue; seen.add(u);
+    const t = await race(pg.evaluate(async x => { try { return await (await fetch(x)).text(); } catch (e) { return ''; } }, u), 20000) || '';
+    const re = /.{0,160}(download\/file|fileId=|\/download|localhost:1234|file\/browser|viewFile|getFile|file-attach|attach-file).{0,160}/gi; let m;
+    while ((m = re.exec(t)) && hits.length < 60) hits.push(u.split('/').slice(-2).join('/') + ' ⇒ ' + m[0].replace(/\s+/g, ' '));
+  }
+  say('   ' + srcs.length + ' file JS, đoạn có chữ download/fileId:\n     ' + [...new Set(hits)].join('\n     '));
+  /* gắn fileId: bấm file PDF, bắt yêu cầu localhost:1234 để lấy fileId */
+  let fileId = '';
+  const onq = q => { const m = q.url().match(/fileId=([\w-]+)/); if (m) fileId = m[1]; };
+  ctx.on('request', onq);
+  const pdfEl = pg.locator('tags.tags-fileAttach').first();
+  if (await pdfEl.count()) { await race(pdfEl.click({ timeout: 8000 }).catch(() => {}), 10000); await pg.waitForTimeout(3000); }
+  ctx.off('request', onq);
+  await closePopups('agent', pg);
+  say('   fileId:', fileId);
+  if (fileId) {
+    const cands = [
+      '/api/download/file/browser/public?fileId=', '/o/egp-portal-contractor-selection-v2/services/download/file/browser/public?fileId=',
+      '/o/egp-portal-contractor-selection-v2/services/api/download/file/browser/public?fileId=', '/o/egp-portal-contractor-selection-v2/services/file/download?fileId=',
+      '/o/egp-portal-file/services/download/file/browser/public?fileId=', '/o/egp-portal-personal-page/services/download/file/browser/public?fileId=',
+      '/egp/download/file/browser/public?fileId=', '/o/egp-portal-contractor-selection-v2/services/expose/download-file?fileId='];
+    for (const c of cands) {
+      const r = await race(pg.evaluate(async u => { try { const x = await fetch(u); const b = new Uint8Array(await x.arrayBuffer()); return x.status + ' ' + (x.headers.get('content-type') || '') + ' ' + b.length + ' "' + String.fromCharCode(...b.slice(0, 8)).replace(/[^\x20-\x7e]/g, '.') + '"'; } catch (e) { return 'ERR ' + e.message; } }, c + fileId), 20000);
+      say('   thử ' + c + ' ⇒ ' + r);
+    }
+  }
   say('   file bắt qua mạng:', JSON.stringify(grabbed));
 } catch (e) { say('LỖI:', e.message.split('\n')[0]); }
 
