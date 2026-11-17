@@ -218,7 +218,7 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   + dự kiến từ tháng hiện tại; đẩy sheet 1/2/3 của NPP, DANH MỤC, CÀI ĐẶT D2:D25 + G2:H6, SUM!D2 sang file NPP (dự trù tháng đã chốt bị trả về số file gốc). File NPP lỗi ⇒ không nhận,
   chỉ đẩy sheet 2 + danh mục. Bối cảnh người dùng: dự trù = số cố định trước 3 tháng, NPP lấy hết hàng; dự kiến = forecast cập nhật bất cứ lúc nào đến tháng dự trù. Excel = mục "File Excel (dự phòng)".
 - **30/10/2026 — CRM Thailand Dental (`crm-thai-dental`, Sheet "Bản sao của 1. Thailand - Dental Action FY68" `1uZ8GtOF…`, team app `thaid`)**: code = bản sao `crm-thai`
-  (Surgical) với cấu hình Dental: Yong (Commercial Lead) · Man (T&E Lead) · Sui (Marketing Lead), Dao = lead; báo cáo tuần / tháng To Shuhei · Cc Ha + Hoa (giữ như menu "MMH Report" cũ).
+  (Surgical) với cấu hình Dental: Yong (Commercial Lead) · Man (T&E Lead) · Sui (Marketing Lead), Dao = lead; báo cáo tuần / tháng To Owen · Cc Ha + Hoa + người gửi (Shuhei đã bỏ 17/11/2026).
   `TH_DentalLayout.gs` ▸ menu ⓪ `thdBuild` (chủ file chạy 1 lần): chép sheet CRM của file Surgical Thái (`THD.TEMPLATE_ID`), xoá dữ liệu, dựng lại công thức (R1C1) + dropdown trỏ
   về 10. MASTER LIST của file này, chuyển Customer list / CBC / WEEK / MONTHLY REPORT / YEAR - Account sang 1 / 2 / 6 / 5 / 8, đổi tên sheet 12–17, ẩn sheet cũ (không xoá), dựng
   9. TARGET & KPI, trigger, đồng bộ ALL TASK. Từng bước nhớ ở Script Property `THD_DONE` (`thdStatus()` / `thdReset()`), quá ~4,5 phút ⇒ tự chạy tiếp (`thdBuildCont`).
@@ -409,7 +409,7 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   `thtRoute_` (gọi đầu `route_`) nhận tripMaster(2) · tripPropose(2) · tripInfo · tripUpdate · tripDelete · tripReport · tfTrips / tripList · tripSync (no-op). Cột dò theo TÊN tiêu đề (dòng có PIC + Start date, dòng gợi ý
   "Auto / Choose" bỏ qua), dòng mới chép công thức dòng trên, ô có công thức không ghi. Đề xuất: Approval "Not Yet" ⇒ email "Approval Business trip - ddMMyyyy - PIC" (đúng mẫu file) To Director / CC HOD + PIC ⇒
   "Already sent propose email"; HOD vẫn duyệt bằng HOD Menu trên Sheet. Báo cáo (chỉ Approved): folder chuyến (folder gốc `1HMrQ4x…`), file Word (.doc HTML — backend Thái không có DocumentApp, không thêm quyền),
-  cột Business trip Report + Actual report date, email To Shuhei-san (`s-takahashi@mani.inc`) CC Director + PIC. Tiền luôn THB. Chữ / email tiếng Anh. PIC thiếu trong Master I:M (Yong, Miew) ⇒ `thtEnsurePerson_` tự thêm 1 dòng.
+  cột Business trip Report + Actual report date, email To Director (Ha san) CC PIC (Shuhei đã bỏ 17/11/2026). Tiền luôn THB. Chữ / email tiếng Anh. PIC thiếu trong Master I:M (Yong, Miew) ⇒ `thtEnsurePerson_` tự thêm 1 dòng.
 - **09/11/2026 — App Sự kiện MKT tải nhanh (Event Hub v1.6, `marketing/MKT_EventHubFast.gs`, người dùng: mở app đứng ở "Đang tải sự kiện…")**: `ehBoot_` cũ chỉ đệm khi dữ liệu < 95 KB (2 phút) ⇒
   dữ liệu thật không bao giờ được đệm ⇒ mỗi lần mở đọc lại ~12 tab + Drive. Nay `ehBigPut_` / `ehBigGet_` = đệm chia mảnh (≤ 30.000 ký tự / mảnh, khoá chính `{v, n}`; xoá khoá chính = huỷ cả bộ,
   mọi lệnh ghi vẫn `remove('eh_boot')`), TTL 25 phút; trúng đệm ⇒ KHÔNG mở file Sheet (danh sách TEAM ▸ Quản lý nằm trong đệm `mgrs`); `ehBootWarm_` trong `ehSyncTick_` giữ đệm nóng;
@@ -497,7 +497,7 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   thêm O–Q ảnh tham chiếu (over-grid, alt title `TSKT-ref …`, chạy lại thì xoá ảnh cũ trước), R kết quả, S ghi chú. Chỉ ghi khi cột E (Chủng loại) khớp dữ liệu (dòng đã dời ⇒ bỏ qua, báo trong toast).
   Dữ liệu `TSKT_Data.gs` + ảnh `img_s<dòng>_<n>.html` (base64 JPEG) sinh tự động — không sửa tay. Lần đầu chạy: người dùng bấm menu ▸ cấp quyền.
 - **17/11/2026 — CRM Thailand Dental rà soát theo Yong (`crm-thai-dental/TH_DentalCare.gs` + Mã.gs)**: **Owen san** (`owen-yth@mani.inc`, quản lý nhóm Dental Thái) = USERS `Owen` role `lead`;
-  báo cáo tuần / tháng (`mailRule_`) To Owen + Shuhei · Cc Ha + Hoa + chính người gửi. Training Hub `RH_UsersFix` th2 cấp quyền Owen (cột Email = địa chỉ đầy đủ khi `RH_ENSURE.USERS` ghi kèm @).
+  báo cáo tuần / tháng (`mailRule_`) To Owen · Cc Ha + Hoa + chính người gửi. Training Hub `RH_UsersFix` th2 cấp quyền Owen (cột Email = địa chỉ đầy đủ khi `RH_ENSURE.USERS` ghi kèm @).
   `wkApplyRule_` nhận `finKeep` (crm-thai-dental + crm-thai, như CRM VN v10.22). `saveWeekly` / `deleteRow` weekly KHÔNG chép OTHERS TASK trong lệnh nữa ⇒ `thdSyncSoon_` hẹn trigger `thdLaterRun` ~30 giây
   (không tạo được trigger ⇒ chạy như cũ; cronTh 10 phút vẫn chạy). Chẩn đoán chỉ đọc: ping `crm-thai-dental?action=thdCare&key=<8 ký tự cuối ID Sheet>&op=mail|drive|speed&full=1`
   (mail = nhật ký gửi báo cáo + người nhận hiện tại; drive `&write=1` = thử ghi thư mục chứng từ NEW ACCOUNT & SKU).
@@ -525,3 +525,5 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   ① `bootActivity_` (3 backend): gói boot chỉ nhật ký của người (bỏ "System"), ≤ 500 dòng; `readActivityLog` đọc từ CUỐI sheet theo khối 1.500 dòng, dừng ở dòng cũ hơn `from`. ② `liveSig_` dùng getValues (getDisplayValues ~1,6 s).
   ③ marketing: đồng bộ đơn hàng / địa bàn chỉ ghi nhật ký khi có thay đổi. ④ Không đọc file ngoài trong lúc giữ khoá ghi chung: `evsSync` (đọc file Digital trước; bài đăng + tên key không đổi so với lượt đủ ≤ 60 phút ⇒ bỏ qua, `EVS_QSIG` / `EVS_FULL_AT`),
   `ehSync_` (quét thư mục Event FY68 + file MKT Offline trước), `osSync` (đọc đơn hàng các file CRM trước). Khoá ghi (ScriptLock) dùng chung Report Hub · app Sự kiện MKT · mọi đồng bộ nền ⇒ việc nặng mới phải đọc trước, chỉ giữ khoá khi ghi.
+- **17/11/2026 — BỎ Shuhei san khỏi mọi email (người dùng yêu cầu: không còn liên quan MMH; không làm thông báo cập nhật)**: crm-thai-dental `mailRule_` (báo cáo tuần / tháng) = To Owen · Cc Ha + Hoa + người gửi;
+  `TH_Trip.gs` (crm-thai + crm-thai-dental) báo cáo công tác To Director (Ha san) · CC PIC; script Business Trip gắn Sheet `trip-thai-surgical` (`CONFIG.REPORT_TO_EMAIL` = Director) / `trip-thai-dental` (To Director). Không thêm lại địa chỉ Shuhei ở bất kỳ đâu.

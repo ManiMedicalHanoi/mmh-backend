@@ -482,7 +482,7 @@ var THD_STEP = {
       ['KPI file of 4 Nov 2026 (Owen san). Targets come from the KPI file. Turnover, events (C11-02 · C14-00) and participants (C16-00) come from the KPI file (Turnover report · 2. Thailand - Dental Event Report + PRODUCT PRESENTATION). C17-07: typed in the KPI file. C11-03 = sheet PRODUCT TEST (Pass ÷ tests). C2-02 = CUSTOMER TASK visits to the key accounts of ACCOUNT TRACKING.'],
       [''],
       ['E. REPORTS'],
-      ['Weekly / monthly report e-mails (English, PDF attached) from the app: To Shuhei · Cc Ha + Hoa. Weekly PDF also saved to the Sales teams folder ▸ "Thailand Dental".']
+      ['Weekly / monthly report e-mails (English, PDF attached) from the app: To Owen · Cc Ha + Hoa + the sender. Weekly PDF also saved to the Sales teams folder ▸ "Thailand Dental".']
     ];
     g.getRange(1, 1, L.length, 1).setValues(L).setFontFamily('Aptos').setWrap(true).setVerticalAlignment('top');
     g.setColumnWidth(1, 1100);

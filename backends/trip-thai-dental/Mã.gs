@@ -5026,9 +5026,6 @@ function buildBusinessTripReportEmail(tripData, keyActivities, keyFindings, foll
             <td style="padding: 20px;">
               
               <!-- Greeting -->
-              <p style="margin: 0 0 10px 0; font-family: Calibri, sans-serif; font-size: 11pt; color: #000000;">
-                Dear Shuhei san,
-              </p>
               <p style="margin: 0 0 20px 0; font-family: Calibri, sans-serif; font-size: 11pt; color: #000000;">
                 Dear Ha san,
               </p>
@@ -5306,13 +5303,12 @@ function sendReportEmail(sheet, rowNumber, tripData, docLink, keyActivities, key
 // ========================================
 Logger.log('📋 Step 6: Building recipients list...');
 
-// ✅ TO: Shuhei (Fixed recipient)
-const recipients = 's-takahashi@mani.inc';
+// ✅ TO: DIRECTOR (17/11/2026: Shuhei san không còn liên quan MMH ⇒ bỏ)
+const recipients = directorEmail;
 
-// ✅ CC: DIRECTOR (if valid)
-const ccRecipients = directorValid ? directorEmail : '';
+const ccRecipients = '';
 
-Logger.log('  TO (Shuhei): ' + recipients);
+Logger.log('  TO (Director): ' + recipients);
 Logger.log('  CC (Director): ' + (ccRecipients || 'None'));
 Logger.log('  Status: ✅ Recipients ready');
 Logger.log('');

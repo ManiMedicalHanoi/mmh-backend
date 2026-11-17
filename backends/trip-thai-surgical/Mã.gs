@@ -13,7 +13,7 @@ const CONFIG = {
   PARENT_FOLDER_ID: '1HMrQ4xZWSEUIvD7varHG-m4s4nOKpX1o',
   COMPANY_DOMAIN: 'manimedicalhanoi.com',
   CURRENCY_LABEL: 'THB',
-  REPORT_TO_EMAIL: 's-takahashi@mani.inc', // Shuhei-san – người nhận chính của Report email
+  REPORT_TO_EMAIL: 'nt.ha@manimedicalhanoi.com', // 17/11/2026: Director (Ha san) — Shuhei san không còn liên quan MMH
   COLUMNS: {
     NO: 'B',
     MONTH: 'C',
@@ -2721,8 +2721,7 @@ function buildBusinessTripReportEmail(tripData, keyActivities, keyFindings, foll
         <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
           <tr>
             <td style="padding: 20px;">
-              <p style="margin: 0 0 10px 0; ${p}">Dear Ha san,</p>
-              <p style="margin: 0 0 20px 0; ${p}">Dear Shuhei san,</p>
+              <p style="margin: 0 0 20px 0; ${p}">Dear Ha san,</p>
               <p style="margin: 0 0 15px 0; ${p} line-height: 1.6;">
                 Here is my report for business trip at <strong>${escapeHtmlEmail(destination)}</strong> for <strong>${escapeHtmlEmail(workingDate)} days</strong>:
               </p>
@@ -2778,7 +2777,7 @@ function escapeHtmlEmail(text) {
 
 /**
  * Gửi Report email
- * TO: Shuhei-san (CONFIG.REPORT_TO_EMAIL) | CC: Director (cột Z)
+ * TO: Director (CONFIG.REPORT_TO_EMAIL) | CC: Director cột Z nếu khác
  */
 function sendReportEmail(sheet, rowNumber, tripData, docLink, keyActivities, keyFindings, followUpActions) {
   try {
@@ -2807,7 +2806,7 @@ function sendReportEmail(sheet, rowNumber, tripData, docLink, keyActivities, key
       htmlBody: htmlBody,
       name: 'Mani Medical Hanoi - Business Trip System'
     };
-    if (directorValid) mail.cc = directorEmail;
+    if (directorValid && directorEmail.toLowerCase() !== String(CONFIG.REPORT_TO_EMAIL).toLowerCase()) mail.cc = directorEmail;
 
     MailApp.sendEmail(mail);
 

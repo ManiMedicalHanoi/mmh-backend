@@ -12,7 +12,7 @@
  *              The HOD still approves with the HOD Menu of the Google Sheet (Approved / Rejected + e-mail to the PIC).
  *   report   → only Approved trips: trip folder (parent folder of the system, name = column "Folder name"), report document
  *              (Word file in the folder), column "Business trip Report" (I. Key Activities / II. Key Findings / III. Follow Up Actions)
- *              + "Actual report date"; e-mail "Business Trip Report - …" To Shuhei-san, CC Director.
+ *              + "Actual report date"; e-mail "Business Trip Report - …" To Director (Ha san), CC the PIC (Shuhei san removed 17/11/2026).
  *   edit     → not Approved yet: overwrite the input columns, optionally re-send the proposal e-mail (Rejected ⇒ comment cleared).
  *   delete   → PIC (not Approved) or managers: clear the input cells of the row (formulas kept).
  * Columns are found by their HEADER NAME (row with "PIC" + "Start date"), formulas of the row above are copied to a new row.
@@ -23,7 +23,6 @@ var THT = {
   FILES: { 'Thailand Dental': '1w6jn6Vsc4WvWJFTsyf2dRFdElnVWq8CS76pVbQKxlhc', 'Thailand Surgical': '1B3KifUWTc_l5G6fCrHl22T3Msb125W8VzU6sTy20WZA' },
   SHEET: 'MMH Travel report', MASTER: 'Master',
   PARENT_FOLDER_ID: '1HMrQ4xZWSEUIvD7varHG-m4s4nOKpX1o',      /* CONFIG.PARENT_FOLDER_ID of the Business Trip system */
-  REPORT_TO: 's-takahashi@mani.inc',                          /* Shuhei-san — main recipient of the report e-mail */
   DIRECTOR: 'nt.ha@manimedicalhanoi.com',
   CUR: 'THB',
   /* header name (lower case, no spaces) → key */
@@ -234,7 +233,7 @@ function thtBullets_(text){
 function thtReportHtml_(t, ka, kf, fu, folder){
   var p = 'font-family:Aptos,Calibri,sans-serif;font-size:11pt;color:#000000;';
   return '<div style="' + p + 'padding:20px">' +
-    '<p style="margin:0 0 10px 0">Dear Ha san,</p><p style="margin:0 0 20px 0">Dear Shuhei san,</p>' +
+    '<p style="margin:0 0 20px 0">Dear Ha san,</p>' +
     '<p style="margin:0 0 15px 0;line-height:1.6">Here is my report for business trip at <strong>' + thtEsc_(t.dest) + '</strong> for <strong>' + thtEsc_(t.days) + ' days</strong>:</p>' +
     '<div style="margin:20px 0;background-color:#f9f9f9;border:1px solid #000000;padding:15px">' +
     '<p style="margin:0 0 8px 0"><strong>Total Cost:</strong> ' + (t.total ? thtMoney_(t.total) + ' ' + THT.CUR : 'N/A') + '</p>' +
@@ -436,21 +435,21 @@ function thtReport(user, p){
   sh.getRange(row, C.REPORT).setValue(['**I. Key Activities**', ka, '', '**II. Key Findings**', kf, '', '**III. Follow Up Actions**', fu].join('\n'));
   try{ sh.getRange(row, C.REPORT_DATE).setValue(new Date()); }catch(e){}
   SpreadsheetApp.flush();
-  /* 4) e-mail To Shuhei-san · CC Director */
+  /* 4) e-mail To Director (Ha san) · CC PIC */
   var mailed = false, sendMail = !(p.sendEmail === false || p.sendEmail === 'false' || p.sendEmail === '0' || p.sendEmail === 0);
   if(sendMail){
     try{
       var w = thtWho_(t.pic), dir = thtMail_(t.emailDir) ? t.emailDir : w.dir;
-      var opt = { to: THT.REPORT_TO, subject: 'Business Trip Report - ' + t.pic + ' - ' + t.dest + ' - From ' + thtDmy_(t.start) + ' to ' + thtDmy_(t.finish),
+      var opt = { to: dir || THT.DIRECTOR, subject: 'Business Trip Report - ' + t.pic + ' - ' + t.dest + ' - From ' + thtDmy_(t.start) + ' to ' + thtDmy_(t.finish),
                   htmlBody: thtReportHtml_(t, ka, kf, fu, folder), name: t.pic + ' (MMH CRM)' };
-      var cc = [dir, w.me].filter(function(e, i, a){ return thtMail_(e) && a.indexOf(e) === i; });
+      var cc = [w.me].filter(function(e, i, a){ return thtMail_(e) && a.indexOf(e) === i; });
       if(cc.length) opt.cc = cc.join(',');
       if(w.me) opt.replyTo = w.me;
       mmhMail_(opt); mailed = true;
     }catch(e){ warn.push('Report saved, but the e-mail failed: ' + (e && e.message || e)); }
   }
   try{ NA_ENV.log(user, 'trip', t.dest, 'report · row ' + row); }catch(e){}
-  return { ok: true, message: 'Business trip report saved' + (docLink ? ' · report document created' : '') + (mailed ? ' · report e-mail sent to Shuhei-san' : ''),
+  return { ok: true, message: 'Business trip report saved' + (docLink ? ' · report document created' : '') + (mailed ? ' · report e-mail sent to Ha san' : ''),
            docLink: docLink, folder: folder, mailed: mailed, warn: warn };
 }
 /* calendar: trips of the team (2 months back → 6 months ahead), same shape as tfTrips of the VN CRMs, English texts */
