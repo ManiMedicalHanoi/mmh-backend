@@ -14,7 +14,7 @@ function ehDriveDiag_(p){
   if (String(p.key || '') !== ehKey_()) return { ok:false, error:'Sai khoá' };
   var part = String(p.part || 'tree'), t0 = Date.now(), out = { ok:true, part:part };
   var cut = function(s, n){ s = String(s == null ? '' : s).replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
-  var mt = function(m){ m = String(m || ''); return /spreadsheet/.test(m) ? 'GS' : /form/.test(m) ? 'FORM' : /document/.test(m) ? 'DOC' : /presentation/.test(m) ? 'SLIDE' :
+  var mt = function(m){ m = String(m || ''); return /spreadsheet/.test(m) ? 'GS' : /google-apps.form/.test(m) ? 'FORM' : /wordprocessing/.test(m) ? 'DOCX' : /document/.test(m) ? 'DOC' : /presentation/.test(m) ? 'SLIDE' :
     /folder/.test(m) ? 'DIR' : /sheet|excel/.test(m) ? 'XLSX' : /pdf/.test(m) ? 'PDF' : /image/.test(m) ? 'IMG' : /video/.test(m) ? 'VID' : m.split('/').pop().slice(0, 8); };
   var ymd = function(d){ try { return Utilities.formatDate(d, 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd'); } catch(e){ return ''; } };
   try {
@@ -51,8 +51,26 @@ function ehDriveDiag_(p){
       var off2 = +p.off || 0, n2 = +p.n || 60;
       out.total = hits.length; out.rows = hits.slice(off2, off2 + n2).map(function(r){ return r.join('|'); });
     }
+    else if (part === 'dirs'){
+      var dit = DriveApp.searchFolders('title contains "' + String(p.q || 'ĐĂNG KÝ').replace(/"/g, '') + '" and trashed = false'), dl = [];
+      while (dit.hasNext() && dl.length < 40){ var fo = dit.next(), nf = 0, fit2 = fo.getFiles(), names = [];
+        while (fit2.hasNext() && nf < 200){ var ff = fit2.next(); nf++; if (names.length < 12) names.push(mt(ff.getMimeType()) + ':' + cut(ff.getName(), 50) + ':' + ymd(ff.getLastUpdated())); }
+        dl.push(cut(fo.getName(), 50) + ' · ' + ymd(fo.getLastUpdated()) + ' · ' + nf + ' file · ' + fo.getId() + ' ‖ ' + names.join(' ¦ ')); }
+      out.rows = dl;
+    }
+    else if (part === 'docx'){
+      var dq = DriveApp.searchFiles('title contains "' + String(p.q || '').replace(/"/g, '') + '" and trashed = false'), df = dq.hasNext() ? dq.next() : null;
+      if (!df) return { ok:false, error:'Không thấy file' };
+      out.name = df.getName(); var txt = '';
+      if (/google-apps.document/.test(df.getMimeType())) txt = DocumentApp.openById(df.getId()).getBody().getText();
+      else { var z = Utilities.unzip(df.getBlob().setContentType('application/zip')), doc = z.filter(function(b){ return b.getName() === 'word/document.xml'; })[0];
+        txt = doc ? doc.getDataAsString().replace(/<\/w:p>/g, '\n').replace(/<w:tab\/>/g, ' ').replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/\n{2,}/g, '\n') : ''; }
+      var o3 = +p.off || 0; out.len = txt.length; out.text = txt.slice(o3, o3 + (+p.n || 5500));
+    }
     else if (part === 'sheet'){
-      var ss = SpreadsheetApp.openById(String(p.id || '')); out.name = ss.getName();
+      var sid = String(p.id || '');
+      if (!sid && p.q){ var sq = DriveApp.searchFiles('title contains "' + String(p.q).replace(/"/g, '') + '" and mimeType = "application/vnd.google-apps.spreadsheet" and trashed = false'); if (sq.hasNext()) sid = sq.next().getId(); }
+      var ss = SpreadsheetApp.openById(sid); out.name = ss.getName(); out.id = sid;
       out.tabs = ss.getSheets().map(function(sh){
         var lr = sh.getLastRow(), lc = Math.min(40, sh.getLastColumn()), hd = '';
         if (lr && lc){ var top = sh.getRange(1, 1, Math.min(8, lr), lc).getDisplayValues(), best = -1, bn = 0;
