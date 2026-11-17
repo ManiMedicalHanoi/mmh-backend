@@ -323,7 +323,7 @@ function ehDropEvents_(ss, ids){
 }
 
 /* ══════════ ② NHẮC VIỆC HẰNG NGÀY ══════════ */
-function ehDaily(){ try { ehDaily_({}); } catch(e){ Logger.log('ehDaily: ' + (e && e.message || e)); } }
+function ehDaily(){ try { ehDaily_({}); } catch(e){ Logger.log('ehDaily: ' + (e && e.message || e)); } try { ehgDaily_({}); } catch(e){ Logger.log('ehgDaily: ' + (e && e.message || e)); } }   /* v1.8: + luật thông báo đối tác, cổng tắc */
 function ehDailyApi_(p){
   if (String(p.key || '') !== ehKey_()){
     var ss = ehBook_(), me = ehMe_(p, ss); if (me.err) return { ok:false, code:'AUTH', error:me.err };
@@ -385,7 +385,7 @@ function ehDaily_(opt){
                                        cks.map(function(e){ return '<li><a href="' + EH.APP_URL + '#ev-' + encodeURIComponent(e.id) + '/week">' + ehH_(ehEvLine_(e)) + '</a></li>'; }).join('') + '</ul>',
                                  text: 'Cập nhật tình hình tuần:\n' + cks.map(function(e){ return '- ' + ehEvLine_(e) + '\n  ' + EH.APP_URL + '#ev-' + e.id + '/week'; }).join('\n') });
     if (ex.length) paras.push(ehList_('<b>' + ex.length + ' việc trễ từ ' + escD + ' ngày / Pending từ 2 ngày</b> ở các sự kiện (bạn nhận vì là quản lý):', ex.slice(0, 30).map(function(x){ var t = {}; for (var k in x.task) t[k] = x.task[k]; t.note = (ehS_(t.pic) ? 'Người làm: ' + t.pic : 'Chưa giao người') + (ehS_(t.block) ? ' · Lý do Pending: ' + t.block : ''); return { task: t, ev: x.ev }; }), true));
-    if (weekly && mgrs.indexOf(pic) >= 0) paras.push(ehWeekly_(events, live, today, CK));
+    if (weekly && mgrs.indexOf(pic) >= 0){ paras.push(ehWeekly_(events, live, today, CK)); try { var gw = ehgWeekly_(events, T, today); if (gw.html) paras.push(gw); } catch(e){} }   /* v1.8 */
     if (!paras.length) return;
     var subj = '[Sự kiện MKT] Việc cần làm ' + Utilities.formatDate(now, 'Asia/Ho_Chi_Minh', 'dd/MM') + ': ' +
                [late.length ? late.length + ' quá hạn' : '', soon.length ? soon.length + ' sắp đến hạn' : '', wt.length ? wt.length + ' chờ bạn duyệt' : '', bk.length ? bk.length + ' Pending' : '',

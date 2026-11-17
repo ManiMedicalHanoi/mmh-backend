@@ -25,7 +25,7 @@
  *       người phụ trách tự ghi) — không bắt buộc tải file khi chỉ cần chữ. Việc app KHÔNG còn đẩy sang Report Hub (Event_Sync.gs v2.3).
  *************************************************************************************************/
 var EH = {
-  VER: '1.7',
+  VER: '1.8',
   ROOT: '1maHn2DD34aJBaNnH4q9Di0YH2wMurYuZ',     /* thư mục Drive "Event FY68" */
   BOOK_NAME: 'MMH · Event Hub FY68 (dữ liệu app Sự kiện MKT)',
   FILES_NAME: 'Event Hub · Tệp tải lên',
@@ -39,7 +39,8 @@ var EH = {
     EVENTS: ['id', 'name', 'start', 'end', 'type', 'city', 'venue', 'organizer', 'format', 'purpose', 'audience', 'scale', 'speakers', 'fee',
              'npp', 'sales', 'kpi', 'products', 'state', 'follow', 'Owner', 'Digital', 'Design', 'Trade', 'Sales', 'planFileId', 'planUrl',
              'folderId', 'folderUrl', 'src', 'offlineName', 'dateWarn', 'note', 'updatedAt', 'updatedBy',
-             'cover', 'target', 'actual', 'budgetPlan', 'budgetActual', 'sample', 'closedAt', 'closedBy', 'closeNote', 'latePlan'],   /* v1.5: đóng sự kiện, lập kế hoạch muộn */
+             'cover', 'target', 'actual', 'budgetPlan', 'budgetActual', 'sample', 'closedAt', 'closedBy', 'closeNote', 'latePlan',   /* v1.5: đóng sự kiện, lập kế hoạch muộn */
+             'regUrl', 'rules'],   /* v1.8: nguồn số đăng ký + luật thông báo đối tác (MKT_EventHubGate.gs) */
     TASKS: ['id', 'eventId', 'parentId', 'group', 'title', 'role', 'pic', 'due', 'offset', 'unit', 'dueManual', 'status', 'proof', 'hint', 'note', 'order',
             'doneAt', 'updatedAt', 'updatedBy', 'createdBy', 'priority', 'sample', 'block', 'milestone', 'noteId', 'fuTotal', 'fuDone', 'fuOrder',   /* v1.5 */
             'result'],   /* v1.7: kết quả bằng chữ — thay được file / link khi chuyển Xong */
@@ -137,7 +138,7 @@ function ehBook_(){
   return ss;
 }
 function ehEnsureTabs_(ss){
-  var plan = ehPlanTabs_(), want = [['EVENTS'], ['TASKS'], ['FILES'], ['COMMENTS'], ['MEETINGS'], ['CHECKINS'], ['TEMPLATE'], ['TEAM'], ['LOG'], ['NOTIFY'], ['PLAN_JSON'], [EH_SRC_TAB, 'SRC']];
+  var plan = ehPlanTabs_(), want = [['EVENTS'], ['TASKS'], ['FILES'], ['COMMENTS'], ['MEETINGS'], ['CHECKINS'], ['TEMPLATE'], ['TEAM'], ['LOG'], ['NOTIFY'], ['PLAN_JSON'], [EH_SRC_TAB, 'SRC'], ['PARTNERS'], ['PNOTICE'], ['REG']];   /* v1.8 */
   plan.forEach(function(t){ want.push([t.name, null, t.cols]); });
   want.forEach(function(w){
     var name = w[0], cols = w[2] || EH.COLS[w[1] || name], sh = ss.getSheetByName(name);
@@ -365,7 +366,7 @@ function ehPlanFiles_(){
 }
 
 /* ══════════════ ĐỒNG BỘ ══════════════ */
-function ehSyncTick_(){ var c = CacheService.getScriptCache(); if (c.get('eh_tick')) return; c.put('eh_tick', '1', 240); try { ehTeamFix_(); } catch(e){} try { ehFlowMigrate_(); } catch(e){} try { ehSync_({}); } catch(e){} try { ehTrig_(); } catch(e){} try { ehLinkTick_(); } catch(e){} try { ehBootWarm_(); } catch(e){} }   /* v1.6: + giữ đệm nóng */   /* v1.2: + file MKT Offline / Digital (MKT_EventHubLink.gs) */
+function ehSyncTick_(){ var c = CacheService.getScriptCache(); if (c.get('eh_tick')) return; c.put('eh_tick', '1', 240); try { ehTeamFix_(); } catch(e){} try { ehFlowMigrate_(); } catch(e){} try { ehSync_({}); } catch(e){} try { ehTrig_(); } catch(e){} try { ehLinkTick_(); } catch(e){} try { ehgRegTick_(); } catch(e){} try { ehBootWarm_(); } catch(e){} }   /* v1.8: + số tuyển sinh */   /* v1.6: + giữ đệm nóng */   /* v1.2: + file MKT Offline / Digital (MKT_EventHubLink.gs) */
 function ehSync_(opt){
   opt = opt || {};
   /* ⭐ 17/11/2026 (TĂNG TỐC Report Hub — chung khoá ghi với backend Marketing): quét thư mục Event FY68 + đọc file MKT Offline
@@ -581,7 +582,9 @@ function ehRoute_(action, user, p){
     if (action === 'ehSample') return ehSample_(p);
     if (action === 'ehDaily') return ehDailyApi_(p);
     if (action === 'ehLink') return ehLinkApi_(p);   /* v1.2 — MKT_EventHubLink.gs */
-    if (action === 'ehDriveDiag') return ehDriveDiag_(p);   /* 17/11/2026 — rà Drive (chỉ đọc), MKT_EventHubDiag.gs */
+    if (action === 'ehDriveDiag') return ehDriveDiag_(p);
+    if (action === 'ehPartner') return ehPartner_(p);   /* v1.8 — trang đối tác (không đăng nhập, chỉ số đếm) */
+    if (action === 'ehGate') return ehGateApi_(p);   /* 17/11/2026 — rà Drive (chỉ đọc), MKT_EventHubDiag.gs */
     if (action === 'ehUpload') return ehOnce_(p, function(){ return ehUpload_(p); });
     if (action === 'ehSync'){
       if (String(p.mode || '') === 'status'){ var last = {}; try { last = JSON.parse(PropertiesService.getScriptProperties().getProperty('EH_LAST') || '{}'); } catch(e){} return { ok:true, ver:EH.VER, last:last }; }
@@ -611,7 +614,8 @@ function ehBoot_(p){   /* v1.6: trúng đệm ⇒ không mở file Sheet (MKT_Ev
   if (!base){ base = ehBootBuild_(book()); ehBigPut_('eh_boot', base, EH_BC.TTL); }
   var mgr = !!who.admin || /^(director|hod|manager|leader)$/.test(who.level) || (base.mgrs || []).indexOf(who.pic) >= 0;
   var last = {}; try { last = JSON.parse(PropertiesService.getScriptProperties().getProperty('EH_LAST') || '{}'); } catch(e){}
-  try { base.link = ehBigGet_('eh_link') || ehLinkGet_(book()); } catch(e){ base.link = {}; }   /* v1.2: dữ liệu file MKT Offline / Digital theo sự kiện */
+  try { base.link = ehBigGet_('eh_link') || ehLinkGet_(book()); } catch(e){ base.link = {}; }
+  try { base.reg = ehBigGet_('eh_reg') || ehgRegGet_(book()); } catch(e){ base.reg = {}; }   /* v1.8 */   /* v1.2: dữ liệu file MKT Offline / Digital theo sự kiện */
   base.ok = true; base.me = { pic: who.pic, manager: mgr, admin: !!who.admin, level: who.level }; base.sync = last; base.ver = EH.VER; base.cfg = ehCfg_(); base.cached = hit;
   if (!mgr) base.notify = (base.notify || []).filter(function(n){ return n.to === who.pic || n.by === who.pic; });
   delete base.mgrs;
@@ -624,7 +628,8 @@ function ehSave_(p){
   var events = ehRead_(ss, 'EVENTS'), evBy = {}; events.forEach(function(e){ evBy[ehS_(e.id)] = e; });
   var now = ehNow_();
   var x2 = ehSave2_(ss, me, op, d, events, evBy, now); if (x2) return x2;   /* v1.1 — MKT_EventHubPlus.gs */
-  var x3 = ehSave3_(ss, me, op, d, events, evBy, now); if (x3) return x3;   /* v1.5 — MKT_EventHubFlow.gs: event.close / event.reopen / checkin.save */
+  var x3 = ehSave3_(ss, me, op, d, events, evBy, now); if (x3) return x3;
+  var x4 = ehSave4_(ss, me, op, d, events, evBy, now); if (x4) return x4;   /* v1.8 — MKT_EventHubGate.gs: đối tác · luật · nguồn đăng ký · thông báo */   /* v1.5 — MKT_EventHubFlow.gs: event.close / event.reopen / checkin.save */
   if (op === 'event.update'){
     var ev = evBy[ehS_(d.id)]; if (!ev) return { ok:false, error:'Không thấy sự kiện.' };
     if (!ehCanEv_(me, ev)) return { ok:false, code:'PERM', error:'Chỉ quản lý hoặc Owner của sự kiện được sửa.' };
