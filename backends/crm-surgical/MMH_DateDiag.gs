@@ -22,6 +22,16 @@ function dfDiag_(p){
     try { res.ranges = ss().getNamedRanges().length; res.sheetId = sp.getSheetId(); res.file = ss().getName(); } catch(e){}
     return res;
   }
+  if (op === 'probe2'){                                         /* thử 3 cách ghi ngày vào ô Start dòng `row`: số ngày (serial) · chữ yyyy-mm-dd · Date 12:00 — đọc lại sau mỗi cách */
+    var sq = sh('weekly'), rq = parseInt(p.row, 10) || 5, cq = sq.getRange(rq, COL.weekly.start), tzq = ss().getSpreadsheetTimeZone(), want = String(p.d || '2025-05-06'), R2 = { ok:true, row:rq, want:want };
+    var rd = function(){ SpreadsheetApp.flush(); var v = cq.getValue(); return (v instanceof Date ? Utilities.formatDate(v, tzq, 'yyyy-MM-dd HH:mm') : typeof v + ':' + v) + ' · hiện ' + cq.getDisplayValue(); };
+    var y = +want.slice(0, 4), mo = +want.slice(5, 7), d = +want.slice(8, 10);
+    R2.locale = ss().getSpreadsheetLocale(); R2.fmt = cq.getNumberFormat();
+    cq.setValue(new Date(y, mo - 1, d, 12)); R2.date12 = rd();
+    cq.setValue(want); R2.text = rd();
+    cq.setValue((Date.UTC(y, mo - 1, d) - Date.UTC(1899, 11, 30)) / 864e5); R2.serial = rd();
+    return R2;
+  }
   if (op === 'run'){
     var r = crmDateFix_(), s0 = sh('weekly'), tz0 = ss().getSpreadsheetTimeZone();
     SpreadsheetApp.flush();
