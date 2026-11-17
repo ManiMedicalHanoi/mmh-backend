@@ -367,6 +367,12 @@ function ehPlanFiles_(){
 /* ══════════════ ĐỒNG BỘ ══════════════ */
 function ehSyncTick_(){ var c = CacheService.getScriptCache(); if (c.get('eh_tick')) return; c.put('eh_tick', '1', 240); try { ehTeamFix_(); } catch(e){} try { ehFlowMigrate_(); } catch(e){} try { ehSync_({}); } catch(e){} try { ehTrig_(); } catch(e){} try { ehLinkTick_(); } catch(e){} try { ehBootWarm_(); } catch(e){} }   /* v1.6: + giữ đệm nóng */   /* v1.2: + file MKT Offline / Digital (MKT_EventHubLink.gs) */
 function ehSync_(opt){
+  opt = opt || {};
+  /* ⭐ 17/11/2026 (TĂNG TỐC Report Hub — chung khoá ghi với backend Marketing): quét thư mục Event FY68 + đọc file MKT Offline
+     TRƯỚC khi giữ khoá; trong khoá chỉ đọc / ghi file Event Hub (và mở file kế hoạch nào vừa đổi). */
+  var preFiles = null, preFilesErr = '', preOff = null, preOffErr = '';
+  try { preFiles = ehPlanFiles_(); } catch(e){ preFilesErr = String(e && e.message || e); }
+  try { preOff = evsReadEvents_(); } catch(e){ preOffErr = String(e && e.message || e); }
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) return { ok:false, error:'Đang có tiến trình ghi khác, thử lại sau.' };
   var T0 = Date.now(), rep = { ok:true, files:0, parsed:0, evNew:0, tasksNew:0, issues:[] };
@@ -380,7 +386,7 @@ function ehSync_(opt){
     var today = ehIso_(new Date()), dirty = { ev:{}, plan:false, src:false };
 
     /* ① file kế hoạch */
-    var files = []; try { files = ehPlanFiles_(); } catch(e){ rep.issues.push('Không đọc được thư mục Event FY68: ' + (e.message || e)); }
+    var files = preFiles || []; if (preFilesErr) rep.issues.push('Không đọc được thư mục Event FY68: ' + preFilesErr);
     rep.files = files.length;
     files.forEach(function(f){
       var meta = ehNameMeta_(f.name), sr = srcBy[f.id] || { fileId: f.id };
@@ -425,7 +431,7 @@ function ehSync_(opt){
     });
 
     /* ② sự kiện ở file MKT Offline (PLAN_EVENT / REPORT_EVENT) chưa có file kế hoạch */
-    var off = []; try { off = evsReadEvents_(); } catch(e){ rep.issues.push('File MKT Offline: ' + (e.message || e)); }
+    var off = preOff || []; if (preOffErr) rep.issues.push('File MKT Offline: ' + preOffErr);
     off.forEach(function(o){
       if (o.approx || o.start < EH.FY_FROM || o.start > EH.FY_TO) return;
       var ev = events.filter(function(e){ return ehS_(e.offlineName) && evsNorm_(e.offlineName) === o.nk; })[0];

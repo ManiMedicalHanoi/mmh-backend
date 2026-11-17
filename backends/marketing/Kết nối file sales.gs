@@ -987,7 +987,7 @@ function vsApiSync(user, p){
 
   var T0 = Date.now();
   var r = vsSync({ only: p.only || '', months: p.months || null });
-  try { if (r && r.ok) logActivity((user && user.pic) || 'System', 'update', r.message, '', ''); } catch (e) {}
+  try { if (r && r.ok && ((r.removed || 0) + (r.keysCreated || 0) + (r.inserted || 0) + (r.updated || 0) + (r.deleted || 0)) > 0) logActivity((user && user.pic) || 'System', 'update', r.message, '', ''); } catch (e) {}   /* ⭐ 17/11/2026: không ghi khi không đổi gì */
 
   /* Còn thời gian thì chạy tiếp phần đơn hàng trong cùng một lượt */
   if (Date.now() - T0 < 150000){
@@ -1001,7 +1001,8 @@ function vsRunOrderSync_(user, opt){
   if (typeof osSync !== 'function') return null;
   try {
     var o = osSync(opt || {});
-    try { if (o && o.ok) logActivity((user && user.pic) || 'System', 'update', o.message, '', ''); } catch (e) {}
+    /* ⭐ 17/11/2026: chỉ ghi nhật ký khi có thay đổi thật (trước: mỗi 10 phút 1 dòng "System" ⇒ nhật ký phình 140 dòng / ngày) */
+    try { if (o && o.ok && ((o.keysCreated || 0) + (o.inserted || 0) + (o.updated || 0) + (o.deleted || 0) + (o.failed || 0)) > 0) logActivity((user && user.pic) || 'System', 'update', o.message, '', ''); } catch (e) {}
     return o;
   } catch (e) { return { ok: false, error: String(e && e.message || e) }; }
 }

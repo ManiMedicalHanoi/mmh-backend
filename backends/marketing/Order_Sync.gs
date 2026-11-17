@@ -535,6 +535,14 @@ function osSync(opt){
   var T0 = Date.now();
   function timeUp(){ return (Date.now() - T0) > OS_TIME_BUDGET; }
 
+  /* ⭐ 17/11/2026 (TĂNG TỐC Report Hub): đọc đơn hàng từ các file CRM TRƯỚC khi giữ khoá ghi — trước đây mở file ngoài trong lúc
+     giữ khoá ⇒ thêm / sửa việc trên Report Hub phải chờ. */
+  var pre = {};
+  Object.keys(OS_SOURCES).forEach(function(k){
+    var cfg = OS_SOURCES[k];
+    if (!cfg.enabled || (opt.only && opt.only !== k)) return;
+    try { pre[k] = { items: osReadOrders_(k) }; } catch(err){ pre[k] = { err: err }; }
+  });
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) return { ok:false, error:'Đang có tiến trình đồng bộ khác, thử lại sau.' };
   try {
@@ -552,8 +560,9 @@ function osSync(opt){
       if (!cfg.enabled) return;
       if (opt.only && opt.only !== k) return;
       var items;
-      try { items = osReadOrders_(k); }
-      catch(err){ failedSrc[k] = 1; rep.skipped.push(cfg.label + ': ' + (err.message || err)); return; }
+      var pk = pre[k] || {};
+      if (pk.err || !pk.items){ var err = pk.err || new Error('chưa đọc được'); failedSrc[k] = 1; rep.skipped.push(cfg.label + ': ' + (err.message || err)); return; }
+      items = pk.items;
       var b = osBuildWanted_(items, months, cfg, k);
       Object.keys(b.wanted).forEach(function(sk){ wanted[sk] = b.wanted[sk]; });
       Object.keys(b.titles).forEach(function(t){ titles[t] = b.titles[t]; });
@@ -711,7 +720,7 @@ function osApiSync(user, p){
   }
   var r = osSync({ only: p.only || '', months: p.months || null });
   try {
-    if (r && r.ok && typeof logActivity === 'function')
+    if (r && r.ok && typeof logActivity === 'function' && ((r.keysCreated || 0) + (r.inserted || 0) + (r.updated || 0) + (r.deleted || 0) + (r.failed || 0)) > 0)   /* ⭐ 17/11/2026: chỉ khi có đổi */
       logActivity((user && user.pic) || 'System', 'update', r.message, '', '');
   } catch(e){}
   return r;
