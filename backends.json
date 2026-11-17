@@ -263,5 +263,12 @@
     "scriptId": "1_PfU9KafT9V5hilGPkrZBLLYGfABimsK3kOJTsFdip7LoKIzSYOZrnxq",
     "sheetId": "1QEI90DJAli8hY5OAU5GSKssxhCkGoV9cXmdLXnycv0I",
     "note": "File Sheet 'Cấu hình hàng nha khoa Mani' (sheet Dental Product: thông số kỹ thuật hồ sơ thầu). Script gắn Sheet, không có web app ⇒ deploy chỉ đẩy code + lưu phiên bản; chạy bằng menu MMH trong Sheet."
+  },
+  "tender-info": {
+    "name": "Thông tin thầu các bệnh viện (MMH FY 67_ Tender Information — script gắn Sheet)",
+    "scriptId": "1OUBgVzfjQLQYSiv7xhcfFo4XHFy-6Sax5DeyQv-Jfh2enEJdsYMGxxLF",
+    "sheetId": "1KdaCm3DZbOMvRwtZW-nGiRrpkaEhywg69MKCrTs80Nk",
+    "sheetUrl": "https://docs.google.com/spreadsheets/d/1KdaCm3DZbOMvRwtZW-nGiRrpkaEhywg69MKCrTs80Nk/edit?gid=719639388#gid=719639388",
+    "note": "File 'MMH  FY 67_ Tender Information' (Shared Drive): tab 'Tải Email' = bản tin Báo Đấu Thầu hằng ngày (kế hoạch LCNT / thông báo mời thầu / kết quả) + các tab tra cứu gói thầu bệnh viện. Script gắn Sheet (người dùng gửi Script ID 17/11/2026); chưa rõ có web app ⇒ Kéo code về trước, xem code rồi mới quyết định deploy."
   }
 }
