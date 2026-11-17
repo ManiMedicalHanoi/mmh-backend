@@ -100,11 +100,13 @@ function ext1117Fix_(sid) {
     var ids = sh.getRange(HUB.DATA_START_ROW, C.SID, last - HUB.DATA_START_ROW + 1, 1).getValues();
     for (var i = 0; i < ids.length; i++) if (hubNorm(ids[i][0]) === sid) { row = HUB.DATA_START_ROW + i; break; }
     if (!row) return {ok: false, error: 'Không thấy dòng của ' + sid};
-    var before = {e: sh.getRange(row, C.DATE).getDisplayValue(), w: sh.getRange(row, C.TIME_FROM).getDisplayValue(), x: sh.getRange(row, C.TIME_TO).getDisplayValue()};
+    var before = {e: sh.getRange(row, C.DATE).getDisplayValue(), ev: String(sh.getRange(row, C.DATE).getValue()), d: String(hubToDate(EXT1117.date)), w: sh.getRange(row, C.TIME_FROM).getDisplayValue(), x: sh.getRange(row, C.TIME_TO).getDisplayValue()};
     var ref = 0;
     for (var r = row - 1; r >= HUB.DATA_START_ROW; r--) { if (hubToDate(sh.getRange(r, C.DATE).getDisplayValue())) { ref = r; break; } }
-    var fmt = ref ? sh.getRange(ref, C.DATE).getNumberFormat() : 'dd/MM/yyyy';
-    sh.getRange(row, C.DATE).setNumberFormat(fmt || 'dd/MM/yyyy');
+    var fmt = ref ? sh.getRange(ref, C.DATE).getNumberFormat() : '';
+    var cell = sh.getRange(row, C.DATE), d = hubToDate(EXT1117.date);
+    if (!hubToDate(cell.getDisplayValue())) { cell.setNumberFormat(fmt || 'dd/MM/yyyy'); cell.setValue(d); }
+    if (!hubToDate(cell.getDisplayValue())) cell.setValue(hubFmt(d, 'dd/MM/yyyy'));   // dự phòng: ghi dạng chữ như dòng khác hiển thị
     sh.getRange(row, C.TIME_FROM, 1, 2).setNumberFormat('@').setValues([[EXT1117.timeFrom, EXT1117.timeTo]]);
     SpreadsheetApp.flush();
     hubCacheClear('sessions');
