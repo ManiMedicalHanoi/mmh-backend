@@ -98,7 +98,7 @@ var CFG = {
   VS_TYPE: 'Sales-Thailand Dental', VS_SUFFIX: '_Thailand Dental Customer visiting', VS_KEY_PIC: 'Yong',
   CACHE_TTL: 21600
 };
-var MAIL_HA = 'nt.ha@manimedicalhanoi.com', MAIL_HOA = 'vtt.hoa@manimedicalhanoi.com', MAIL_SHUHEI = 's-takahashi@mani.inc';
+var MAIL_HA = 'nt.ha@manimedicalhanoi.com', MAIL_HOA = 'vtt.hoa@manimedicalhanoi.com';   /* 17/11/2026: Shuhei san không còn liên quan MMH ⇒ bỏ khỏi mọi email */
 var MAIL_OWEN = 'owen-yth@mani.inc';
 var USERS = {
   'Yong':      { email: 'manithailand2@manimedicalhanoi.com', title: 'Thailand Dental - Commercial Lead', role: 'pic', team: CFG.TEAM_LABEL },
@@ -122,9 +122,9 @@ var WRITE_ACTIONS = { ordSave:1, ordDelete:1, acctSave:1, acctGeo:1, weeklyRepor
                       deleteRow:1, deleteAccount:1, addKey:1, addSub:1, naSave:1, naSubmit:1, naDecide:1, naDelete:1 };
 /* who receives the weekly / monthly report of each PIC */
 function mailRule_(pic){
-  /* 17/11/2026 (user request) — To Owen san (manager of the Dental team) + Shuhei · Cc Ha + Hoa + the sender (a copy in his / her own mailbox) */
+  /* 17/11/2026 (user request) — To Owen san (manager of the Dental team) · Cc Ha + Hoa + the sender (a copy in his / her own mailbox). Shuhei san removed 17/11/2026. */
   var me = (USERS[pic] || {}).email || '';
-  return { to: [MAIL_OWEN, MAIL_SHUHEI], cc: [MAIL_HA, MAIL_HOA].concat(me ? [me] : []) };
+  return { to: [MAIL_OWEN], cc: [MAIL_HA, MAIL_HOA].concat(me ? [me] : []) };
 }
 
 /* ══════════════ TAB DEFINITIONS (column B = offset 0) ══════════════ */
