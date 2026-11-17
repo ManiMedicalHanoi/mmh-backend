@@ -1,12 +1,13 @@
 name: Theo dõi gói thầu — tải hồ sơ
 # App "Theo dõi gói thầu" (Tender-Result/theo-doi/, backend tender-info ▸ MMH_Watch.gs): gói mới của chủ đầu tư đang theo dõi vào hàng đợi;
 # workflow này mở muasamcong.mof.gov.vn bằng trình duyệt thật (như người dùng: đóng popup, gõ số TBMT / KHLCNT, mở gói, bấm tab, bấm tải)
-# ⇒ gửi file về Drive qua backend. Mỗi giờ 7h–21h (giờ Việt Nam), thứ Hai – thứ Bảy. Hàng đợi trống ⇒ dừng sau vài giây (không cài trình duyệt).
+# ⇒ gửi file về Drive qua backend. 10 phút / lần 7h–21h (giờ Việt Nam), thứ Hai – thứ Bảy. Hàng đợi trống ⇒ dừng sau vài giây (không cài trình duyệt).
+# File đính kèm PDF cần Agent của muasamcong (chỉ chạy trên Windows) ⇒ ở đây chỉ ghi tên + mã file (app hiện nút mở trang gói).
 # Cần secret WT_BOT_KEY (Admin: app Theo dõi gói thầu ▸ Cài đặt bot ▸ Sao chép khoá ⇒ GitHub mmh-backend ▸ Settings ▸ Secrets ▸ Actions).
 # Chạy tay: Actions ▸ Theo dõi gói thầu — tải hồ sơ ▸ Run workflow.
 on:
   schedule:
-    - cron: '17 0-14 * * 1-6'
+    - cron: '*/10 0-14 * * 1-6'
   workflow_dispatch:
 permissions: { contents: read }
 concurrency: { group: tender-dl, cancel-in-progress: false }
@@ -40,7 +41,7 @@ jobs:
           npx playwright install --with-deps chromium >/dev/null
       - name: Tải hồ sơ từ muasamcong
         if: steps.peek.outputs.n != '0'
-        env: { WT_OUT: /tmp/pw/wt-out }
+        env: { WT_OUT: /tmp/pw/wt-out, WT_PAR: '3', WT_N: '12' }
         run: cp tools/msc/bot.mjs /tmp/pw/ && cd /tmp/pw && node bot.mjs
       - uses: actions/upload-artifact@v4
         if: failure() && steps.peek.outputs.n != '0'

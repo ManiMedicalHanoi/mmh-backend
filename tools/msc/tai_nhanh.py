@@ -190,7 +190,7 @@ async def search_open(pg, no):
             pass
     box = pg.locator('input[placeholder*="IB000202"]:visible').first
     await box.fill(bare)
-    async with pg.expect_response(lambda r: '/smart/search' in r.url and r.request.method == 'POST', timeout=45000) as rinfo:
+    async with pg.expect_response(lambda r: '/smart/search?token' in r.url and bare in (r.request.post_data or ''), timeout=45000) as rinfo:
         await box.press('Enter')
     res = await rinfo.value
     try:
