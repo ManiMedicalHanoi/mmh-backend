@@ -15,7 +15,7 @@
  * - Màu theo bảng màu file PPT MMH Management Practices (navy 2C4A5E, xanh 5A84A6, nhạt D6E2E9, vàng FBE9B7).
  * ══════════════════════════════════════════════════════════════════════════════════════════ */
 
-var IPR_BUILD = 'v2';
+var IPR_BUILD = 'v2.1';
 var IPR_META = 'mmh_ipr_sop_build';
 var TB = { flow: 'Launch Flow', tasks: 'Tasks', gates: 'Gates', feas: 'Feasibility', plan: 'Launch Plan',
   smp: 'Samples', res: 'Results', docs: 'Documents', eng: 'Engine' };
@@ -51,9 +51,9 @@ var GATES = [
   ['G4', 'Project closed', 'Measure & optimize → Close', 'General Director']
 ];
 // Engine layout (fixed rows — các công thức tham chiếu theo các mốc này)
-var E_STEP = 4, E_PH = 18, E_GATE = 25, E_TOT = 32;
-var TOT = { total: 32, done: 33, overdue: 34, confirm: 35, phaseNo: 36, phaseLabel: 37, bypass: 38,
-  sent: 39, fb: 40, rate: 41, units: 42, value: 43, ratio: 44 };
+var E_STEP = 6, E_PH = 20, E_GATE = 27, E_TOT = 34;
+var TOT = { total: 34, done: 35, overdue: 36, confirm: 37, phaseNo: 38, phaseLabel: 39, bypass: 40,
+  sent: 41, fb: 42, rate: 43, units: 44, value: 45, ratio: 46 };
 
 function fFile_(id) { return 'https://drive.google.com/file/d/' + id + '/view'; }
 function fDir_(id) { return 'https://drive.google.com/drive/folders/' + id; }
@@ -96,7 +96,7 @@ var L = {
 function onOpen(e) {
   try {
     SpreadsheetApp.getUi().createMenu('🚀 IPR Launch')
-      .addItem('🔄 Rebuild (keep PIC updates)', 'iprRebuildMenu')
+      .addItem('🔄 Update / rebuild app (keep PIC updates)', 'iprRebuildMenu')
       .addSeparator()
       .addItem('👁 Show old tabs', 'iprShowOldTabs')
       .addItem('🙈 Hide old tabs', 'iprHideOldTabs')
@@ -104,19 +104,16 @@ function onOpen(e) {
   } catch (_) {}
   try {
     var ss = SpreadsheetApp.getActive();
-    if (iprVersion_(ss) !== IPR_BUILD) {
-      iprBuild_(ss);
-      ss.toast('Đã dựng file theo SOP launch (bản ' + IPR_BUILD + '). Tab cũ được ẩn, không xoá.', 'MMH', 8);
-    }
-  } catch (err) {
-    console.error('IPR auto build: ' + (err && err.stack || err));
-  }
+    if (iprVersion_(ss) !== IPR_BUILD)
+      ss.toast('Có bản cập nhật app (' + IPR_BUILD + '). Bấm menu 🚀 IPR Launch ▸ 🔄 Update / rebuild app để dựng (dữ liệu PIC được giữ).', 'MMH', 15);
+  } catch (_) {}
 }
 
 function iprRebuildMenu() {
-  var ui = SpreadsheetApp.getUi();
+  var ui = SpreadsheetApp.getUi(), ss0 = SpreadsheetApp.getActive();
+  if (iprVersion_(ss0) !== IPR_BUILD) { iprBuild_(ss0); ss0.toast('Đã cập nhật app lên bản ' + IPR_BUILD + '.', 'MMH', 6); return; }
   var r = ui.alert('Rebuild',
-    'Dựng lại 9 tab của app. Dữ liệu PIC đã nhập (Tasks, Gates, Samples, doanh số, việc cải tiến) được giữ lại; ' +
+    'Dựng lại 9 tab của app (thường chỉ cần khi bố cục bị hỏng). Dữ liệu PIC đã nhập (Tasks, Gates, Samples, doanh số, việc cải tiến) được giữ lại; ' +
     'nội dung sửa tay ở Feasibility / Launch Plan / Documents sẽ về bản gốc.\n\nTiếp tục?', ui.ButtonSet.YES_NO);
   if (r !== ui.Button.YES) return;
   iprBuild_(SpreadsheetApp.getActive());
@@ -128,6 +125,18 @@ function iprShowOldTabs() {
 function iprHideOldTabs() { iprHideOld_(SpreadsheetApp.getActive()); }
 function iprHideOld_(ss) {
   ss.getSheets().forEach(function (sh) { if (IPR_TABS.indexOf(sh.getName()) < 0 && !sh.isSheetHidden()) sh.hideSheet(); });
+}
+function resetSheet_(ss, name) {
+  var sh = ss.getSheetByName(name);
+  if (!sh) return ss.insertSheet(name);
+  sh.showSheet();
+  try { sh.getProtections(SpreadsheetApp.ProtectionType.SHEET).forEach(function (p) { p.remove(); }); } catch (_) {}
+  sh.setFrozenRows(0); sh.setFrozenColumns(0);
+  var all = sh.getRange(1, 1, sh.getMaxRows(), sh.getMaxColumns());
+  all.breakApart(); all.clearDataValidations(); all.clearNote(); all.clear();
+  sh.clearConditionalFormatRules();
+  sh.setRowHeights(1, sh.getMaxRows(), 21);
+  return sh;
 }
 function iprVersion_(ss) {
   var m = ss.createDeveloperMetadataFinder().withKey(IPR_META).find();
@@ -185,11 +194,11 @@ function iprBuild_(ss) {
   try { lock = LockService.getDocumentLock(); lock.waitLock(20000); } catch (_) { lock = null; }
   try {
     SNAP = snapshot_(ss);
-    var keep = ss.insertSheet('_tmp_' + Date.now(), 0);
-    IPR_TABS.concat(LEGACY_V1).forEach(function (n) { var s = ss.getSheetByName(n); if (s) ss.deleteSheet(s); });
-    // tạo đủ tab trước để công thức tham chiếu chéo luôn hợp lệ
-    IPR_TABS.forEach(function (n, i) { ss.insertSheet(n, i + 1); });
-    ss.deleteSheet(keep);
+    // Dùng lại tab sẵn có (xoá sạch nội dung + định dạng) thay vì xoá tab ⇒ không lỗi "không tìm thấy trang tính"
+    IPR_TABS.forEach(function (n, i) { resetSheet_(ss, n); });
+    LEGACY_V1.forEach(function (n) { var s = ss.getSheetByName(n); if (s && ss.getSheets().length > 1) ss.deleteSheet(s); });
+    ss.getSheets().forEach(function (s) { if (/^_tmp_/.test(s.getName())) ss.deleteSheet(s); });
+    IPR_TABS.forEach(function (n, i) { ss.setActiveSheet(ss.getSheetByName(n)); ss.moveActiveSheet(i + 1); });
     buildEngine_(ss);
     buildTasks_(ss);
     buildGates_(ss);
@@ -291,43 +300,60 @@ function statusRules_(range, cellA1, set) {
 }
 function absA1_(r, c) { return '$' + A1_(r, c).replace(/(\d+)$/, function (m) { return '$' + m; }); }
 
-/* ═══ Engine · bảng tính trung gian ═════════════════════════════════════════════════════════ */
+/* ═══ Engine · bảng tính trung gian ═════════════════════════════════════════════════════════
+ * Steps  (B Step · C Phase · D Step name · E Total · F Done · G In progress · H Not recorded · I Overdue · J Status · K Progress · L Display)
+ * Phases (B Phase · C Name · D Total · E Done · F Active · G Status · H Progress · I No. · J Display)
+ * Gates  (B Gate · C Name · D From→To · E Decided by · F Req · G Req met · H Auto req · I Auto met · J Rec · K Rec met · L Next active · M Status · N Display · O Why · P To add)
+ * Totals (B Metric · C Value · D Meaning) */
 function buildEngine_(ss) {
-  var sh = sheet_(ss, TB.eng, [70, 70, 220, 50, 70, 70, 80, 80, 80, 110, 80, 200, 260, 260, 120, 60, 110], '#999999');
-  head_(sh, '⚙️ ENGINE · CALCULATIONS', 'Không sửa tay — mọi ô được tính từ Tasks, Gates, Samples và Results; Launch Flow đọc từ đây.');
-  var T = 'Tasks!';
-  // Steps
-  table_(sh, E_STEP - 1, 2, ['Step', 'Phase', 'Step name', 'Icon', 'Total', 'Done', 'In progress', 'Not recorded', 'Overdue', 'Status', 'Progress', 'Display'],
+  var sh = sheet_(ss, TB.eng, [70, 70, 220, 60, 60, 80, 90, 70, 110, 70, 90, 110, 200, 260, 260, 40, 110, 110], '#999999');
+  head_(sh, '⚙️  ENGINE · HOW THE FLOW IS CALCULATED',
+    'Không sửa tay. Tab này đọc Tasks, Gates, Samples, Results rồi tính trạng thái từng bước / giai đoạn / cổng — Launch Flow chỉ hiển thị kết quả ở đây. Rê chuột lên tiêu đề cột để xem giải thích.');
+  var T = 'Tasks!', S0 = E_STEP, S1 = E_STEP + 10;
+  function note(r, txt) { sh.getRange(r, 2).setValue(txt).setFontStyle('italic').setFontColor(C_.mut).setWrap(false); }
+  function notes(r, arr) { sh.getRange(r, 2, 1, arr.length).setNotes([arr]); }
+  // ① Steps
+  note(E_STEP - 2, '① STEPS — đếm việc của từng bước trong Tasks. Status: DONE khi mọi việc Done · OVERDUE khi có việc quá hạn · TO CONFIRM khi phần còn lại đều "Not recorded" · IN PROGRESS khi đã có việc Done/In progress · còn lại NOT STARTED. Việc Cancelled không tính.');
+  table_(sh, E_STEP - 1, 2, ['Step', 'Phase', 'Step name', 'Total', 'Done', 'In progress', 'Not recorded', 'Overdue', 'Status', 'Progress', 'Display'],
     STEPS.map(function (s, i) {
       var r = E_STEP + i;
-      return [s[0], s[1], s[3], s[2],
+      return [s[0], s[1], s[3],
         '=COUNTIFS(' + T + '$D$4:$D,$B' + r + ',' + T + '$L$4:$L,"<>Cancelled")',
         '=COUNTIFS(' + T + '$D$4:$D,$B' + r + ',' + T + '$L$4:$L,"Done")',
         '=COUNTIFS(' + T + '$D$4:$D,$B' + r + ',' + T + '$L$4:$L,"In progress")',
         '=COUNTIFS(' + T + '$D$4:$D,$B' + r + ',' + T + '$L$4:$L,"Not recorded")',
         '=COUNTIFS(' + T + '$D$4:$D,$B' + r + ',' + T + '$O$4:$O,"*OVERDUE*")',
-        '=IF(F' + r + '=0,"NO TASKS",IF(G' + r + '=F' + r + ',"DONE",IF(J' + r + '>0,"OVERDUE",IF(G' + r + '+I' + r + '=F' + r + ',"TO CONFIRM",IF(G' + r + '+H' + r + '>0,"IN PROGRESS","NOT STARTED")))))',
-        '=IF(F' + r + '=0,0,G' + r + '/F' + r + ')',
-        '=' + disp_('K' + r) + '&"     "&G' + r + '&" / "&F' + r + '&" tasks"'];
-    }));
-  // Phases
-  var sc = '$C$' + E_STEP + ':$C$' + (E_STEP + 10), sk = '$K$' + E_STEP + ':$K$' + (E_STEP + 10);
-  table_(sh, E_PH - 1, 2, ['Phase', 'Phase name', 'Icon', 'Total', 'Done', 'Active', 'Status', 'Progress', 'No.', 'Display'],
+        '=IF(E' + r + '=0,"NO TASKS",IF(F' + r + '=E' + r + ',"DONE",IF(I' + r + '>0,"OVERDUE",IF(F' + r + '+H' + r + '=E' + r + ',"TO CONFIRM",IF(F' + r + '+G' + r + '>0,"IN PROGRESS","NOT STARTED")))))',
+        '=IF(E' + r + '=0,0,F' + r + '/E' + r + ')',
+        '=' + disp_('J' + r) + '&"     "&F' + r + '&" / "&E' + r + '&" tasks"'];
+    }), { center: [0, 1, 3, 4, 5, 6, 7, 9] });
+  sh.getRange(S0, 11, 11, 1).setNumberFormat('0%');
+  notes(E_STEP - 1, ['Mã bước (Tasks cột Step)', 'Giai đoạn của bước', 'Tên bước (hiện trên Launch Flow)', 'Số việc của bước (trừ Cancelled)',
+    'Số việc Done', 'Số việc In progress', 'Số việc Not recorded (chưa có thông tin, cần xác nhận)', 'Số việc quá hạn (Due < hôm nay, chưa Done)',
+    'Trạng thái bước ⇒ màu ô trên Launch Flow', 'Done / Total', 'Chữ hiển thị trên Launch Flow']);
+  // ② Phases
+  var sc = '$C$' + S0 + ':$C$' + S1, sj = '$J$' + S0 + ':$J$' + S1;
+  note(E_PH - 2, '② PHASES — gộp các bước của giai đoạn. Active = giai đoạn đã có việc Done hoặc In progress; giai đoạn hiện tại (📍) = giai đoạn Active lớn nhất.');
+  table_(sh, E_PH - 1, 2, ['Phase', 'Phase name', 'Total', 'Done', 'Active', 'Status', 'Progress', 'No.', 'Display'],
     PHASES.map(function (p, i) {
       var r = E_PH + i, cnt = 'COUNTIF(' + sc + ',$B' + r + ')';
-      function c(st) { return 'COUNTIFS(' + sc + ',$B' + r + ',' + sk + ',"' + st + '")'; }
-      return [p[0], p[2], p[1],
-        '=SUMIF(' + sc + ',$B' + r + ',$F$' + E_STEP + ':$F$' + (E_STEP + 10) + ')',
-        '=SUMIF(' + sc + ',$B' + r + ',$G$' + E_STEP + ':$G$' + (E_STEP + 10) + ')',
-        '=(SUMIF(' + sc + ',$B' + r + ',$G$' + E_STEP + ':$G$' + (E_STEP + 10) + ')+SUMIF(' + sc + ',$B' + r + ',$H$' + E_STEP + ':$H$' + (E_STEP + 10) + '))>0',
+      function c(st) { return 'COUNTIFS(' + sc + ',$B' + r + ',' + sj + ',"' + st + '")'; }
+      return [p[0], p[2],
+        '=SUMIF(' + sc + ',$B' + r + ',$E$' + S0 + ':$E$' + S1 + ')',
+        '=SUMIF(' + sc + ',$B' + r + ',$F$' + S0 + ':$F$' + S1 + ')',
+        '=(SUMIF(' + sc + ',$B' + r + ',$F$' + S0 + ':$F$' + S1 + ')+SUMIF(' + sc + ',$B' + r + ',$G$' + S0 + ':$G$' + S1 + '))>0',
         '=IF(' + c('DONE') + '=' + cnt + ',"DONE",IF(' + c('OVERDUE') + '>0,"OVERDUE",IF(' + c('NOT STARTED') + '=' + cnt + ',"NOT STARTED",IF(' + c('TO CONFIRM') + '+' + c('DONE') + '=' + cnt + ',"TO CONFIRM","IN PROGRESS"))))',
-        '=IF(E' + r + '=0,0,F' + r + '/E' + r + ')', i + 1,
-        '=' + disp_('H' + r) + '&"     "&F' + r + '&" / "&E' + r + '&" tasks"'];
-    }));
-  // Gates
+        '=IF(D' + r + '=0,0,E' + r + '/D' + r + ')', i + 1,
+        '=' + disp_('G' + r) + '&"     "&E' + r + '&" / "&D' + r + '&" tasks"'];
+    }), { center: [0, 2, 3, 4, 6, 7] });
+  sh.getRange(E_PH, 8, 4, 1).setNumberFormat('0%');
+  notes(E_PH - 1, ['Mã giai đoạn', 'Tên giai đoạn', 'Tổng số việc', 'Số việc Done', 'TRUE nếu đã có việc Done / In progress',
+    'Trạng thái giai đoạn (theo các bước)', 'Done / Total', 'Số thứ tự', 'Chữ hiển thị trên Launch Flow']);
+  // ③ Gates
   var G = 'Gates!', gb = G + '$B$4:$B', ge = G + '$E$4:$E', gf = G + '$F$4:$F', gg = G + '$G$4:$G', gd = G + '$D$4:$D';
+  note(E_GATE - 2, '③ GATES — đọc tab Gates. PASSED: mọi tiêu chí Required đạt · BYPASSED: giai đoạn sau đã chạy dù cổng chưa đạt · READY: tiêu chí Auto đã đạt, chờ người quyết định tick · OPEN: chưa đủ.');
   table_(sh, E_GATE - 1, 2, ['Gate', 'Gate name', 'From → To', 'Decided by', 'Required', 'Req. met', 'Auto req.', 'Auto met',
-    'Recommended', 'Rec. met', 'Next phase active', 'Status', 'Display', 'Why', 'To add'],
+    'Recom.', 'Rec. met', 'Next phase active', 'Status', 'Display', 'Why', 'To add'],
     GATES.map(function (g, i) {
       var r = E_GATE + i, key = '$B' + r;
       return [g[0], g[1], g[2], g[3],
@@ -337,35 +363,37 @@ function buildEngine_(ss) {
         '=COUNTIFS(' + gb + ',' + key + ',' + ge + ',"Required",' + gf + ',"Auto",' + gg + ',TRUE)',
         '=COUNTIFS(' + gb + ',' + key + ',' + ge + ',"Recommended")',
         '=COUNTIFS(' + gb + ',' + key + ',' + ge + ',"Recommended",' + gg + ',TRUE)',
-        i < 3 ? '=$G$' + (E_PH + i + 1) : 'FALSE',
+        i < 3 ? '=$F$' + (E_PH + i + 1) : false,
         '=IF(G' + r + '=F' + r + ',"PASSED",IF(L' + r + '=TRUE,"BYPASSED",IF(I' + r + '=H' + r + ',"READY","OPEN")))',
         '=SWITCH(M' + r + ',"PASSED","✅ PASSED","BYPASSED","⚠️ BYPASSED","READY","🟦 READY TO DECIDE","🔒 OPEN")&"     "&G' + r + '&" / "&F' + r + '&" required"',
         '=IF(M' + r + '="PASSED","✔ Moved on: "&IFERROR(TEXTJOIN("  ·  ",TRUE,FILTER(' + gd + ',' + gb + '=' + key + ',' + ge + '="Required")),""),' +
           'IF(M' + r + '="BYPASSED","⚠ Next phase started before this gate passed. Missing: ","✖ Missing: ")&IFERROR(TEXTJOIN("  ·  ",TRUE,FILTER(' + gd + ',' + gb + '=' + key + ',' + ge + '="Required",' + gg + '<>TRUE)),"—"))',
         '=IFERROR("➕ "&TEXTJOIN("  ·  ",TRUE,FILTER(' + gd + ',' + gb + '=' + key + ',' + ge + '="Recommended",' + gg + '<>TRUE)),"✔ Nothing to add")'];
-    }), {});
-  // fix the literal FALSE of G4 (string) → boolean
-  sh.getRange(E_GATE + 3, 12).setValue(false);
-  // Totals
+    }), { center: [0, 4, 5, 6, 7, 8, 9, 10] });
+  notes(E_GATE - 1, ['Mã cổng', 'Tên cổng', 'Từ giai đoạn → sang giai đoạn', 'Người quyết định', 'Số tiêu chí bắt buộc', 'Số tiêu chí bắt buộc đã đạt',
+    'Số tiêu chí bắt buộc tự tính', 'Số tiêu chí tự tính đã đạt', 'Số tiêu chí khuyến nghị', 'Số tiêu chí khuyến nghị đã đạt',
+    'TRUE nếu giai đoạn sau đã có hoạt động', 'Trạng thái cổng ⇒ màu trên Launch Flow', 'Chữ hiển thị', 'Lý do qua cổng / còn thiếu gì', 'Tiêu chí khuyến nghị còn thiếu']);
+  // ④ Totals
+  note(E_TOT - 2, '④ TOTALS — số liệu cho các thẻ KPI trên Launch Flow và bảng KPI ở Results.');
   var rows = [
-    ['Tasks (excl. cancelled)', '=COUNTIFS(Tasks!$B$4:$B,"<>",Tasks!$L$4:$L,"<>Cancelled")'],
-    ['Done', '=COUNTIF(Tasks!$L$4:$L,"Done")'],
-    ['Overdue', '=COUNTIF(Tasks!$O$4:$O,"*OVERDUE*")'],
-    ['To confirm', '=COUNTIF(Tasks!$L$4:$L,"Not recorded")'],
-    ['Current phase No.', '=IFERROR(MAX(FILTER($J$' + E_PH + ':$J$' + (E_PH + 3) + ',$G$' + E_PH + ':$G$' + (E_PH + 3) + '=TRUE)),1)'],
-    ['Current phase', '="Phase "&C' + TOT.phaseNo + '&" · "&INDEX($C$' + E_PH + ':$C$' + (E_PH + 3) + ',C' + TOT.phaseNo + ')'],
-    ['Gates bypassed', '=COUNTIF($M$' + E_GATE + ':$M$' + (E_GATE + 3) + ',"BYPASSED")'],
-    ['Samples sent', '=COUNTA(Samples!$C$4:$C)'],
-    ['Feedback received', '=COUNTIF(Samples!$H$4:$H,TRUE)'],
-    ['Feedback rate', '=IF(C' + TOT.sent + '=0,0,C' + TOT.fb + '/C' + TOT.sent + ')'],
-    ['Sales units (boxes)', '=SUM(Results!$D$5:$D$16)'],
-    ['Sales value (VND)', '=SUM(Results!$E$5:$E$16)'],
-    ['Progress', '=IF(C' + TOT.total + '=0,0,C' + TOT.done + '/C' + TOT.total + ')']
+    ['Tasks (excl. cancelled)', '=COUNTIFS(Tasks!$B$4:$B,"<>",Tasks!$L$4:$L,"<>Cancelled")', 'Tổng số việc'],
+    ['Done', '=COUNTIF(Tasks!$L$4:$L,"Done")', 'Số việc đã xong'],
+    ['Overdue', '=COUNTIF(Tasks!$O$4:$O,"*OVERDUE*")', 'Due < hôm nay và chưa Done'],
+    ['To confirm', '=COUNTIF(Tasks!$L$4:$L,"Not recorded")', 'Việc chưa có thông tin'],
+    ['Current phase No.', '=IFERROR(MAX(FILTER($I$' + E_PH + ':$I$' + (E_PH + 3) + ',$F$' + E_PH + ':$F$' + (E_PH + 3) + '=TRUE)),1)', 'Giai đoạn Active lớn nhất'],
+    ['Current phase', '="Phase "&C' + TOT.phaseNo + '&" · "&INDEX($C$' + E_PH + ':$C$' + (E_PH + 3) + ',C' + TOT.phaseNo + ')', ''],
+    ['Gates bypassed', '=COUNTIF($M$' + E_GATE + ':$M$' + (E_GATE + 3) + ',"BYPASSED")', 'Số cổng bị vượt'],
+    ['Samples sent', '=COUNTA(Samples!$C$4:$C)', 'Số dòng có tên ở Samples'],
+    ['Feedback received', '=COUNTIF(Samples!$H$4:$H,TRUE)', 'Số ô "Feedback received" được tick'],
+    ['Feedback rate', '=IF(C' + TOT.sent + '=0,0,C' + TOT.fb + '/C' + TOT.sent + ')', ''],
+    ['Sales units (boxes)', '=SUM(Results!$D$5:$D$16)', 'Tổng cột Units ở Results'],
+    ['Sales value (VND)', '=SUM(Results!$E$5:$E$16)', 'Tổng cột Value ở Results'],
+    ['Progress', '=IF(C' + TOT.total + '=0,0,C' + TOT.done + '/C' + TOT.total + ')', 'Done / Total']
   ];
-  table_(sh, E_TOT - 1, 2, ['Metric', 'Value'], rows, {});
+  table_(sh, E_TOT - 1, 2, ['Metric', 'Value', 'Meaning'], rows, { bold: [0] });
   // Lists for dropdowns
-  table_(sh, 3, 17, ['Status'], STATUSES.map(function (s) { return [s]; }), {});
-  table_(sh, 3, 18, ['Type'], [['Required'], ['Recommended']], {});
+  table_(sh, E_STEP - 1, 18, ['Status list'], STATUSES.map(function (s) { return [s]; }), {});
+  table_(sh, E_STEP - 1, 19, ['Gate type'], [['Required'], ['Recommended']], {});
   try { sh.protect().setWarningOnly(true); } catch (_) {}
 }
 function disp_(ref) {
@@ -410,7 +438,7 @@ function taskSeed_() {
   ];
 }
 function gateSeed_() {
-  function st(code) { return '=IFERROR(VLOOKUP("' + code + '",Engine!$B$' + E_STEP + ':$K$' + (E_STEP + 10) + ',10,FALSE)="DONE",FALSE)'; }
+  function st(code) { return '=IFERROR(VLOOKUP("' + code + '",Engine!$B$' + E_STEP + ':$J$' + (E_STEP + 10) + ',9,FALSE)="DONE",FALSE)'; }
   function tk(ids) { return '=' + ids.map(function (id) { return 'SUMPRODUCT((Tasks!$B$4:$B="' + id + '")*(Tasks!$L$4:$L="Done"))'; }).join('+') + '>=' + ids.length; }
   // Gate, #, Criterion, Type, Check, Met, Evidence / note, [doc]
   return [
@@ -500,7 +528,7 @@ function buildTasks_(ss) {
   // công thức mảng ở dòng đầu (ghi đè ô trống cột C, E, O)
   sh.getRange(4, 3, n, 1).clearContent(); sh.getRange(4, 5, n, 1).clearContent(); sh.getRange(4, 15, n, 1).clearContent();
   sh.getRange(4, 3).setFormula('=ARRAYFORMULA(IF(D4:D="","",IFERROR(VLOOKUP(D4:D,Engine!$B$' + E_STEP + ':$C$' + (E_STEP + 10) + ',2,FALSE),"")))');
-  sh.getRange(4, 5).setFormula('=ARRAYFORMULA(IF(D4:D="","",IFERROR(VLOOKUP(D4:D,Engine!$B$' + E_STEP + ':$E$' + (E_STEP + 10) + ',4,FALSE)&"  "&VLOOKUP(D4:D,Engine!$B$' + E_STEP + ':$D$' + (E_STEP + 10) + ',3,FALSE),"")))');
+  sh.getRange(4, 5).setFormula('=ARRAYFORMULA(IF(D4:D="","",IFERROR(VLOOKUP(D4:D,Engine!$B$' + E_STEP + ':$D$' + (E_STEP + 10) + ',3,FALSE),"")))');
   sh.getRange(4, 15).setFormula('=ARRAYFORMULA(IF(B4:B="","",IF((K4:K<>"")*(K4:K<TODAY())*((L4:L="In progress")+(L4:L="Not started")),"⏰ OVERDUE",IF(L4:L="Not recorded","❓ TO CONFIRM",IF(L4:L="Done","✅","")))))');
   // timeline (sparkline) từng dòng
   var f = [];
@@ -871,7 +899,7 @@ function buildFlow_(ss) {
   var tiles = [
     ['✅  OVERALL PROGRESS', '=TEXT(' + E + TOT.ratio + ',"0%")&"     "&' + E + TOT.done + '&" / "&' + E + TOT.total + '&" tasks"',
       '=SPARKLINE(' + E + TOT.ratio + ',{"charttype","bar";"max",1;"color1","' + C_.teal + '"})'],
-    ['📍  CURRENT PHASE', '=' + E + TOT.phaseLabel, '=INDEX(Engine!K' + E_PH + ':K' + (E_PH + 3) + ',' + E + TOT.phaseNo + ')'],
+    ['📍  CURRENT PHASE', '=' + E + TOT.phaseLabel, '=INDEX(Engine!J' + E_PH + ':J' + (E_PH + 3) + ',' + E + TOT.phaseNo + ')'],
     ['⚠️  NEEDS ATTENTION', '=' + E + TOT.overdue + '&" overdue  ·  "&' + E + TOT.confirm + '&" to confirm"',
       '=' + E + TOT.bypass + '&" gate(s) bypassed · see Gates"'],
     ['💬  CUSTOMER SIGNAL', '="Feedback "&TEXT(' + E + TOT.rate + ',"0%")&"   ("&' + E + TOT.fb + '&" / "&' + E + TOT.sent + '&" clinics)"',
@@ -903,9 +931,9 @@ function buildFlow_(ss) {
     sh.getRange(12, c).setFormula('=IF(Engine!$C$' + TOT.phaseNo + '=' + (k + 1) + ',"📍  ","")&"' + p[1] + '  PHASE ' + (k + 1) + '"&CHAR(10)&"' + p[2].toUpperCase() + '"')
       .setBackground(C_.navy).setFontColor(C_.white).setFontWeight('bold').setFontSize(12).setWrap(true).setHorizontalAlignment('center');
     rules.push(cf_(sh.getRange(12, c), '=INDIRECT("Engine!C' + TOT.phaseNo + '")=' + (k + 1), C_.yel, C_.navy, true));
-    sh.getRange(13, c).setFormula('=Engine!K' + er).setBackground(C_.pale).setFontWeight('bold').setHorizontalAlignment('center').setFontSize(10);
+    sh.getRange(13, c).setFormula('=Engine!J' + er).setBackground(C_.pale).setFontWeight('bold').setHorizontalAlignment('center').setFontSize(10);
     rules = rules.concat(statusRules_(sh.getRange(13, c), absA1_(13, c), STEP_COLORS));
-    sh.getRange(14, c).setFormula('=SPARKLINE(Engine!I' + er + ',{"charttype","bar";"max",1;"color1","' + C_.navy + '"})').setBackground(C_.pale);
+    sh.getRange(14, c).setFormula('=SPARKLINE(Engine!H' + er + ',{"charttype","bar";"max",1;"color1","' + C_.navy + '"})').setBackground(C_.pale);
     sh.getRange(15, c).setValue('▼').setFontColor(C_.acc).setHorizontalAlignment('center').setFontSize(13);
     var steps = STEPS.filter(function (s) { return s[1] === p[0]; });
     steps.forEach(function (s, j) {
@@ -913,8 +941,8 @@ function buildFlow_(ss) {
       sh.setRowHeight(r, 38); sh.setRowHeight(r + 1, 26); sh.setRowHeight(r + 2, 12);
       sh.getRange(r, c, 3, 1).setBackground(C_.pale).setHorizontalAlignment('center');
       sh.getRange(r, c).setValue(s[0] + '  ' + s[2] + '\n' + s[3]).setFontWeight('bold').setFontSize(11).setWrap(true);
-      sh.getRange(r + 1, c).setFormula('=Engine!M' + sr).setFontSize(9.5).setWrap(true);
-      sh.getRange(r + 2, c).setFormula('=SPARKLINE(Engine!L' + sr + ',{"charttype","bar";"max",1;"color1","#FFFFFF"})');
+      sh.getRange(r + 1, c).setFormula('=Engine!L' + sr).setFontSize(9.5).setWrap(true);
+      sh.getRange(r + 2, c).setFormula('=SPARKLINE(Engine!K' + sr + ',{"charttype","bar";"max",1;"color1","#FFFFFF"})');
       rules = rules.concat(statusRules_(sh.getRange(r, c, 3, 1), absA1_(r + 1, c), STEP_COLORS));
       if (j < steps.length - 1) { sh.setRowHeight(r + 3, 22); sh.getRange(r + 3, c).setValue('▼').setFontColor(C_.acc).setHorizontalAlignment('center').setFontSize(13); }
     });
