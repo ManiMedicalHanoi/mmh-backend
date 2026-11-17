@@ -505,3 +505,6 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   cột dò theo TÊN tiêu đề) — 1 dòng / sản phẩm, cả đơn chung "Order No." `No.<n>` (số lớn nhất + 1), Partner = chuỗi account NPP trong CUSTOMER CODE (vd. "DDI/Distributor/BKK/Central"), Partner type Distributor,
   Product type = nhóm SP. Ô có công thức không bao giờ bị ghi / xoá (`thoPut_` ghi cả dòng, ô công thức giữ công thức). Sửa = ghi lại đúng các dòng cũ, thêm dòng mới ở cuối, dòng bỏ ⇒ xoá nội dung; xoá đơn = xoá nội dung (giữ dòng).
   Action `ordList` · `ordSave {order:{no?, oldAccount?, date, pic, account, contact, dist, note, lines:[{group,item,qty,price}]}}` · `ordDelete {no, account}` (rid, `canEdit_`). App CRM v37.0. Xem bố cục sheet thật: `thdCare&op=sheet&name=SALE ORDERS`.
+- **17/11/2026 — Training Hub v3.46: buổi đào tạo đại lý NPP Meci (`training/RH_ExtTrain.gs`, người dùng yêu cầu)**: action `rhExtTrain` (`key` = 8 ký tự cuối Script ID, `op=status|run`) ghi 1 dòng Training Report
+  External · Customer Training · Completed (trainer Giang, 17/11/2026 09:00–10:30): Purpose theo agenda, Summary = review 5 dòng, P = link bảng kết quả bài kiểm tra đối tác, Q = tóm tắt kết quả, cột T&E (team dental, 9 người, JSON không SĐT);
+  thư mục buổi trong "Customer Training". Chỉ ghi 1 lần (Script Property `EXT1117_SID`). File bài giảng tải vào thư mục bằng Google Drive.
