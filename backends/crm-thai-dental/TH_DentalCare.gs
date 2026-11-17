@@ -61,6 +61,16 @@ function thdCareApi_(p){
     t0 = Date.now(); try{ out.syncDry = vsSync_(true, 3000); }catch(e){ out.syncDry = String(e); } out.syncDryMs = Date.now() - t0;
     return out;
   }
+  if(op === 'sheet'){   /* 17/11/2026 — read-only: header + first / last rows of one sheet (e.g. SALE ORDERS) */
+    var sh = ss_().getSheetByName(str_(p.name));
+    if(!sh) return { ok: false, error: 'no sheet', sheets: ss_().getSheets().map(function(x){ return x.getName(); }) };
+    var lr = sh.getLastRow(), lc = Math.min(sh.getLastColumn(), 40), hr = Math.min(lr, parseInt(p.head, 10) || 8);
+    out.name = sh.getName(); out.rows = lr; out.cols = sh.getLastColumn(); out.hidden = sh.isSheetHidden();
+    out.top = lr ? sh.getRange(1, 1, hr, lc).getDisplayValues() : [];
+    out.last = lr > hr ? sh.getRange(Math.max(hr + 1, lr - 4), 1, Math.min(5, lr - hr), lc).getDisplayValues() : [];
+    try{ out.formulas = sh.getRange(Math.min(lr, hr + 1) || 1, 1, 1, lc).getFormulas()[0]; }catch(e){}
+    return out;
+  }
   return { ok: false, error: 'op?' };
 }
 
