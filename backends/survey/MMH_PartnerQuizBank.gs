@@ -2,7 +2,7 @@
  * Ngân hàng câu hỏi — bài kiểm tra đối tác (NPP, đại lý) sau buổi đào tạo nha khoa.
  * v3 (17/11/2026, người dùng yêu cầu): 1 buổi đào tạo 2 phần theo bộ slide gộp.
  *   Phần 1 (nha-khoa-1) Dụng cụ: c1 JIZAI thiết kế · c2 JIZAI xử lý nhiệt, cách dùng · c3 020/04, EndoCompath, bằng chứng · c4 trâm tay (K, H, Reamer, RT, D Finder, Glide Finder) · c5 mũi khoan.
- *   Phần 2 (nha-khoa-2) Vật liệu và sản phẩm mới: c1 chọn dòng composite · c2 đặc tính composite · c3 Mani Bond, kỹ thuật trám · c4 tẩy trắng (không cần đèn, kỳ vọng) · c5 sản phẩm mới (1559L, IPR-01EF, DIA-BURS CAD/CAM).
+ *   Phần 2 (nha-khoa-2) Vật liệu và sản phẩm mới: c1 chọn dòng composite · c2 đặc tính composite · c3 Mani Bond, kỹ thuật trám · c4 tẩy trắng (không cần đèn, kỳ vọng) · c5 sản phẩm mới (1559L, IPR-01EF). CAD/CAM chưa giới thiệu (người dùng yêu cầu) ⇒ không hỏi.
  * Mỗi lượt rút n câu rải đều theo nhóm (c), mỗi nhóm 2 câu. Đạt từ 6/10; top 3 mỗi phần nhận túi cói MANI.
  * o = 4 đáp án (thứ tự được trộn khi phát), a = chỉ số đáp án đúng (0..3), x = giải thích hiện sau khi trả lời.
  * Không đưa kế hoạch sản phẩm sắp ra mắt / thông tin thị trường vào đây (người dùng yêu cầu).
@@ -69,9 +69,7 @@ var PQ_BANK = {
       { c: 5, q: 'Carbide Bur 1559L dùng để làm gì?', o: ['Mài kẽ răng', 'Mở buồng tủy', 'Chia cắt răng ngầm', 'Hoàn tất bề mặt'], a: 2, x: 'Mũi khoan chia cắt răng ngầm, chuôi FG.' },
       { c: 5, q: 'Chiều dài làm việc của Carbide Bur 1559L?', o: ['3 mm', '6 mm', '11 mm', '15 mm'], a: 1, x: '6 mm, giảm nguy cơ cuốn vướng mô mềm (mũi Zekrya truyền thống: 11 mm).' },
       { c: 5, q: 'Hai đặc điểm lưỡi cắt của Carbide Bur 1559L?', o: ['Lưỡi cắt dạng xoắn và rãnh cắt chéo', 'Hạt kim cương và lớp phủ niken', 'Đầu không cắt và chuôi CA', 'Lưỡi thẳng và chuôi dài 34 mm'], a: 0, x: 'Lưỡi cắt dạng xoắn giảm rung; rãnh cắt chéo nâng hiệu quả cắt.' },
-      { c: 5, q: 'IPR-01EF dùng cho thủ thuật nào?', o: ['Mở tủy', 'Mài kẽ răng trong chỉnh nha', 'Tháo mão kim loại', 'Lấy ngà sâu'], a: 1, x: 'Đầu 0,19 mm, hạt siêu mịn, contra-angle tối đa 160.000 vòng/phút, dùng một lần.' },
-      { c: 5, q: 'Dòng DIA-BURS nào dành cho sửa soạn phục hình CAD/CAM?', o: ['EA', 'CE', 'SF', 'CD'], a: 1, x: 'CE (CEREC) cho CAD/CAM; Pro cho mão toàn sứ, zirconia.' },
-      { c: 5, q: 'Mài, cắt zirconia bằng Pro-5f cần lưu ý gì?', o: ['Lực mạnh, không cần nước', 'Lực nhẹ, phun nước, đeo kính bảo hộ', 'Chỉ dùng turbine không nước', 'Chiếu đèn trước khi mài'], a: 1, x: 'Mài zirconia có thể phát tia lửa.' }
+      { c: 5, q: 'IPR-01EF dùng cho thủ thuật nào?', o: ['Mở tủy', 'Mài kẽ răng trong chỉnh nha', 'Tháo mão kim loại', 'Lấy ngà sâu'], a: 1, x: 'Đầu 0,19 mm, hạt siêu mịn, contra-angle tối đa 160.000 vòng/phút, dùng một lần.' }
     ]
   }
 };
