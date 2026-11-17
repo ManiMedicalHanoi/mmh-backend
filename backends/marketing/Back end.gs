@@ -517,7 +517,7 @@ function liveSig_(wr){
     var c = CacheService.getScriptCache(), hit = c.get('lsig_' + wr);
     if(hit) return hit;
     var sh = shWeekly(); if(!sh || wr < WEEKLY_DATA_ROW) return '0';
-    var v = sh.getRange(WEEKLY_DATA_ROW, 2, wr - WEEKLY_DATA_ROW + 1, 14).getDisplayValues();
+    var v = sh.getRange(WEEKLY_DATA_ROW, 2, wr - WEEKLY_DATA_ROW + 1, 14).getValues();   /* ⭐ 17/11/2026: getValues (getDisplayValues chậm ~1,6 s) */
     var sig = Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, JSON.stringify(v))).slice(0, 12);
     c.put('lsig_' + wr, sig, 60);
     return sig;
@@ -555,9 +555,16 @@ function warmActive(){
   }catch(e){ return false; }
 }
 function cacheTtl(){ return warmActive() ? CACHE_LONG : CACHE_TTL; }
+/* ⭐ 17/11/2026 — TĂNG TỐC MỞ APP: nhật ký trong gói boot chỉ gồm thao tác của NGƯỜI (bỏ dòng "System" của đồng bộ tự động —
+   Marketing: 4.776 / 5.689 dòng · 1,1 MB / 1,9 MB gói boot), tối đa 500 dòng mới nhất. Lệnh activityLog vẫn trả đủ. */
+function bootActivity_(){
+  var all = readActivityLog(dateNDaysAgo(35), ''), out = [];
+  for(var i = 0; i < all.length && out.length < 500; i++){ if(!/^system$/i.test(String(all[i].pic || '').trim())) out.push(all[i]); }
+  return out;
+}
 function buildBootData(weekly){
   return { pics: readPicOptions(weekly), typeOptions: readTypeOptions(), keyTasks: weekly,
-           monthly: readMonthly(), activityLog: readActivityLog(dateNDaysAgo(35), '') };
+           monthly: readMonthly(), activityLog: bootActivity_() };
 }
 /* tự cài trigger (tối đa 1 lần thử / 6 giờ) — web app chạy dưới quyền chủ file nên cài được */
 function ensureWarmTrigger(){
@@ -751,21 +758,29 @@ function clearActivityLog(user, p){
   if(last>1) s.deleteRows(2, last-1);
   return { ok:true, message:'Đã xóa sạch lịch sử thông báo' };
 }
-function readActivityLog(fromISO, toISO){
+function readActivityLog(fromISO, toISO, maxOut){
+  /* ⭐ 17/11/2026 — TĂNG TỐC: nhật ký chỉ ghi nối tiếp (appendRow, cũ ⇒ mới) nên chỉ đọc PHẦN CUỐI sheet theo từng khối 1.500 dòng,
+     dừng khi gặp dòng cũ hơn fromISO (trước: đọc cả sheet mỗi lần mở app). maxOut: giới hạn số dòng trả về (mới nhất trước). */
   var s=ss().getSheetByName(ACTIVITY_SHEET);
   if(!s) return [];
   var last=s.getLastRow(); if(last<2) return [];
-  var vals=s.getRange(2,1,last-1,6).getValues();
-  var out=[];
-  for(var i=0;i<vals.length;i++){
-    var v=vals[i];
-    var ts=String(v[0]||''); if(!ts) continue;
-    var day=ts.slice(0,10);
-    if(fromISO && day<fromISO) continue;
-    if(toISO && day>toISO) continue;
-    out.push({ ts:ts, time:ts, pic:String(v[1]||''), type:String(v[2]||''), detail:String(v[3]||''), keyTask:String(v[4]||''), subNo:String(v[5]||'') });
+  var out=[], end=last, BLK=1500, stop=false;
+  while(end>=2 && !stop){
+    var start=Math.max(2, end-BLK+1);
+    var vals=s.getRange(start,1,end-start+1,6).getValues();
+    for(var i=vals.length-1;i>=0;i--){
+      var v=vals[i];
+      var ts=String(v[0]||''); if(!ts) continue;
+      var day=ts.slice(0,10);
+      if(fromISO && day<fromISO){ if(!toISO || day<fromISO){ stop=true; break; } }
+      if(toISO && day>toISO) continue;
+      out.push({ ts:ts, time:ts, pic:String(v[1]||''), type:String(v[2]||''), detail:String(v[3]||''), keyTask:String(v[4]||''), subNo:String(v[5]||'') });
+    }
+    if(!fromISO) { if(start===2) break; }
+    end=start-1;
   }
   out.sort(function(a,b){ return a.ts<b.ts?1:-1; });
+  if(maxOut && out.length>maxOut) out=out.slice(0,maxOut);
   return out;
 }
 
