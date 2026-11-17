@@ -6,6 +6,8 @@
  *   thay thông số cũ; thêm dòng cuối "Tiêu chuẩn …" lấy theo thông số cũ của từng mã (dòng "-Tiêu chuẩn ISO 13485, FDA").
  *   Bỏ 2 cột "Mani sửa tiếng việt" / "Mani sửa tiếng anh" (xoá cột nếu còn). Cột "Tài liệu dẫn chứng" + ảnh đứng sau "Giá Kế Hoạch".
  *   Cột dò theo TÊN tiêu đề (dòng 3–4) ⇒ chạy lại nhiều lần được; ảnh cũ do menu này chèn tự xoá trước.
+ * v1.1.1 (17/11/2026): lỗi "Bạn phải chọn tất cả các ô trong dải ô đã hợp nhất…" khi xoá cột ⇒ tách từng vùng gộp bên phải
+ *   (`tsktnUnmergeRight_`) trước khi xoá; xoá vẫn lỗi ⇒ dồn cột sang trái (`tsktnShiftLeft_`).
  * 1470: cột G quy cách = 1 Hộp/12 sợi.
  * Chạy: menu MMH ▸ Áp dụng TSKT dao & chỉ khâu (lần đầu Google hỏi cấp quyền).
  * Dữ liệu: TSKT_NhanData.gs (trường k = thông số tiếng Việt, n = tài liệu dẫn chứng, img = ảnh), ảnh: img_<mã>_<n>.html — sinh tự động, không sửa tay.
@@ -76,6 +78,22 @@ function tsktnRow_(cVals, want, code) {
   return 0;
 }
 
+/** Tách MỌI ô gộp từ cột c sang phải (tách đúng từng vùng gộp ⇒ không bị lỗi "phải chọn tất cả các ô trong dải ô đã hợp nhất"). */
+function tsktnUnmergeRight_(sh, c) {
+  var n = sh.getMaxColumns() - c + 1;
+  if (n < 1) return 0;
+  var m = sh.getRange(1, c, sh.getMaxRows(), n).getMergedRanges();
+  m.forEach(function (r) { try { r.breakApart(); } catch (e) {} });
+  return m.length;
+}
+
+/** Dự phòng khi không xoá được cột c: dồn mọi thứ bên phải sang trái 1 cột, xoá trắng cột cuối. */
+function tsktnShiftLeft_(sh, c) {
+  var maxC = sh.getMaxColumns(), maxR = sh.getMaxRows();
+  if (c < maxC) sh.getRange(1, c + 1, maxR, maxC - c).moveTo(sh.getRange(1, c));
+  sh.getRange(1, maxC, maxR, 1).clear();
+}
+
 /** Dòng tiêu chuẩn theo thông số cũ (cột J): "-Tiêu chuẩn ISO 13485, FDA" / "13. Tiêu chuẩn …". */
 function tsktnStd_(oldSpec, code) {
   var m = String(oldSpec || '').normalize('NFC').match(/ti[êe]u chu[ẩa]n[^\n]*/i);
@@ -96,11 +114,19 @@ function apDungTSKTNhanKhoa() {
     var oldSpec = sh.getRange(1, col.spec, lastRow, 1).getValues();   // đọc TRƯỚC khi ghi đè (lấy dòng Tiêu chuẩn)
 
     // bỏ 2 cột "Mani sửa tiếng việt / tiếng anh" (xoá cột bên phải trước)
-    var drop = [col.vi, col.en].filter(function (c) { return c > 0; }).sort(function (a, b) { return b - a; });
-    var hdrImg0 = col.img;
-    if (hdrImg0) { try { sh.getRange(TSKTN.HEAD_ROW, hdrImg0, 1, Math.max(1, col.w - hdrImg0 + 1)).breakApart(); } catch (e) {} }
-    drop.forEach(function (c) { sh.deleteColumn(c); });
-    if (drop.length) col = tsktnCols_(sh);
+    var drop = [col.vi, col.en].filter(function (c) { return c > 0; }).sort(function (a, b) { return a - b; });
+    if (drop.length) {
+      tsktnUnmergeRight_(sh, drop[0]);          // v1.1.1: còn ô gộp (vd. O3:W3) ⇒ Google từ chối xoá cột
+      try {
+        var contiguous = drop.length === 1 || drop[drop.length - 1] - drop[0] === drop.length - 1;
+        if (contiguous) sh.deleteColumns(drop[0], drop.length);
+        else drop.slice().reverse().forEach(function (c) { sh.deleteColumn(c); });
+      } catch (e) {
+        // dự phòng: dồn các cột bên phải sang trái rồi xoá trắng phần thừa (kết quả giống xoá cột)
+        drop.slice().reverse().forEach(function (c) { tsktnShiftLeft_(sh, c); });
+      }
+      col = tsktnCols_(sh);
+    }
 
     var maxImg = 0;
     Object.keys(TSKT_NHAN_ROWS).forEach(function (k) { maxImg = Math.max(maxImg, (TSKT_NHAN_ROWS[k].img || []).length); });
@@ -110,7 +136,7 @@ function apDungTSKTNhanKhoa() {
     // tiêu đề cột dẫn chứng + nhóm ảnh
     var hdr = sh.getRange(TSKTN.HEAD_ROW, col.spec);
     var bg = hdr.getBackground(), font = hdr.getFontFamily();
-    try { sh.getRange(TSKTN.HEAD_ROW, imgCol, 1, Math.max(maxImg, 1)).breakApart(); } catch (e) {}
+    tsktnUnmergeRight_(sh, docCol);
     sh.getRange(TSKTN.HEAD_ROW, docCol).setValue('Tài liệu dẫn chứng (ảnh · loại tài liệu · tên · trang → số thông số)');
     sh.getRange(TSKTN.HEAD_ROW, imgCol).setValue('Ảnh dẫn chứng (khung đỏ có số = thông số cùng số ở cột Đặc tính kỹ thuật)');
     sh.getRange(TSKTN.HEAD_ROW, docCol, 1, 1 + maxImg).setBackground(bg).setFontFamily(font).setFontWeight('bold')
