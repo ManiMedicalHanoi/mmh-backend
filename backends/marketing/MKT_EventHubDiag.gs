@@ -17,6 +17,13 @@ function ehDriveDiag_(p){
   var mt = function(m){ m = String(m || ''); return /spreadsheet/.test(m) ? 'GS' : /google-apps.form/.test(m) ? 'FORM' : /wordprocessing/.test(m) ? 'DOCX' : /document/.test(m) ? 'DOC' : /presentation/.test(m) ? 'SLIDE' :
     /folder/.test(m) ? 'DIR' : /sheet|excel/.test(m) ? 'XLSX' : /pdf/.test(m) ? 'PDF' : /image/.test(m) ? 'IMG' : /video/.test(m) ? 'VID' : m.split('/').pop().slice(0, 8); };
   var ymd = function(d){ try { return Utilities.formatDate(d, 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd'); } catch(e){ return ''; } };
+  var inRoot = function(q, re){   /* tìm theo tên trong thư mục Event FY68 (Drive search không khớp tên có số / gạch dưới) */
+    var k = String(q || '').toLowerCase(), hit = null;
+    var walk = function(fo, d){ if (hit || d > 4) return; var it = fo.getFiles(); while (it.hasNext() && !hit){ var f = it.next(); if (f.getName().toLowerCase().indexOf(k) >= 0 && (!re || re.test(f.getMimeType()))) hit = f; }
+      var sub = fo.getFolders(); while (sub.hasNext() && !hit) walk(sub.next(), d + 1); };
+    walk(DriveApp.getFolderById(EH.ROOT), 0); return hit;
+  };
+  var safe = function(v){ var x = String(v == null ? '' : v); return /@|\d{6,}/.test(x.replace(/[\s.]/g, '')) ? '•••' : x; };
   try {
     if (part === 'tree'){
       var maxD = Math.min(4, +p.depth || 3), rows = [], skipImg = String(p.img || '') !== '1';
@@ -59,7 +66,7 @@ function ehDriveDiag_(p){
       out.rows = dl;
     }
     else if (part === 'docx'){
-      var dq = DriveApp.searchFiles('title contains "' + String(p.q || '').replace(/"/g, '') + '" and trashed = false'), df = dq.hasNext() ? dq.next() : null;
+      var df = inRoot(p.q, /document|wordprocessing/); if (!df){ var dq = DriveApp.searchFiles('title contains "' + String(p.q || '').replace(/"/g, '') + '" and trashed = false'); df = dq.hasNext() ? dq.next() : null; }
       if (!df) return { ok:false, error:'Không thấy file' };
       out.name = df.getName(); var txt = '';
       if (/google-apps.document/.test(df.getMimeType())) txt = DocumentApp.openById(df.getId()).getBody().getText();
@@ -69,13 +76,14 @@ function ehDriveDiag_(p){
     }
     else if (part === 'sheet'){
       var sid = String(p.id || '');
+      if (!sid && p.q){ var fr = inRoot(p.q, /spreadsheet/); if (fr) sid = fr.getId(); }
       if (!sid && p.q){ var sq = DriveApp.searchFiles('title contains "' + String(p.q).replace(/"/g, '') + '" and mimeType = "application/vnd.google-apps.spreadsheet" and trashed = false'); if (sq.hasNext()) sid = sq.next().getId(); }
       var ss = SpreadsheetApp.openById(sid); out.name = ss.getName(); out.id = sid;
       out.tabs = ss.getSheets().map(function(sh){
         var lr = sh.getLastRow(), lc = Math.min(40, sh.getLastColumn()), hd = '';
-        if (lr && lc){ var top = sh.getRange(1, 1, Math.min(8, lr), lc).getDisplayValues(), best = -1, bn = 0;
-          top.forEach(function(r, i){ var k = r.filter(function(x){ return x && String(x).length <= 40; }).length; if (k > bn){ bn = k; best = i; } });
-          if (best >= 0) hd = (best + 1) + ': ' + top[best].map(function(x){ return cut(x, 28); }).join(' ¦ ').replace(/( ¦ )+$/, ''); }
+        if (lr && lc){ var top = sh.getRange(1, 1, Math.min(6, lr), lc).getDisplayValues(), best = -1, bn = 0;   /* chỉ dòng tiêu đề (dòng có chữ, không số điện thoại / email) */
+          top.forEach(function(r, i){ if (r.some(function(x){ return safe(x) === '•••'; })) return; var k = r.filter(function(x){ return x && String(x).length <= 60; }).length; if (k > bn){ bn = k; best = i; } });
+          if (best >= 0) hd = (best + 1) + ': ' + top[best].map(function(x){ return cut(safe(x), 28); }).join(' ¦ ').replace(/( ¦ )+$/, ''); }
         return cut(sh.getName(), 40) + (sh.isSheetHidden() ? ' (ẩn)' : '') + ' · ' + lr + '×' + sh.getLastColumn() + (hd ? ' · ' + hd : '');
       });
     }
