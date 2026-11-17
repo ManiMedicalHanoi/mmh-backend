@@ -21,7 +21,15 @@ p.on('response', async r => {
   try { const ct = r.headers()['content-type'] || ''; body = /json|text|javascript/.test(ct) ? await r.text() : '[' + ct + ']'; } catch (e) { body = '(không đọc được)'; }
   log.push({ m: q.method(), u: q.url(), s: r.status(), pd: q.postData() || '', b: body.slice(0, 3000) });
 });
-const grabbed = [];
+const grabbed = []; const jsHits = [];
+ctx.on('response', async r => {
+  try {
+    if (r.request().resourceType() !== 'script' && !/\.js(\?|$)/.test(r.url())) return;
+    const t = await r.text();
+    const re = /.{0,220}(localhost:1234|1234\/api|download\/file|file\/browser|fileId).{0,220}/g; let m, n = 0;
+    while ((m = re.exec(t)) && n < 12) { jsHits.push(r.url().split('?')[0].split('/').slice(-3).join('/') + ' ⇒ ' + m[0].replace(/\s+/g, ' ')); n++; }
+  } catch (e) {}
+});
 ctx.on('response', async r => {
   try {
     const h = r.headers(), ct = h['content-type'] || '', cd = h['content-disposition'] || '';
@@ -147,16 +155,7 @@ try {
     }
   }
   /* PDF đi qua Agent (localhost:1234) ⇒ tìm trong mã JS của trang địa chỉ máy chủ thật để gọi thẳng bằng fileId */
-  say('4) Tìm đường tải file trong mã JS của trang');
-  const srcs = await pg.$$eval('script[src]', els => els.map(e => e.src)).catch(() => []);
-  const seen = new Set(); let hits = [];
-  for (const u of srcs) {
-    if (seen.has(u) || !/muasamcong/.test(u)) continue; seen.add(u);
-    const t = await race(pg.evaluate(async x => { try { return await (await fetch(x)).text(); } catch (e) { return ''; } }, u), 20000) || '';
-    const re = /.{0,160}(download\/file|fileId=|\/download|localhost:1234|file\/browser|viewFile|getFile|file-attach|attach-file).{0,160}/gi; let m;
-    while ((m = re.exec(t)) && hits.length < 60) hits.push(u.split('/').slice(-2).join('/') + ' ⇒ ' + m[0].replace(/\s+/g, ' '));
-  }
-  say('   ' + srcs.length + ' file JS, đoạn có chữ download/fileId:\n     ' + [...new Set(hits)].join('\n     '));
+  say('4) Đoạn JS có localhost:1234 / download/file / fileId (' + jsHits.length + '):\n     ' + [...new Set(jsHits)].slice(0, 40).join('\n     '));
   /* gắn fileId: bấm file PDF, bắt yêu cầu localhost:1234 để lấy fileId */
   let fileId = '';
   const onq = q => { const m = q.url().match(/fileId=([\w-]+)/); if (m) fileId = m[1]; };
