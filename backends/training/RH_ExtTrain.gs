@@ -54,6 +54,14 @@ function apiRhExtTrain(p) {
     if (!r.ok) return r;
     P.setProperty(EXT1117.PROP, r.sid);
     hubLog('INFO', 'rhExtTrain', r.sid + ' row ' + r.row + ' (Completed)', EXT1117.topic);
+  } else if (op === 'peek') {             // chỉ đọc: giá trị / công thức / định dạng các dòng quanh buổi (chẩn đoán)
+    var sh = hubReportSheet(), r0 = Math.max(HUB.DATA_START_ROW, (+p.row || 110) - 2), n = 4, w = HUB.COL.TIME_TO;
+    var rg = sh.getRange(r0, 1, n, w), V = rg.getDisplayValues(), F = rg.getFormulas(), NF = rg.getNumberFormats();
+    var dv = sh.getRange(r0 + 2, HUB.COL.DATE).getDataValidation();
+    return {ok: true, sheet: sh.getName(), lastRow: sh.getLastRow(), r0: r0,
+      rows: V.map(function(r, i){ return {row: r0 + i, b_e: r.slice(1, 5), f_b_e: F[i].slice(1, 5), nf_e: NF[i][4], tw: r.slice(19, 24)}; }),
+      e5: sh.getRange(HUB.DATA_START_ROW, 1, 1, 6).getFormulas()[0], dvE: dv ? String(dv.getCriteriaType()) : '',
+      prot: sh.getProtections(SpreadsheetApp.ProtectionType.RANGE).map(function(x){ return x.getRange().getA1Notation(); }).slice(0, 10)};
   } else if (op === 'fix') {
     var sid0 = P.getProperty(EXT1117.PROP); if (!sid0) return {ok: false, error: 'Chưa ghi buổi.'};
     var fx = ext1117Fix_(sid0); if (!fx.ok) return fx;
