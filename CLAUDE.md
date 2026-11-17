@@ -501,3 +501,7 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   `wkApplyRule_` nhận `finKeep` (crm-thai-dental + crm-thai, như CRM VN v10.22). `saveWeekly` / `deleteRow` weekly KHÔNG chép OTHERS TASK trong lệnh nữa ⇒ `thdSyncSoon_` hẹn trigger `thdLaterRun` ~30 giây
   (không tạo được trigger ⇒ chạy như cũ; cronTh 10 phút vẫn chạy). Chẩn đoán chỉ đọc: ping `crm-thai-dental?action=thdCare&key=<8 ký tự cuối ID Sheet>&op=mail|drive|speed&full=1`
   (mail = nhật ký gửi báo cáo + người nhận hiện tại; drive `&write=1` = thử ghi thư mục chứng từ NEW ACCOUNT & SKU).
+- **17/11/2026 — Đơn hàng Dental Thái (`crm-thai-dental/TH_Orders.gs`, Yong: nhập đơn ngay trang lượt thăm)**: ghi vào sheet CÓ SẴN **SALE ORDERS** của file Dental Action (bố cục cũ: tiêu đề dòng 3, gợi ý dòng 4, dữ liệu từ dòng 5;
+  cột dò theo TÊN tiêu đề) — 1 dòng / sản phẩm, cả đơn chung "Order No." `No.<n>` (số lớn nhất + 1), Partner = chuỗi account NPP trong CUSTOMER CODE (vd. "DDI/Distributor/BKK/Central"), Partner type Distributor,
+  Product type = nhóm SP. Ô có công thức không bao giờ bị ghi / xoá (`thoPut_` ghi cả dòng, ô công thức giữ công thức). Sửa = ghi lại đúng các dòng cũ, thêm dòng mới ở cuối, dòng bỏ ⇒ xoá nội dung; xoá đơn = xoá nội dung (giữ dòng).
+  Action `ordList` · `ordSave {order:{no?, oldAccount?, date, pic, account, contact, dist, note, lines:[{group,item,qty,price}]}}` · `ordDelete {no, account}` (rid, `canEdit_`). App CRM v37.0. Xem bố cục sheet thật: `thdCare&op=sheet&name=SALE ORDERS`.
