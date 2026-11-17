@@ -1,0 +1,18 @@
+name: Thử truy cập muasamcong (tạm)
+# Tạm thời: kiểm máy chủ GitHub (nước ngoài) có vào được muasamcong.mof.gov.vn không. Xoá trước khi gộp.
+on:
+  push:
+    branches: [claude/nice-brown-m3e3tu]
+    paths: ['.github/workflows/msc-probe.yml']
+permissions: { contents: read }
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Địa chỉ IP của máy chạy
+        run: curl -sS --max-time 20 https://ipinfo.io/json | grep -E '"(ip|country|org)"' || true
+      - name: Trang chủ muasamcong
+        run: |
+          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
+          curl -sS -A "$UA" -o home.html -w "HTTP %{http_code} · %{size_download} byte · %{time_total}s\n" --max-time 40 https://muasamcong.mof.gov.vn/ || true
+          sed 's/<[^>]*>/ /g' home.html | tr -s ' \n' | head -c 400; echo
