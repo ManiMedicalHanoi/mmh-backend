@@ -112,7 +112,8 @@ function dfDeep_(p){
     if (a.length < 3) return ''; a.sort(); return a[Math.floor(a.length / 2)];
   };
   var ad = function(a, b){ return Math.abs(dfDays_(a, b)); };
-  var out = { ok:true, today:today, cand:0, photoSwap:0, photoOk:0, orderSwap:0, futureDone:0, fix:[], ex:{ photo:[], order:[], future:[], ok:[] }, perPic:{}, busyDays:[] };
+  var logD = {}; try { logD = wkLogAdds_() || {}; } catch(e){}   /* dòng → ngày tạo (nhật ký _LOG "add weekly") */
+  var out = { ok:true, today:today, cand:0, photoSwap:0, photoOk:0, logSwap:0, logOk:0, orderSwap:0, futureDone:0, logRows:Object.keys(logD).length, fix:[], ex:{ photo:[], order:[], future:[], ok:[] }, perPic:{}, busyDays:[] };
   rows.forEach(function(r, i){
     if (!r.st) return;
     var pp = out.perPic[r.pic] = out.perPic[r.pic] || { rows:0, d1_12:0, d13_31:0, cand:0, fix:0 };
@@ -124,6 +125,12 @@ function dfDeep_(p){
     if (r.ph){
       if (ad(r.ph, r.st) <= 20){ out.photoOk++; if (out.ex.ok.length < 6) out.ex.ok.push(tag + ' · ảnh ' + r.ph); return; }
       if (ad(r.ph, sw) <= 20){ why = 'ảnh ' + r.ph; out.photoSwap++; if (out.ex.photo.length < 25) out.ex.photo.push(tag + ' · ' + why); }
+    }
+    var ld = logD[r.row] || '';
+    if (!why && ld){
+      var dc = dfDays_(ld, r.st), dsw = dfDays_(ld, sw);
+      if (dc >= -10 && dc <= 60){ out.logOk++; if (!r.ph) return; }
+      else if (dsw >= -10 && dsw <= 60){ why = 'tạo dòng ngày ' + ld; out.logSwap++; if (out.ex.photo.length < 25) out.ex.photo.push(tag + ' · ' + why); }
     }
     if (!why && /complet/i.test(r.status) && r.st > today && sw <= today){ why = 'Completed mà ngày ở tương lai'; out.futureDone++; if (out.ex.future.length < 15) out.ex.future.push(tag); }
     if (!why && !r.ph){
