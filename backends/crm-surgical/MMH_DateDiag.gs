@@ -8,7 +8,14 @@
 function dfDiag_(p){
   if (String(p.key || '') !== ScriptApp.getScriptId().slice(-8)) return { ok:false, error:'key?' };
   var op = String(p.op || 'status');
-  if (op === 'run') return crmDateFix_();
+  if (op === 'run'){
+    var r = crmDateFix_(), s0 = sh('weekly'), tz0 = ss().getSpreadsheetTimeZone();
+    SpreadsheetApp.flush();
+    r.after = s0.getRange(DATA_ROW + 1, COL.weekly.start, 6, 2).getValues().map(function(x){ return x.map(function(v){ return v instanceof Date ? Utilities.formatDate(v, tz0, 'yyyy-MM-dd HH:mm') : String(v); }).join(' → '); });
+    try { r.prot = ss().getProtections(SpreadsheetApp.ProtectionType.RANGE).length + ' vùng khoá · sheet khoá ' + s0.getProtections(SpreadsheetApp.ProtectionType.SHEET).length; } catch(e){ r.prot = String(e.message || e); }
+    try { r.user = Session.getEffectiveUser().getEmail().split('@')[0]; } catch(e){}
+    return r;
+  }
   var book = ss(), s = sh('weekly'), W = COL.weekly, tz = book.getSpreadsheetTimeZone(), last = s.getLastRow();
   var out = { ok:true, locale:(function(){ try { return book.getSpreadsheetLocale(); } catch(e){ return '?'; } })(), fileTz:tz, scriptTz:Session.getScriptTimeZone(),
               dfVer:props_().getProperty(DF_KEY) || '', dfLog:props_().getProperty('CRM_DATEFIX_LOG') || '', lastRow:last,
