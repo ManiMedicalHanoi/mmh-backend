@@ -183,7 +183,7 @@ function ordDedupe_(p){
     col.forEach(function(t){ t = S(t); var mm = /(\d+)\s*$/.exec(t); if (mm && +mm[1] > mx){ mx = +mm[1]; pre = t.slice(0, t.length - mm[1].length); } });
     var check = function(r, no){ var v = s.getRange(r, 1, 1, Math.max(m.orderNo, m.name)).getValues()[0]; return S(v[m.orderNo - 1]) === no; };
     var done = { fill:0, renum:[] };
-    fillDay.forEach(function(x){ x.rows.forEach(function(r){ if (check(r, x.no) && !S(s.getRange(r, m.day).getValue())){ s.getRange(r, m.day).setValue(s2d(x.day)); done.fill++; } }); });
+    fillDay.forEach(function(x){ x.rows.forEach(function(r){ if (check(r, x.no) && !S(s.getRange(r, m.day).getValue())){ s.getRange(r, m.day).setValue(wV_(s2d(x.day))); done.fill++; } }); });
     renum.forEach(function(x){ if (!x.rows.every(function(r){ return check(r, x.no); })) return; var nn = pre + (++mx); x.rows.forEach(function(r){ s.getRange(r, m.orderNo).setValue(nn); }); done.renum.push(x.no + ' → ' + nn + ' · ' + x.acc + ' · ' + x.pic); });
     SpreadsheetApp.flush(); bumpVersion(bumpTabsFor_('order')); _RAW = {}; _ORDSUPP = null;
     try { logAct({ pic:'system' }, 'dedupe', 'order', 'Số đơn trùng', 'điền ngày ' + done.fill + ' dòng · cấp số mới ' + done.renum.length + ' đơn: ' + done.renum.join(' ; ').slice(0, 300), ''); flushLog_(); } catch(e){}
