@@ -63,3 +63,12 @@ function thdCareApi_(p){
   }
   return { ok: false, error: 'op?' };
 }
+
+/* 17/11/2026 — thdCare op=drive báo "Access denied: DriveApp." ⇒ tài khoản chủ script chưa cấp quyền Google Drive
+   (tải chứng từ / ảnh chụp màn hình NEW ACCOUNT & SKU báo lỗi). Chủ script: mở trình soạn ▸ chọn hàm thdCapQuyen ▸ Chạy ▸ tick ĐỦ mọi ô quyền (cả Google Drive) ▸ Cho phép. */
+function thdCapQuyen(){
+  var id = thdNaFolder_(), f = DriveApp.getFolderById(id);
+  var t = f.createFile(Utilities.newBlob('ok', 'text/plain', 'quyen-drive-ok.txt')); t.setTrashed(true);
+  Logger.log('Drive OK — thư mục chứng từ: ' + f.getName() + ' (' + id + ')');
+  return f.getName();
+}

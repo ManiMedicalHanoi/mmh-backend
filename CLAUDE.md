@@ -496,3 +496,8 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   (`TSKT_Apply.gs`, @OnlyCurrentDoc) ghi lại cột F (Thông số kỹ thuật) + G (Nguồn) của sheet **Dental Product** theo MANI General Dental Catalog 2026 (high-res, mmh-library) + IFU,
   thêm O–Q ảnh tham chiếu (over-grid, alt title `TSKT-ref …`, chạy lại thì xoá ảnh cũ trước), R kết quả, S ghi chú. Chỉ ghi khi cột E (Chủng loại) khớp dữ liệu (dòng đã dời ⇒ bỏ qua, báo trong toast).
   Dữ liệu `TSKT_Data.gs` + ảnh `img_s<dòng>_<n>.html` (base64 JPEG) sinh tự động — không sửa tay. Lần đầu chạy: người dùng bấm menu ▸ cấp quyền.
+- **17/11/2026 — CRM Thailand Dental rà soát theo Yong (`crm-thai-dental/TH_DentalCare.gs` + Mã.gs)**: **Owen san** (`owen-yth@mani.inc`, quản lý nhóm Dental Thái) = USERS `Owen` role `lead`;
+  báo cáo tuần / tháng (`mailRule_`) To Owen + Shuhei · Cc Ha + Hoa + chính người gửi. Training Hub `RH_UsersFix` th2 cấp quyền Owen (cột Email = địa chỉ đầy đủ khi `RH_ENSURE.USERS` ghi kèm @).
+  `wkApplyRule_` nhận `finKeep` (crm-thai-dental + crm-thai, như CRM VN v10.22). `saveWeekly` / `deleteRow` weekly KHÔNG chép OTHERS TASK trong lệnh nữa ⇒ `thdSyncSoon_` hẹn trigger `thdLaterRun` ~30 giây
+  (không tạo được trigger ⇒ chạy như cũ; cronTh 10 phút vẫn chạy). Chẩn đoán chỉ đọc: ping `crm-thai-dental?action=thdCare&key=<8 ký tự cuối ID Sheet>&op=mail|drive|speed&full=1`
+  (mail = nhật ký gửi báo cáo + người nhận hiện tại; drive `&write=1` = thử ghi thư mục chứng từ NEW ACCOUNT & SKU).
