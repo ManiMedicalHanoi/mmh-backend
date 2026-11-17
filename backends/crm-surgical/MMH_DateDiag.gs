@@ -23,6 +23,19 @@ function dfDiag_(p){
     return res;
   }
   if (op === 'deep' || op === 'deepfix') return dfDeep_(p);
+  if (op === 'cell'){                                            /* 1 ô Start/Finish: định dạng, kiểu giá trị; fix=1 ⇒ đặt định dạng ngày + ghi chữ yyyy-mm-dd */
+    var sc = sh('weekly'), rc = parseInt(p.row, 10) || 334, rr = sc.getRange(rc, COL.weekly.start, 1, 2), tzc = ss().getSpreadsheetTimeZone(), Rc = { ok:true, row:rc };
+    var show = function(){ SpreadsheetApp.flush(); return { v:rr.getValues()[0].map(function(v){ return v instanceof Date ? 'Date ' + Utilities.formatDate(v, tzc, 'yyyy-MM-dd') : typeof v + ' ' + v; }), f:rr.getNumberFormats()[0], d:rr.getDisplayValues()[0] }; };
+    Rc.before = show();
+    try { var dv = rr.getDataValidations()[0]; Rc.dv = dv.map(function(x){ return x ? String(x.getCriteriaType()) : '-'; }); } catch(e){ Rc.dv = e.message; }
+    if (String(p.fix) === '1'){
+      var iso2 = String(p.d || '');
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(iso2)){ var v0c = rr.getValues()[0][0]; if (typeof v0c === 'number'){ var z = new Date(Date.UTC(1899, 11, 30) + Math.floor(v0c) * 864e5); iso2 = Utilities.formatDate(z, 'UTC', 'yyyy-MM-dd'); } }
+      try { rr.setNumberFormat('dd/MM/yyyy'); Rc.afterFmt = show(); } catch(e){ Rc.fmtErr = e.message; }
+      try { rr.setValues([[iso2, iso2]]); Rc.afterText = show(); } catch(e){ Rc.txtErr = e.message; }
+    }
+    return Rc;
+  }
   if (op === 'probe2'){                                         /* thử 3 cách ghi ngày vào ô Start dòng `row`: số ngày (serial) · chữ yyyy-mm-dd · Date 12:00 — đọc lại sau mỗi cách */
     var sq = sh('weekly'), rq = parseInt(p.row, 10) || 5, cq = sq.getRange(rq, COL.weekly.start), tzq = ss().getSpreadsheetTimeZone(), want = String(p.d || '2025-05-06'), R2 = { ok:true, row:rq, want:want };
     var rd = function(){ SpreadsheetApp.flush(); var v = cq.getValue(); return (v instanceof Date ? Utilities.formatDate(v, tzq, 'yyyy-MM-dd HH:mm') : typeof v + ':' + v) + ' · hiện ' + cq.getDisplayValue(); };
