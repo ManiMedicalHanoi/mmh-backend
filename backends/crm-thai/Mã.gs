@@ -3623,6 +3623,12 @@ function wkApplyRule_(d, prev, lang){
     return L('Hoạt động bắt đầu ngày ' + start.split('-').reverse().join('/') + ' — chưa diễn ra nên chưa thể chuyển sang Completed / 100%. Hãy để Not Started và cập nhật khi đã thực hiện.',
              'This activity starts on ' + start.split('-').reverse().join('/') + ' — it has not happened yet, so it cannot be Completed / 100%. Keep it Not Started and update it once done.');
   var wasDone = !!(prev && /complet/i.test(String(prev.status || '')));
+  /* 17/11/2026 — as the VN CRMs (v10.22): the app sends finKeep = the date the user keeps (the planned date, not today) ⇒ keep it, only clamp to [start, today] */
+  if(d.finKeep && d.finish){
+    var fk = wkIso_(d.finish);
+    if(fk > today) fk = today; if(start && fk < start) fk = start;
+    d.finish = fk; return '';
+  }
   /* hoàn thành sớm hơn ngày kết thúc dự kiến ⇒ Finish date = ngày bấm Completed; việc quá hạn giữ nguyên ngày cũ */
   if(!wasDone && fin && fin > today) d.finish = today;
   return '';
