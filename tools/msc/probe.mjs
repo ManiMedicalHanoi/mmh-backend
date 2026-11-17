@@ -9,6 +9,7 @@ const log = [];
 const say = (...a) => console.log(...a);
 const short = (s, n = 400) => String(s || '').replace(/\s+/g, ' ').slice(0, n);
 
+setTimeout(() => { console.log('⏱ quá 7 phút — dừng'); process.exit(3); }, 7 * 60e3).unref();
 const b = await chromium.launch();
 const ctx = await b.newContext({ locale: 'vi-VN', acceptDownloads: true, viewport: { width: 1440, height: 900 },
   userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36' });
@@ -98,28 +99,36 @@ try {
   { const t = await pg.evaluate(() => document.body.innerText).catch(() => ''); say('--- [gói] URL:', pg.url()); say(short(t.slice(t.indexOf('Quay trở lại') >= 0 ? t.indexOf('Quay trở lại') : 0), 2500));
     const bt = await pg.$$eval('a,button,[role=tab],li,span', els => [...new Set(els.filter(e => e.offsetParent).map(e => (e.innerText || '').trim()).filter(s => s && s.length < 40))]).catch(() => []);
     say('   nút / tab trang gói:', bt.slice(0, 200).join(' | ').slice(0, 2500)); }
+  const race = (pr, ms) => Promise.race([pr, new Promise(r => setTimeout(() => r(null), ms))]);
   async function dl(label, el) {
-    const d = await Promise.all([pg.waitForEvent('download', { timeout: 45000 }).catch(() => null), el.click({ timeout: 10000 }).catch(e => say('     bấm lỗi:', e.message.split('\n')[0]))]).then(x => x[0]);
-    if (!d) { say('   ✗ ' + label + ': không có file sau 45 giây'); return; }
-    const f = `${OUT}/${d.suggestedFilename()}`; await d.saveAs(f);
+    say('   … bấm: ' + label);
+    const wait = pg.waitForEvent('download', { timeout: 40000 }).catch(() => null);
+    const pop = ctx.waitForEvent('page', { timeout: 8000 }).catch(() => null);
+    await race(el.click({ timeout: 8000, force: true }).catch(e => say('     bấm lỗi:', e.message.split('\n')[0])), 10000);
+    const np2 = await race(pop, 9000);
+    if (np2) { say('     mở tab mới: ' + np2.url().slice(0, 200)); await np2.close().catch(() => {}); }
+    const d = await race(wait, 42000);
+    if (!d) { say('   ✗ ' + label + ': không có file'); return; }
+    const f = `${OUT}/${d.suggestedFilename()}`;
+    if (!(await race(d.saveAs(f).then(() => 1), 60000))) { say('   ✗ lưu file quá lâu'); return; }
     const buf = fs.readFileSync(f);
     say(`   ✅ TẢI ĐƯỢC (${label}): ${d.suggestedFilename()} · ${buf.length} byte · đầu file "${buf.slice(0, 8).toString('latin1').replace(/[^\x20-\x7e]/g, '.')}"`);
   }
-  for (const tab of ['Kết quả lựa chọn nhà thầu', 'Thông báo mời thầu']) {
-    say('4) Tab: ' + tab);
-    try { await pg.locator(`:is(a,button,li,span,div,[role=tab]):text-is("${tab}")`).last().click({ timeout: 10000 }); }
-    catch (e) { say('   không bấm được tab:', e.message.split('\n')[0]); continue; }
-    await pg.waitForTimeout(6000); await closePopups('tab', pg); await shot('4-' + tab.replace(/\s+/g, '_'));
-    const t = await pg.evaluate(() => document.body.innerText).catch(() => ''); say('   ' + short(t.slice(Math.max(0, t.indexOf('Thông tin'))), 900));
-    const pdfs = await pg.locator(':is(a,span,div,button):visible').evaluateAll(els => els.map((e, i) => ({ i, t: (e.innerText || '').trim() })).filter(x => /\.(pdf|xlsx?|docx?|zip|rar)$/i.test(x.t) && x.t.length < 200));
-    const uniq = [...new Map(pdfs.map(x => [x.t, x])).values()];
-    say('   file trên tab:', JSON.stringify(uniq.map(x => x.t)));
-    for (const x of uniq.slice(0, 6)) await dl(x.t, pg.locator(':is(a,span,div,button):visible').nth(x.i));
-    for (const lb of ['Xuất Excel', 'Tải TBMT', 'Tải HSMT', 'Tải xuống']) {
-      const el = pg.locator(`:is(a,button):text-is("${lb}")`).first();
-      if (await el.isVisible({ timeout: 800 }).catch(() => false)) { await el.scrollIntoViewIfNeeded().catch(() => {}); await dl(lb, el); }
-    }
-  }
+  const tab = 'Kết quả lựa chọn nhà thầu';
+  say('4) Tab: ' + tab);
+  await race(pg.locator(`:is(a,button,li,span,[role=tab]):text-is("${tab}")`).last().click({ timeout: 10000 }).catch(e => say('   không bấm được tab:', e.message.split('\n')[0])), 12000);
+  await pg.waitForTimeout(6000); await closePopups('tab', pg); await shot('4-kq');
+  /* file đính kèm: phần tử LÁ có chữ kết thúc .pdf / .xlsx… (không lấy khối cha) */
+  const names = await race(pg.evaluate(() => {
+    const out = [];
+    document.querySelectorAll('a,span,button').forEach(e => { const t = (e.innerText || '').trim(); if (e.offsetParent && /\.(pdf|xlsx?|docx?|zip|rar)$/i.test(t) && t.length < 160 && !out.includes(t)) out.push(t); });
+    return out;
+  }), 15000) || [];
+  say('   file trên tab:', JSON.stringify(names));
+  for (const nm of names.slice(0, 3)) await dl(nm, pg.getByText(nm, { exact: true }).first());
+  const ex = pg.locator(':is(a,button):text-is("Xuất Excel")').first();
+  if (await ex.isVisible({ timeout: 3000 }).catch(() => false)) { await ex.scrollIntoViewIfNeeded().catch(() => {}); await dl('Xuất Excel', ex); }
+  else say('   không thấy nút Xuất Excel');
 } catch (e) { say('LỖI:', e.message.split('\n')[0]); }
 
 say('\n=== XHR / fetch trang đã gọi (' + log.length + ') ===');

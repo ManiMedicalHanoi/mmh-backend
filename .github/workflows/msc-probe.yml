@@ -4,11 +4,11 @@ on:
   push:
     branches: [claude/nice-brown-m3e3tu]
     paths: ['.github/workflows/msc-probe.yml', 'tools/msc/**']
-permissions: { contents: read }
+permissions: { contents: write }
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -27,6 +27,13 @@ jobs:
           ls -la
           for f in *.xlsx; do [ -f "$f" ] || continue; echo "== $f"; unzip -l "$f" | head -20; unzip -p "$f" xl/sharedStrings.xml 2>/dev/null | sed 's/<[^>]*>/ /g' | tr -s ' ' | head -c 1500; echo; done
           for f in *.pdf; do [ -f "$f" ] || continue; echo "== $f · số trang ≈ $(grep -a -c '/Type */Page[^s]' "$f")"; done
+      - name: Đẩy file tải được lên nhánh (tạm, để xem)
+        if: always()
+        run: |
+          ls /tmp/pw/msc-out/*.pdf /tmp/pw/msc-out/*.xls* >/dev/null 2>&1 || exit 0
+          mkdir -p tmp-msc && cp /tmp/pw/msc-out/*.pdf /tmp/pw/msc-out/*.xls* tmp-msc/ 2>/dev/null; cp /tmp/pw/msc-out/*.png tmp-msc/ 2>/dev/null || true
+          git config user.name "msc-probe" && git config user.email "msc-probe@users.noreply.github.com"
+          git add tmp-msc && git commit -m "Tạm: file tải thử từ muasamcong" && git push origin HEAD:claude/nice-brown-m3e3tu || true
       - uses: actions/upload-artifact@v4
         if: always()
         with: { name: msc-probe, path: /tmp/pw/msc-out, retention-days: 3 }
