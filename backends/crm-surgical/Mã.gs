@@ -7567,7 +7567,8 @@ function dfMk_(y, mo, d){
 /* ngày đang HIỆN trên sheet của 1 ô (Date theo múi giờ file · chữ yyyy-mm-dd / dd/mm/yyyy kiểu VN) — năm hỏng (0205) lấy theo cột tháng */
 function dfIso_(v, tz, ym){
   if (v instanceof Date) return isNaN(v) ? '' : Utilities.formatDate(v, tz, 'yyyy-MM-dd');
-  if (typeof v === 'number' || typeof v === 'boolean') return '';
+  if (typeof v === 'boolean') return '';
+  if (typeof v === 'number' && !(v > 30000 && v < 60000)) return '';   /* số ngày trong ô định dạng Văn bản / số ⇒ đọc như ngày */
   var s = String(v == null ? '' : v).trim(); if (!s) return '';
   if (/^\d{5}(\.\d+)?$/.test(s) && +s > 30000 && +s < 60000){ var z = new Date(Date.UTC(1899, 11, 30) + Math.floor(+s) * 864e5); return dfMk_(z.getUTCFullYear(), z.getUTCMonth() + 1, z.getUTCDate()); }   /* số ngày bị lưu thành chữ */
   var m = /(\d{4})-(\d{1,2})-(\d{1,2})/.exec(s); if (m) return dfMk_(+m[1], +m[2], +m[3]);
