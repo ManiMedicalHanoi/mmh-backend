@@ -270,5 +270,11 @@
     "sheetId": "1KdaCm3DZbOMvRwtZW-nGiRrpkaEhywg69MKCrTs80Nk",
     "sheetUrl": "https://docs.google.com/spreadsheets/d/1KdaCm3DZbOMvRwtZW-nGiRrpkaEhywg69MKCrTs80Nk/edit?gid=719639388#gid=719639388",
     "note": "File 'MMH  FY 67_ Tender Information' (Shared Drive): tab 'Tải Email' = bản tin Báo Đấu Thầu hằng ngày (kế hoạch LCNT / thông báo mời thầu / kết quả) + các tab tra cứu gói thầu bệnh viện. Script gắn Sheet (người dùng gửi Script ID 17/11/2026); chưa rõ có web app ⇒ Kéo code về trước, xem code rồi mới quyết định deploy."
+  },
+  "ophth-tskt": {
+    "name": "Cấu hình dao chỉ nhãn khoa Mani (TSKT hồ sơ thầu nhãn khoa — script gắn Sheet)",
+    "scriptId": "1ih1ZeZmVxdghP7BLNQ5-b1BrY5FZftlj_HbpRMZIJ8hYMd-1IHrpOisx",
+    "sheetId": "17fNu-K41-QfkCBc3Hxz5fuFl7MNqH4UuelyzRtr_I-Y",
+    "note": "File Sheet 'Cấu hình dao chỉ nhãn khoa Mani 20240730' (tab 'Copy of Sheet1', gid 646481032: TSKT dao + chỉ khâu nhãn khoa). Script gắn Sheet, không có web app ⇒ deploy chỉ đẩy code + lưu phiên bản; chạy bằng menu MMH trong Sheet."
   }
 }
