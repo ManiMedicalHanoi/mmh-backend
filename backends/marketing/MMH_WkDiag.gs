@@ -1,6 +1,6 @@
 /* ══════════════ MMH_WkDiag.gs — chẩn đoán tốc độ đọc sheet WEEKLY (CHỈ ĐỌC, không ghi gì) ══════════════
  * GIỐNG HỆT ở marketing / backoffice / management.
- * ?action=wkDiag&key=<8 ký tự cuối SS_ID>&part=fg|gap|cols|disp|build|cache  — chỉ trả SỐ ĐẾM + thời gian (không trả nội dung việc / tên người).
+ * ?action=wkDiag&key=<8 ký tự cuối SS_ID>&part=fg|gap|cols|disp|build|cache|boot  — chỉ trả SỐ ĐẾM + thời gian (không trả nội dung việc / tên người).
  * Chia phần vì cả gói > 60 giây (giới hạn gọi thử của workflow).
  * Gọi qua workflow Kiểm tra ▸ ping "<backend>?action=wkDiag&key=…&full=1".                                   */
 function wkDiag_(p){
@@ -8,7 +8,7 @@ function wkDiag_(p){
   var T = {}, t0 = Date.now();
   function tic(k, f){ var a = Date.now(); var r = f(); T[k] = Date.now() - a; return r; }
   var sh = shWeekly(); if(!sh) return { ok:false, error:'no sheet' };
-  var part = String(p.part || 'fg'), out = { ok:true, source:SOURCE, ver:'1.2', part:part };
+  var part = String(p.part || 'fg'), out = { ok:true, source:SOURCE, ver:'1.3', part:part };
   function on(x){ return part === x || part === 'all'; }
   out.maxRows = sh.getMaxRows(); out.maxCols = sh.getMaxColumns();
   out.lastRow = tic('lastRow', function(){ return sh.getLastRow(); });
@@ -118,6 +118,25 @@ function wkDiag_(p){
   out.v = dv;
   tic('cacheGetWk', function(){ var h = cGetBig('wk_' + dv); out.cacheHit = !!h; return 0; });
   try{ var c = CacheService.getScriptCache(); out.wkChunks = +(c.get('wk_' + dv + '_n') || 0); out.warm = warmActive(); }catch(e){}
+  }
+  if(on('boot')){
+  /* ⑤ gói boot: thời gian + dung lượng từng phần (chỉ đọc), nhật ký hoạt động theo loại / người */
+  var wk = tic('bootWeeklyRaw', function(){ return readWeeklyRaw(); });
+  var mo = tic('bootMonthly', function(){ try{ return readMonthly(); }catch(e){ return []; } });
+  var al = tic('bootActivity35', function(){ return readActivityLog(dateNDaysAgo(35), ''); });
+  var po = tic('bootPics', function(){ try{ return readPicOptions(wk); }catch(e){ return []; } });
+  var ty = tic('bootTypes', function(){ try{ return readTypeOptions(wk); }catch(e){ return []; } });
+  var sz = function(o){ return Math.round(JSON.stringify(o).length / 1024); };
+  out.bootKB = { weekly:sz(wk), monthly:sz(mo), activity:sz(al), pics:sz(po), types:sz(ty) };
+  out.activityRows = al.length;
+  try{ var As = activitySheet(); out.activitySheetRows = As.getLastRow(); }catch(e){}
+  var byT = {}, byP = {}, byD = {}, big = 0;
+  al.forEach(function(a){ byT[a.type] = (byT[a.type] || 0) + 1; byP[a.pic] = (byP[a.pic] || 0) + 1; var d = String(a.ts).slice(0, 10); byD[d] = (byD[d] || 0) + 1; if(String(a.detail).length > 300) big++; });
+  out.activityByType = byT; out.activityByPic = byP; out.activityLongDetail = big;
+  out.activityPerDay = byD;
+  out.activityDetailKB = Math.round(al.reduce(function(s, a){ return s + String(a.detail).length; }, 0) / 1024);
+  tic('versionCold', function(){ try{ CacheService.getScriptCache().remove('lsig_' + last); }catch(e){} _DV = null; return dataVersion().v; });
+  try{ out.dvStamp = PropertiesService.getScriptProperties().getProperty('DATA_VERSION'); }catch(e){}
   }
   out.ms = T; out.totalMs = Date.now() - t0;
   return out;
