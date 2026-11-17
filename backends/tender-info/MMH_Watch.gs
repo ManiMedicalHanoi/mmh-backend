@@ -8,13 +8,13 @@
    bot lấy việc (botNext) ⇒ tải TBMT / HSMT / Excel kết quả ⇒ gửi file (botFile, lưu Drive theo chủ đầu tư) ⇒ báo xong (botDone).
 
    App (phiên email công ty do Training Hub ký, tham số tk):
-     wBoot · wInvestors · wSave {w: JSON} · wDel {id} · wHit {key, op: dl|skip} · wScan · wBotKey (Admin)
+     wQuick {nos} (Tải ngay: số TBMT / KHLCNT bất kỳ ⇒ hàng đợi, không cần theo dõi) · wBoot · wInvestors · wSave {w: JSON} · wDel {id} · wHit {key, op: dl|skip} · wScan · wBotKey (Admin)
    Bot (khoá WT_BOT_KEY, Admin lấy trong app ▸ Cài đặt bot):
      botPeek {key} (đếm, không giữ chỗ) · botNext {key, n} · botFile {key, hit, name, mime, b64} · botDone {key, hit, status: done|nofile|error, note, info}
    Lần đầu theo dõi 1 chủ đầu tư: hiện gói trong WT.BASE_DAYS ngày gần nhất (không báo), tự tải gói trong WT.DL_BASE_DAYS ngày.
    ════════════════════════════════════════════════════════════════════ */
 const WT = {
-  VER: '1.0',
+  VER: '1.1',
   MASTER_ID: '1byCL6NjhqBuEcd-K5pxYRrQj2XXs6GMIvR79x45mHRQ',   // Training Master (RH_Users, RH_Secret, RH_Notify)
   APP_URL: 'https://manimedicalhanoi.github.io/Tender-Result/theo-doi/',
   SH_W: 'THEO DÕI · DANH SÁCH',
@@ -67,6 +67,7 @@ function wtDo_(a, p) {
   if (a === 'wHit') return wtHitOp_(me, p);
   if (a === 'wScan') { const r = wtScan_({}); return { ok: true, scan: r }; }
   if (a === 'wBotKey') return wtBotKey_(me, p);
+  if (a === 'wQuick') return wtQuick_(me, p);
   return { ok: false, error: 'Không có lệnh ' + a };
 }
 
@@ -256,6 +257,7 @@ function wtBoot_(me, p) {
   const mine = me.boss && wtTrue_(p.all) ? all : all.filter(function (w) { return w.mail === me.mail || wtLocal_(w.mail) === me.local; });
   const H = wtHits_(ss), ids = {};
   mine.forEach(function (w) { ids[w.mail] = 1; });
+  ids[me.mail] = 1;
   const hits = H.filter(function (h) {
     return h.watchers.some(function (m) { return ids[m] || wtLocal_(m) === me.local; });
   }).sort(function (a, b) { return (b.date || '').localeCompare(a.date || '') || b.found.localeCompare(a.found); }).slice(0, 800)
@@ -327,6 +329,36 @@ function wtHitOp_(me, p) {
   else if (p.op === 'skip') sh.getRange(h.row, 11).setValue(WT.ST.OFF);
   else return { ok: false, error: 'Thao tác không hợp lệ.' };
   return { ok: true, key: h.key, status: p.op === 'dl' ? WT.ST.WAIT : WT.ST.OFF };
+}
+
+/* ══════════ TẢI NGAY (số bất kỳ) ══════════ */
+function wtQuick_(me, p) {
+  const nos = String(p.nos || '').toUpperCase().match(/(IB|PL)\d{8,12}(-\d+)?/g) || [];
+  if (!nos.length) return { ok: false, error: 'Chưa có số TBMT / KHLCNT hợp lệ (IB… hoặc PL…).' };
+  if (nos.length > 30) return { ok: false, error: 'Tối đa 30 số mỗi lần.' };
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(20000)) return { ok: false, code: 'BUSY', error: 'Máy chủ đang bận — thử lại sau ít giây.' };
+  const out = [];
+  try {
+    const ss = wtBook_(), sh = wtSheet_(ss, WT.SH_H, WT.HH), H = wtHits_(ss), now = wtNow_(), add = [];
+    const bare = function (n) { return String(n || '').toUpperCase().replace(/\s+/g, '').replace(/-\d+$/, ''); };
+    [...new Set(nos.map(bare))].forEach(function (b) {
+      const ex = H.filter(function (h) { return bare(h.no) === b; });
+      if (ex.length) {
+        ex.forEach(function (h) {
+          const w = h.watchers.indexOf(me.mail) < 0 ? h.watchers.concat([me.mail]) : h.watchers;
+          sh.getRange(h.row, 10, 1, 5).setValues([[w.join(', '), WT.ST.WAIT, JSON.stringify(h.files || []), 0, '']]);
+          out.push(h.key);
+        });
+        return;
+      }
+      const type = /^PL/.test(b) ? 'khmt' : 'tbmt', key = 'n:' + b;
+      add.push([key, type, b, '(đang tra)', '', b, JSON.stringify({ quick: 1, by: me.pic }), '', now, me.mail, WT.ST.WAIT, '[]', 0, '', '', '', 'tải ngay']);
+      out.push(key);
+    });
+    if (add.length) sh.getRange(sh.getLastRow() + 1, 1, add.length, WT.HH.length).setValues(add);
+  } finally { lock.releaseLock(); }
+  return Object.assign(wtBoot_(me, {}), { queued: out });
 }
 
 /* ══════════ GÓI TÌM THẤY ══════════ */
@@ -528,7 +560,9 @@ function wtBotFile_(p) {
   const bytes = Utilities.base64Decode(b64);
   if (bytes.length > WT.MAX_FILE) return { ok: false, error: 'File quá lớn (> 35 MB).' };
   const name = wtS_(p.name).replace(/[\\/:*?"<>|]+/g, '_').slice(0, 150) || ('file_' + Date.now());
-  const folder = wtSub_(wtSub_(wtRoot_(), h.investor), WT.TYPES[h.type] + ' · ' + h.no + ' · ' + h.name.slice(0, 60));
+  const inv = h.investor && h.investor !== '(đang tra)' ? h.investor : (wtS_(p.investor) || 'Tải ngay');
+  const nm = h.name && h.name !== h.no ? h.name : wtS_(p.bidName);
+  const folder = wtSub_(wtSub_(wtRoot_(), inv), WT.TYPES[h.type] + ' · ' + h.no + (nm ? ' · ' + nm.slice(0, 60) : ''));
   const old = folder.getFilesByName(name);
   while (old.hasNext()) old.next().setTrashed(true);
   const f = folder.createFile(Utilities.newBlob(bytes, wtS_(p.mime) || 'application/octet-stream', name));
@@ -556,6 +590,8 @@ function wtBotDone_(p) {
     if (!h) return { ok: false, error: 'Không có gói ' + p.hit };
     const info = Object.assign({}, h.info, typeof p.info === 'string' ? wtJson_(p.info, {}) : (p.info || {}));
     sh.getRange(h.row, 7).setValue(JSON.stringify(info));
+    if (info.investor && (!h.investor || h.investor === '(đang tra)')) sh.getRange(h.row, 4, 1, 2).setValues([[wtS_(info.investor), wtNorm_(info.investor)]]);
+    if (info.bidName && (!h.name || h.name === h.no)) sh.getRange(h.row, 6).setValue(wtS_(info.bidName).slice(0, 300));
     sh.getRange(h.row, 11).setValue(st);
     sh.getRange(h.row, 15, 1, 2).setValues([[wtS_(p.note).slice(0, 500), st === WT.ST.ERR ? '' : wtNow_()]]);
     h.status = st;
