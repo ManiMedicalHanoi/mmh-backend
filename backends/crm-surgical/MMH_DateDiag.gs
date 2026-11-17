@@ -148,8 +148,11 @@ function dfDeep_(p){
     }
     if (!why && /complet/i.test(r.status) && r.st > today && sw <= today){ why = 'Completed mà ngày ở tương lai'; out.futureDone++; if (out.ex.future.length < 15) out.ex.future.push(tag); }
     if (!why && !r.ph){
-      var m = med(i);
-      if (m && ad(r.st, m) > 45 && ad(sw, m) <= 25){ why = 'các dòng cùng PIC sát bên ~' + m; out.orderSwap++; if (out.ex.order.length < 25) out.ex.order.push(tag + ' · ' + why); }
+      /* v2 (17/11/2026): so với dòng LIỀN TRƯỚC + LIỀN SAU của cùng PIC (bản trung vị ±8 dòng sửa nhầm dòng 1213 ở ranh giới tháng) */
+      var L = byPic[r.pic] || [], k = L.indexOf(i), pv = k > 0 ? rows[L[k - 1]].st : '', nx = k < L.length - 1 ? rows[L[k + 1]].st : '';
+      var fit = function(x){ return pv && nx && dfDays_(pv, x) >= -3 && dfDays_(x, nx) >= -3 && dfDays_(pv, nx) <= 21; };
+      var m = pv + ' … ' + nx;
+      if (fit(sw) && !fit(r.st)){ why = 'giữa 2 dòng cùng PIC liền kề ' + m; out.orderSwap++; if (out.ex.order.length < 25) out.ex.order.push(tag + ' · ' + why); }
     }
     if (why){ pp.fix++; out.fix.push({ row:r.row, st:r.st, sw:sw, fin:r.fin, ym:r.ym, why:why }); }
   });
