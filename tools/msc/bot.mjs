@@ -169,6 +169,6 @@ async function worker() {
   }
   await pg.close();
 }
-await Promise.all(Array.from({ length: PAR }, worker));
+await Promise.all(Array.from({ length: PAR }, (_, i) => new Promise(r => setTimeout(r, i * 4000)).then(worker)));   // lệch nhau 4 giây — không tranh mã reCAPTCHA
 await b.close();
 say(`Xong: ${total} gói.`);

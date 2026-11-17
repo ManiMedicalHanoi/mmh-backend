@@ -323,7 +323,10 @@ async def run(nos, opts):
             return
         ctx = await b.new_context(locale='vi-VN', accept_downloads=True, viewport={'width': 1440, 'height': 900}, user_agent=UA)
         n = max(1, min(int(opts.get('par') or 3), 6, len(jobs)))
-        await asyncio.gather(*[worker(ctx, q, opts) for _ in range(n)])
+        async def staggered(i):
+            await asyncio.sleep(i * 4)          # các luồng tìm kiếm lệch nhau ⇒ không tranh mã reCAPTCHA
+            await worker(ctx, q, opts)
+        await asyncio.gather(*[staggered(i) for i in range(n)])
         await b.close()
     took = round(time.time() - STATE['started'])
     log(f'═ Xong {len(jobs)} gói trong {took} giây. Thư mục: {OUT_DIR}')
