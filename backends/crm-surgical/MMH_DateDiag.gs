@@ -22,6 +22,7 @@ function dfDiag_(p){
     try { res.ranges = ss().getNamedRanges().length; res.sheetId = sp.getSheetId(); res.file = ss().getName(); } catch(e){}
     return res;
   }
+  if (op === 'deep' || op === 'deepfix') return dfDeep_(p);
   if (op === 'probe2'){                                         /* thử 3 cách ghi ngày vào ô Start dòng `row`: số ngày (serial) · chữ yyyy-mm-dd · Date 12:00 — đọc lại sau mỗi cách */
     var sq = sh('weekly'), rq = parseInt(p.row, 10) || 5, cq = sq.getRange(rq, COL.weekly.start), tzq = ss().getSpreadsheetTimeZone(), want = String(p.d || '2025-05-06'), R2 = { ok:true, row:rq, want:want };
     var rd = function(){ SpreadsheetApp.flush(); var v = cq.getValue(); return (v instanceof Date ? Utilities.formatDate(v, tzq, 'yyyy-MM-dd HH:mm') : typeof v + ':' + v) + ' · hiện ' + cq.getDisplayValue(); };
@@ -86,5 +87,73 @@ function dfDiag_(p){
     if (dfDays_(today, iso) > 60){ st.future++; if (ex.future.length < 10) ex.future.push(tag + ' · ' + iso); }
   }
   out.weekly = st; out.ex = ex;
+  return out;
+}
+
+/* ── op=deep / op=deepfix (17/11/2026): soát đảo ngày KHÔNG dựa vào Start Month (app lưu lại thì Start Month cũng theo ngày đã đảo) ──
+   Bằng chứng độc lập cho từng dòng có ngày ≤ 12 (đảo được): ① ngày ảnh 📷 / 🕒 cột W · ② thứ tự dòng: trung vị ngày của các dòng cùng PIC sát bên (±8 dòng)
+   · ③ Completed mà ngày ở tương lai còn ngày đảo đã qua. deepfix&run=1: đổi Start (+ Finish trùng ngày, + Start Month / FY) theo bằng chứng mạnh, ghi số ngày (wV_). */
+function dfDeep_(p){
+  var s = sh('weekly'), W = COL.weekly, tz = ss().getSpreadsheetTimeZone(), last = s.getLastRow(), n = last - DATA_ROW + 1;
+  if (n < 1) return { ok:true, n:0 };
+  var V = s.getRange(DATA_ROW, 1, n, W.gpsInfo).getValues();
+  var today = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  var iso = function(v){ return v instanceof Date && !isNaN(v) ? Utilities.formatDate(v, tz, 'yyyy-MM-dd') : ''; };
+  var rows = V.map(function(r, i){
+    var st = iso(r[W.start - 1]), g = String(r[W.gpsInfo - 1] || '') + '\n' + String(r[W.photo - 1] || '');
+    var ph = (/📷\s*(\d{4}-\d{2}-\d{2})/.exec(g) || /🕒\s*(\d{4}-\d{2}-\d{2})/.exec(g) || [])[1] || '';
+    return { row:DATA_ROW + i, pic:String(r[W.pic - 1] || '').trim(), acc:String(r[W.account - 1] || '').slice(0, 26), st:st, fin:iso(r[W.finish - 1]),
+             status:String(r[W.status - 1] || ''), act:String(r[W.typeAction - 1] || ''), ph:ph, ym:dfYm_(r[W.month - 1]) };
+  });
+  var byPic = {}; rows.forEach(function(r, i){ if (r.pic && r.st) (byPic[r.pic] = byPic[r.pic] || []).push(i); });
+  var med = function(i){
+    var L = byPic[rows[i].pic] || [], k = L.indexOf(i), a = [];
+    for (var j = Math.max(0, k - 8); j <= Math.min(L.length - 1, k + 8); j++) if (j !== k) a.push(rows[L[j]].st);
+    if (a.length < 3) return ''; a.sort(); return a[Math.floor(a.length / 2)];
+  };
+  var ad = function(a, b){ return Math.abs(dfDays_(a, b)); };
+  var out = { ok:true, today:today, cand:0, photoSwap:0, photoOk:0, orderSwap:0, futureDone:0, fix:[], ex:{ photo:[], order:[], future:[], ok:[] }, perPic:{}, busyDays:[] };
+  rows.forEach(function(r, i){
+    if (!r.st) return;
+    var pp = out.perPic[r.pic] = out.perPic[r.pic] || { rows:0, d1_12:0, d13_31:0, cand:0, fix:0 };
+    pp.rows++; if (+r.st.slice(8, 10) <= 12) pp.d1_12++; else pp.d13_31++;
+    var d = +r.st.slice(8, 10), mo = +r.st.slice(5, 7); if (d > 12 || d === mo) return;
+    var sw = dfMk_(+r.st.slice(0, 4), d, mo); if (!sw) return;
+    out.cand++; pp.cand++;
+    var why = '', tag = r.row + ' ' + r.pic + ' · ' + r.acc + ' · ' + r.st + ' → ' + sw;
+    if (r.ph){
+      if (ad(r.ph, r.st) <= 20){ out.photoOk++; if (out.ex.ok.length < 6) out.ex.ok.push(tag + ' · ảnh ' + r.ph); return; }
+      if (ad(r.ph, sw) <= 20){ why = 'ảnh ' + r.ph; out.photoSwap++; if (out.ex.photo.length < 25) out.ex.photo.push(tag + ' · ' + why); }
+    }
+    if (!why && /complet/i.test(r.status) && r.st > today && sw <= today){ why = 'Completed mà ngày ở tương lai'; out.futureDone++; if (out.ex.future.length < 15) out.ex.future.push(tag); }
+    if (!why && !r.ph){
+      var m = med(i);
+      if (m && ad(r.st, m) > 45 && ad(sw, m) <= 25){ why = 'các dòng cùng PIC sát bên ~' + m; out.orderSwap++; if (out.ex.order.length < 25) out.ex.order.push(tag + ' · ' + why); }
+    }
+    if (why){ pp.fix++; out.fix.push({ row:r.row, st:r.st, sw:sw, fin:r.fin, ym:r.ym, why:why }); }
+  });
+  /* ngày dồn nhiều lượt bất thường (cùng PIC, ≥ 6 dòng / ngày) */
+  var cnt = {}; rows.forEach(function(r){ if (r.st && r.pic) cnt[r.pic + ' ' + r.st] = (cnt[r.pic + ' ' + r.st] || 0) + 1; });
+  out.busyDays = Object.keys(cnt).filter(function(k){ return cnt[k] >= 6; }).sort(function(a, b){ return cnt[b] - cnt[a]; }).slice(0, 25).map(function(k){ return k + ' = ' + cnt[k]; });
+  if (String(p.op) === 'deepfix' && String(p.run) === '1'){
+    var lock = LockService.getScriptLock(); if (!lock.tryLock(25000)) return { ok:false, error:'busy' };
+    var done = 0;
+    try {
+      out.fix.forEach(function(f){
+        var cur = s.getRange(f.row, W.start, 1, 2).getValues()[0];
+        if (iso(cur[0]) !== f.st) return;                                         /* dòng đã đổi ⇒ bỏ qua */
+        var nf = iso(cur[1]) === f.st ? f.sw : (cur[1] instanceof Date ? iso(cur[1]) : '');
+        if (nf && nf < f.sw) nf = f.sw;
+        s.getRange(f.row, W.start, 1, 2).setValues(wRow_([[s2d(f.sw), nf ? s2d(nf) : cur[1]]]));
+        if (f.ym === f.st.slice(0, 7).replace('-', '')) s.getRange(f.row, W.month).setValue(+f.sw.slice(0, 7).replace('-', ''));
+        done++;
+      });
+      SpreadsheetApp.flush();
+    } finally { lock.releaseLock(); }
+    out.fixed = done;
+    try { _RAW = {}; bumpVersion(); } catch(e){}
+    try { logAct({ pic:'system' }, 'datefix', 'weekly', 'Sửa ngày đảo (soát sâu)', done + ' dòng', ''); flushLog_(); } catch(e){}
+  }
+  out.nFix = out.fix.length; out.fix = out.fix.slice(0, 40).map(function(f){ return f.row + ':' + f.st + '→' + f.sw; });
   return out;
 }
