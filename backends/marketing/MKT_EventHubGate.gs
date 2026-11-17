@@ -14,7 +14,8 @@
  * ③ LUẬT THÔNG BÁO (EVENTS.rules JSON, theo từng sự kiện): prog = cập nhật tuyển sinh ở các mốc D−n · low = nhắc NPP chưa đạt nhịp · final = nhắc lịch D−1
  *    · int = báo nội bộ (Owner + quản lý) khi tuyển sinh chậm. mode confirm = tạo "Chờ gửi" (tab PNOTICE) + báo Owner (Thương) bấm Gửi trên app;
  *    auto = gửi luôn. Email gửi qua mmhMail_ (miền @manimedicalhanoi.com), tên người gửi = Owner, Reply-To + CC = Owner (thông báo đi từ Thương).
- * ④ 5 CỔNG KIỂM SOÁT (ehgGates_, app tính giống hệt): G1 Duyệt kế hoạch (D−28) · G2 Mở đăng ký (D−21) · G3 Sẵn sàng (D−3) · G4 Tổ chức (D+1) · G5 Đóng (D+14).
+ * ④ 5 CỔNG KIỂM SOÁT (ehgGates_, app tính giống hệt) theo Quy trình tổ chức sự kiện 21/10/2026: G1 Chốt kế hoạch · mở tuyển sinh (D−30) · G2 Ấn phẩm & hậu cần (D−7)
+ *    · G3 Chốt danh sách · họp NPP (D−3) · G4 Tổ chức & check-in (D+1) · G5 Báo cáo & đóng (D+14).
  *    Cổng quá mốc mà thiếu điều kiện ⇒ "đang tắc" ⇒ email 1 lần (Owner + quản lý) + RH_Notify; thứ Hai: bảng tổng hợp tuyển sinh + cổng cho quản lý.
  * ⑤ TRANG ĐỐI TÁC: action ehPartner&k=<token> (không cần đăng nhập) — CHỈ số đếm của sự kiện + của chính đối tác đó (app: doi-tac.html?k=…).
  * Không thêm dịch vụ / quyền mới (SpreadsheetApp, DriveApp, mmhMail_ đã có).
@@ -22,7 +23,7 @@
 var EHG = {
   VER: '1.8',
   EVERY: 1200,
-  PACE: [[35, 0], [21, .3], [14, .5], [7, .8], [3, 1]],
+  PACE: [[30, 0], [21, .3], [14, .5], [7, .8], [3, 1]],   /* mở tuyển sinh D−1 tháng (quy trình) */
   RULES: [
     { id: 'prog',  on: true, at: 'D-21,D-14,D-7,D-3', to: 'all',      mode: 'confirm' },
     { id: 'low',   on: true, at: 'D-14,D-7',          to: 'below',    mode: 'confirm' },
@@ -59,7 +60,7 @@ var EHG_COL = {
   time: /^(dau thoi gian|timestamp|thoi gian|thoi gian dang ky|ngay dang ky|ngay gio dang ky|ngay)$/,
   phone: /(so dien thoai|^sdt|dien thoai|phone|^tel|mobile|zalo)/,
   name: /(ho ten|ho va ten|full name|^name$|ten bac si|ten khach|^ten$)/,
-  src: /(nha phan phoi|\bnpp\b|dai ly|distributor|\bnguon\b|gioi thieu|sales phu trach|nguoi phu trach|kenh dang ky|don vi moi|qua ai|partner)/,
+  src: /(nha phan phoi|\bnpp\b|dai ly|distributor|\bnguon\b|gioi thieu|sales phu trach|nguoi phu trach|kenh dang ky|don vi moi|qua ai|partner|biet den|dang ky ho|nguoi dang ky)/,
   conf: /(xac nhan|check ?in|confirm|^tham du)/
 };
 /* đọc file đăng ký (Google Sheet) ⇒ số đếm. Chỉ trả SỐ, không trả tên / SĐT. */
@@ -157,12 +158,12 @@ function ehgStats_(e, R, partners, today){
 }
 
 /* ══════════ ④ 5 CỔNG KIỂM SOÁT (app index.html ▸ gates() tính giống hệt) ══════════ */
-var EHG_GATES = [
-  { k: 'G1', name: 'Duyệt kế hoạch', phase: 'Khởi động', off: -28 },
-  { k: 'G2', name: 'Mở đăng ký', phase: 'Chuẩn bị', off: -21 },
-  { k: 'G3', name: 'Sẵn sàng tổ chức', phase: 'Tuyển sinh & hoàn thiện', off: -3 },
-  { k: 'G4', name: 'Tổ chức xong', phase: 'Ngày D', off: 1, end: true },
-  { k: 'G5', name: 'Báo cáo & đóng', phase: 'Follow-up', off: 14, end: true }
+var EHG_GATES = [   /* theo "Quy trình tổ chức sự kiện" (20261021_MMH_Quy_trinh_to_chuc_su_kien.docx, thư mục Event FY68) */
+  { k: 'G1', name: 'Chốt kế hoạch · mở tuyển sinh', phase: 'Lập kế hoạch', off: -30 },
+  { k: 'G2', name: 'Ấn phẩm & hậu cần sẵn sàng', phase: 'Chuẩn bị', off: -7 },
+  { k: 'G3', name: 'Chốt danh sách · họp NPP', phase: 'Tuyển sinh & chốt', off: -3 },
+  { k: 'G4', name: 'Tổ chức & check-in', phase: 'Ngày D', off: 1, end: true },
+  { k: 'G5', name: 'Báo cáo & đóng', phase: 'Sau sự kiện', off: 14, end: true }
 ];
 function ehgGates_(e, tasks, R, partners, today){
   var L = tasks.filter(function(t){ return ehS_(t.eventId) === ehS_(e.id) && ehS_(t.parentId) && ehS_(t.status) !== 'Bỏ qua'; });
@@ -173,18 +174,21 @@ function ehgGates_(e, tasks, R, partners, today){
   var st = ehgStats_(e, R, partners, today), roles = EH.ROLES.filter(function(r){ return ehS_(e[r]); }).length;
   var dS = ehDate_(ehS_(e.start)), dE = ehDate_(ehS_(e.end || e.start));
   var at = function(g){ var b = g.end ? dE : dS; if (!b) return ''; var d = new Date(b.getTime() + g.off * 864e5); return ehIso_(d); };
-  var D3 = dS ? ehIso_(new Date(dS.getTime() - 3 * 864e5)) : '';
-  var prepLeft = L.filter(function(t){ return ehS_(t.due) && ehS_(t.due) <= D3 && ehS_(t.status) !== 'Xong'; }).length;
-  var npp = ehS_(e.npp), nP = (partners || []).filter(function(p){ return ehS_(p.eventId) === ehS_(e.id); }).length;
+  var before = function(n, role){ if (!dS) return 0; var lim = ehIso_(new Date(dS.getTime() - n * 864e5)); return L.filter(function(t){ return ehS_(t.due) && ehS_(t.due) <= lim && ehS_(t.status) !== 'Xong' && (!role || ehS_(t.role) === role); }).length; };
+  var left = function(n, role, lab){ var k = before(n, role); return { t: k ? k + ' việc ' + lab + ' (hạn ≤ D−' + n + ') chưa xong' : 'Việc ' + lab + ' đến D−' + n + ' đã xong', ok: !k }; };
+  var npp = ehS_(e.npp), nP = (partners || []).filter(function(p){ return ehS_(p.eventId) === ehS_(e.id); }).length, web = /webinar|online|zoom/.test(ehNorm_(ehS_(e.type) + ' ' + ehS_(e.format)));
   var C = {
     G1: [{ t: 'Đủ đội sự kiện (Owner + ≥ 2 vai trò)', ok: !!ehS_(e.Owner) && roles >= 3 }, { t: 'Có mục tiêu số khách', ok: st.target > 0 },
-         task('File kế hoạch tổng quan', /ke hoach tong quan|file ke hoach/), task('Giám đốc duyệt kế hoạch + ngân sách', /duyet ke hoach/)],
-    G2: [task('Form đăng ký', /form dang ky/), task('Key visual / poster', /key visual|poster/),
-         ehgExpo_(e) ? null : { t: 'Kết nối file đăng ký (Form)', ok: !!(R && R.via === 'file') }, npp || nP ? { t: 'Khai báo đối tác / NPP nhận thông báo', ok: nP > 0 } : null],
-    G3: [st.target && R && R.via === 'file' ? { t: 'Đăng ký ≥ 80% mục tiêu (' + st.reg + '/' + st.target + ')', ok: st.reg >= st.target * .8 } : null,
-         { t: prepLeft ? prepLeft + ' việc chuẩn bị (hạn ≤ D−3) chưa xong' : 'Việc chuẩn bị đến D−3 đã xong', ok: !prepLeft }, task('Rà soát danh sách khách', /ra soat danh sach/)],
-    G4: [task('Check-in có chữ ký / báo cáo Zoom', /check in|check-in/), { t: 'Có số khách tham dự', ok: (+e.actual || 0) > 0 || st.conf > 0 }],
-    G5: [task('Báo cáo sự kiện', /bao cao su kien/), L.some(function(t){ return /follow|chuyen doi|lien he lan dau/.test(ehNorm_(t.title)); }) ? { t: 'Số follow-up khách đã nhập', ok: L.some(function(t){ return ehgNum_(t.fuTotal) > 0; }) } : null,
+         task('File kế hoạch tổng quan', /ke hoach tong quan|file ke hoach/), task('Giám đốc duyệt kế hoạch + ngân sách', /duyet ke hoach/),
+         task('Chốt KOL (hợp đồng, lịch di chuyển)', /hop dong kol/), task('Chia việc với NPP, Trường / Viện', /chia viec/),
+         task('Form đăng ký (khảo sát trước, đồng ý dữ liệu)', /form dang ky/), ehgExpo_(e) ? null : { t: 'Kết nối file đăng ký (ghi rõ nguồn từng khách)', ok: !!(R && R.via === 'file') },
+         npp || nP ? { t: 'Khai báo đối tác / NPP nhận thông báo', ok: nP > 0 } : null],
+    G2: [left(7, 'Design', 'ấn phẩm & in ấn'), web ? null : left(7, 'Trade', 'hậu cần (địa điểm, đồ MKT, gửi đồ)')],
+    G3: [task('Họp với NPP (muộn nhất D−3)', /hop voi npp/), task('Rà soát dữ liệu khách', /ra soat danh sach|ra soat du lieu/),
+         st.target && R && R.via === 'file' ? { t: 'Đăng ký ≥ 80% mục tiêu (' + st.reg + '/' + st.target + ')', ok: st.reg >= st.target * .8 } : null, left(3, '', 'chuẩn bị')],
+    G4: [task(web ? 'Báo cáo người tham dự Zoom' : 'Check-in có chữ ký', /check in|check-in/), task('Khảo sát sau sự kiện', /khao sat/), { t: 'Có số khách tham dự', ok: (+e.actual || 0) > 0 || st.conf > 0 }],
+    G5: [task('Đối chiếu dữ liệu khách', /doi chieu du lieu/), task('Báo cáo sự kiện', /bao cao su kien/), task('Email báo cáo toàn MMH', /email bao cao/),
+         L.some(function(t){ return /follow|chuyen doi|lien he lan dau/.test(ehNorm_(t.title)); }) ? { t: 'Số follow-up khách đã nhập', ok: L.some(function(t){ return ehgNum_(t.fuTotal) > 0; }) } : null,
          { t: 'Owner đóng sự kiện', ok: !!ehS_(e.closedAt) }]
   };
   var prev = true;
