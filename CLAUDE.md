@@ -512,3 +512,7 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   tab 3. SALE ORDER đang bật filter ẩn 2 dòng đó, `Sheet.deleteRow` với dòng bị lọc ẩn KHÔNG làm gì (không báo lỗi) ⇒ nhật ký ghi "delete" mà dòng vẫn còn. `delRowsSafe_`: có dòng bị lọc ẩn ⇒ nhớ vùng + điều kiện lọc,
   gỡ bộ lọc, xoá, đặt lại bộ lọc. Dùng ở `deleteOrder`, `saveOrders` (dòng `_del`), `deleteRow`, xoá địa bàn, Mở mới, `ordDiag` dellines / delnono. Xoá dòng mới trên sheet người dùng hay lọc ⇒ dùng `delRowsSafe_`.
   `deleteOrder` v1.1: đơn chưa có số mà dòng dời ⇒ tìm lại theo account + PIC + ngày / tháng (app gửi `_day` / `_pic` / `_mon`). `ordDiag op=delnono&rows=&acc=` (xoá dòng đơn chưa có số, trả before / after / hidden).
+- **17/11/2026 — TSKT dao & chỉ khâu nhãn khoa (`ophth-tskt`, script GẮN Sheet "Cấu hình dao chỉ nhãn khoa Mani" `17fNu-K4…`, tab gid 646481032, không có web app)**: menu **MMH ▸ Áp dụng TSKT dao & chỉ khâu**
+  (`TSKT_Nhan.gs`, @OnlyCurrentDoc) ghi cột K (tiếng Việt) + L (tiếng Anh) đánh số theo IFU · catalogue · technical sheet MANI, N = tài liệu dẫn chứng (ảnh · loại · tên · trang → số thông số), từ cột O ảnh trang tài liệu khoanh đỏ
+  (alt title `TSKT-nhan …`, chạy lại thì xoá ảnh cũ trước); 1470 cột G = 1 Hộp/12 sợi. Dòng tìm theo mã ở cột C. Dữ liệu `TSKT_NhanData.gs` + ảnh `img_<k1…|mã>_<n>.html` sinh tự động — không sửa tay.
+  Không ghi nhà sản xuất (người dùng bỏ). Bản Excel / Word + README ở mmh-library ▸ `Ophthalmic product/TSKT dao & chỉ khâu - dẫn chứng/`.
