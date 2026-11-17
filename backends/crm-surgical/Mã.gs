@@ -512,7 +512,8 @@ function handle(e, method){
       return reply(out, callback);
     }
     if (action === 'k68Diag') return reply(k68Diag_(p), callback);
-    if (action === 'ordDiag') return reply(ordDiag_(p), callback);   /* 05/11/2026 — chẩn đoán đơn hàng (chỉ đọc, cần key) — MMH_OrderDiag.gs */
+    if (action === 'ordDiag') return reply(ordDiag_(p), callback);
+    if (action === 'dfDiag') return reply(dfDiag_(p), callback);   /* 17/11/2026 — chẩn đoán cột ngày tab 6 (chỉ đọc, cần key; op=run chạy crmDateFix_) — MMH_DateDiag.gs */   /* 05/11/2026 — chẩn đoán đơn hàng (chỉ đọc, cần key) — MMH_OrderDiag.gs */
     if (action === 'kpiAudit') return reply(kpiAudit_(p), callback);   /* 29/10/2026 — soát KPI viếng thăm / mở mới của 1 PIC (chỉ đọc, chỉ trả số đếm) */   /* 17/10/2026 — chẩn đoán ô #ERROR! KPI viếng thăm (chỉ đọc; fix=1 chạy lại bản vá) */
     if (action === 'kpiPush') return reply({ ok:true, kpiPush:k68PushQuick_() }, callback);
     if (action === 'kpiLate') return reply(kpiLate_(user, p), callback);               /* ⭐ v10.4 */
