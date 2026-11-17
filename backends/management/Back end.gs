@@ -234,6 +234,7 @@ function dispatch(action, user, p){
       case 'rpLog':         out = (typeof rplApi_==='function') ? rplApi_(p) : { ok:false, error:'Thiếu MMH_ReportLog.gs' }; break;   /* ⭐ 23/10/2026: thống kê gửi báo cáo */
       case 'version':       out = dataVersion(); break;   /* ⭐ v5.11: dấu vân tay dữ liệu */
       case 'wkCompact':     out = (typeof wkcApi_==='function') ? wkcApi_(p) : { ok:false, error:'Thiếu MMH_WkCompact.gs' }; break;   /* ⭐ 16/11/2026: dọn dòng trống WEEKLY (khoá key) */
+      case 'tripDiag':      out = (typeof tripDiag_==='function') ? tripDiag_(p) : { ok:false, error:'Thiếu MMH_TripDiag.gs' }; break;   /* ⭐ 17/11/2026: chẩn đoán báo cáo công tác (chỉ đọc) */
       case 'wkDiag':        out = (typeof wkDiag_==='function') ? wkDiag_(p) : { ok:false, error:'Thiếu MMH_WkDiag.gs' }; break;   /* ⭐ 16/11/2026: chẩn đoán tốc độ đọc WEEKLY (chỉ đọc) */
       case 'sheets':        out = sheetInfo(); break;    /* ⭐ v5.12: kiểm tra đang đọc đúng sheet nào */
       case 'debugLayout':   out = debugLayout(); break;   /* ⭐ v5.2: tự kiểm tra map cột */
