@@ -1,4 +1,4 @@
-// Dữ liệu TSKT dao & chỉ khâu nhãn khoa (cột K, L, N + ảnh dẫn chứng) — sinh tự động 17/11/2026 từ đối chiếu
+// Dữ liệu TSKT dao & chỉ khâu nhãn khoa (k = thông số tiếng Việt ⇒ cột Đặc tính kỹ thuật; l = tiếng Anh, không còn ghi lên Sheet từ v1.1; n = tài liệu dẫn chứng; img = ảnh) — sinh tự động 17/11/2026 từ đối chiếu
 // IFU · catalogue · technical sheet MANI (MMH Library). KHÔNG sửa tay: sửa trong kho mmh-backend rồi sinh lại.
 var TSKT_NHAN_ROWS = {
  "5": {
