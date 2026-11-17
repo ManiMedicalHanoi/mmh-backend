@@ -44,6 +44,8 @@ const KHMT_GID = '719639388';
    ENTRY POINTS
    ============================================================ */
 function doGet(e) {
+  // ⭐ 17/11/2026 — app Theo dõi gói thầu + bot tải hồ sơ (MMH_Watch.gs): action w… / bot…
+  const _wt = wtRoute_(e, false); if (_wt) return _wt;
   try {
     const action = (e && e.parameter && e.parameter.action) || 'health';
     if (action === 'health') return _json({ ok: true, ts: new Date().toISOString(), version: '3.6', emailFrom: CFG.EMAIL_FROM, features: ['no-domain-whitelist', 'wishlist-registry', 'instant-trigger', 'weekly-digest', 'full-schema-export', 'ping-email', 'mailapp-fallback', 'multi-recipients', 'custom-from-identity'] });
@@ -57,6 +59,7 @@ function doGet(e) {
   }
 }
 function doPost(e) {
+  const _wt = wtRoute_(e, true); if (_wt) return _wt;
   try {
     const body = JSON.parse(e.postData.contents);
     const action = body.action;
