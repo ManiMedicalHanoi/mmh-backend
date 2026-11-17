@@ -83,19 +83,27 @@ try {
     say('   thử API', path, '⇒', r.replace(/\s+/g, ' '));
   }
   say('3) Mở gói');
-  const link = p.locator(`a:has-text("${NO}"), :text("${NO}")`).first();
-  const [np] = await Promise.all([ctx.waitForEvent('page', { timeout: 8000 }).catch(() => null), link.click({ timeout: 15000 }).catch(e => say('   chưa bấm được:', e.message.split('\n')[0]))]);
+  const sr = log.filter(x => /smart\/search\?token/.test(x.u)).pop();
+  let item = null; try { item = JSON.parse(sr.b).page.content[0]; } catch (e) {}
+  if (item) say('   kết quả tìm (khoá):', JSON.stringify(Object.fromEntries(Object.entries(item).filter(([k, v]) => typeof v !== 'object' || Array.isArray(v)).map(([k, v]) => [k, Array.isArray(v) ? v.slice(0, 2) : v]))).slice(0, 2500));
+  const anchors = await p.$$eval('a', els => els.filter(e => e.offsetParent).map(e => ({ t: (e.innerText || '').trim().slice(0, 80), h: (e.getAttribute('href') || '').slice(0, 300) })).filter(x => /IB\d|Bệnh viện|Mua sắm|contractor-selection/i.test(x.t + x.h)));
+  say('   link trong kết quả:', JSON.stringify(anchors).slice(0, 2000));
+  const title = item && item.bidName ? String(item.bidName[0] || item.bidName) : '';
+  const link = title ? p.locator(`text="${title}"`).first() : p.locator('a:has-text("Mua")').first();
+  const [np] = await Promise.all([ctx.waitForEvent('page', { timeout: 10000 }).catch(() => null), link.click({ timeout: 15000 }).catch(e => say('   chưa bấm được:', e.message.split('\n')[0]))]);
   const pg = np || p; if (np) { say('   mở tab mới'); }
-  await pg.waitForTimeout(8000); await closePopups('gói', pg); await shot('3-goi'); if (pg === p) await texts('gói thầu');
-  else { const t = await pg.evaluate(() => document.body.innerText).catch(() => ''); say('--- [gói - tab mới] URL:', pg.url()); say(short(t, 1500)); }
-
+  await pg.waitForLoadState('domcontentloaded').catch(() => {});
+  await pg.waitForTimeout(9000); await closePopups('gói', pg); await shot('3-goi');
+  { const t = await pg.evaluate(() => document.body.innerText).catch(() => ''); say('--- [gói] URL:', pg.url()); say(short(t.slice(t.indexOf('Quay trở lại') >= 0 ? t.indexOf('Quay trở lại') : 0), 2500));
+    const bt = await pg.$$eval('a,button,[role=tab],li,span', els => [...new Set(els.filter(e => e.offsetParent).map(e => (e.innerText || '').trim()).filter(s => s && s.length < 40))]).catch(() => []);
+    say('   nút / tab trang gói:', bt.slice(0, 200).join(' | ').slice(0, 2500)); }
   for (const tab of ['Thông báo mời thầu', 'Hồ sơ mời thầu', 'Biên bản mở thầu', 'Kết quả lựa chọn nhà thầu']) {
     say('4) Tab: ' + tab);
-    try { await pg.locator(`text="${tab}"`).first().click({ timeout: 8000 }); await pg.waitForTimeout(5000); await shot('4-' + tab.replace(/\s+/g, '_'));
+    try { await pg.getByText(tab, { exact: true }).first().click({ timeout: 8000 }); await pg.waitForTimeout(5000); await shot('4-' + tab.replace(/\s+/g, '_'));
       const t = await pg.evaluate(() => document.body.innerText).catch(() => ''); say(short(t.slice(t.indexOf(tab)), 1200)); }
     catch (e) { say('   không bấm được tab:', e.message.split('\n')[0]); }
-    for (const dl of ['Tải TBMT', 'Tải về', 'Tải xuống', 'Xuất Excel', 'Tải file', 'Tải KQLCNT']) {
-      const el = pg.locator(`text="${dl}"`).first();
+    for (const dl of ['Tải TBMT', 'Tải HSMT', 'Tải về', 'Tải xuống', 'Xuất Excel', 'Tải file', 'Tải KQLCNT', 'Tải biên bản', 'Tải tất cả']) {
+      const el = pg.getByText(dl, { exact: true }).first();
       if (!(await el.isVisible({ timeout: 500 }).catch(() => false))) continue;
       say('   bấm', dl);
       const d = await Promise.all([pg.waitForEvent('download', { timeout: 30000 }).catch(() => null), el.click().catch(() => null)]).then(x => x[0]);
