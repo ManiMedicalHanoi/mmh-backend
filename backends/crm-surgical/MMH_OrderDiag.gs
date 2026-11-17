@@ -9,6 +9,7 @@
    ?action=ordDiag&key=…&op=dellines&no=521&rows=1636,1637&sg=composite|1|200000   (GHI) — xoá đúng các dòng đã cho (khớp số + chữ ký dòng).
    ?action=ordDiag&key=…&op=dedupe[&from=202609][&run=1]   — mỗi Order No. chỉ còn 1 đơn: dòng trống ngày cùng số + PIC + tháng + account với đúng 1 ngày ⇒ điền ngày (gộp);
      các đơn còn lại trùng số (khác account / khác ngày / khác PIC) ⇒ đơn có dòng sheet nhỏ nhất giữ số, đơn khác nhận số mới. Không run=1 ⇒ chỉ in kế hoạch.
+   ?action=ordDiag&key=…&op=delnono&rows=1508&acc=an nhien   (GHI) — xoá dòng đơn CHƯA CÓ SỐ (kiểm tên account), đọc lại ngay (before / after).
    ?action=ordDiag&key=…&op=heal   (GHI) — chạy ngay ordNoHeal_ (điền số cho dòng không số + điền ngày đặt cho dòng có số mà trống ngày). */
 /* chữ ký 1 dòng sản phẩm: loại + SL + đơn giá (app gửi _sg lúc mở form ⇒ máy chủ chỉ sửa / bỏ đúng dòng đó) */
 function ordSig_(ptype, qty, price){ return S(ptype).trim().toLowerCase() + '|' + num(qty) + '|' + num(price); }
@@ -18,6 +19,7 @@ function ordDiag_(p){
   if (S(p.op) === 'heal') return { ok:true, healed:ordNoHeal_(true) };   /* chạy ngay bước gộp đơn bị tách / điền ngày đặt còn trống */
   if (S(p.op) === 'audit') return ordAudit_(p);
   if (S(p.op) === 'dellines') return ordDelLines_(p);
+  if (S(p.op) === 'delnono') return ordDelNoNo_(p);
   if (S(p.op) === 'dedupe') return ordDedupe_(p);
   try { flushLog_(); } catch(e){}
   var nos = S(p.no).split(/[,\s]+/).filter(String), acc = normName_(S(p.acc)), m = COL.order;
@@ -116,6 +118,33 @@ function ordDelLines_(p){
     SpreadsheetApp.flush(); bumpVersion(bumpTabsFor_('order')); _RAW = {}; _ORDSUPP = null;
     try { logAct({ pic:'system' }, 'dellines', 'order', 'No. ' + no + ' · ' + info[0], 'xoá ' + rows.length + ' dòng trùng (' + sg + ')', rows[0]); flushLog_(); } catch(e){}
     return { ok:true, deleted:rows };
+  } finally { lock.releaseLock(); }
+}
+
+/* ⭐ 17/11/2026 — op=delnono&rows=1508&acc=<chữ trong tên account> (GHI): xoá dòng đơn CHƯA CÓ SỐ (Order No. trống, tên account chứa acc),
+   rồi đọc lại ngay để biết dòng có thật sự mất không (before / after). Dùng khi PIC xoá mãi không được. */
+function ordDelNoNo_(p){
+  var rows = S(p.rows).split(/[,\s]+/).map(function(x){ return parseInt(x, 10); }).filter(function(x){ return x > 0; });
+  var acc = normName_(S(p.acc));
+  if (!rows.length || !acc) return { ok:false, error:'rows? acc?' };
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(25000); } catch(e){ return { ok:false, error:'busy' }; }
+  try {
+    var s = sh('order'), m = COL.order, lc = lastColOf('order'), before = [], after = [];
+    var line = function(r){ var v = s.getRange(r, 1, 1, lc).getValues()[0]; return r + ' ¦ ' + S(v[m.orderNo - 1]) + ' ¦ ' + S(v[m.name - 1]).slice(0, 28) + ' ¦ ' + S(v[m.ptype - 1]).slice(0, 14) + ' ¦ ' + num(v[m.amount - 1]); };
+    for (var i = 0; i < rows.length; i++){
+      var v = s.getRange(rows[i], 1, 1, lc).getValues()[0];
+      if (S(v[m.orderNo - 1])) return { ok:false, error:'Dòng ' + rows[i] + ' đã có số ' + S(v[m.orderNo - 1]) };
+      if (normName_(v[m.name - 1]).indexOf(acc) < 0) return { ok:false, error:'Dòng ' + rows[i] + ' là ' + S(v[m.name - 1]) };
+      before.push(line(rows[i]));
+    }
+    var prot = []; try { s.getProtections(SpreadsheetApp.ProtectionType.RANGE).forEach(function(pr){ prot.push(pr.getRange().getA1Notation()); }); } catch(eP){}
+    rows.sort(function(a, b){ return b - a; }).forEach(function(r){ s.deleteRow(r); });
+    SpreadsheetApp.flush(); bumpVersion(bumpTabsFor_('order')); _RAW = {}; _ORDSUPP = null;
+    rows.forEach(function(r){ after.push(line(r)); });
+    try { logAct({ pic:'system' }, 'delnono', 'order', before[0].split(' ¦ ')[2], 'xoá ' + rows.length + ' dòng đơn chưa có số (Admin)', rows[0]); flushLog_(); } catch(e){}
+    return { ok:true, deleted:rows, before:before, after:after, sheet:s.getName(), file:s.getParent().getName(), protections:prot.slice(0, 10),
+             filter:!!(s.getFilter && s.getFilter()), maxRows:s.getMaxRows(), lastRow:s.getLastRow() };
   } finally { lock.releaseLock(); }
 }
 
