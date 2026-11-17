@@ -1,5 +1,5 @@
 /*************************************************************************************************
- * MMH_OrderDelete.gs — XOÁ ĐƠN HÀNG (cả đơn) · v1.1 (17/11/2026: đơn chưa có số mà dòng đã dời ⇒ tìm lại theo account + PIC + ngày / tháng) · v1.0 (04/11/2026)
+ * MMH_OrderDelete.gs — XOÁ ĐƠN HÀNG (cả đơn) · v1.2 (17/11/2026: dòng bị BỘ LỌC của sheet ẩn đi không xoá được ⇒ delRowsSafe_; đơn chưa có số mà dòng đã dời ⇒ tìm lại theo account + PIC + ngày / tháng) · v1.0 (04/11/2026)
  * GIỐNG HỆT ở crm-dental / crm-surgical / crm-eyeless (sửa 1 nơi ⇒ chép sang 2 nơi kia).
  *
  * Lỗi cũ: deleteRow chỉ cho sales xoá ở tab weekly / cbc / customer ⇒ PIC bấm "Xoá đơn" luôn bị từ chối
@@ -71,13 +71,13 @@ function deleteOrder(user, p){
     }
 
     var s = sh('order');
-    rows.forEach(function(r){ s.deleteRow(r); });
+    var dl = delRowsSafe_(s, rows);                                   /* 17/11: dòng bị bộ lọc ẩn vẫn xoá được */
     SpreadsheetApp.flush();
     try { _RAW = {}; } catch(eR2){}
     bumpVersion(bumpTabsFor_('order'));
     var first = list[list.length - 1] || list[0], no2 = S(first.orderNo);
     logAct(user, 'delete', 'order', S(first.name), (no2 ? 'đơn ' + no2 : 'đơn chưa có số') + ' · ' + rows.length + ' dòng', rows[rows.length - 1]);
-    return { ok:true, deleted:rows.length, rows:rows, orderNo:no2,
+    return { ok:true, deleted:rows.length, rows:rows, orderNo:no2, lifted:dl.lifted,
              message:'Đã xoá đơn hàng' + (no2 ? ' ' + no2 : '') + ' (' + rows.length + ' dòng sản phẩm)' };
   } finally { lock.releaseLock(); }
 }
