@@ -729,7 +729,9 @@ function s2d(s){
    (giữ cả giờ phút nếu có). Đọc vẫn nhận Date như cũ. */
 function wV_(v){
   if (!(v instanceof Date) || isNaN(v)) return v;
-  return (Date.UTC(v.getFullYear(), v.getMonth(), v.getDate(), v.getHours(), v.getMinutes(), v.getSeconds()) - Date.UTC(1899, 11, 30)) / 864e5;
+  var p2 = function(n){ return ('0' + n).slice(-2); }, d = v.getFullYear() + '-' + p2(v.getMonth() + 1) + '-' + p2(v.getDate());
+  /* chữ yyyy-mm-dd: Sheets đọc thành ngày ở mọi vùng (thử thật 17/11: số ngày vào ô định dạng "0.###" vẫn hiện số, chữ ISO thì thành ngày) */
+  return (v.getHours() || v.getMinutes() || v.getSeconds()) ? d + ' ' + p2(v.getHours()) + ':' + p2(v.getMinutes()) + ':' + p2(v.getSeconds()) : d;
 }
 function wRow_(a){ return a.map(function(r){ return Array.isArray(r) ? r.map(wV_) : wV_(r); }); }
 /* ô sắp nhận ngày mà đang định dạng Văn bản / Tự động ⇒ đặt định dạng ngày TRƯỚC khi ghi (ô Văn bản giữ số ngày thành chữ "45901") */
@@ -7525,7 +7527,7 @@ function wkHealFlush_(noLock){
    Múi giờ file khác múi giờ script ⇒ đổi về múi giờ script và ghi lại ngày theo đúng ngày đang hiện.
    Chạy 1 lần sau khi deploy (ping / boot) + mỗi đêm 02:00 (sửa ô gõ tay mới). Chạy tay: crmDateFixNow(); kết quả ở Script Property CRM_DATEFIX_LOG.
    ════════════════════════════════════════════════════════════════════════════════════════════════ */
-var DF_KEY = 'CRM_DATEFIX_V', DF_VER = '3';   /* v10.27: chạy lại 1 lần sau khi ghi ngày bằng số ngày */
+var DF_KEY = 'CRM_DATEFIX_V', DF_VER = '4';   /* v10.27: chạy lại 1 lần sau khi ghi ngày bằng số ngày */
 function dfPad_(n){ return ('0' + n).slice(-2); }
 function dfMk_(y, mo, d){
   if (y < 1990 || y > 2100 || mo < 1 || mo > 12 || d < 1 || d > 31) return '';
@@ -7562,7 +7564,7 @@ function dfFixTab_(s, row0, cols, monthCol, tzOld, tzNew, force, st){
   var n = last - row0 + 1, mVals = monthCol ? s.getRange(row0, monthCol, n, 1).getValues() : null;
   var olds = {}, news = {};
   cols.forEach(function(spec){
-    var c = spec.c, rg = s.getRange(row0, c, n, 1), V = rg.getValues(), F = rg.getFormulas(), out = [], ch = {}, nCh = 0;
+    var c = spec.c, rg = s.getRange(row0, c, n, 1), V = rg.getValues(), F = rg.getFormulas(), NF = rg.getNumberFormats(), out = [], ch = {}, nCh = 0;
     var sNew = spec.pairOf ? news[spec.pairOf] : null, sOld = spec.pairOf ? olds[spec.pairOf] : null, o = [], nw = [];
     for (var i = 0; i < n; i++){
       var v = V[i][0], f = F[i][0];
@@ -7574,6 +7576,7 @@ function dfFixTab_(s, row0, cols, monthCol, tzOld, tzNew, force, st){
       var fix = iso, why = '';
       if (!(v instanceof Date)) why = 'text';
       else if (Utilities.formatDate(v, tzOld, 'HH:mm:ss') !== '00:00:00') why = 'time';
+      else if (!/[dy]/i.test(String(NF[i][0] || ''))) why = 'text';   /* ngày đúng nhưng ô định dạng số ⇒ hiện "45901" */
       if (spec.swap){ var sw = dfSwap_(iso, ym); if (sw){ fix = sw; why = 'swap'; } }
       if (sNew && sNew[i]){                                                      /* Finish: theo Start cùng dòng (Start vừa đảo ⇒ Finish trùng ngày cũ đổi theo) */
         if (sOld[i] && sNew[i] !== sOld[i] && iso === sOld[i]){ fix = sNew[i]; why = 'swap'; }

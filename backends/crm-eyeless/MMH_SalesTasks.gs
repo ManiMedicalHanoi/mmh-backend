@@ -29,7 +29,7 @@ function stIso_(v){
 }
 function stDate_(iso){ var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || '')); return m ? new Date(+m[1], +m[2] - 1, +m[3]) : ''; }
 /* v1.4 (17/11/2026): ghi ô ngày bằng số ngày (Date bị đảo ngày ↔ tháng ở file vùng vi_VN) */
-function stW_(iso){ var d = stDate_(iso); return d ? (Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - Date.UTC(1899, 11, 30)) / 864e5 : ''; }
+function stW_(iso){ var d = stDate_(iso); return d ? Utilities.formatDate(d, stTz_(), 'yyyy-MM-dd') : ''; }
 function stPct_(v){ if(v === '' || v == null) return 0; if(typeof v === 'number'){ var n = (v > 0 && v <= 1) ? Math.round(v * 100) : Math.round(v); return Math.max(0, Math.min(100, n)); }
   var m = /(-?\d+(?:\.\d+)?)/.exec(String(v)); if(!m) return 0; var x = parseFloat(m[1]); return Math.max(0, Math.min(100, Math.round(/%/.test(String(v)) || x > 1 ? x : x * 100))); }
 function stNorm_(s){ return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd').toLowerCase().replace(/\s+/g, ' ').trim(); }
