@@ -276,5 +276,12 @@
     "scriptId": "1ih1ZeZmVxdghP7BLNQ5-b1BrY5FZftlj_HbpRMZIJ8hYMd-1IHrpOisx",
     "sheetId": "17fNu-K41-QfkCBc3Hxz5fuFl7MNqH4UuelyzRtr_I-Y",
     "note": "File Sheet 'Cấu hình dao chỉ nhãn khoa Mani 20240730' (tab 'Copy of Sheet1', gid 646481032: TSKT dao + chỉ khâu nhãn khoa). Script gắn Sheet, không có web app ⇒ deploy chỉ đẩy code + lưu phiên bản; chạy bằng menu MMH trong Sheet."
+  },
+  "ipr-launch": {
+    "name": "2025 Launching IPR Dia-Burs (kế hoạch launch IPR-01EF — script gắn Sheet)",
+    "scriptId": "19mPe_-hcZtx-PRoeKhpPnWCNSfWDag0dw7ofQ6z_sEP1PqXFSqvklGsz",
+    "sheetId": "11xBjne7dlKuOLXAO6t2OvPYy4bI2v-4_DvQ3MKLanIo",
+    "sheetUrl": "https://docs.google.com/spreadsheets/d/11xBjne7dlKuOLXAO6t2OvPYy4bI2v-4_DvQ3MKLanIo/edit?gid=1920318451#gid=1920318451",
+    "note": "File launch IPR-01EF (Shared Drive, thư mục '2025 Launching IPR Dia-Burs'). Script gắn Sheet, không có web app ⇒ deploy chỉ đẩy code + lưu phiên bản; chạy bằng menu MMH trong Sheet. Dùng để dựng lại file theo SOP ra mắt sản phẩm (MMH-SOP-015, 17/11/2026)."
   }
 }
