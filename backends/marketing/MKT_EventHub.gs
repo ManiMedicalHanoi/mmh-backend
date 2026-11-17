@@ -114,7 +114,7 @@ function ehId_(p){ return p + Utilities.getUuid().replace(/-/g, '').slice(0, 10)
 function ehNorm_(s){ return String(s == null ? '' : s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/[^a-z0-9]+/g, ' ').trim(); }   /* giữ dấu cách (≠ evsNorm_) */
 function ehWords_(s){ return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').split(/[^a-z0-9]+/).filter(function(w){ return w.length > 2; }); }
 function ehAddWork_(d, n, holi){ var x = new Date(d.getFullYear(), d.getMonth(), d.getDate()), k = 0; while (k < n){ x.setDate(x.getDate() + 1); var w = x.getDay(); if (w && w !== 6 && !holi[ehIso_(x)]) k++; } return x; }
-function ehHoli_(){ var h = {}; try { (RPL_CAL.VN['2026'] ? RPL_CAL.VN['2026'].off : []).forEach(function(md){ h['2026-' + md] = 1; }); } catch(e){} return h; }
+function ehHoli_(){ var h = {}; try { Object.keys(RPL_CAL.VN).forEach(function(y){ (RPL_CAL.VN[y].off || []).forEach(function(md){ h[y + '-' + md] = 1; }); }); } catch(e){} return h; }   /* 17/11/2026: mọi năm có trong lịch (2026, 2027…) */
 function ehDue_(ev, offset, unit){
   if (offset === '' || offset == null || !ev.start) return '';
   var n = Number(offset), s = ehDate_(ev.start), e = ehDate_(ev.end || ev.start);

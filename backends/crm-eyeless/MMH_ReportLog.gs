@@ -1,5 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════════════════
- * MMH_ReportLog.gs — v1.1 (02/11/2026 · hạn KPI theo MMHSOP_009)
+ * MMH_ReportLog.gs — v1.2 (17/11/2026 · lịch làm việc 2027 VN / TH; báo cáo tuần phải gửi TRONG ngày làm việc cuối của tuần;
+ *                          KPI tháng / KPI quý KHÔNG còn tính đúng hạn — PIC tự gửi từ hộp thư) · v1.1 (02/11/2026 · hạn KPI theo MMHSOP_009)
  * GIỐNG HỆT NHAU ở marketing / backoffice / management / crm-dental / crm-surgical / crm-eyeless / crm-thai / kpi
  * (sửa 1 nơi ⇒ chép sang nơi khác).
  *
@@ -7,8 +8,9 @@
  *  · Mỗi email báo cáo THẬT (không phải gửi thử / chế độ TEST) ⇒ 1 dòng ở sheet ẨN "_MMH_REPORT_LOG"
  *    của bảng tính backend này: loại (week · kpi · quarter), PIC, kỳ, hạn nộp, đúng hạn / muộn.
  *  · Hạn nộp:
- *      - Báo cáo tuần  = 23:59 NGÀY LÀM VIỆC CUỐI của tuần (T2 → T7, theo lịch MMH: thứ 7 đi làm / nghỉ, ngày lễ).
- *                        Tuần không có ngày làm việc (vd. nghỉ Tết) ⇒ không tính.
+ *      - Báo cáo tuần  = gửi TRONG NGÀY LÀM VIỆC CUỐI của tuần (00:00 → 23:59; T2 → T7, theo lịch MMH: thứ 7 đi làm / nghỉ, ngày lễ).
+ *                        Gửi trước ngày đó ⇒ "Gửi sớm" (chưa đạt), sau 23:59 ⇒ "Muộn". Tuần không có ngày làm việc (vd. nghỉ Tết) ⇒ không tính.
+ *        (v1.2, 17/11/2026, người dùng chốt: KPI tháng FM01 / KPI quý FM02 vẫn ghi nhật ký nhưng KHÔNG tính đúng hạn — RPL.COUNT.)
  *      - Báo cáo KPI Tháng (FM01) = hết ngày 05 tháng sau (23:59).
  *      - Báo cáo KPI Quý (FM02)   = hết ngày 05 tháng đầu quý kế tiếp (quý FY: Q1 = T9–T11 ⇒ 05/12, Q2 ⇒ 05/03, Q3 ⇒ 05/06, Q4 ⇒ 05/09).
  *        (Quy trình quản lý KPI MMHSOP_009, hiệu lực 01/10/2026 · 4.2.1. Trước đây: 16:00 ngày 02 / 17:00 ngày 09.)
@@ -18,25 +20,35 @@
  *  Không dùng dịch vụ Google mới (chỉ SpreadsheetApp / CacheService / PropertiesService) ⇒ không phải cấp quyền lại.
  * ═══════════════════════════════════════════════════════════════════════ */
 var RPL = {
-  VER: '1.1',
+  VER: '1.2',
   SHEET: '_MMH_REPORT_LOG',
   TZ: 'Asia/Ho_Chi_Minh',                 /* VN và Thái Lan cùng GMT+7 */
   MASTER_ID: '1byCL6NjhqBuEcd-K5pxYRrQj2XXs6GMIvR79x45mHRQ',   /* Training Master (RH_Users ▸ Perms) */
   HEAD: ['Thời điểm gửi', 'Loại', 'PIC', 'Kỳ', 'Từ', 'Đến', 'Hạn nộp', 'Kết quả', 'Trễ (giờ)', 'Người gửi', 'Cách gửi', 'Lịch', 'Nguồn', 'Ghi chú'],
-  WEEK_CUT: '23:59', KPI_DAY: 5, KPI_CUT: '23:59', Q_DAY: 5, Q_CUT: '23:59',
+  WEEK_CUT: '23:59', WEEK_FROM: '00:00', COUNT: { week: 1 }, KPI_DAY: 5, KPI_CUT: '23:59', Q_DAY: 5, Q_CUT: '23:59',
   MAX_ROWS: 6000
 };
-/* Lịch làm việc MMH 2026 (file "2026 MMH VIETNAM / THAILAND Calendar"): sat = thứ 7 ĐI LÀM · off = ngày nghỉ (lễ, nghỉ bù) rơi vào T2–T6 */
+/* Lịch làm việc MMH (file "MMH VIETNAM / THAILAND CALENDAR" từng năm — bản gốc + dữ liệu ở mmh-library ▸ "Lịch làm việc MMH"):
+   sat = thứ 7 ĐI LÀM · off = ngày nghỉ (lễ, nghỉ bù) rơi vào T2–T6. 2027: VN 272 ngày làm việc · TH 266 (đã đối chiếu bảng từng tháng). */
 var RPL_CAL = {
   VN: { 2026: {
     sat: ['01-03','01-17','01-31','02-07','03-07','03-21','04-18','04-25','05-09','05-16','06-06','06-20','07-04','07-18',
           '08-01','08-15','08-29','09-19','10-03','10-17','10-31','11-21','12-05','12-19'],
-    off: ['01-01','02-16','02-17','02-18','02-19','02-20','04-27','04-30','05-01','09-02','09-03','09-04'] } },
+    off: ['01-01','02-16','02-17','02-18','02-19','02-20','04-27','04-30','05-01','09-02','09-03','09-04'] },
+    2027: {
+    sat: ['01-09','01-23','02-20','03-06','03-20','04-10','04-24','05-08','05-22','06-05','06-19','07-03','07-17','07-31',
+          '08-14','09-11','09-25','10-09','10-23','11-06','11-20','12-04','12-18'],
+    off: ['01-01','02-03','02-04','02-05','02-08','02-09','02-10','04-16','04-30','09-02','09-03','11-24'] } },
   TH: { 2026: {
     sat: ['01-03','01-17','01-31','02-07','03-07','03-21','04-18','04-25','05-16','06-06','06-20','07-04','07-18',
           '08-01','08-15','08-29','09-19','10-03','10-17','10-31','11-21','12-05','12-19'],
     off: ['01-01','01-02','03-03','04-06','04-13','04-14','04-15','05-01','05-04','06-01','06-03','07-28','07-29','08-12',
-          '10-13','10-23','12-07','12-10','12-31'] } }
+          '10-13','10-23','12-07','12-10','12-31'] },
+    2027: {
+    sat: ['01-09','01-23','02-20','03-06','03-20','04-10','04-24','05-08','05-22','06-05','06-19','07-03','07-17','07-31',
+          '08-14','09-11','09-25','10-09','10-23','11-06','11-20','12-04','12-18'],
+    off: ['01-01','02-22','04-06','04-13','04-14','04-15','05-03','05-04','05-20','06-03','07-19','07-28','08-12','10-13',
+          '10-25','12-06','12-10','12-31'] } }
 };
 
 function rplS_(v){ return v == null ? '' : String(v).trim(); }
@@ -59,6 +71,7 @@ function rplWeekEnd_(mon, cal){
 /* hạn nộp 'yyyy-MM-dd HH:mm' theo loại + kỳ */
 function rplDue_(type, period, cal){
   period = rplS_(period);
+  if (!RPL.COUNT[type]) return '';                                   /* v1.2 — chỉ báo cáo tuần còn tính hạn */
   if (type === 'week'){ var e = rplWeekEnd_(rplMon_(period), cal); return e ? e + ' ' + RPL.WEEK_CUT : ''; }
   if (type === 'kpi'){
     var y = +period.slice(0, 4), m = +period.slice(4, 6); if (!y || !m) return '';
@@ -108,12 +121,12 @@ function rplAdd_(type, pic, period, o){
     var cal = o.cal === 'TH' ? 'TH' : 'VN';
     if (type === 'week') period = rplMon_(period);
     var due = rplDue_(type, period, cal), at = Utilities.formatDate(o.at || new Date(), RPL.TZ, 'yyyy-MM-dd HH:mm');
-    var late = due && at > due, hrs = '';
+    var late = due && at > due, hrs = '', early = type === 'week' && due && at < due.slice(0, 10) + ' ' + RPL.WEEK_FROM;   /* v1.2 — gửi trước ngày làm việc cuối */
     if (late){ var a = new Date(at.replace(' ', 'T') + ':00+07:00'), d = new Date(due.replace(' ', 'T') + ':00+07:00'); hrs = Math.round((a - d) / 360000) / 10; }
     var from = period, to = rplS_(o.to);
     if (type === 'week'){ to = to || rplAdd0_(period, 6); }
     var sh = rplSheet_(true); if (!sh) return;
-    sh.appendRow([at, type, pic, period, from, to, due, !due ? 'Không tính' : late ? 'Muộn' : 'Đúng hạn', hrs, rplS_(o.by), rplS_(o.opt), cal, rplSrc_(), rplS_(o.note).slice(0, 300)]);
+    sh.appendRow([at, type, pic, period, from, to, due, !due ? 'Không tính' : late ? 'Muộn' : early ? 'Gửi sớm' : 'Đúng hạn', hrs, rplS_(o.by), rplS_(o.opt), cal, rplSrc_(), rplS_(o.note).slice(0, 300)]);
   }catch(e){ try{ console.warn('[rplAdd_] ' + e); }catch(_){} }
 }
 /* quyền xem thống kê: Admin / Director / HOD, hoặc Perms {"rps":{"v":1}} (Admin tắt được bằng {"rps":{"v":0}}) */
@@ -147,7 +160,7 @@ function rplOldKpi_(since){
       var pic = rplS_(r[2]), mon = rplS_(r[3]).replace(/\D/g, '').slice(0, 6);
       if (!at || !pic || mon.length !== 6 || /^\[TEST\]/i.test(rplS_(r[7])) || (since && at >= since)) return;
       var due = rplDue_('kpi', mon, 'VN');
-      out.push([at, 'kpi', pic, mon, mon, mon, due, at > due ? 'Muộn' : 'Đúng hạn', '', rplS_(r[1]), 'email', '', 'kpi (log cũ)', 'KSC Mail Log']);
+      out.push([at, 'kpi', pic, mon, mon, mon, due, !due ? 'Không tính' : at > due ? 'Muộn' : 'Đúng hạn', '', rplS_(r[1]), 'email', '', 'kpi (log cũ)', 'KSC Mail Log']);
     });
   }catch(e){}
   return out;
@@ -165,5 +178,5 @@ function rplApi_(p){
   if (rplSrc_() === 'kpi') rows = rplOldKpi_(since).concat(rows);
   if (from) rows = rows.filter(function(r){ return String(r[0]).slice(0, 10) >= from; });
   return { ok:true, v:RPL.VER, src:rplSrc_(), since:since, head:RPL.HEAD, rows:rows, cal:RPL_CAL,
-           rule:{ week:RPL.WEEK_CUT, kpiDay:RPL.KPI_DAY, kpi:RPL.KPI_CUT, qDay:RPL.Q_DAY, q:RPL.Q_CUT } };
+           rule:{ week:RPL.WEEK_CUT, weekFrom:RPL.WEEK_FROM, count:Object.keys(RPL.COUNT), kpiDay:RPL.KPI_DAY, kpi:RPL.KPI_CUT, qDay:RPL.Q_DAY, q:RPL.Q_CUT } };
 }
