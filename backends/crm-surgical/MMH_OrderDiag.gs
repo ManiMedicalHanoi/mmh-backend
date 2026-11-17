@@ -114,7 +114,7 @@ function ordDelLines_(p){
       if (ordSig_(v[m.ptype - 1], v[m.qty - 1], v[m.price - 1]) !== sg) return { ok:false, error:'Dòng ' + rows[i] + ' khác chữ ký: ' + ordSig_(v[m.ptype - 1], v[m.qty - 1], v[m.price - 1]) };
       info.push(S(v[m.name - 1]).slice(0, 30));
     }
-    rows.sort(function(a, b){ return b - a; }).forEach(function(r){ s.deleteRow(r); });
+    var dl = delRowsSafe_(s, rows);
     SpreadsheetApp.flush(); bumpVersion(bumpTabsFor_('order')); _RAW = {}; _ORDSUPP = null;
     try { logAct({ pic:'system' }, 'dellines', 'order', 'No. ' + no + ' · ' + info[0], 'xoá ' + rows.length + ' dòng trùng (' + sg + ')', rows[0]); flushLog_(); } catch(e){}
     return { ok:true, deleted:rows };
@@ -138,12 +138,13 @@ function ordDelNoNo_(p){
       if (normName_(v[m.name - 1]).indexOf(acc) < 0) return { ok:false, error:'Dòng ' + rows[i] + ' là ' + S(v[m.name - 1]) };
       before.push(line(rows[i]));
     }
+    var hidden = rows.filter(function(r){ try { return s.isRowHiddenByFilter(r); } catch(e){ return false; } });
     var prot = []; try { s.getProtections(SpreadsheetApp.ProtectionType.RANGE).forEach(function(pr){ prot.push(pr.getRange().getA1Notation()); }); } catch(eP){}
-    rows.sort(function(a, b){ return b - a; }).forEach(function(r){ s.deleteRow(r); });
+    var dl = delRowsSafe_(s, rows);
     SpreadsheetApp.flush(); bumpVersion(bumpTabsFor_('order')); _RAW = {}; _ORDSUPP = null;
     rows.forEach(function(r){ after.push(line(r)); });
     try { logAct({ pic:'system' }, 'delnono', 'order', before[0].split(' ¦ ')[2], 'xoá ' + rows.length + ' dòng đơn chưa có số (Admin)', rows[0]); flushLog_(); } catch(e){}
-    return { ok:true, deleted:rows, before:before, after:after, sheet:s.getName(), file:s.getParent().getName(), protections:prot.slice(0, 10),
+    return { ok:true, deleted:rows, hidden:hidden, lifted:dl.lifted, before:before, after:after, sheet:s.getName(), file:s.getParent().getName(), protections:prot.slice(0, 10),
              filter:!!(s.getFilter && s.getFilter()), maxRows:s.getMaxRows(), lastRow:s.getLastRow() };
   } finally { lock.releaseLock(); }
 }

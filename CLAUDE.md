@@ -508,3 +508,7 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
 - **17/11/2026 — Training Hub v3.46: buổi đào tạo đại lý NPP Meci (`training/RH_ExtTrain.gs`, người dùng yêu cầu)**: action `rhExtTrain` (`key` = 8 ký tự cuối Script ID, `op=status|run`) ghi 1 dòng Training Report
   External · Customer Training · Completed (trainer Giang, 17/11/2026 09:00–10:30): Purpose theo agenda, Summary = review 5 dòng, P = link bảng kết quả bài kiểm tra đối tác, Q = tóm tắt kết quả, cột T&E (team dental, 9 người, JSON không SĐT);
   thư mục buổi trong "Customer Training". Chỉ ghi 1 lần (Script Property `EXT1117_SID`). File bài giảng tải vào thư mục bằng Google Drive.
+- **17/11/2026 — Xoá dòng bị BỘ LỌC ẩn (`MMH_RowDelete.gs` ▸ `delRowsSafe_`, GIỐNG HỆT ở crm-dental / surgical / eyeless; `MMH_OrderDelete.gs` v1.2)**: Phuong xoá 2 đơn chưa có số mãi không được —
+  tab 3. SALE ORDER đang bật filter ẩn 2 dòng đó, `Sheet.deleteRow` với dòng bị lọc ẩn KHÔNG làm gì (không báo lỗi) ⇒ nhật ký ghi "delete" mà dòng vẫn còn. `delRowsSafe_`: có dòng bị lọc ẩn ⇒ nhớ vùng + điều kiện lọc,
+  gỡ bộ lọc, xoá, đặt lại bộ lọc. Dùng ở `deleteOrder`, `saveOrders` (dòng `_del`), `deleteRow`, xoá địa bàn, Mở mới, `ordDiag` dellines / delnono. Xoá dòng mới trên sheet người dùng hay lọc ⇒ dùng `delRowsSafe_`.
+  `deleteOrder` v1.1: đơn chưa có số mà dòng dời ⇒ tìm lại theo account + PIC + ngày / tháng (app gửi `_day` / `_pic` / `_mon`). `ordDiag op=delnono&rows=&acc=` (xoá dòng đơn chưa có số, trả before / after / hidden).

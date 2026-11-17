@@ -1313,7 +1313,7 @@ function saveOrders(user, p){
     }
     /* xoá từ dưới lên ⇒ số dòng trả về cho app tính lại theo vị trí sau khi xoá */
     if (dels.length){
-      dels.sort(function(a, b){ return b - a; }).forEach(function(r){ s.deleteRow(r); });
+      delRowsSafe_(s, dels);   /* 17/11/2026: dòng bị bộ lọc ẩn vẫn xoá được */
       out = out.map(function(r){ return r ? r - dels.filter(function(x){ return x < r; }).length : 0; });
       SpreadsheetApp.flush();
     }
@@ -1783,7 +1783,7 @@ function deleteRow(user, p){
       try { var _m = COL[tab], _v = sh(tab).getRange(row, 1, 1, 20).getValues()[0], _g = function(f){ return _m[f] ? S(_v[_m[f] - 1]) : ''; };
         _rec = tab === 'cbc' ? { code:_g('code'), name:_g('name'), cbcCode:_g('cbcCode'), contact:_g('contact') } : { code:_g('code'), name:_g('name') }; } catch(e){}
     }
-    sh(tab).deleteRow(row);
+    delRowsSafe_(sh(tab), [row]);   /* 17/11/2026: dòng bị bộ lọc ẩn vẫn xoá được */
     SpreadsheetApp.flush();
     bumpVersion(bumpTabsFor_(tab));
     if (_rec) custLog_(user && user.pic, 'delete', tab, _rec, [], row, S(p.reason || ''));
@@ -1824,8 +1824,8 @@ function deleteAccount(user, p){
   try { lock.waitLock(25000); } catch(e){ return { ok:false, error:'Hệ thống đang bận, thử lại sau vài giây.' }; }
   try {
     var bs = sh('cbc');
-    cbcRows.sort(function(a, b){ return b - a; }).forEach(function(r){ bs.deleteRow(r); });
-    cs.deleteRow(row);
+    delRowsSafe_(bs, cbcRows);
+    delRowsSafe_(cs, [row]);   /* 17/11/2026: dòng bị bộ lọc ẩn vẫn xoá được */
     SpreadsheetApp.flush();
     bumpVersion(['customer', 'cbc']);
     custLog_(user && user.pic, 'delete', 'customer', { code:code, name:name }, [], row, 'kèm ' + cbcRows.length + ' CBC');
@@ -5803,7 +5803,7 @@ function naDelete(user, p){
     if(!(naIsAdmin_(user) || (o.pic === naS_(user.pic) && o.status !== NA_ST.approved)))
       return { ok:false, error:naL_('Không xoá được case này.', 'You cannot delete this case.') };
     (o.files || []).forEach(function(f){ try{ DriveApp.getFileById(f.id).setTrashed(true); }catch(e){} });
-    naSheet_().deleteRow(o._row); naBump_();
+    delRowsSafe_(naSheet_(), [o._row]); naBump_();
     try{ NA_ENV.log(user, 'delete', o.account, 'case ' + o.id); }catch(e){}
     return { ok:true, message:naL_('Đã xoá case', 'Case deleted') };
   } finally { lock.releaseLock(); }
