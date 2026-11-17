@@ -98,18 +98,26 @@ try {
   { const t = await pg.evaluate(() => document.body.innerText).catch(() => ''); say('--- [gói] URL:', pg.url()); say(short(t.slice(t.indexOf('Quay trở lại') >= 0 ? t.indexOf('Quay trở lại') : 0), 2500));
     const bt = await pg.$$eval('a,button,[role=tab],li,span', els => [...new Set(els.filter(e => e.offsetParent).map(e => (e.innerText || '').trim()).filter(s => s && s.length < 40))]).catch(() => []);
     say('   nút / tab trang gói:', bt.slice(0, 200).join(' | ').slice(0, 2500)); }
-  for (const tab of ['Thông báo mời thầu', 'Hồ sơ mời thầu', 'Biên bản mở thầu', 'Kết quả lựa chọn nhà thầu']) {
+  async function dl(label, el) {
+    const d = await Promise.all([pg.waitForEvent('download', { timeout: 45000 }).catch(() => null), el.click({ timeout: 10000 }).catch(e => say('     bấm lỗi:', e.message.split('\n')[0]))]).then(x => x[0]);
+    if (!d) { say('   ✗ ' + label + ': không có file sau 45 giây'); return; }
+    const f = `${OUT}/${d.suggestedFilename()}`; await d.saveAs(f);
+    const buf = fs.readFileSync(f);
+    say(`   ✅ TẢI ĐƯỢC (${label}): ${d.suggestedFilename()} · ${buf.length} byte · đầu file "${buf.slice(0, 8).toString('latin1').replace(/[^\x20-\x7e]/g, '.')}"`);
+  }
+  for (const tab of ['Kết quả lựa chọn nhà thầu', 'Thông báo mời thầu']) {
     say('4) Tab: ' + tab);
-    try { await pg.locator(`:is(a,button,li,span,div,[role=tab]):text-is("${tab}")`).last().click({ timeout: 8000 }); await pg.waitForTimeout(5000); await shot('4-' + tab.replace(/\s+/g, '_'));
-      const t = await pg.evaluate(() => document.body.innerText).catch(() => ''); say(short(t.slice(t.indexOf(tab)), 1200)); }
-    catch (e) { say('   không bấm được tab:', e.message.split('\n')[0]); }
-    for (const dl of ['Tải TBMT', 'Tải HSMT', 'Tải về', 'Tải xuống', 'Xuất Excel', 'Tải file', 'Tải KQLCNT', 'Tải biên bản', 'Tải tất cả']) {
-      const el = pg.getByText(dl, { exact: true }).first();
-      if (!(await el.isVisible({ timeout: 500 }).catch(() => false))) continue;
-      say('   bấm', dl);
-      const d = await Promise.all([pg.waitForEvent('download', { timeout: 30000 }).catch(() => null), el.click().catch(() => null)]).then(x => x[0]);
-      if (d) { const f = `${OUT}/${d.suggestedFilename()}`; await d.saveAs(f); say('   ✅ TẢI ĐƯỢC:', d.suggestedFilename(), fs.statSync(f).size, 'byte'); }
-      else say('   (không có file tải về sau 30 giây)');
+    try { await pg.locator(`:is(a,button,li,span,div,[role=tab]):text-is("${tab}")`).last().click({ timeout: 10000 }); }
+    catch (e) { say('   không bấm được tab:', e.message.split('\n')[0]); continue; }
+    await pg.waitForTimeout(6000); await closePopups('tab', pg); await shot('4-' + tab.replace(/\s+/g, '_'));
+    const t = await pg.evaluate(() => document.body.innerText).catch(() => ''); say('   ' + short(t.slice(Math.max(0, t.indexOf('Thông tin'))), 900));
+    const pdfs = await pg.locator(':is(a,span,div,button):visible').evaluateAll(els => els.map((e, i) => ({ i, t: (e.innerText || '').trim() })).filter(x => /\.(pdf|xlsx?|docx?|zip|rar)$/i.test(x.t) && x.t.length < 200));
+    const uniq = [...new Map(pdfs.map(x => [x.t, x])).values()];
+    say('   file trên tab:', JSON.stringify(uniq.map(x => x.t)));
+    for (const x of uniq.slice(0, 6)) await dl(x.t, pg.locator(':is(a,span,div,button):visible').nth(x.i));
+    for (const lb of ['Xuất Excel', 'Tải TBMT', 'Tải HSMT', 'Tải xuống']) {
+      const el = pg.locator(`:is(a,button):text-is("${lb}")`).first();
+      if (await el.isVisible({ timeout: 800 }).catch(() => false)) { await el.scrollIntoViewIfNeeded().catch(() => {}); await dl(lb, el); }
     }
   }
 } catch (e) { say('LỖI:', e.message.split('\n')[0]); }

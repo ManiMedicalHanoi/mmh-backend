@@ -20,6 +20,13 @@ jobs:
       - name: Dò muasamcong
         env: { MSC_NO: IB2500491794, NODE_PATH: /tmp/pw/node_modules }
         run: cp tools/msc/probe.mjs /tmp/pw/ && cd /tmp/pw && node probe.mjs
+      - name: Xem file đã tải
+        if: always()
+        run: |
+          cd /tmp/pw/msc-out || exit 0
+          ls -la
+          for f in *.xlsx; do [ -f "$f" ] || continue; echo "== $f"; unzip -l "$f" | head -20; unzip -p "$f" xl/sharedStrings.xml 2>/dev/null | sed 's/<[^>]*>/ /g' | tr -s ' ' | head -c 1500; echo; done
+          for f in *.pdf; do [ -f "$f" ] || continue; echo "== $f · số trang ≈ $(grep -a -c '/Type */Page[^s]' "$f")"; done
       - uses: actions/upload-artifact@v4
         if: always()
         with: { name: msc-probe, path: /tmp/pw/msc-out, retention-days: 3 }
