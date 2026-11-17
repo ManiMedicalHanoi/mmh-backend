@@ -88,9 +88,10 @@ try {
   if (item) say('   kết quả tìm (khoá):', JSON.stringify(Object.fromEntries(Object.entries(item).filter(([k, v]) => typeof v !== 'object' || Array.isArray(v)).map(([k, v]) => [k, Array.isArray(v) ? v.slice(0, 2) : v]))).slice(0, 2500));
   const anchors = await p.$$eval('a', els => els.filter(e => e.offsetParent).map(e => ({ t: (e.innerText || '').trim().slice(0, 80), h: (e.getAttribute('href') || '').slice(0, 300) })).filter(x => /IB\d|Bệnh viện|Mua sắm|contractor-selection/i.test(x.t + x.h)));
   say('   link trong kết quả:', JSON.stringify(anchors).slice(0, 2000));
-  const title = item && item.bidName ? String(item.bidName[0] || item.bidName) : '';
-  const link = title ? p.locator(`text="${title}"`).first() : p.locator('a:has-text("Mua")').first();
-  const [np] = await Promise.all([ctx.waitForEvent('page', { timeout: 10000 }).catch(() => null), link.click({ timeout: 15000 }).catch(e => say('   chưa bấm được:', e.message.split('\n')[0]))]);
+  const href = await p.$$eval('a', els => (els.find(e => /render=detail/.test(e.getAttribute('href') || '')) || {}).href || '');
+  say('   link chi tiết (đủ):', href);
+  const np = null;
+  if (href) await p.goto(href, { waitUntil: 'domcontentloaded', timeout: 90000 });
   const pg = np || p; if (np) { say('   mở tab mới'); }
   await pg.waitForLoadState('domcontentloaded').catch(() => {});
   await pg.waitForTimeout(9000); await closePopups('gói', pg); await shot('3-goi');
@@ -99,7 +100,7 @@ try {
     say('   nút / tab trang gói:', bt.slice(0, 200).join(' | ').slice(0, 2500)); }
   for (const tab of ['Thông báo mời thầu', 'Hồ sơ mời thầu', 'Biên bản mở thầu', 'Kết quả lựa chọn nhà thầu']) {
     say('4) Tab: ' + tab);
-    try { await pg.getByText(tab, { exact: true }).first().click({ timeout: 8000 }); await pg.waitForTimeout(5000); await shot('4-' + tab.replace(/\s+/g, '_'));
+    try { await pg.locator(`:is(a,button,li,span,div,[role=tab]):text-is("${tab}")`).last().click({ timeout: 8000 }); await pg.waitForTimeout(5000); await shot('4-' + tab.replace(/\s+/g, '_'));
       const t = await pg.evaluate(() => document.body.innerText).catch(() => ''); say(short(t.slice(t.indexOf(tab)), 1200)); }
     catch (e) { say('   không bấm được tab:', e.message.split('\n')[0]); }
     for (const dl of ['Tải TBMT', 'Tải HSMT', 'Tải về', 'Tải xuống', 'Xuất Excel', 'Tải file', 'Tải KQLCNT', 'Tải biên bản', 'Tải tất cả']) {
