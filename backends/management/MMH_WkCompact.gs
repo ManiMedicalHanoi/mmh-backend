@@ -22,7 +22,7 @@
  *   plan [&min=50&tail=200]: chỉ đọc — kế hoạch xoá.  run: bắt đầu dọn (chạy nền bằng trigger, không có quyền trigger ⇒ chạy ngay ≤ 45 giây / lượt, gọi lại run để chạy tiếp).
  * Tự động: warmCache gọi wkcAuto_ — CHỈ Marketing (WKC.AUTO_SRC), tối đa 1 lần / ngày, 19:00–21:00, khi có khoảng trống ≥ WKC.AUTO_RUN dòng.        */
 var WKC = {
-  VER: '1.1', P: 'WKC_STATE', MIN_RUN: 50, KEEP_GAP: 1, KEEP_TAIL: 200, CHUNK: 2000, PAD: 3, FX_MIN: 20,
+  VER: '1.2', P: 'WKC_STATE', MIN_RUN: 50, KEEP_GAP: 1, KEEP_TAIL: 200, CHUNK: 2000, PAD: 3, FX_MIN: 20,
   BUDGET: 240000, SYNC_BUDGET: 45000, AUTO_RUN: 1000,
   AUTO_SRC: { marketing:1 },            /* tự dọn buổi tối CHỈ ở Marketing (người dùng yêu cầu làm gọn sheet Marketing 16/11/2026); Back Office / Management chỉ chạy tay khi được đồng ý */
   SPILL: /ARRAYFORMULA|\bMAP\(|BYROW\(|BYCOL\(|SCAN\(|REDUCE\(|MAKEARRAY\(|LAMBDA\(|FILTER\(|QUERY\(|SORTN?\(|UNIQUE\(|IMPORT(RANGE|DATA|XML|HTML|FEED)|SEQUENCE\(|SPLIT\(|TRANSPOSE\(|FLATTEN\(|GOOGLEFINANCE|IMAGE\(/i
@@ -101,8 +101,23 @@ function wkcBackup_(){
   var nm = '[Sao lưu trước khi dọn dòng trống ' + Utilities.formatDate(new Date(), tz, 'dd/MM/yyyy HH:mm') + '] ' + f.getName();
   var c = null;
   if(folder){ try{ c = f.makeCopy(nm, folder); }catch(e){ c = null; } }
-  if(!c){ c = f.makeCopy(nm); where = 'mydrive'; }
-  return { id:c.getId(), name:nm, url:c.getUrl(), where:where };
+  if(!c){ try{ c = f.makeCopy(nm); where = 'mydrive'; }catch(e){ c = null; } }
+  if(c) return { id:c.getId(), name:nm, url:c.getUrl(), where:where };
+  return wkcBackupTab_(tz);
+}
+/* v1.2 (17/11/2026): Google chặn sao chép file (Back Office: "Access denied: DriveApp" cả thư mục gốc lẫn My Drive)
+   ⇒ sao lưu GIÁ TRỊ + ghi chú của tab WEEKLY thành 1 tab ẨN ngay trong file (không cần quyền Drive). Tên không chứa "week". */
+function wkcBackupTab_(tz){
+  var sh = wkcSheet_(), book = sh.getParent(), R = sh.getMaxRows(), C = sh.getMaxColumns();
+  var rg = sh.getRange(1, 1, R, C), V = rg.getValues(), N = rg.getNotes();   /* giá trị đang hiển thị (kể cả ô công thức) — dòng bị xoá chỉ có công thức mẫu */
+  for(var i = 0; i < R; i++) for(var j = 0; j < C; j++){ var v = V[i][j]; if(typeof v === 'string' && /^[=+\-@]/.test(v)) V[i][j] = "'" + v; }
+  var nm = '_Backup don dong ' + Utilities.formatDate(new Date(), tz, 'dd-MM HH.mm');
+  var t = book.insertSheet(nm, book.getNumSheets());
+  if(t.getMaxRows() < R) t.insertRowsAfter(t.getMaxRows(), R - t.getMaxRows());
+  if(t.getMaxColumns() < C) t.insertColumnsAfter(t.getMaxColumns(), C - t.getMaxColumns());
+  var out = t.getRange(1, 1, R, C); out.setValues(V); out.setNotes(N);
+  t.hideSheet(); SpreadsheetApp.flush();
+  return { id:book.getId(), sheet:nm, name:nm, where:'tab', rows:R };
 }
 /* ── 1 dòng có xoá được không: '' = được; khác = lý do (cột) ── */
 function wkcRowWhy_(v, f, n, allow){
@@ -288,7 +303,9 @@ function wkcVerify_(p){
   var S = wkcGet_() || {}, bid = String(p.backup || (S.backup && S.backup.id) || '');
   if(!bid) return { ok:false, error:'Chưa có bản sao lưu' };
   var t0 = Date.now(), bss = SpreadsheetApp.openById(bid), bsh = null, gid = shWeekly().getSheetId();
-  bss.getSheets().forEach(function(x){ if(x.getSheetId() === gid) bsh = x; });
+  var tabNm = String(p.sheet || (S.backup && S.backup.sheet) || '');
+  if(tabNm) bsh = bss.getSheetByName(tabNm);                                   /* v1.2: sao lưu dạng tab ẩn */
+  if(!bsh) bss.getSheets().forEach(function(x){ if(x.getSheetId() === gid) bsh = x; });
   if(!bsh) bsh = bss.getSheetByName(shWeekly().getName());
   if(!bsh) return { ok:false, error:'Bản sao lưu không có sheet Weekly' };
   var A = wkcRows_(bsh), B = wkcRows_(wkcSheet_());
