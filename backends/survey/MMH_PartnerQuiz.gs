@@ -1,5 +1,6 @@
 /**
- * MMH Partner Quiz v1.0 (16/11/2026) — bài kiểm tra kiểu Kahoot cho đối tác (NPP, đại lý) sau 2 bài đào tạo nha khoa.
+ * MMH Partner Quiz v1.1 (17/11/2026; v1.1: đạt từ 6/10 câu, câu góp ý sản phẩm KHÔNG tính điểm pqFeedback, top 3 mỗi phần nhận túi cói — người dùng yêu cầu)
+ * v1.0 (16/11/2026) — bài kiểm tra kiểu Kahoot cho đối tác (NPP, đại lý) sau 2 bài đào tạo nha khoa.
  * Trang riêng của MMH (không dùng Kahoot vì Kahoot không bắt nhập thông tin + SĐT trước khi làm — người dùng yêu cầu):
  *   GitHub Pages Training-Hub/quiz/doi-tac/?b=<mã bài>   (mã QR ở cuối video trỏ tới đây)
  *   GitHub Pages Training-Hub/quiz/doi-tac/?b=<mã bài>&v=board   (màn xếp hạng chiếu lên TV khi đào tạo trực tiếp)
@@ -8,21 +9,23 @@
  *   pqStart  {b, info:{name, dealer, phone, agree}}     ⇒ {tk, n, perQ, q} — rút n câu rải đều chương, trộn thứ tự đáp án
  *   pqAnswer {tk, i, pick (0..3, -1 = hết giờ), ms}     ⇒ {right, correct, x, pts, score, next | fin}
  *   pqBoard  {b}                                        ⇒ {players, attempts, today, top[10]} (không trả SĐT)
+ *   pqFeedback {tk, text}                               ⇒ {ok} — góp ý tự do về sản phẩm sau khi làm xong (không tính điểm), ghi cột "Góp ý sản phẩm"
  * Lệnh có khoá: pqDiag {key, b} ⇒ số lượt, link Sheet kết quả.
  * Đáp án đúng KHÔNG gửi xuống trước khi trả lời; máy chủ tự đo thời gian từng câu (CacheService, 2 giờ / lượt).
  * Điểm: đúng = 500 + tới 500 theo thời gian còn lại (tối đa 1.000 / câu); sai / hết giờ = 0. Đạt khi đúng ≥ pass.
  * Kết quả: Google Sheet "MMH · Bài kiểm tra đối tác · Kết quả" (thư mục SV.FOLDER, tab KET_QUA) + email tóm tắt mỗi lượt
  * về chủ thư mục (= tài khoản chạy máy chủ; đổi bằng Script Property PQ_NOTIFY, "-" = tắt email). Ngân hàng câu hỏi: MMH_PartnerQuizBank.gs.
  */
-var PQ = { VER: '1.0', BOOK_PROP: 'PQ_BOOK', BOOK: 'MMH · Bài kiểm tra đối tác · Kết quả', TAB: 'KET_QUA', FB: 3500, TTL: 7200,
+var PQ = { VER: '1.1', BOOK_PROP: 'PQ_BOOK', BOOK: 'MMH · Bài kiểm tra đối tác · Kết quả', TAB: 'KET_QUA', FB: 3500, TTL: 7200,
   PAGE: 'https://manimedicalhanoi.github.io/Training-Hub/quiz/doi-tac/',
-  HEAD: ['Thời gian nộp', 'Mã bài', 'Bài', 'Họ tên', 'Đại lý / NPP', 'Số điện thoại', 'Số câu đúng', 'Số câu', 'Điểm', 'Đạt', 'Thời gian làm (giây)', 'Chi tiết', 'Mã lượt'] };
+  HEAD: ['Thời gian nộp', 'Mã bài', 'Bài', 'Họ tên', 'Đại lý / NPP', 'Số điện thoại', 'Số câu đúng', 'Số câu', 'Điểm', 'Đạt', 'Thời gian làm (giây)', 'Chi tiết', 'Mã lượt', 'Góp ý sản phẩm (không tính điểm)'] };
 
 function pqRoute_(a, p) {
   if (a === 'pqMeta') return pqMeta_(p.b);
   if (a === 'pqStart') return pqStart_(p.b, p.info || {});
   if (a === 'pqAnswer') return pqAnswer_(p.tk, Number(p.i), Number(p.pick), Number(p.ms));
   if (a === 'pqBoard') return pqBoard_(p.b);
+  if (a === 'pqFeedback') return pqFeedback_(p.tk, p.text);
   return { ok: false, error: 'ACTION' };
 }
 
@@ -31,7 +34,7 @@ function pqQuiz_(b) { return (typeof PQ_BANK !== 'undefined' && PQ_BANK[String(b
 function pqMeta_(b) {
   var z = pqQuiz_(b);
   if (!z) return { ok: false, code: 'QUIZ', error: 'Link bài kiểm tra không đúng.' };
-  return { ok: true, v: PQ.VER, b: b, title: z.title, sub: z.sub, n: z.n, perQ: z.perQ, pass: z.pass, bank: z.qs.length };
+  return { ok: true, v: PQ.VER, b: b, title: z.title, sub: z.sub, n: z.n, perQ: z.perQ, pass: z.pass, prize: z.prize || '', bank: z.qs.length };
 }
 
 function pqShuffle_(a) { for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
@@ -208,6 +211,34 @@ function pqBoard_(b) {
     passed: best.filter(function (r) { return r.right >= z.pass; }).length, top: pqTop_(best), at: Date.now() };
   try { c.put(k, JSON.stringify(o), 6); } catch (x) {}
   return o;
+}
+
+/* góp ý tự do về sản phẩm (không tính điểm) — chỉ sau khi làm xong lượt; gửi lại ⇒ ghi đè */
+function pqFeedback_(tk, text) {
+  var s = pqSessGet_(tk);
+  if (!s || !s.fin) return { ok: false, code: 'EXPIRED', error: 'Lượt làm bài đã hết hạn.' };
+  var t = String(text == null ? '' : text).replace(/[\u0000-\u0009\u000b-\u001f<>]/g, ' ').trim().slice(0, 1500);
+  if (t.length < 2) return { ok: false, code: 'EMPTY', error: 'Vui lòng nhập góp ý.' };
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  var row = 0;
+  try {
+    var sh = pqSheet_(), col = PQ.HEAD.length, last = sh.getLastRow();
+    if (!sh.getRange(1, col).getValue()) sh.getRange(1, col).setValue(PQ.HEAD[col - 1]).setFontWeight('bold');
+    var from = Math.max(2, last - 1500);
+    if (last >= from) {
+      var ids = sh.getRange(from, 13, last - from + 1, 1).getValues();
+      for (var i = ids.length - 1; i >= 0; i--) if (String(ids[i][0]) === s.tk) { row = from + i; break; }
+    }
+    if (row) sh.getRange(row, col).setValue("'" + t);
+  } finally { lock.releaseLock(); }
+  if (!row) return { ok: false, code: 'ROW', error: 'Chưa tìm thấy kết quả của lượt này.' };
+  try {
+    var to = pqNotify_(), z = pqQuiz_(s.b);
+    if (to) mmhMail_({ to: to, subject: '[Góp ý sản phẩm] ' + s.name + ' · ' + s.dealer, body: ['Góp ý sau bài kiểm tra đối tác (không tính điểm).', '',
+      'Bài: ' + (z ? z.title : s.b), 'Họ tên: ' + s.name, 'Đại lý / NPP: ' + s.dealer, 'Số điện thoại: ' + s.phone, '', 'Góp ý:', t, '',
+      'Email tự động từ hệ thống bài kiểm tra MMH.'].join('\n') });
+  } catch (x) {}
+  return { ok: true };
 }
 
 function pqDiag_(b) {
