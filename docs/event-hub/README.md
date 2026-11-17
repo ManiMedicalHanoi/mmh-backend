@@ -9,5 +9,5 @@
 - `MKT_EventHubFlow.gs` (v1.5, app v2.4) = lập kế hoạch muộn (dồn hạn), đóng sự kiện, biên bản họp ⇒ việc, Pending, cập nhật tuần (tab CHECKINS), mốc quan trọng, follow-up, nhắc theo bậc, việc ⇒ sub `H:` Report Hub.
 - `MKT_EventHubFast.gs` (v1.6, app v2.6) = tải app nhanh: đệm dữ liệu lớn chia mảnh, giữ đệm nóng, không mở Sheet khi trúng đệm, kiểm tab 1 lần / 6 giờ.
 - `MKT_EventHubGate.gs` (v1.8, app v3.0) = tuyển sinh theo sự kiện (tab REG, chỉ số đếm từ file đăng ký / CUSTOMER LIST), đối tác / NPP (PARTNERS), luật thông báo đối tác theo sự kiện + hàng chờ gửi (PNOTICE),
-  5 cổng kiểm soát (G1 D−28 · G2 D−21 · G3 D−3 · G4 D+1 · G5 D+14), trang đối tác `ehPartner` (token), báo quản lý khi tắc cổng / tuyển sinh chậm.
+  5 cổng kiểm soát theo Quy trình tổ chức sự kiện 21/10/2026 (G1 D−30 · G2 D−7 · G3 D−3 · G4 D+1 · G5 D+14), trang đối tác `ehPartner` (token), báo quản lý khi tắc cổng / tuyển sinh chậm.
 - `MKT_EventHubDiag.gs` = rà Drive chỉ đọc (`ehDriveDiag`): cây thư mục Event FY68, file đăng ký / Form, cấu trúc tab (che SĐT / email), chữ file Word quy trình.
