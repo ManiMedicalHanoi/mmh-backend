@@ -1,18 +1,25 @@
 name: Thử truy cập muasamcong (tạm)
-# Tạm thời: kiểm máy chủ GitHub (nước ngoài) có vào được muasamcong.mof.gov.vn không. Xoá trước khi gộp.
+# Tạm thời: dò thao tác trên muasamcong.mof.gov.vn bằng trình duyệt thật trên máy chủ GitHub. Xoá trước khi gộp.
 on:
   push:
     branches: [claude/nice-brown-m3e3tu]
-    paths: ['.github/workflows/msc-probe.yml']
+    paths: ['.github/workflows/msc-probe.yml', 'tools/msc/**']
 permissions: { contents: read }
 jobs:
   probe:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - name: Địa chỉ IP của máy chạy
-        run: curl -sS --max-time 20 https://ipinfo.io/json | grep -E '"(ip|country|org)"' || true
-      - name: Trang chủ muasamcong
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Cài trình duyệt
         run: |
-          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
-          curl -sS -A "$UA" -o home.html -w "HTTP %{http_code} · %{size_download} byte · %{time_total}s\n" --max-time 40 https://muasamcong.mof.gov.vn/ || true
-          sed 's/<[^>]*>/ /g' home.html | tr -s ' \n' | head -c 400; echo
+          mkdir -p /tmp/pw && cd /tmp/pw && npm init -y >/dev/null && npm i playwright@1.48.2 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+      - name: Dò muasamcong
+        env: { MSC_NO: IB2500491794, NODE_PATH: /tmp/pw/node_modules }
+        run: cp tools/msc/probe.mjs /tmp/pw/ && cd /tmp/pw && node probe.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: msc-probe, path: /tmp/pw/msc-out, retention-days: 3 }
