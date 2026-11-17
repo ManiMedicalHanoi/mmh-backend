@@ -33,6 +33,7 @@ function dfDiag_(p){
       if (!/^\d{4}-\d{2}-\d{2}$/.test(iso2)){ var v0c = rr.getValues()[0][0]; if (typeof v0c === 'number'){ var z = new Date(Date.UTC(1899, 11, 30) + Math.floor(v0c) * 864e5); iso2 = Utilities.formatDate(z, 'UTC', 'yyyy-MM-dd'); } }
       try { rr.setNumberFormat('dd/MM/yyyy'); Rc.afterFmt = show(); } catch(e){ Rc.fmtErr = e.message; }
       try { rr.setValues([[iso2, iso2]]); Rc.afterText = show(); } catch(e){ Rc.txtErr = e.message; }
+      if (/^\d{6}$/.test(String(p.m || ''))){ sc.getRange(rc, COL.weekly.month).setValue(+p.m); Rc.month = +p.m; try { _RAW = {}; bumpVersion(); } catch(e){} }
     }
     return Rc;
   }
