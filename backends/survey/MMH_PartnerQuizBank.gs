@@ -4,13 +4,14 @@
  * về mũi khoan, trâm nội nha; Bài 2 trọng tâm composite. Nội dung lấy đúng theo 2 file PPT đào tạo (External Training Dental / MMG).
  * Mỗi lượt rút n câu rải đều theo nhóm (c): Bài 1 có 3 nhóm JIZAI trên 5 nhóm ⇒ 6/10 câu về JIZAI.
  * o = 4 đáp án (thứ tự được trộn khi phát), a = chỉ số đáp án đúng (0..3), x = giải thích hiện sau khi trả lời.
+ * v2.1 (17/11/2026): 2 bài gộp thành 1 buổi đào tạo (Phần 1 dụng cụ, Phần 2 vật liệu); đạt từ 6/10 câu; top 3 mỗi phần nhận túi cói MANI.
  * Không đưa kế hoạch sản phẩm sắp ra mắt / thông tin thị trường vào đây (người dùng yêu cầu).
  */
 var PQ_BANK = {
   'nha-khoa-1': {
     title: 'Dụng cụ nội nha và mũi khoan MANI',
-    sub: 'Bài kiểm tra · Bài 1',
-    perQ: 20, n: 10, pass: 8,
+    sub: 'Bài kiểm tra · Phần 1',
+    perQ: 20, n: 10, pass: 6, prize: 'Top 3 điểm cao nhất nhận túi cói MANI',
     qs: [
       // 1. JIZAI · tên, giá trị, thiết kế
       { c: 1, q: 'JIZAI (自在) trong tiếng Nhật nghĩa là gì?', o: ['Tốc độ', 'Tự tại', 'Sắc bén', 'Bền vững'], a: 1, x: 'JIZAI nghĩa là "tự tại": ung dung, làm chủ mọi chuyển động.' },
@@ -41,8 +42,8 @@ var PQ_BANK = {
   },
   'nha-khoa-2': {
     title: 'Vật liệu phục hồi và thẩm mỹ MANI',
-    sub: 'Bài kiểm tra · Bài 2',
-    perQ: 20, n: 10, pass: 8,
+    sub: 'Bài kiểm tra · Phần 2',
+    perQ: 20, n: 10, pass: 6, prize: 'Top 3 điểm cao nhất nhận túi cói MANI',
     qs: [
       // 1. Thông số composite
       { c: 1, q: 'Mô-đun đàn hồi cao nghĩa là gì?', o: ['Miếng trám ít biến dạng khi nhai', 'Màu sáng hơn', 'Chảy lỏng hơn', 'Đông nhanh hơn'], a: 0, x: 'Mô-đun đàn hồi thể hiện độ cứng vững của vật liệu.' },

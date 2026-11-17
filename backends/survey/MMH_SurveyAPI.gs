@@ -57,7 +57,7 @@ function svHandle_(p, body) {
       if (a === 'qStart') return svOut_(Object.assign({ ok: true }, svQuizStart(fq, b2.info || {})));
       return svOut_(svQuizSubmit(fq, b2.token, b2.info || {}, b2.answers || {}, !!b2.auto));
     }
-    if (/^pq(Meta|Start|Answer|Board)$/.test(a)) return svOut_(pqRoute_(a, Object.assign({}, p, body || {})));  // bài kiểm tra đối tác kiểu Kahoot (MMH_PartnerQuiz.gs) — trang Training-Hub/quiz/doi-tac/, công khai
+    if (/^pq(Meta|Start|Answer|Board|Feedback)$/.test(a)) return svOut_(pqRoute_(a, Object.assign({}, p, body || {})));  // bài kiểm tra đối tác kiểu Kahoot (MMH_PartnerQuiz.gs) — trang Training-Hub/quiz/doi-tac/, công khai
     if (/^rs(List|Add|Data|Watch|Remove|Tick|Diag|Push|PushGone|DelTest|Agg)$/.test(a)) return rsRoute_(a, Object.assign({}, p, body || {}));  // app Kết quả khảo sát (MMH_SurveyResults.gs) — phiên email tk, không cần khoá
     var key = (body && body.key) || p.key || '';
     var want = PropertiesService.getScriptProperties().getProperty('SV_KEY') || SV.KEY;
