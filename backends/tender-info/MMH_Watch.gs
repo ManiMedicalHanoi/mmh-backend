@@ -16,7 +16,7 @@
    Lần đầu theo dõi 1 chủ đầu tư: hiện gói trong WT.BASE_DAYS ngày gần nhất (không báo), tự tải gói trong WT.DL_BASE_DAYS ngày.
    ════════════════════════════════════════════════════════════════════ */
 const WT = {
-  VER: '1.5',
+  VER: '1.6',
   MASTER_ID: '1byCL6NjhqBuEcd-K5pxYRrQj2XXs6GMIvR79x45mHRQ',   // Training Master (RH_Users, RH_Secret, RH_Notify)
   APP_URL: 'https://manimedicalhanoi.github.io/Tender-Result/theo-doi/',
   SH_W: 'THEO DÕI · DANH SÁCH',
@@ -65,6 +65,12 @@ function wtDo_(a, p) {
     if (a === 'botFile') return wtBotFile_(p);
     if (a === 'botDone') return wtBotDone_(p);
     if (a === 'botRequeue') return wtdRequeue_(p);
+    if (a === 'botNames') {   // đối chiếu tên (chỉ đọc, khoá bot): chủ đầu tư Báo Đấu Thầu + chủ đầu tư trong file tổng hàng hóa + người theo dõi
+      const inv = wtdInvestors_({}), d = wtgData_(), g = {};
+      d.rows.forEach(function (r) { const k = r[2] + '|' + r[1]; g[k] = (g[k] || 0) + 1; });
+      return { ok: true, inv: inv.list || [], goods: Object.keys(g).map(function (k) { const x = k.split('|'); return [x[0], x[1], g[k]]; }),
+        watches: wtWatches_(wtBook_()).map(function (w) { return w.investor; }) };
+    }
     if (a === 'botMerge') return Object.assign({ ok: true }, wtmMerge_({ force: wtTrue_(p.force) }));
     if (a === 'botPing') { wtBotSeen_(p.bot); return { ok: true, v: WT.VER }; }
     if (a === 'botAgentList') return wtaList_(p);
@@ -293,8 +299,19 @@ function wtBoot_(me, p) {
     lastScan: P.getProperty('WT_LAST_SCAN') || '', sumUrl: wtdSumUrl_(), rootUrl: wtdRootUrl_(), mg: wtmUrls_(), mgLast: JSON.parse(P.getProperty('WT_MG_LAST') || 'null'), invV: P.getProperty('WT_INV_V') || '', recV: P.getProperty('WT_REC_V') || '', allV: P.getProperty('WT_ALL_V') || '', agw: wtaStatus_()
   };
 }
+/** info gọn cho app (18/11/2026): bỏ fields / kqFields / moFields / pkgs… (mỗi gói vài KB — 800 gói ⇒ vài MB mỗi lần mở app, đầy bộ nhớ trình duyệt dùng chung) */
+const WT_INFO_KEEP = ['url', 'prov', 'want', 'winner', 'win', 'price', 'open', 'form', 'bidName', 'investor', 'quick', 'by', 'grab', 'n', 'planNo', 'proj'];
+function wtInfoSlim_(I) {
+  I = I || {}; const o = {};
+  WT_INFO_KEEP.forEach(function (k) { if (I[k] !== undefined && I[k] !== null && I[k] !== '') o[k] = I[k]; });
+  const F = I.fields || {}, c = F['Thời điểm đóng thầu'] || F['Thời điểm mở thầu']; if (c) o.close = c;
+  if (Array.isArray(I.agentFiles)) o.agentFiles = I.agentFiles.map(function (a) {
+    return a && typeof a === 'object' ? { name: a.name, type: a.type, tab: a.tab, done: a.done, url: a.url, file: a.file, fileId: a.fileId, tries: a.tries } : a;
+  });
+  return o;
+}
 function wtHitOut_(h) {
-  return { key: h.key, type: h.type, no: h.no, investor: h.investor, name: h.name, info: h.info, date: h.date, found: h.found,
+  return { key: h.key, type: h.type, no: h.no, investor: h.investor, name: h.name, info: wtInfoSlim_(h.info), date: h.date, found: h.found,
     status: h.status, files: h.files, tries: h.tries, note: h.note, done: h.done, watchers: h.watchers.length };
 }
 
@@ -514,15 +531,19 @@ function wtNotifyNew_(news) {
     n++;
     if (!x.w.email) return;
     try {
+      const td = '<td style="padding:5px 8px;border-bottom:1px solid #E6EAEF;vertical-align:top">';
       const rows = list.map(function (h) {
-        return '<tr><td style="padding:4px 8px;border-bottom:1px solid #E6EAEF">' + wtH_(WT.TYPES[h.type]) + '</td><td style="padding:4px 8px;border-bottom:1px solid #E6EAEF">' + wtH_(h.investor) +
-          '</td><td style="padding:4px 8px;border-bottom:1px solid #E6EAEF">' + wtH_(h.name) + '</td><td style="padding:4px 8px;border-bottom:1px solid #E6EAEF">' + wtH_(h.no) + '</td></tr>';
+        const I = h.info || {}, money = function (v) { const n = wtdMoney_(v); return n ? String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ' đ' : ''; };
+        const meta = [I.price ? 'Giá gói: ' + money(I.price) : '', I.win ? 'Giá trúng: ' + money(I.win) : '', I.winner ? 'Nhà thầu trúng: ' + I.winner : '', I.form || '', I.open ? 'Mở / đóng thầu: ' + I.open : ''].filter(String).join(' · ');
+        return '<tr>' + td + wtH_(WT.TYPES[h.type]) + '</td>' + td + wtH_(h.investor) + (I.prov ? '<br><span style="color:#6B7280">' + wtH_(I.prov) + '</span>' : '') + '</td>' + td +
+          '<a href="' + WT.APP_URL + '#g=' + encodeURIComponent(h.key) + '" style="color:#3A5CAA;text-decoration:none"><b>' + wtH_(h.name) + '</b></a>' + (meta ? '<br><span style="color:#4B5563;font-size:12px">' + wtH_(meta) + '</span>' : '') + '</td>' + td + wtH_(h.no) + '</td></tr>';
       }).join('');
+      const kw = (x.w.keywords || []).length ? '<br>Từ khoá đang lọc: <b>' + wtH_(x.w.keywords.join(', ')) + '</b>' : '';
       mmhMail_({
         to: mail, subject: '[Theo dõi gói thầu] ' + title, name: CFG.EMAIL_FROM_NAME,
         htmlBody: '<div style="font-family:Aptos,Arial,sans-serif;font-size:14px;color:#1F2937">Dear ' + wtH_(x.w.pic || '') + ',<br><br>Có ' + list.length +
-          ' tin thầu mới của chủ đầu tư bạn đang theo dõi:<br><br><table style="border-collapse:collapse;font-size:13px"><tr style="background:#F0F7FF"><th align="left" style="padding:4px 8px">Loại</th><th align="left" style="padding:4px 8px">Chủ đầu tư</th><th align="left" style="padding:4px 8px">Gói thầu</th><th align="left" style="padding:4px 8px">Số</th></tr>' +
-          rows + '</table><br>Hồ sơ (nếu bật tự tải) sẽ có trên app sau khi tải xong: <a href="' + WT.APP_URL + '">' + WT.APP_URL + '</a><br><br>Best regards,<br>MMH Product Team</div>'
+          ' tin thầu mới của chủ đầu tư bạn đang theo dõi.' + kw + '<br><br><table style="border-collapse:collapse;font-size:13px"><tr style="background:#F0F7FF"><th align="left" style="padding:4px 8px">Loại</th><th align="left" style="padding:4px 8px">Chủ đầu tư</th><th align="left" style="padding:4px 8px">Gói thầu</th><th align="left" style="padding:4px 8px">Số</th></tr>' +
+          rows + '</table><br>Bấm tên gói để mở trên app. Hồ sơ (nếu bật tự tải) có trên app và thư mục Drive sau khi máy chủ tải xong.<br><br>Best regards,<br>MMH Product Team</div>'
       });
     } catch (e) { Logger.log('wtNotifyNew_ mail ' + mail + ': ' + e.message); }
   });
