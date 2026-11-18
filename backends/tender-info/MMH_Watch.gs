@@ -74,6 +74,7 @@ function wtDo_(a, p) {
   if (a === 'wQuick') return wtQuick_(me, p);
   if (a === 'wPkgs') return wtdPkgs_(me, p);
   if (a === 'wRecent') return wtdRecent_(me, p);
+  if (a === 'wUpload') return wtdUpload_(me, p);
   if (a === 'wGrab') return wtdGrab_(me, p);
   return { ok: false, error: 'Không có lệnh ' + a };
 }
@@ -328,7 +329,7 @@ function wtDel_(me, p) {
 }
 
 /** Loại tài liệu người dùng chọn tải (app ▸ hộp "Chọn tài liệu"); trống = tải mọi loại. Lưu ở info.want, bot đọc qua job.info.want */
-const WT_WANT = ['tbmt', 'hsmt', 'kq', 'nt', 'hh', 'qd', 'kh'];
+const WT_WANT = ['tbmt', 'hsmt', 'mo', 'kq', 'nt', 'hh', 'qd', 'kh'];
 function wtWant_(v) {
   const a = (Array.isArray(v) ? v : String(v || '').split(',')).map(function (x) { return wtS_(x).toLowerCase(); }).filter(function (x) { return WT_WANT.indexOf(x) >= 0; });
   return a.length && a.length < WT_WANT.length ? a.filter(function (x, i) { return a.indexOf(x) === i; }) : [];
@@ -588,7 +589,7 @@ function wtBotFile_(p) {
   if (bytes.length > WT.MAX_FILE) return { ok: false, error: 'File quá lớn (> 35 MB).' };
   const name = wtS_(p.name).replace(/[\\/:*?"<>|]+/g, '_').slice(0, 150) || ('file_' + Date.now());
   const inv = h.investor && h.investor !== '(đang tra)' ? h.investor : (wtS_(p.investor) || 'Tải ngay');
-  const sec = WTD.DIR[wtS_(p.sec)] ? wtS_(p.sec) : (h.type === 'khmt' ? 'kh' : h.type === 'kqdt' ? 'kq' : 'tbmt');
+  const sec = wtS_(p.sec) in WTD.DIR ? wtS_(p.sec) : (h.type === 'khmt' ? 'kh' : h.type === 'kqdt' ? 'kq' : 'tbmt');
   const pkgNo = sec === 'kh' && wtS_(p.planNo) ? wtS_(p.planNo) : h.no;
   const folder = wtdPkgFolder_(sec, pkgNo, inv);
   const sv = wtdSave_(folder, name, bytes, wtS_(p.mime));
@@ -616,6 +617,10 @@ function wtBotDone_(p) {
     h = wtHits_(ss).filter(function (x) { return x.key === wtS_(p.hit); })[0];
     if (!h) return { ok: false, error: 'Không có gói ' + p.hit };
     const info = Object.assign({}, h.info, typeof p.info === 'string' ? wtJson_(p.info, {}) : (p.info || {}));
+    // tài liệu cần Agent mà người dùng đã tự tải lên (wUpload) ⇒ giữ dấu done + link khi bot chạy lại
+    const prevAg = {}; ((h.info || {}).agentFiles || []).forEach(function (a) { if (a && a.done) prevAg[a.name] = a; });
+    if (info.agentFiles) info.agentFiles = info.agentFiles.map(function (a) { return prevAg[a.name] ? Object.assign({}, a, { done: prevAg[a.name].done, url: prevAg[a.name].url, file: prevAg[a.name].file }) : a; });
+    p._agDone = prevAg;
     sh.getRange(h.row, 7).setValue(JSON.stringify(info));
     if (info.investor && (!h.investor || h.investor === '(đang tra)')) sh.getRange(h.row, 4, 1, 2).setValues([[wtS_(info.investor), wtNorm_(info.investor)]]);
     if (info.bidName && (!h.name || h.name === h.no)) sh.getRange(h.row, 6).setValue(wtS_(info.bidName).slice(0, 300));
@@ -634,7 +639,7 @@ function wtBotDone_(p) {
   wtBotLog_(ss, p.bot, h.key, 'done', st, p.note);
   let sumN = 0;
   try {
-    const docs = typeof p.docs === 'string' ? wtJson_(p.docs, []) : (p.docs || []);
+    const docs = (typeof p.docs === 'string' ? wtJson_(p.docs, []) : (p.docs || [])).filter(function (d) { return !(d.agent && p._agDone && p._agDone[d.name]); });
     const inf = typeof p.info === 'string' ? wtJson_(p.info, {}) : (p.info || {});
     sumN = wtdSumWrite_(h, inf, docs);
   } catch (e) { Logger.log('wtdSumWrite_: ' + e.message); wtBotLog_(ss, p.bot, h.key, 'sum', 'lỗi', e.message); }

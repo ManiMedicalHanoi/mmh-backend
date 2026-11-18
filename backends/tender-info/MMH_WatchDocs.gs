@@ -9,9 +9,10 @@
    ════════════════════════════════════════════════════════════════════ */
 const WTD = {
   ROOT: '1sYXQx1_h3PBkm_zor8GhsIAM_ZMG5yxv',
-  DIR: { kq: '1-8g4gKGcLRFyjwXyBxekFLVNuHqMdSoI', tbmt: '1ASNCJ7Kyc2B9alysJTX0ligZn4xrtRCH', kh: '1w9fYlMYeI_Xmicu2m_rUXqT-IOxAYK4b' },
-  PROP: { kq: 'WT_DL_KQ', tbmt: 'WT_DL_TBMT', kh: 'WT_DL_KH' },
-  SEC_LABEL: { kq: 'KQLCNT', tbmt: 'TBMT', kh: 'KHLCNT' },
+  DIR: { kq: '1-8g4gKGcLRFyjwXyBxekFLVNuHqMdSoI', tbmt: '1ASNCJ7Kyc2B9alysJTX0ligZn4xrtRCH', kh: '1w9fYlMYeI_Xmicu2m_rUXqT-IOxAYK4b', mo: '' },   // mo: tự tạo "Biên bản mở thầu" trong thư mục mẹ
+  PROP: { kq: 'WT_DL_KQ', tbmt: 'WT_DL_TBMT', kh: 'WT_DL_KH', mo: 'WT_DL_MO' },
+  MO_NAME: 'Biên bản mở thầu',
+  SEC_LABEL: { kq: 'KQLCNT', tbmt: 'TBMT', kh: 'KHLCNT', mo: 'Biên bản mở thầu' },
   SUM_NAME: 'Tổng hợp tài liệu thầu đã tải',
   SUM_SHEET: 'Tài liệu',
   HEAD: ['STT', 'Khu vực', 'Tỉnh thành', 'Tên bệnh viện', 'Loại thông tin', 'Tên gói thầu / dự án', 'Số TBMT / KHLCNT', 'Giá gói thầu (VND)',
@@ -49,7 +50,14 @@ function wtdMonths_(s) {
 }
 
 function wtdDir_(sec) {
-  const P = PropertiesService.getScriptProperties(), id = P.getProperty(WTD.PROP[sec] || '') || WTD.DIR[sec] || WTD.DIR.tbmt;
+  const P = PropertiesService.getScriptProperties();
+  if (sec === 'mo') {   // thư mục "Biên bản mở thầu" (người dùng 18/11/2026): tạo 1 lần trong thư mục mẹ
+    const id0 = P.getProperty(WTD.PROP.mo);
+    if (id0) { try { const f = DriveApp.getFolderById(id0); if (!f.isTrashed()) return f; } catch (e) {} }
+    const f = wtSub_(DriveApp.getFolderById(P.getProperty('WT_DL_ROOT') || WTD.ROOT), WTD.MO_NAME);
+    P.setProperty(WTD.PROP.mo, f.getId()); return f;
+  }
+  const id = P.getProperty(WTD.PROP[sec] || '') || WTD.DIR[sec] || WTD.DIR.tbmt;
   return DriveApp.getFolderById(id);
 }
 /** Thư mục gói "<Số> - <Bệnh viện>" trong thư mục loại */
@@ -115,9 +123,9 @@ function wtdSumWrite_(h, info, docs) {
   const book = wtdSumBook_(), sh = wtdSumSheet_(book);
   const n = WTD.HEAD.length, last = sh.getLastRow();
   const keys = last > 1 ? sh.getRange(2, n, last - 1, 1).getValues().map(function (r) { return wtS_(r[0]); }) : [];
-  const I = info || {}, F = I.fields || {}, K = I.kqFields || {};
+  const I = info || {}, F = I.fields || {}, K = I.kqFields || {}, M = I.moFields || {};
   let sec_ = 'tbmt';
-  const g = function (k) { return wtS_((sec_ === 'kq' && K[k]) || F[k] || K[k]); };
+  const g = function (k) { return wtS_((sec_ === 'kq' && K[k]) || (sec_ === 'mo' && M[k]) || F[k] || K[k]); };
   const place = g('Địa điểm thực hiện gói thầu') || I.place || '';
   let pr = wtdProvince_(I.prov || place);
   if (!pr[0] && h.info && h.info.prov) pr = wtdProvince_(h.info.prov);
@@ -210,10 +218,12 @@ function wtdInvestors_(p) {
 const WTD_PKG_SHEET = 'THEO DÕI · GÓI THEO CĐT';
 const WTD_PKG_HEAD = ['Khoá CĐT', 'Loại', 'Số', 'Tên gói', 'Ngày', 'Giá gói', 'Giá trúng', 'Nhà thầu trúng', 'Hình thức', 'Tỉnh', 'Số gói (KH)', 'Nguồn', 'Chủ đầu tư', 'Dự án', 'Mở thầu'];
 function wtdPkgBuild_(data, force) {
-  // dữ liệu không đổi (số dòng + ngày cập nhật lớn nhất 3 tab) ⇒ không ghi lại ~35.000 dòng
+  // dữ liệu không đổi (số dòng + ngày cập nhật lớn nhất 3 tab) ⇒ không ghi lại ~35.000 dòng; đệm từng CĐT vẫn làm nóng lại mỗi 5 giờ
   const sig = ['khmt', 'tbmt', 'kqdt'].map(function (t) { let m = ''; data[t].forEach(function (r) { if ((r.upd || '') > m) m = r.upd; }); return data[t].length + '/' + m; }).join(' ');
   const P = PropertiesService.getScriptProperties();
-  if (!force && P.getProperty('WT_PKG_SIG') === sig && wtBook_().getSheetByName(WTD_PKG_SHEET)) return -1;
+  const same = !force && P.getProperty('WT_PKG_SIG') === sig && wtBook_().getSheetByName(WTD_PKG_SHEET);
+  const warmAt = +P.getProperty('WT_PKG_WARM') || 0;
+  if (same && Date.now() - warmAt < 5 * 3600e3) return -1;
   const g = {};
   ['khmt', 'tbmt', 'kqdt'].forEach(function (type) {
     data[type].forEach(function (r) {
@@ -226,6 +236,8 @@ function wtdPkgBuild_(data, force) {
     const x = g[k], r = x.r, nm = x.names.length > 1 ? x.names[0] + ' (+' + (x.names.length - 1) + ' gói)' : x.names[0];
     return [r.invKey, r.type, r.no, wtS_(nm).slice(0, 400), r.date || r.upd || '', r.price, r.win, wtS_(r.winner).slice(0, 300), r.form, r.prov, x.names.length, r.type + '!' + r.row, r.inv, wtS_(r.proj).slice(0, 300), r.open];
   }).sort(function (a, b) { return a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : String(b[4]).localeCompare(String(a[4])); });
+  wtdPkgWarm_(rows);
+  if (same) return 0;
   const ss = wtBook_(), sh = wtSheet_(ss, WTD_PKG_SHEET, WTD_PKG_HEAD);
   try { sh.hideSheet(); } catch (e) {}
   const last = sh.getLastRow();
@@ -233,6 +245,23 @@ function wtdPkgBuild_(data, force) {
   if (rows.length) sh.getRange(2, 1, rows.length, WTD_PKG_HEAD.length).setNumberFormat('@').setValues(rows.map(function (r) { return r.map(function (c) { return c === undefined || c === null ? '' : String(c); }); }));
   P.setProperty('WT_PKG_SIG', sig);
   return rows.length;
+}
+/* đệm gói theo CĐT: khoá wp2:<md5 khoá CĐT> (khoá CĐT có thể dài > 250 ký tự) ⇒ wPkgs không phải mở file Sheet lớn */
+function wtdPkgCk_(invKey) { return 'wp2:' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, invKey)).slice(0, 22); }
+function wtdPkgOut_(rows) {
+  return rows.slice(0, 400).map(function (r) { return [wtS_(r[1]), wtS_(r[2]), wtS_(r[3]), wtS_(r[4]), wtS_(r[5]), wtS_(r[6]), wtS_(r[7]), wtS_(r[8]), +r[10] || 1, '', 0, '', '', wtS_(r[14])]; });
+}
+function wtdPkgWarm_(rows) {
+  const by = {}; rows.forEach(function (r) { (by[r[0]] = by[r[0]] || []).push(r); });
+  const c = CacheService.getScriptCache(); let batch = {}, n = 0, size = 0;
+  Object.keys(by).forEach(function (k) {
+    const s = JSON.stringify({ list: wtdPkgOut_(by[k]), total: by[k].length });
+    if (s.length > 95000) return;   // CĐT quá nhiều gói ⇒ đọc sheet khi cần
+    batch[wtdPkgCk_(k)] = s; n++; size += s.length;
+    if (n >= 60 || size > 800000) { try { c.putAll(batch, 21600); } catch (e) {} batch = {}; n = 0; size = 0; }
+  });
+  if (n) { try { c.putAll(batch, 21600); } catch (e) {} }
+  PropertiesService.getScriptProperties().setProperty('WT_PKG_WARM', String(Date.now()));
 }
 function wtdPkgRows_(invKey) {
   const ss = wtBook_();
@@ -248,14 +277,13 @@ function wtdPkgRows_(invKey) {
 function wtdPkgs_(me, p) {
   const invKey = wtNorm_(p.inv);
   if (!invKey) return { ok: false, error: 'Thiếu tên chủ đầu tư.' };
-  const rows = wtdPkgRows_(invKey);
-  const H = wtHits_(wtBook_()), hk = {};
-  H.forEach(function (h) { hk[h.type + ':' + wtBare_(h.no)] = h; });
-  const list = rows.slice(0, 400).map(function (r) {
-    const type = wtS_(r[1]), no = wtS_(r[2]), h = no ? hk[type + ':' + wtBare_(no)] : null;
-    return [type, no, wtS_(r[3]), wtS_(r[4]), wtS_(r[5]), wtS_(r[6]), wtS_(r[7]), wtS_(r[8]), +r[10] || 1, h ? h.status : '', h ? (h.files || []).length : 0, h ? h.key : ''];
-  });
-  return { ok: true, inv: wtS_(p.inv), cols: ['type', 'no', 'name', 'date', 'price', 'win', 'winner', 'form', 'n', 'status', 'files', 'key'], list: list, total: rows.length };
+  const cols = ['type', 'no', 'name', 'date', 'price', 'win', 'winner', 'form', 'n', 'status', 'files', 'key', 'inv', 'close'];
+  // trạng thái tải (status / files / key) app tự ghép từ danh sách gói đang theo dõi ⇒ trúng đệm là trả ngay, không mở file Sheet
+  const c = CacheService.getScriptCache(), ck = wtdPkgCk_(invKey), hit = c.get(ck);
+  if (hit) { const o = JSON.parse(hit); return { ok: true, inv: wtS_(p.inv), cols: cols, list: o.list, total: o.total, cached: true }; }
+  const rows = wtdPkgRows_(invKey), list = wtdPkgOut_(rows), s = JSON.stringify({ list: list, total: rows.length });
+  if (s.length < 95000) { try { c.put(ck, s, 21600); } catch (e) {} }
+  return { ok: true, inv: wtS_(p.inv), cols: cols, list: list, total: rows.length };
 }
 function wtdGrab_(me, p) {
   const items = (typeof p.items === 'string' ? wtJson_(p.items, []) : (p.items || [])).filter(function (x) { return x && x.no && WT.TYPES[x.type]; }).slice(0, 60);
@@ -350,4 +378,45 @@ function wtdRecent_(me, p) {
   wtdRecentBuild_(wtLoad_(wtBook_()), true);
   const h2 = wtBigGet_(CacheService.getScriptCache(), 'wt_rec');
   return h2 ? JSON.parse(h2) : { ok: false, error: 'Chưa dựng được danh sách gói gần đây.' };
+}
+
+
+/* ════════════════════════════════════════════════════════════════════
+   NGƯỜI DÙNG TẢI LÊN TÀI LIỆU CẦN AGENT (18/11/2026, người dùng: "tải bằng Agent trên máy ⇒ thêm vào app ⇒ hệ thống tự đổi tên + đúng folder")
+   wUpload {key (gói), b64, name (tên file trên máy), docType, sec, orig (tên file trên muasamcong — khớp info.agentFiles)}
+   ⇒ "<Số> - <Loại tài liệu>.<đuôi>" vào thư mục gói đúng phần (TBMT / Kết quả / KHLCNT), Excel ⇒ Google Sheet,
+   ghi files của gói, đánh dấu agentFiles[orig].done, dòng Sheet tổng hợp (cùng khoá số | loại | tên gốc ⇒ thay dòng "cần Agent").
+   ════════════════════════════════════════════════════════════════════ */
+function wtdUpload_(me, p) {
+  const ss = wtBook_(), h = wtHits_(ss).filter(function (x) { return x.key === wtS_(p.key); })[0];
+  if (!h) return { ok: false, error: 'Không tìm thấy gói.' };
+  if (!me.boss && !h.watchers.some(function (m) { return wtLocal_(m) === me.local; })) return { ok: false, error: 'Bạn không theo dõi gói này.' };
+  const b64 = wtS_(p.b64); if (!b64) return { ok: false, error: 'Thiếu nội dung file.' };
+  const bytes = Utilities.base64Decode(b64);
+  if (bytes.length > WT.MAX_FILE) return { ok: false, error: 'File quá lớn (> 35 MB).' };
+  const sec = wtS_(p.sec) in WTD.DIR ? wtS_(p.sec) : (h.type === 'khmt' ? 'kh' : h.type === 'kqdt' ? 'kq' : 'tbmt');
+  const docType = wtS_(p.docType).replace(/[\\/:*?"<>|]+/g, ' ').slice(0, 90) || 'Tài liệu';
+  const ext = ((wtS_(p.name).match(/\.([a-z0-9]{2,5})$/i) || [])[1] || 'pdf').toLowerCase();
+  const no = wtBare_(sec === 'kh' && (h.info || {}).planNo ? h.info.planNo : h.no);
+  const inv = h.investor && h.investor !== '(đang tra)' ? h.investor : '';
+  const folder = wtdPkgFolder_(sec, no, inv);
+  const sv = wtdSave_(folder, (no + ' - ' + docType).slice(0, 140) + '.' + ext, bytes, wtS_(p.mime));
+  const orig = wtS_(p.orig);
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(20000)) return { ok: false, code: 'BUSY', error: 'Máy chủ đang bận — thử lại sau ít giây.' };
+  let cur;
+  try {
+    const sh = wtSheet_(ss, WT.SH_H, WT.HH); cur = wtHits_(ss).filter(function (x) { return x.key === h.key; })[0];
+    const files = (cur.files || []).filter(function (x) { return x.name !== sv.name; });
+    files.push({ name: sv.name, url: sv.url, id: sv.id, size: bytes.length, kind: docType, sec: sec, gsheet: sv.gsheet, by: me.pic });
+    const info = Object.assign({}, cur.info);
+    info.agentFiles = (info.agentFiles || []).map(function (a) { return a && orig && a.name === orig ? Object.assign({}, a, { done: wtNow_(), url: sv.url, file: sv.name }) : a; });
+    sh.getRange(cur.row, 7).setValue(JSON.stringify(info));
+    sh.getRange(cur.row, 12).setValue(JSON.stringify(files));
+    if (cur.status !== WT.ST.DONE) sh.getRange(cur.row, 11).setValue(WT.ST.DONE);
+    cur.info = info;
+  } finally { lock.releaseLock(); }
+  try { wtdSumWrite_(cur, Object.assign({}, cur.info), [{ sec: sec, docType: docType, name: orig || sv.name, url: sv.url }]); } catch (e) { Logger.log('wUpload sum: ' + e.message); }
+  wtBotLog_(ss, 'app · ' + me.pic, h.key, 'upload', sv.name, orig);
+  return { ok: true, name: sv.name, url: sv.url, gsheet: sv.gsheet, folder: folder.getUrl(), hit: wtHitOut_(wtHits_(ss).filter(function (x) { return x.key === h.key; })[0]) };
 }
