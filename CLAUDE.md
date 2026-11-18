@@ -560,3 +560,12 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   đọc thẳng cả sheet chỉ 0,9–1,7 s ⇒ nghẽn do số lượt gọi chồng nhau. ① `touchVersion` xoá đệm `lsig_<dòng cuối>` + `dvq` ⇒ vân tay đổi 1 lần / lần ghi (trước đổi 2 lần: lúc ghi + ~60 s sau khi dấu nội dung hết đệm
   ⇒ mọi máy tải lại 2 lần, người vừa sửa thấy "Có cập nhật mới"). ② `version` = `dataVersionQuick_` (đệm `dvq` 15 giây, không mở bảng tính khi trúng). ③ `readWeekly` chống dồn đọc: cờ `wkb_<khoá>` 30 giây,
   lượt khác chờ bản đệm ≤ 12 giây. ④ `runWrite` ghi xong (đã nhả khoá) ⇒ `readWeekly()` dựng sẵn bản đệm theo vân tay mới (trừ xoá / chuyển — đã có sẵn, và Monthly). App Report Hub v19.8: lệnh SỬA thành công ⇒ đối chiếu sau 8 giây (gộp), không tải lại sau mỗi ô.
+- **18/11/2026 — Theo dõi gói thầu + tải hồ sơ muasamcong (`tender-info/MMH_Watch.gs`, app `Tender-Result/theo-doi/`, người dùng yêu cầu)**: backend `tender-info` dùng lại web app CÓ SẴN
+  (deployment phiên bản 8 tạo tay, app wishlist cũ vẫn gọi — `doGet` / `doPost` chỉ chặn action `w…` / `bot…` trước code cũ). Người dùng tự chọn chủ đầu tư + loại tin (KH LCNT · TBMT · Kết quả) ⇒ sheet ẩn
+  **THEO DÕI · DANH SÁCH**; `wtTick` (30 phút) quét 3 tab dữ liệu Báo Đấu Thầu ⇒ **THEO DÕI · GÓI TÌM THẤY** (lượt đầu chỉ ghi gói ≤ 120 ngày, không báo; sau đó gói mới ⇒ RH_Notify App "Theo dõi gói thầu" + email nếu bật).
+  **Tải ngay** (`wQuick`): số TBMT / KHLCNT bất kỳ ⇒ hàng đợi. Bot = `tools/msc/bot.mjs` (workflow **Theo dõi gói thầu — tải hồ sơ**, 10 phút / lần 7h–21h T2–T7, secret `WT_BOT_KEY` = khoá Admin lấy trong app ▸ Cài đặt bot):
+  trình duyệt thật trên GitHub (muasamcong KHÔNG chặn IP GitHub; máy phiên Claude thì bị chặn), gõ số vào ô tìm kiếm (API tìm kiếm cần mã reCAPTCHA trang tự sinh — không gọi thẳng được), mở link `render=detail-v2`,
+  tab Kết quả lựa chọn nhà thầu ⇒ mọi nút **Xuất Excel** (Danh sách nhà thầu, Danh sách hàng hóa — trang tự tạo file) ⇒ `botFile` (Drive "Theo dõi gói thầu · Hồ sơ tải về/<CĐT>/…") ⇒ `botDone`.
+  ⚠️ File đính kèm (thẻ `tags.tags-fileAttach`: QĐ phê duyệt, báo cáo đánh giá, HSMT) trang tải qua **Agent của muasamcong trên máy người dùng** (`http://localhost:1234/api/download/file/browser/public?fileId=…`) —
+  máy chủ không có Agent ⇒ bot ghi tên + fileId vào `info.agentFiles`, app hiện nút mở trang gói. Máy Windows đã cài Agent: `tools/msc/tai_nhanh.py` (+ `.bat`, trang điều khiển http://127.0.0.1:8765) hoặc bot với `WT_AGENT=1` tự gọi Agent.
+  Chưa xong: gói chỉ định thầu rút gọn (vd. IB2500572120) tìm không ra trên ô tìm kiếm mặc định.
