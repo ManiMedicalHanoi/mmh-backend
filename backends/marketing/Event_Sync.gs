@@ -650,6 +650,7 @@ function evsApiList(user, p){
     return { n:e.name, s:e.start, e:e.end, ym:e.ym, t:e.type, sg:e.segment, pd:e.product, pl:e.place, k:e.kol, src:e.src,
              f:e.folderUrl || (/^https?:/.test(e.folder) ? e.folder : ''), np:(posts[e.nk] || []).length, ax:e.approx ? 1 : undefined };
   }).sort(function(a, b){ return a.s < b.s ? -1 : a.s > b.s ? 1 : 0; });
+  try { if (typeof ehEvListExtra_ === 'function') out = ehEvListExtra_(out).filter(function(e){ return e.src !== 'APP' || (e.e >= loS && e.s <= hiS); }); } catch(e){}   /* 18/11/2026: + sự kiện tạo trên app Sự kiện MKT */
   var res = { ok:true, events:out, at:Date.now() };
   try { var js = JSON.stringify(res); if (js.length < 95000) c.put(ck, js, 600); } catch(e){}
   return res;
