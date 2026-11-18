@@ -26,7 +26,7 @@
 var RS = {
   VER: '1.2', TAB: 'KẾT QUẢ KHẢO SÁT', PUSH_TAB: 'THÔNG BÁO ĐẨY',
   PUSH_HEAD: ['PIC', 'Endpoint', 'p256dh', 'auth', 'Thiết bị', 'Đăng ký lúc'],
-  HEAD: ['Id', 'Form ID', 'Sheet ID', 'Tiêu đề', 'Thêm bởi', 'Thêm lúc', 'Theo dõi', 'Đã báo (số câu trả lời)', 'Ẩn', 'Nhóm', 'Sản phẩm', 'Nguồn'],
+  HEAD: ['Id', 'Form ID', 'Sheet ID', 'Tiêu đề', 'Thêm bởi', 'Thêm lúc', 'Theo dõi', 'Đã báo (số câu trả lời)', 'Ẩn', 'Nhóm', 'Sản phẩm', 'Nguồn', 'Số liệu (tự động)'],
   APP: 'https://manimedicalhanoi.github.io/mmh-library/survey/',
   SEED: ['1r5CwavKqJMGtPN78QC2Ig92-ByOn7zNZ_2ugq-ZOAZQ', '1c7jwBaP96NVMIQCdpRZ4cZNn9BWjLDatCdCQ0G2p1x8'],
   OWNER: 'mmh.product@manimedicalhanoi.com',
@@ -89,12 +89,12 @@ function rsRead_() {
   return sh.getRange(2, 1, last - 1, RS.HEAD.length).getValues().map(function (r, i) {
     return { row: i + 2, id: rsS_(r[0]), formId: rsS_(r[1]), sheetId: rsS_(r[2]), title: rsS_(r[3]), by: rsS_(r[4]),
       at: r[5] instanceof Date ? r[5].toISOString() : rsS_(r[5]), watch: rsS_(r[6]) ? rsS_(r[6]).split(/\s*,\s*/) : [],
-      told: rsS_(r[7]) === '' ? null : Number(r[7]), hidden: rsTrue_(r[8]), grp: rsS_(r[9]), prod: rsS_(r[10]), src: rsS_(r[11]) };
+      told: rsS_(r[7]) === '' ? null : Number(r[7]), hidden: rsTrue_(r[8]), grp: rsS_(r[9]), prod: rsS_(r[10]), src: rsS_(r[11]), snap: rsS_(r[12]) };
   }).filter(function (x) { return x.id; });
 }
 function rsWriteRow_(e) {
   rsSheet_().getRange(e.row, 1, 1, RS.HEAD.length).setValues([[e.id, e.formId, e.sheetId, e.title, e.by, e.at ? new Date(e.at) : new Date(),
-    e.watch.join(', '), e.told == null ? '' : e.told, e.hidden ? 'x' : '', e.grp || '', e.prod || '', e.src || '']]);
+    e.watch.join(', '), e.told == null ? '' : e.told, e.hidden ? 'x' : '', e.grp || '', e.prod || '', e.src || '', e.snap || '']]);
 }
 function rsAppend_(e) {
   var sh = rsSheet_(); e.row = sh.getLastRow() + 1; rsWriteRow_(e); return e;
@@ -167,12 +167,25 @@ function rsCount_(e) {
     var tz = 'Asia/Ho_Chi_Minh', today = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd'), day = {};
     ts.forEach(function (t) { if (t) { var d = Utilities.formatDate(new Date(t), tz, 'yyyy-MM-dd'); day[d] = (day[d] || 0) + 1; } });
     out.today = day[today] || 0;
+    var cut = Utilities.formatDate(new Date(Date.now() - 30 * 864e5), tz, 'yyyy-MM-dd'); out.dm = {};
+    Object.keys(day).forEach(function (k) { if (k >= cut) out.dm[k] = day[k]; });
     for (var i = 13; i >= 0; i--) out.days.push(day[Utilities.formatDate(new Date(Date.now() - i * 864e5), tz, 'yyyy-MM-dd')] || 0);
     var idx = ts.map(function (t, j) { return j; }).sort(function (a, b) { return ts[b] - ts[a]; }).slice(0, 6);
     out.recent = idx.map(function (j) { return [ts[j], hosp[j] || '']; });
   }
-  try { c.put(k, JSON.stringify(out), 60); } catch (x) {}
+  try { c.put(k, JSON.stringify(out), 300); } catch (x) {}
   return out;
+}
+/* số liệu lưu sẵn (cột "Số liệu (tự động)") ⇒ rsList không phải mở lại từng Sheet / form mỗi lần (app mở nhanh); làm mới ≤ 10 phút, rsTick làm mới cả bảng */
+function rsSnapSet_(e, c) {
+  e.snap = JSON.stringify({ n: c.n, last: c.last, dm: c.dm || {}, rc: (c.recent || []).slice(0, 4), at: Date.now() });
+  try { rsSheet_().getRange(e.row, 13).setValue(e.snap); } catch (x) {}
+}
+function rsFromSnap_(e) {
+  var o; try { o = JSON.parse(e.snap || 'null'); } catch (x) { o = null; } if (!o) return null;
+  var tz = 'Asia/Ho_Chi_Minh', dm = o.dm || {}, days = [];
+  for (var i = 13; i >= 0; i--) days.push(dm[Utilities.formatDate(new Date(Date.now() - i * 864e5), tz, 'yyyy-MM-dd')] || 0);
+  return { n: o.n || 0, last: o.last || '', today: dm[Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd')] || 0, days: days, recent: o.rc || [], at: o.at || 0 };
 }
 
 /* ---------- dữ liệu một khảo sát ---------- */
@@ -186,7 +199,7 @@ function rsData_(e, me) {
   if (e.formId) { try { form = FormApp.openById(e.formId); } catch (x) { if (!e.sheetId) throw x; } }
   if (!form) {
     if (!e.sheetId) throw new Error('Khảo sát này chưa nối với Google Form hay Sheet kết quả nào.');
-    var sd = rsSheetData_(e, me, cnt, pii); rsCachePut_(cache, ck, sd, 300); return sd;
+    var sd = rsSheetData_(e, me, cnt, pii); rsCachePut_(cache, ck, sd, 21600); return sd;
   }
   var T = FormApp.ItemType;
   var Q = [], byKey = {}, map = {}, sec = '', grp = '';
@@ -228,11 +241,11 @@ function rsData_(e, me) {
     });
     return [r.getTimestamp().getTime(), a];
   });
-  if (!A.length && cnt.n > 0 && e.sheetId) { var sd2 = rsSheetData_(e, me, cnt, pii); rsCachePut_(cache, ck, sd2, 300); return sd2; }  // Sheet bản sao (form mới trống) ⇒ đọc thẳng Sheet
+  if (!A.length && cnt.n > 0 && e.sheetId) { var sd2 = rsSheetData_(e, me, cnt, pii); rsCachePut_(cache, ck, sd2, 21600); return sd2; }  // Sheet bản sao (form mới trống) ⇒ đọc thẳng Sheet
   var out = { ok: true, v: RS.VER, id: e.id, title: form.getTitle(), n: A.length, last: cnt.last, pii: pii,
     formUrl: form.getPublishedUrl(), editUrl: form.getEditUrl(), sheetUrl: e.sheetId ? 'https://docs.google.com/spreadsheets/d/' + e.sheetId + '/edit' : '',
     accepting: form.isAcceptingResponses(), questions: Q, answers: A };
-  rsCachePut_(cache, ck, out, 300);
+  rsCachePut_(cache, ck, out, 21600);
   return out;
 }
 /* đệm chia mảnh (CacheService ≤ 100 KB / khoá) */
@@ -275,7 +288,7 @@ function rsTick_() {
   var rows = [], jobs = [], L = rsRead_(), now = new Date(), changed = 0, subs = null;
   L.forEach(function (e) {
     if (e.hidden) return;
-    var n; try { n = rsCount_(e).n; } catch (x) { return; }
+    var n; try { var cc = rsCount_(e); n = cc.n; rsSnapSet_(e, cc); } catch (x) { return; }
     if (e.told == null) { e.told = n; rsWriteRow_(e); return; }
     if (n > e.told) {
       var d = n - e.told, rc = [];
@@ -346,10 +359,17 @@ function rsRoute_(a, p) {
     var me = rsWho_(p.tk);
     if (me.err) return rsOut_({ ok: false, code: 'AUTH', error: me.err }, p);
     if (a === 'rsList') {
-      rsSeed_(me); rshSyncLazy_();
-      var items = rsRead_().filter(function (e) { return !e.hidden; }).map(function (e) {
-        var c = { n: 0, last: '' }, err = '';
-        try { c = rsCount_(e); } catch (x) { err = 'Không đọc được: ' + x.message; }
+      rsSeed_(me);
+      var t0 = Date.now(), LL = rsRead_().filter(function (e) { return !e.hidden; }), SN = {};
+      LL.forEach(function (e) { SN[e.id] = rsFromSnap_(e); });
+      /* làm mới số liệu cũ (> 10 phút), cũ nhất trước, tối đa ~7 giây / lượt — phần còn lại dùng bản lưu, rsTick làm nốt */
+      LL.slice().sort(function (a, b) { return ((SN[a.id] || {}).at || 0) - ((SN[b.id] || {}).at || 0); }).forEach(function (e) {
+        var s0 = SN[e.id]; if (s0 && Date.now() - s0.at < 600000) return;
+        if (s0 && Date.now() - t0 > 7000) return;
+        try { var cc = rsCount_(e); rsSnapSet_(e, cc); SN[e.id] = rsFromSnap_(e); } catch (x) { SN[e.id] = SN[e.id] || { err: 'Không đọc được: ' + x.message }; }
+      });
+      var items = LL.map(function (e) {
+        var c = SN[e.id] || { n: 0, last: '' }, err = c.err || '';
         var cl = e.grp ? { grp: rshGrpNorm_(e.grp), prod: e.prod || 'Chung' } : rsClassify_(e.title);
         return { id: e.id, title: e.title, grp: cl.grp, prod: cl.prod, auto: !e.grp, kind: e.formId ? 'form' : 'sheet', n: c.n, last: c.last, today: c.today || 0, days: c.days || [], recent: (c.recent || []).slice(0, 4), by: e.by, at: e.at, watch: e.watch.indexOf(me.pic) >= 0, watchers: e.watch.length,
           formUrl: e.formId ? 'https://docs.google.com/forms/d/' + e.formId + '/edit' : '', sheetUrl: e.sheetId ? 'https://docs.google.com/spreadsheets/d/' + e.sheetId + '/edit' : '',
