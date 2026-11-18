@@ -467,7 +467,10 @@ function wtdRequeue_(p) {
   const before = wtS_(p.before) || '2026-11-18 12:00:00', run = wtTrue_(p.run);
   const ss = wtBook_(), sh = wtSheet_(ss, WT.SH_H, WT.HH), H = wtHits_(ss);
   const isPrint = function (f) { return /Kết quả lựa chọn nhà thầu\.pdf$/i.test(wtS_(f.name)); };
-  const L = H.filter(function (h) { return (h.status === WT.ST.DONE || h.status === WT.ST.NOFILE) && wtS_(h.done || h.last) && wtS_(h.done || h.last) < before; });
+  // cột "Xong lúc" là ô ngày giờ của Sheet ⇒ chữ dạng "Wed Nov 18 2026 10:23:00 GMT+0700" — đổi về mốc thời gian rồi mới so
+  const tOf = function (v) { v = wtS_(v); if (!v) return 0; const t = /^\d{4}-\d\d-\d\d/.test(v) ? Date.parse((v.length === 10 ? v + ' 00:00:00' : v.slice(0, 19)).replace(' ', 'T') + '+07:00') : Date.parse(v); return isFinite(t) ? t : 0; };
+  const tB = tOf(before);
+  const L = H.filter(function (h) { const t = tOf(h.done) || tOf(h.last); return (h.status === WT.ST.DONE || h.status === WT.ST.NOFILE) && t && t < tB; });
   const out = { before: before, run: run, n: L.length, trashed: 0, sumDel: 0, items: [] };
   if (!run) { out.items = L.slice(0, 60).map(function (h) { return h.no + ' · ' + (h.files || []).filter(isPrint).length + ' bản in'; }); return Object.assign({ ok: true }, out); }
   const lock = LockService.getScriptLock();

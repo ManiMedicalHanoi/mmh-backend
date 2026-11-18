@@ -527,6 +527,7 @@ function wtNotifyNew_(news) {
 
 /* ══════════ TRIGGER ══════════ */
 function wtTick() {
+  try { wtEnsureTrig_(); } catch (e) {}   // tự cài trigger gộp 15 phút (wtmTick) dù chưa ai mở app
   try { const data = wtLoad_(wtBook_()); try { wtdInvBuild_(data); } catch (e) { Logger.log('wtdInvBuild_: ' + e.message); } try { wtdPkgBuild_(data); } catch (e) { Logger.log('wtdPkgBuild_: ' + e.message); } try { wtdRecentBuild_(data); } catch (e) { Logger.log('wtdRecentBuild_: ' + e.message); } try { wtdAllBuild_(data); } catch (e) { Logger.log('wtdAllBuild_: ' + e.message); } wtScan_({ data: data }); } catch (e) { Logger.log('wtTick: ' + e.message); PropertiesService.getScriptProperties().setProperty('WT_LAST_SCAN', wtNow_() + ' · lỗi: ' + e.message); }
 }
 function wtEnsureTrig_() {
