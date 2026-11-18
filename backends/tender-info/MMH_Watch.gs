@@ -68,6 +68,8 @@ function wtDo_(a, p) {
   if (a === 'wScan') { const r = wtScan_({}); return { ok: true, scan: r }; }
   if (a === 'wBotKey') return wtBotKey_(me, p);
   if (a === 'wQuick') return wtQuick_(me, p);
+  if (a === 'wPkgs') return wtdPkgs_(me, p);
+  if (a === 'wGrab') return wtdGrab_(me, p);
   return { ok: false, error: 'Không có lệnh ' + a };
 }
 
@@ -491,7 +493,7 @@ function wtNotifyNew_(news) {
 
 /* ══════════ TRIGGER ══════════ */
 function wtTick() {
-  try { const data = wtLoad_(wtBook_()); try { wtdInvBuild_(data); } catch (e) { Logger.log('wtdInvBuild_: ' + e.message); } wtScan_({ data: data }); } catch (e) { Logger.log('wtTick: ' + e.message); PropertiesService.getScriptProperties().setProperty('WT_LAST_SCAN', wtNow_() + ' · lỗi: ' + e.message); }
+  try { const data = wtLoad_(wtBook_()); try { wtdInvBuild_(data); } catch (e) { Logger.log('wtdInvBuild_: ' + e.message); } try { wtdPkgBuild_(data); } catch (e) { Logger.log('wtdPkgBuild_: ' + e.message); } wtScan_({ data: data }); } catch (e) { Logger.log('wtTick: ' + e.message); PropertiesService.getScriptProperties().setProperty('WT_LAST_SCAN', wtNow_() + ' · lỗi: ' + e.message); }
 }
 function wtEnsureTrig_() {
   const P = PropertiesService.getScriptProperties();
