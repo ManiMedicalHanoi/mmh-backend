@@ -12,6 +12,7 @@
  *    Chỉ gửi 1 lần (sửa khảo sát sau đó KHÔNG gửi lại); force=1 mới gửi lại.
  * Người được gửi: người tạo khảo sát, Admin / Director / HOD.
  */
+var NS_SELF = { 'Giang': 'Anh' };   // cách người gửi tự xưng trong email (người dùng: "anh gửi team…"); chưa có ⇒ "Mình"
 var NS_VN = { 'Thuong': 'Thương', 'Tuyen': 'Tuyên', 'Nguyen Ha': 'Nguyễn Hà', 'Duc Anh': 'Đức Anh', 'Hoa': 'Hòa', 'Viet': 'Việt', 'Viet Ha': 'Việt Hà', 'Phuong': 'Phương' };   // tên hiển thị có dấu trong email
 function nsVN_(pic) { return NS_VN[pic] || pic; }
 function nsVNs_(a) { return (a || []).map(nsVN_); }
@@ -108,28 +109,25 @@ function nsMailParts_(st, toList, owner) {
   var url = nsLink_(st.code), app = NS.APP + '#s=' + encodeURIComponent(reg.sheetId), sheet = 'https://docs.google.com/spreadsheets/d/' + reg.sheetId + '/edit';
   var who = sp.grp === 'Dental' ? 'Bác sĩ nha khoa' : 'Bác sĩ nhãn khoa';
   var subject = '[Khảo sát bác sĩ] ' + sp.title + (sp.event.name ? ' – ' + sp.event.name : '');
-  var e = nsEsc_, P = 'margin:0 0 12px', TD = 'padding:3px 12px 3px 0;vertical-align:top';
-  var info = [
-    ['Mục tiêu khảo sát', sp.objective || '(chưa ghi)'],
+  var e = nsEsc_, P = 'margin:0 0 12px', self = NS_SELF[owner] || 'Mình';
+  var facts = [
+    ['Mục tiêu', sp.objective || '(chưa ghi)'],
     ['Đối tượng', who],
-    ['Số câu hỏi', nq + ' câu' + (sp.minutes ? ', thời gian trả lời khoảng ' + sp.minutes + ' phút' : '')],
-    ev ? ['Sự kiện', ev] : null
-  ].filter(Boolean);
+    ['Số câu hỏi', nq + ' câu' + (sp.minutes ? ', khoảng ' + sp.minutes + ' phút' : '')],
+    ['Nội dung', groups.map(function (g) { return g.title + ' (' + g.n + ')'; }).join(' · ')]
+  ];
+  /* email người dùng duyệt 18/11/2026: "Dear Marketing team", người gửi xưng như khi viết tay (NS_SELF), ngắn gọn, không ghi chú thêm */
   var html = '<div style="font-family:Aptos,Calibri,Arial,sans-serif;font-size:14px;line-height:1.55;color:#1E2B36">' +
-    '<p style="' + P + '">Kính gửi Team Marketing (' + e(toList.map(function (x) { return nsVN_(x.pic); }).join(', ')) + '),</p>' +
-    '<p style="' + P + '">Bộ khảo sát bác sĩ <b>' + e(sp.title) + '</b>' + (ev ? ' dành cho sự kiện <b>' + e(ev) + '</b>' : '') + ' đã hoàn thành và sẵn sàng sử dụng. Thông tin cụ thể như sau:</p>' +
-    '<table style="border-collapse:collapse;margin:0 0 12px">' + info.map(function (r) { return '<tr><td style="' + TD + ';color:#5E6E7C;white-space:nowrap">' + e(r[0]) + '</td><td style="' + TD + '">' + e(r[1]) + '</td></tr>'; }).join('') + '</table>' +
-    '<p style="margin:0 0 4px"><b>Nội dung câu hỏi</b></p><ul style="margin:0 0 12px;padding-left:20px">' +
-    groups.map(function (g) { return '<li>' + e(g.title) + ' (' + g.n + ' câu)</li>'; }).join('') + '</ul>' +
-    '<p style="' + P + '">Trước phần câu hỏi, bác sĩ xác nhận đồng ý xử lý dữ liệu cá nhân, điền họ tên, số điện thoại, nơi công tác' + (fb ? ' và theo dõi page ' + e(fb.name) + ' trên Facebook' : '') + '.</p>' +
-    '<p style="margin:0 0 4px"><b>Link khảo sát gửi bác sĩ</b></p><p style="' + P + '"><a href="' + e(url) + '">' + e(url) + '</a></p>' +
-    '<p style="margin:0 0 6px"><b>Mã QR</b> (đính kèm: file PNG để chèn slide / màn hình, file SVG để in ấn khổ lớn)</p>' +
-    '<p style="' + P + '"><img src="cid:qr" width="180" height="180" alt="Mã QR khảo sát" style="border:1px solid #BCD4E6"></p>' +
-    '<p style="margin:0 0 4px"><b>Theo dõi kết quả</b></p><ul style="margin:0 0 12px;padding-left:20px">' +
-    '<li>Thống kê và biểu đồ (app MMH Survey, đăng nhập email công ty): <a href="' + e(app) + '">' + e(app) + '</a></li>' +
-    '<li>Dữ liệu chi tiết (Google Sheet): <a href="' + e(sheet) + '">' + e(sheet) + '</a></li></ul>' +
-    '<p style="' + P + '">Nhờ Team Marketing đưa link và mã QR vào ấn phẩm, chương trình sự kiện; theo dõi số lượng phản hồi và phối hợp follow-up bác sĩ sau sự kiện.</p>' +
-    '<p style="margin:0">Trân trọng,</p><p style="margin:0">' + e(nsVN_(owner) || 'Mani Medical Hanoi') + '</p><p style="margin:0;color:#5E6E7C">Công ty TNHH Mani Medical Hà Nội</p></div>';
+    '<p style="' + P + '">Dear Marketing team,</p>' +
+    '<p style="' + P + '">' + e(self) + ' gửi team bộ khảo sát bác sĩ <b>' + e(sp.title) + '</b>' + (ev ? ' cho sự kiện <b>' + e(ev) + '</b>' : '') + '.</p>' +
+    '<ul style="margin:0 0 12px;padding-left:20px">' + facts.map(function (r) { return '<li><b>' + e(r[0]) + ':</b> ' + e(r[1]) + '</li>'; }).join('') + '</ul>' +
+    '<p style="margin:0 0 4px"><b>Link khảo sát:</b> <a href="' + e(url) + '">' + e(url) + '</a></p>' +
+    '<p style="' + P + '"><img src="cid:qr" width="160" height="160" alt="Mã QR khảo sát"></p>' +
+    '<p style="margin:0 0 4px"><b>Theo dõi kết quả:</b></p><ul style="margin:0 0 12px;padding-left:20px">' +
+    '<li>Biểu đồ: <a href="' + e(app) + '">' + e(app) + '</a></li>' +
+    '<li>Dữ liệu chi tiết: <a href="' + e(sheet) + '">Google Sheet kết quả</a></li></ul>' +
+    '<p style="' + P + '">Team đưa link và mã QR vào ấn phẩm, chương trình sự kiện và follow-up bác sĩ sau sự kiện giúp ' + e(self.toLowerCase()) + ' nhé.</p>' +
+    '<p style="margin:0">Best regards,</p><p style="margin:0">' + e(nsVN_(owner) || 'Mani Medical Hanoi') + '</p></div>';
   return { subject: subject, html: html, url: url, app: app, sheet: sheet, groups: groups, nq: nq, ev: ev, who: who };
 }
 function nsCanSend_(st, me) { return !!(me && (me.admin || me.priv || me.pic === st.owner || me.pic === st.by)); }
