@@ -99,6 +99,7 @@ function ehgRegTick_(force){
   var c = CacheService.getScriptCache(); if (!force && c.get('ehg_tick')) return null; c.put('ehg_tick', '1', EHG.EVERY);
   var ss = ehBook_(), today = ehIso_(new Date()), events = ehRead_(ss, 'EVENTS'), link = {}, old = {}, rows = [], rep = { read: 0, kept: 0, issues: 0 };
   try { link = ehLinkGet_(ss); } catch(e){}
+  var M = null;
   ehRead_(ss, 'REG').forEach(function(r){ try { old[ehS_(r.eventId)] = JSON.parse(r.json); } catch(e){} });
   events.forEach(function(e){
     var id = ehS_(e.id), o = old[id] || {}, x = { hist: o.hist || {} }, url = ehS_(e.regUrl), cu = (link[id] || {}).cust, en = ehS_(e.end || e.start);
@@ -110,6 +111,13 @@ function ehgRegTick_(force){
       if (!force && o.url === url && mod && o.mod === mod && o.f){ x.f = o.f; }
       else { var r = ehgRegRead_(url); rep.read++; if (r.issue){ x.issue = r.issue; rep.issues++; if (o.f && o.url === url) x.f = o.f; } else x.f = r; }
       x.url = url; x.mod = mod;
+    }
+    if (!url && !ehS_(e.sample)){   /* v1.9: chưa dán link riêng ⇒ file Data đăng ký tổng (MKT_EventHubForm.gs), chỉ số đếm */
+      if (M === null){ try { M = ehRegMaster_(force); } catch(er){ M = {}; } }
+      var mm = ehRegMasterFor_(e, M);
+      if (mm){ var sm = {}; if (mm.mani) sm['MANI'] = mm.mani; if (mm.npp) sm['NPP'] = mm.npp; if (mm.unk) sm['(không ghi)'] = mm.unk;
+        x.f = { reg: mm.act, conf: mm.done, days: mm.days, src: sm, file: 'Data đăng ký sự kiện (tổng)', sheet: mm.tabs.join(', ').slice(0, 200), master: 1,
+                cancel: mm.cancel, pending: mm.pending, other: mm.other, mani: mm.mani, npp: mm.npp }; rep.master = (rep.master || 0) + 1; }
     }
     if (ehS_(e.sample)) x.f = ehgSampleReg_(e, today);
     if (cu) x.c = { reg: +cu.reg || 0, conf: +cu.conf || 0, ok: +cu.ok || 0 };
