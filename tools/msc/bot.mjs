@@ -122,22 +122,23 @@ async function readFields(pg) {
       const v = r.innerText.replace(t.innerText, '').replace(/\s+\n/g, '\n').trim().slice(0, 500);
       if (v) o[k] = v;
     }
-    const lines = document.body.innerText.split('\n').map(x => x.trim()).filter(Boolean);
+    const lines = [].concat(...document.body.innerText.split('\n').map(x => x.split('\t'))).map(x => x.trim()).filter(Boolean);
     for (let i = 0; i < lines.length - 1; i++) {
       const k = lines[i];
       if (KN.indexOf(k) >= 0 && !o[k] && KN.indexOf(lines[i + 1]) < 0) o[k] = lines[i + 1].slice(0, 500);
     }
     const tb = [...document.querySelectorAll('table')].find(t => t.offsetParent && /Giá gói thầu/.test(t.innerText) && /Tên gói thầu/.test(t.innerText));
     if (tb) {
-      const head = [...tb.querySelectorAll('thead th, tr:first-child th')].map(th => th.innerText.trim());
-      const rows = [...tb.querySelectorAll('tbody tr')].map(tr => [...tr.querySelectorAll('td')].map(td => td.innerText.trim())).filter(r => r.length >= Math.min(head.length, 4));
+      const hr = [...tb.querySelectorAll('tr')].find(tr => tr.querySelector('th') && /Giá gói thầu/.test(tr.innerText)) || tb.querySelector('tr');
+      const head = [...hr.querySelectorAll('th,td')].map(th => th.innerText.trim().replace(/\s*\(VND\)\s*$/, ''));
+      const rows = [...tb.querySelectorAll('tr')].filter(tr => tr !== hr && !tr.querySelector('th')).map(tr => [...tr.querySelectorAll('td')].map(td => td.innerText.trim())).filter(r => r.length >= Math.min(head.length - 2, 6));
       o._pkgs = rows.slice(0, 30).map(r => { const x = {}; head.forEach((h, i) => { if (h && r[i] != null && !x[h]) x[h] = r[i].slice(0, 300); }); return x; });
     }
     return o;
   }, KNOWN).catch(() => ({}));
 }
 /* chờ trang điền giá trị thật (nhãn hiện trước, số liệu đến sau) */
-const waitValues = (pg, re) => pg.waitForFunction(s => { const R = new RegExp(s); return [...document.querySelectorAll('.infomation__content')].some(r => r.offsetParent && R.test(r.innerText)) || new RegExp('\\n\\s*' + s).test(document.body.innerText); }, re, { timeout: 40000 }).then(() => true, () => false);
+const waitValues = (pg, re) => pg.waitForFunction(s => { const R = new RegExp(s); return [...document.querySelectorAll('.infomation__content')].some(r => r.offsetParent && R.test(r.innerText)) || new RegExp('[\\n\\t]\\s*' + s).test(document.body.innerText); }, re, { timeout: 40000 }).then(() => true, () => false);
 
 /* nhãn của 1 phần tử (file đính kèm / nút Excel): tiêu đề dòng chứa nó, bỏ "Chương V:", "Phần 2:" và tên file */
 async function labelOf(el) {
@@ -146,7 +147,7 @@ async function labelOf(el) {
     const clean = s => String(s || '').replace(own, '').replace(/\s+/g, ' ').replace(/^\s*\d+(\.\d+)*\s*/, '').replace(/^(Chương|Phần)\s+[\dIVXLC]+[A-Z]?\s*[.:\-]?\s*/i, '').replace(/[\w.\- ()]+\.(pdf|docx?|xlsx?|zip|rar)\b/gi, '').replace(/\s*(Xuất Excel|Tải về|Tải xuống)\s*/gi, ' ').trim();
     const ic = e.closest('.infomation__content'); if (ic) { const t = ic.querySelector('.infomation__content__title'); if (t) return clean(t.innerText); }
     const tr = e.closest('tr');
-    if (tr) { const tds = [...tr.querySelectorAll('td')].map(td => clean(td.innerText)).filter(x => x && !/^\d+(\.\d+)*$/.test(x)); if (tds[0]) return tds[0]; }
+    if (tr) { const tds = [...tr.querySelectorAll('th,td')].map(td => clean(td.innerText)).filter(x => x && !/^\d+(\.\d+)*$/.test(x)); if (tds[0]) return tds[0]; }
     let n = e;
     for (let i = 0; i < 6 && n; i++, n = n.parentElement) {
       let p = n.previousElementSibling;
@@ -171,13 +172,24 @@ function docType(sec, label, fname) {
     if (/hàng hóa|hàng hoá|hang.?hoa/.test(t)) return 'Danh sách hàng hóa';
   }
   if (sec === 'tbmt' && /quyết định|quyet dinh/.test(t)) return 'Quyết định phê duyệt HSMT';
+  if (sec === 'kh' && /quyết định|quyet dinh/.test(t)) return 'Quyết định phê duyệt KHLCNT';
   return label || (sec === 'kq' ? 'Tài liệu kết quả' : sec === 'kh' ? 'Tài liệu KHLCNT' : 'Tài liệu TBMT');
 }
 
 async function attachments(pg, ctx2, sec, prefix) {
   const { job, files, docs, cap, used } = ctx2;
-  const items = pg.locator('tags.tags-fileAttach:visible');
-  const n = await items.count(), seen = new Set();
+  // file đính kèm = thẻ tags.tags-fileAttach + mọi phần tử lá đang hiện có chữ là tên file (.pdf/.doc…) — trang KHLCNT, bảng HSMT không dùng thẻ tags
+  await pg.evaluate(() => {
+    document.querySelectorAll('[data-wtf]').forEach(e => e.removeAttribute('data-wtf'));
+    const RX = /\.(pdf|docx?|xlsx?|zip|rar|7z)$/i; let n = 0;
+    for (const e of document.querySelectorAll('tags.tags-fileAttach, body a, body span, body div, body td, body p, body li, body button')) {
+      if (!e.offsetParent || e.closest('[data-wtf]') || e.querySelector('[data-wtf]')) continue;
+      const t = (e.innerText || '').trim();
+      if (e.matches('tags.tags-fileAttach') || (RX.test(t) && t.length < 250 && ![...e.children].some(c => RX.test((c.innerText || '').trim())))) e.setAttribute('data-wtf', String(n++));
+    }
+  }).catch(() => {});
+  const items = pg.locator('[data-wtf]');
+  const n = await items.count(), seen = ctx2.seenF || (ctx2.seenF = new Set());
   for (let i = 0; i < n; i++) {
     const el = items.nth(i), orig = safe((await el.innerText().catch(() => '')).trim());
     if (!orig || seen.has(orig)) continue; seen.add(orig);
