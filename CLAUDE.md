@@ -593,6 +593,9 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   **Gói gần đây + thống kê (18/11/2026, người dùng yêu cầu)**: `wtdRecentBuild_` (wtTick) ⇒ gói có Thời gian cập nhật / ngày trong 90 ngày hoặc TBMT còn hạn mở thầu ⇒ đệm `wt_rec` + sheet ẩn **THEO DÕI · GÓI GẦN ĐÂY**
   (`WT_REC_V`); `wRecent {since}` ⇒ `{v, cols, rows}` (type · no · name · inv · date · upd · price số · win số · form · prov · close · n · winner) — app tự lọc 7 / 30 / 90 ngày, thống kê giá trị + hình thức LCNT, gói sắp đóng thầu.
   `wGrab` nhận `items[].inv` (chọn gói của nhiều bệnh viện 1 lần). `wPing` (công khai) trả `lastScan` · `trig` (số trigger wtTick thật) · `invV` · `recV`; `wtEnsureTrig_` kiểm trigger thật khi lần quét cuối > 2 giờ.
+  **Chống tải lặp + thống kê toàn bộ (18/11/2026, v1.3, người dùng yêu cầu)**: `wtReq_` (dùng ở `wGrab` / `wQuick` / `wHit op=dl`): gói Đang tải ⇒ bỏ qua; Chờ tải ⇒ chỉ gộp loại tài liệu; Đã tải / Không có file ⇒ bỏ qua trừ khi `force=1` (app: "Tải lại");
+  Lỗi / Không tải ⇒ vào hàng đợi lại; trả `skipped [{key, no, why: work|wait|done, at, n}]`. `wHit op=skip` từ chối khi đang tải. `wAll {since}` = mọi gói dạng gọn (`wtdAllBuild_` trong wtTick, đệm `wt_all`, `WT_ALL_V`;
+  rows `[loại 0 KH·1 TBMT·2 KQ, iCĐT, yyyymmdd, giá nghìn đ, giá trúng nghìn đ, iHình thức, iTỉnh]`) ⇒ app thống kê Toàn bộ / Từ ngày–đến ngày / từng bệnh viện. `wPing` trả thêm `allV`.
   **Tải lên tài liệu cần Agent + đệm gói (18/11/2026, người dùng yêu cầu)**: `wUpload {key, b64, name, docType, sec, orig}` (người theo dõi gói / quản lý) ⇒ "<Số> - <Loại tài liệu>.<đuôi>" vào thư mục gói đúng phần,
   files của gói + `agentFiles[orig].done/url` + dòng Sheet tổng hợp (cùng khoá số | loại | tên gốc ⇒ thay dòng "cần Agent"); `botDone` giữ dấu done khi bot chạy lại. App: link "Tải bằng Agent"
   (`http://localhost:1234/api/download/file/browser/public?fileId=…`, máy có Agent) + "Trang gói" + hộp "Thêm tài liệu đã tải" (tự nhận tài liệu theo tên file).
