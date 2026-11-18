@@ -289,6 +289,52 @@ async function ensureValues(pg, url, re, tabs) {
   }
   return false;
 }
+/* nút "Tải TBMT" (và "Tải KQLCNT" / "Tải KHLCNT" nếu có): trang tự dựng PDF bằng pdfmake trên trình duyệt (file như người dùng tải tay).
+   Bắt file theo 3 đường: sự kiện download · móc pdfMake.createPdf lấy base64 · trang mới (blob:) ⇒ không được thì mới in trang. */
+async function pagePdf(pg, ctx2, sec, type, re) {
+  if (!wants(ctx2, sec)) return true;
+  const btn = pg.locator(':is(a,button,span,div,tags):visible').filter({ hasText: re }).last();
+  if (!(await btn.count())) return false;
+  const txt = ((await btn.innerText().catch(() => '')) || '').trim();
+  if (!re.test(txt) || txt.length > 30) return false;
+  await pg.evaluate(() => {
+    window.__wtPdf = null;
+    const hook = () => { const M = window.pdfMake; if (!M || !M.createPdf || M.__wt) return;
+      const o = M.createPdf; M.__wt = 1;
+      M.createPdf = function () { const d = o.apply(this, arguments); const keep = b => { window.__wtPdf = b; };
+        ['download', 'open', 'print'].forEach(k => { const f = d[k]; d[k] = function () { try { d.getBase64(keep); } catch (e) {} if (k !== 'download' && f) { /* không mở tab */ } }; });
+        return d; };
+    };
+    hook(); window.__wtHookT = setInterval(hook, 200);
+  }).catch(() => {});
+  const ctx = pg.context();
+  const dlP = pg.waitForEvent('download', { timeout: 60000 }).catch(() => null);
+  const popP = ctx.waitForEvent('page', { timeout: 60000 }).catch(() => null);
+  await btn.click({ timeout: 8000 }).catch(() => {});
+  let buf = null, how = '';
+  const t0 = Date.now();
+  while (!buf && Date.now() - t0 < 60000) {
+    const b64 = await pg.evaluate(() => window.__wtPdf).catch(() => null);
+    if (b64) { buf = Buffer.from(b64, 'base64'); how = 'pdfmake'; break; }
+    const d = await Promise.race([dlP, new Promise(r => setTimeout(() => r(undefined), 700))]);
+    if (d) { const f = path.join(OUT, 'tmp_' + Date.now() + '.pdf'); await d.saveAs(f); buf = fs.readFileSync(f); how = 'download'; break; }
+    const pop = await Promise.race([popP, new Promise(r => setTimeout(() => r(undefined), 10))]);
+    if (pop) {
+      await pop.waitForLoadState('load', { timeout: 15000 }).catch(() => {});
+      const b = await pop.evaluate(async () => { const r = await fetch(location.href); const a = new Uint8Array(await r.arrayBuffer()); let s = ''; for (let i = 0; i < a.length; i += 8192) s += String.fromCharCode.apply(null, a.subarray(i, i + 8192)); return btoa(s); }).catch(() => null);
+      await pop.close().catch(() => {});
+      if (b) { buf = Buffer.from(b, 'base64'); how = 'tab mới'; break; }
+    }
+    if (d === null) break;
+  }
+  await pg.evaluate(() => clearInterval(window.__wtHookT)).catch(() => {});
+  await closePopups(pg);
+  if (!buf || buf.length < 1500 || buf.slice(0, 4).toString() !== '%PDF') { say(`    · "${txt}": chưa lấy được file PDF${buf ? ' (' + buf.length + ' byte)' : ''}`); return false; }
+  const name = docName(ctx2.no, type, 'pdf', ctx2.used), f = path.join(OUT, ctx2.job.key.replace(/\W+/g, '_') + '_' + name);
+  fs.writeFileSync(f, buf); ctx2.files.push({ name, file: f, sec, type });
+  say(`    ⬇ ${name} ("${txt}", ${how}, ${buf.length} byte)`);
+  return true;
+}
 async function clickTab(pg, text) {
   const t = pg.locator(`:is(a,button,li,span,div,[role=tab]):text-is("${text}"):visible`).last();
   if (!(await t.count())) return false;
@@ -316,7 +362,7 @@ async function doJob(pg, job, cap) {
     put('Loại hợp đồng', P0['Loại hợp đồng']); put('Thời gian thực hiện gói thầu', P0['Thời gian thực hiện gói thầu']);
     info.planNo = info.fields['Mã KHLCNT'] || info.planNo || c.no;
     info.planName = info.fields['Tên KHLCNT'] || info.fields['Tên dự toán mua sắm'] || info.fields['Tên dự án'] || info.planName;
-    await printPage(pg, c, 'kh', 'Kế hoạch lựa chọn nhà thầu');
+    if (!(await pagePdf(pg, c, 'kh', 'Kế hoạch lựa chọn nhà thầu', /^Tải\s*(KHLCNT|KH\s*LCNT|kế hoạch)/i))) await printPage(pg, c, 'kh', 'Kế hoạch lựa chọn nhà thầu');
     await attachments(pg, c, 'kh', '');
     await excels(pg, c, 'kh');
   } else {
@@ -327,7 +373,7 @@ async function doJob(pg, job, cap) {
     const put = (k, v) => { if (v && !info.fields[k]) info.fields[k] = v; };
     put('Ngày đăng tải', pk.posted); put('Thời điểm đóng thầu', pk.close);
     if (!info.planNo) info.planNo = info.fields['Mã KHLCNT'] || '';
-    await printPage(pg, c, 'tbmt', 'Thông báo mời thầu');
+    if (!(await pagePdf(pg, c, 'tbmt', 'Thông báo mời thầu', /^Tải\s*(TBMT|thông báo)/i))) await printPage(pg, c, 'tbmt', 'Thông báo mời thầu');
     await attachments(pg, c, 'tbmt', '');
     if (wants(c, 'hsmt') && await clickTab(pg, 'Hồ sơ mời thầu')) {   // bảng chương HSMT tải chậm ⇒ chờ tới khi có tên file trong bảng
       await pg.waitForFunction(() => [...document.querySelectorAll('td')].some(td => td.offsetParent && /\.(pdf|docx?|xlsx?|zip|rar)\s*$/i.test(td.innerText)), null, { timeout: 20000 }).catch(() => say('    · tab HSMT chưa hiện file'));
@@ -336,7 +382,7 @@ async function doJob(pg, job, cap) {
     if (await clickTab(pg, 'Kết quả lựa chọn nhà thầu')) {
       await waitText(pg, 'Xuất Excel|Quyết định phê duyệt|Nhà thầu trúng', 25000); await pg.waitForTimeout(1200); await closePopups(pg);
       info.kqFields = await readFields(pg); delete info.kqFields._pkgs;
-      await printPage(pg, c, 'kq', 'Kết quả lựa chọn nhà thầu');
+      if (!(await pagePdf(pg, c, 'kq', 'Kết quả lựa chọn nhà thầu', /^Tải\s*(KQLCNT|KQ\s*LCNT|kết quả)/i))) await printPage(pg, c, 'kq', 'Kết quả lựa chọn nhà thầu');
       await attachments(pg, c, 'kq', '');
       await excels(pg, c, 'kq');
     }

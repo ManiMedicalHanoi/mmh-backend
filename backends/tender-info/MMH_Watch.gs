@@ -74,6 +74,7 @@ function wtDo_(a, p) {
   if (a === 'wQuick') return wtQuick_(me, p);
   if (a === 'wPkgs') return wtdPkgs_(me, p);
   if (a === 'wRecent') return wtdRecent_(me, p);
+  if (a === 'wUpload') return wtdUpload_(me, p);
   if (a === 'wGrab') return wtdGrab_(me, p);
   return { ok: false, error: 'Không có lệnh ' + a };
 }
@@ -616,6 +617,10 @@ function wtBotDone_(p) {
     h = wtHits_(ss).filter(function (x) { return x.key === wtS_(p.hit); })[0];
     if (!h) return { ok: false, error: 'Không có gói ' + p.hit };
     const info = Object.assign({}, h.info, typeof p.info === 'string' ? wtJson_(p.info, {}) : (p.info || {}));
+    // tài liệu cần Agent mà người dùng đã tự tải lên (wUpload) ⇒ giữ dấu done + link khi bot chạy lại
+    const prevAg = {}; ((h.info || {}).agentFiles || []).forEach(function (a) { if (a && a.done) prevAg[a.name] = a; });
+    if (info.agentFiles) info.agentFiles = info.agentFiles.map(function (a) { return prevAg[a.name] ? Object.assign({}, a, { done: prevAg[a.name].done, url: prevAg[a.name].url, file: prevAg[a.name].file }) : a; });
+    p._agDone = prevAg;
     sh.getRange(h.row, 7).setValue(JSON.stringify(info));
     if (info.investor && (!h.investor || h.investor === '(đang tra)')) sh.getRange(h.row, 4, 1, 2).setValues([[wtS_(info.investor), wtNorm_(info.investor)]]);
     if (info.bidName && (!h.name || h.name === h.no)) sh.getRange(h.row, 6).setValue(wtS_(info.bidName).slice(0, 300));
@@ -634,7 +639,7 @@ function wtBotDone_(p) {
   wtBotLog_(ss, p.bot, h.key, 'done', st, p.note);
   let sumN = 0;
   try {
-    const docs = typeof p.docs === 'string' ? wtJson_(p.docs, []) : (p.docs || []);
+    const docs = (typeof p.docs === 'string' ? wtJson_(p.docs, []) : (p.docs || [])).filter(function (d) { return !(d.agent && p._agDone && p._agDone[d.name]); });
     const inf = typeof p.info === 'string' ? wtJson_(p.info, {}) : (p.info || {});
     sumN = wtdSumWrite_(h, inf, docs);
   } catch (e) { Logger.log('wtdSumWrite_: ' + e.message); wtBotLog_(ss, p.bot, h.key, 'sum', 'lỗi', e.message); }
