@@ -1,5 +1,5 @@
 /* ════════════════════════════════════════════════════════════════════
-   MMH_WatchGoods.gs v1.0 (18/11/2026, người dùng yêu cầu) — LỌC + TẢI "HÀNG HÓA TRÚNG THẦU" THEO TỪ KHOÁ
+   MMH_WatchGoods.gs v1.1 (18/11/2026 — v1.1: khớp nguyên ô / nguyên từ + gợi ý theo bộ lọc; v1.0, người dùng yêu cầu) — LỌC + TẢI "HÀNG HÓA TRÚNG THẦU" THEO TỪ KHOÁ
    Nguồn: 2 file tổng do MMH_WatchMerge.gs gộp — ① "Kết quả trúng thầu - Tổng hợp danh mục hàng hóa" ② "Danh mục nhà thầu tham dự - Tổng hợp danh sách nhà thầu".
    wGoods {hang, win, dm, place, mode: all|any}  (mỗi ô nhiều từ khoá cách nhau dấu phẩy / chấm phẩy = HOẶC trong ô;
      giữa các ô: all = VÀ (mặc định) · any = HOẶC; so không dấu, chứa là khớp)
@@ -103,26 +103,65 @@ function wtgLosers_(d, r) {
   return out.join('\n');
 }
 
+/* ── bộ lọc v1.1 (18/11/2026, người dùng: "chọn hãng nào chỉ ra đúng hãng đó") ──
+   p.f = JSON {hang|win|dm|place: [[giá trị, x]]}: x = 1 ⇒ KHỚP NGUYÊN Ô (giá trị chọn từ danh sách gợi ý, so không dấu / hoa thường);
+   x = 0 ⇒ ô CHỨA ĐỦ CỤM TỪ theo NGUYÊN TỪ (gõ "mani" khớp "MANI, Inc" nhưng không khớp "Romania"). Nhiều giá trị trong 1 ô = HOẶC.
+   Tham số cũ hang / win / dm / place (chữ, phẩy) vẫn nhận ⇒ cụm từ. */
+WTG.FIELD = { hang: [8], win: [6], dm: [7], place: [1, 2, 3, 4, 0] };
+WTG.EXACT_PLACE = [1, 2, 0];
 function wtgKeys_(v) { return wtS_(v).split(/[,;\n]+/).map(wtmK_).filter(String); }
+function wtgSpec_(p) {
+  let f = null;
+  if (wtS_(p.f)) { try { f = JSON.parse(p.f); } catch (e) { f = null; } }
+  if (!f) { f = {}; ['hang', 'win', 'dm', 'place'].forEach(function (k) { const a = wtgKeys_(p[k]); if (a.length) f[k] = a.map(function (v) { return [v, 0]; }); }); }
+  const out = [];
+  Object.keys(WTG.FIELD).forEach(function (k) {
+    const L = (f[k] || []).map(function (c) { return Array.isArray(c) ? [wtmK_(c[0]), +c[1] ? 1 : 0] : [wtmK_(c), 0]; }).filter(function (c) { return c[0]; });
+    if (L.length) out.push({ k: k, cols: WTG.FIELD[k], chips: L });
+  });
+  return out;
+}
+function wtgHit_(r, f, K) {
+  return f.chips.some(function (c) {
+    if (c[1]) return (f.k === 'place' ? WTG.EXACT_PLACE : f.cols).some(function (i) { return K(r, i) === c[0]; });
+    const w = ' ' + c[0] + ' ';
+    return f.cols.some(function (i) { return (' ' + K(r, i) + ' ').indexOf(w) >= 0; });
+  });
+}
+function wtgKeyer_() { const m = {}; return function (r, i) { const v = r[i]; if (v === '' || v == null) return ''; const s = String(v); return m[s] !== undefined ? m[s] : (m[s] = wtmK_(s)); }; }
 
 function wtgGoods_(me, p) {
-  const d = wtgData_();
+  const d = wtgData_(), K = wtgKeyer_();
   if (wtS_(p.op) === 'facets') {
-    const top = function (i) {
-      const m = {};
-      d.rows.forEach(function (r) { const v = r[i]; if (!v) return; const k = wtmK_(v); if (!m[k]) m[k] = [v, 0]; m[k][1]++; });
-      return Object.keys(m).map(function (k) { return m[k]; }).sort(function (a, b) { return b[1] - a[1]; }).slice(0, WTG.FAC);
-    };
     const pk = {}; d.rows.forEach(function (r) { pk[r[14]] = 1; });
-    return { ok: true, n: d.rows.length, pkgs: Object.keys(pk).length, hang: top(8), win: top(6), dm: top(7), prov: top(1), inv: top(2), mg: wtmUrls_() };
+    return { ok: true, n: d.rows.length, pkgs: Object.keys(pk).length, mg: wtmUrls_() };
   }
-  const F = [[wtgKeys_(p.hang), [8]], [wtgKeys_(p.win), [6]], [wtgKeys_(p.dm), [7]], [wtgKeys_(p.place), [0, 1, 2, 3, 4]]].filter(function (f) { return f[0].length; });
-  if (!F.length) return { ok: false, error: 'Nhập ít nhất 1 từ khoá: Hãng sản xuất, Nhà thầu trúng thầu hoặc Danh mục hàng hóa.' };
-  const any = wtS_(p.mode) === 'any';
-  const hit = function (r, f) { return f[1].some(function (i) { const v = ' ' + wtmK_(r[i]) + ' '; return f[0].some(function (k) { return v.indexOf(k) >= 0; }); }); };
+  const F = wtgSpec_(p), any = wtS_(p.mode) === 'any';
+  if (wtS_(p.op) === 'suggest') {
+    const fk = wtS_(p.field) in WTG.FIELD ? wtS_(p.field) : 'hang';
+    const other = F.filter(function (f) { return f.k !== fk; });
+    const q = wtmK_(p.q).split(' ').filter(String);
+    const cols = fk === 'place' ? WTG.EXACT_PLACE : WTG.FIELD[fk];
+    const m = {}; let rowsIn = 0;
+    d.rows.forEach(function (r) {
+      if (other.length && !any && !other.every(function (f) { return wtgHit_(r, f, K); })) return;
+      rowsIn++;
+      cols.forEach(function (i) {
+        const kv = K(r, i); if (!kv) return;
+        if (q.length) { const w = ' ' + kv; if (!q.every(function (t) { return w.indexOf(' ' + t) >= 0; })) return; }
+        const id = i + '|' + kv;
+        if (!m[id]) m[id] = [String(r[i]), 0, fk === 'place' ? (i === 1 ? 'Tỉnh' : i === 2 ? 'Chủ đầu tư' : 'Khu vực') : ''];
+        m[id][1]++;
+      });
+    });
+    const all = Object.keys(m).map(function (k) { return m[k]; });
+    all.sort(function (a, b) { return b[1] - a[1] || a[0].localeCompare(b[0]); });
+    return { ok: true, field: fk, q: wtS_(p.q), list: all.slice(0, 40), more: Math.max(0, all.length - 40), rows: rowsIn };
+  }
+  if (!F.length) return { ok: false, error: 'Chọn ít nhất 1 điều kiện: Hãng sản xuất, Nhà thầu trúng thầu hoặc Danh mục hàng hóa.' };
   const out = [], pk = {}; let n = 0, sum = 0;
   d.rows.forEach(function (r) {
-    if (!(any ? F.some(function (f) { return hit(r, f); }) : F.every(function (f) { return hit(r, f); }))) return;
+    if (!(any ? F.some(function (f) { return wtgHit_(r, f, K); }) : F.every(function (f) { return wtgHit_(r, f, K); }))) return;
     n++; pk[r[14]] = 1; if (typeof r[13] === 'number') sum += r[13];
     if (out.length < WTG.MAX) out.push(r.slice(0, 14).concat([wtgLosers_(d, r)]));
   });
