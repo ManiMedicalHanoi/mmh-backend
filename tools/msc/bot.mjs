@@ -122,12 +122,14 @@ async function readFields(pg) {
       const v = r.innerText.replace(t.innerText, '').replace(/\s+\n/g, '\n').trim().slice(0, 500);
       if (v) o[k] = v;
     }
-    const lines = [].concat(...document.body.innerText.split('\n').map(x => x.split('\t'))).map(x => x.trim()).filter(Boolean);
+    const tb = [...document.querySelectorAll('table')].find(t => t.offsetParent && /Giá gói thầu/.test(t.innerText) && /Tên gói thầu/.test(t.innerText));
+    let txt = document.body.innerText;
+    if (tb) txt = txt.split(tb.innerText).join('\n');          // bảng gói thầu đọc riêng ở dưới, không lẫn vào nhãn ⇒ giá trị
+    const lines = [].concat(...txt.split('\n').map(x => x.split('\t'))).map(x => x.trim()).filter(Boolean);
     for (let i = 0; i < lines.length - 1; i++) {
       const k = lines[i];
-      if (KN.indexOf(k) >= 0 && !o[k] && KN.indexOf(lines[i + 1]) < 0) o[k] = lines[i + 1].slice(0, 500);
+      if (KN.indexOf(k) >= 0 && !o[k] && KN.indexOf(lines[i + 1]) < 0) o[k] = (lines[i + 1] + (/^\d\d:\d\d$/.test(lines[i + 1]) && /^\d\d\/\d\d\/\d{4}$/.test(lines[i + 2] || '') ? ' ' + lines[i + 2] : '')).slice(0, 500);
     }
-    const tb = [...document.querySelectorAll('table')].find(t => t.offsetParent && /Giá gói thầu/.test(t.innerText) && /Tên gói thầu/.test(t.innerText));
     if (tb) {
       const hr = [...tb.querySelectorAll('tr')].find(tr => tr.querySelector('th') && /Giá gói thầu/.test(tr.innerText)) || tb.querySelector('tr');
       const head = [...hr.querySelectorAll('th,td')].map(th => th.innerText.trim().replace(/\s*\(VND\)\s*$/, ''));
@@ -260,9 +262,9 @@ async function doJob(pg, job, cap) {
     await waitValues(pg, 'PL\\d{6}'); await closePopups(pg);
     info.fields = await readFields(pg);
     const F = info.fields, PK = F._pkgs || [], P0 = PK[0] || {}; delete F._pkgs;
-    info.pkgs = PK.length;
+    info.pkgs = PK.length; if (DRY) info._p0 = P0;
     const put = (k, v) => { if (v && !F[k]) F[k] = v; };
-    put('Giá gói thầu', F['Dự toán mua sắm'] || pk.price); put('Ngày đăng tải', F['Thời gian đăng tải'] || pk.posted);
+    put('Giá gói thầu', F['Dự toán mua sắm'] || pk.price); put('Ngày đăng tải', pk.posted || F['Thời gian đăng tải']);
     put('Chi tiết nguồn vốn', P0['Chi tiết nguồn vốn']); put('Hình thức lựa chọn nhà thầu', P0['Hình thức LCNT']); put('Phương thức lựa chọn nhà thầu', P0['Phương thức LCNT']);
     put('Loại hợp đồng', P0['Loại hợp đồng']); put('Thời gian thực hiện gói thầu', P0['Thời gian thực hiện gói thầu']);
     info.planNo = info.fields['Mã KHLCNT'] || info.planNo || c.no;
