@@ -115,9 +115,9 @@ var USERS = {
 var TEAM_PICS = ['Yong', 'Man', 'Sui'];
 /* v1.9 — new accounts & new SKU: evidence folder and approvers (To of the approval e-mail) */
 var NA_FOLDER_TH = '';   /* Dental: folder created next to this file on first use (Script Property NA_FOLDER_ID) — see thdNaFolder_ */
-var NA_APPROVERS_TH = { 'Dao':['Tuyen'], '*':['Dao','Tuyen'] };
+var NA_APPROVERS_TH = { '*':['Owen'] };   /* 18/11/2026 — người dùng: Owen san (quản lý nhóm Dental Thái) duyệt Mở mới, không còn Dao / Tuyen */
 var NA_ADMINS = ['Nguyen Ha','Tuyen','Hoa','Giang'];
-var NA_DECIDERS = ['Nguyen Ha','Tuyen'];
+var NA_DECIDERS = ['Nguyen Ha','Owen'];
 var WRITE_ACTIONS = { ordSave:1, ordDelete:1, acctSave:1, acctGeo:1, weeklyReport:1, monthlyReport:1, tripPropose2:1, tripPropose:1, tripUpdate:1, tripDelete:1, tripReport:1, saveWeekly:1, saveCustomer:1, saveCBC:1, saveCustomerCbc:1, saveMonthly:1, savePresentation:1, saveADP:1,
                       deleteRow:1, deleteAccount:1, addKey:1, addSub:1, naSave:1, naSubmit:1, naDecide:1, naDelete:1 };
 /* who receives the weekly / monthly report of each PIC */
@@ -3423,6 +3423,7 @@ function naDear_(names){
   }).join(', ');
 }
 function naMailHtml_(o, kind, user, wk, imgs){
+  if(NA_ENV.lang() === 'en') return naMailHtmlEn_(o, kind, user, wk, imgs);   /* 18/11/2026 — Thai teams: short, formal English e-mail */
   var L = naL_, e = naEsc_, link = NA_CRM_URL + '#na=' + encodeURIComponent(o.id);
   var who = kind === 'submit' ? naDear_(o.subTo) : o.pic;
   var by = e(o.decBy || user.pic);
@@ -3468,12 +3469,70 @@ function naMailHtml_(o, kind, user, wk, imgs){
   h.push('</div>');
   return h.join('');
 }
+/* ⭐ 18/11/2026 — email Mở mới TIẾNG ANH (nhóm Thái, người dùng yêu cầu: formal, ngắn gọn): mỗi mục 1 dòng, chữ dài (SKU dán cả phiếu xác nhận đơn,
+   địa chỉ tiếng Thái…) cắt ngắn ⇒ Outlook không còn nhận nhầm là thư tiếng Thái rồi tự dịch; bỏ chi tiết từng lượt báo cáo tuần; ghi chú là câu lỗi của app thì bỏ. */
+function naShort_(s, n){ s = String(s == null ? '' : s).replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1).replace(/[\s,;·-]+$/, '') + '…' : s; }
+function naNoteClean_(s){
+  return String(s == null ? '' : s).split(/\n/).filter(function(x){
+    return !/no answer from the server|upload failed|không nhận được phản hồi|tải lên chưa được|^\s*$/i.test(x); }).join(' ');
+}
+function naMailHtmlEn_(o, kind, user, wk, imgs){
+  var e = naEsc_, link = NA_CRM_URL + '#na=' + encodeURIComponent(o.id);
+  var who = kind === 'submit' ? naDear_(o.subTo) : o.pic, by = e(o.decBy || user.pic);
+  var type = o.type === 'new_sku' ? 'new SKU' : 'new account';
+  var p = function(s){ return '<p style="margin:0 0 12px">' + s + '</p>'; };
+  var row = function(k, v){ return v ? '<tr><td style="padding:2px 14px 2px 0;color:#555;white-space:nowrap;vertical-align:top">' + k + '</td><td style="padding:2px 0">' + v + '</td></tr>' : ''; };
+  var h = ['<div lang="en" style="font-family:Aptos,Calibri,Arial,sans-serif;font-size:14px;line-height:1.5;color:#1A1A1A;max-width:720px">'];
+  h.push(p('Dear ' + e(who || 'All') + ','));
+  if(kind === 'submit') h.push(p('Please review and approve the ' + type + ' case below in the CRM.'));
+  else if(kind === 'approve') h.push(p('Your ' + type + ' case below has been <b>approved</b> by ' + by + '.'));
+  else if(kind === 'return') h.push(p('Your ' + type + ' case below has been <b>returned for changes</b> by ' + by + '. Please update it in the CRM and submit it again.'));
+  else h.push(p('Your ' + type + ' case below has been <b>rejected</b> by ' + by + '.'));
+  if(kind !== 'submit' && o.comment) h.push(p('Comment: ' + e(naShort_(o.comment, 400))));
+  var acc = e(naShort_(o.account, 120)) + (o.code ? ' (' + e(o.code) + ')' : '') + (o.accType || o.province ? ', ' + e([o.accType, o.province].filter(String).join(', ')) : '');
+  var t = [];
+  t.push(row('Case', e(o.type === 'new_sku' ? 'New SKU' : 'New account') + (o.kpi ? ' · KPI ' + e(o.kpi) : '') + (o.month ? ' · ' + e(String(o.month).replace(/^(\d{4})(\d{2})$/, '$2/$1')) : '')));
+  t.push(row('Account', acc));
+  t.push(row('Distributor', e(naShort_(o.npp, 80)) + (o.orderDate ? ' (confirmed ' + e(o.orderDate) + ')' : '') + (o.orderNo ? ' · ' + e(o.orderNo) : '')));
+  if(o.sku || o.ptype) t.push(row('Products', e(naShort_((o.ptype ? o.ptype + ' · ' : '') + naSkuShort_(o.sku), 160))));
+  if(o.qty || o.amount) t.push(row('Qty / amount', (o.qty ? e(o.qty) : '—') + ' / ' + (o.amount ? Number(o.amount).toLocaleString('en-US') : '—')));
+  if(kind === 'submit' && o.weekly) t.push(row('Visit history', e(naShort_(o.weekly, 120))));
+  var nt = naShort_(naNoteClean_(o.note), 300); if(nt) t.push(row('Note', e(nt)));
+  h.push('<table style="border-collapse:collapse;margin:0 0 14px;font-size:14px">' + t.join('') + '</table>');
+  var fs = o.files || [], inl = {};
+  (imgs || []).forEach(function(x){ inl[x.id] = x; });
+  if(fs.length){
+    h.push(p('<b>Evidence</b>'));
+    fs.forEach(function(f, i){
+      var u = 'https://drive.google.com/file/d/' + f.id + '/view', x = inl[f.id];
+      h.push('<div style="margin:0 0 12px">' + (i + 1) + '. ' + e(naKindLabel_(f.kind)) + ' · <a href="' + u + '">' + e(naShort_(f.name || 'open file', 60)) + '</a>' +
+        (x ? '<br><img src="cid:' + x.cid + '" style="max-width:560px;height:auto;border:1px solid #DDD;margin-top:6px" alt="' + e(naKindLabel_(f.kind)) + '">' : '') + '</div>');
+    });
+  } else if(kind === 'reject' && o.rejectedFiles && o.rejectedFiles.length){
+    h.push(p('Removed: ' + e(naShort_(o.rejectedFiles.join(', '), 200))));
+  }
+  h.push(p((kind === 'submit' ? 'Approve or reject: ' : 'Open the case: ') + '<a href="' + link + '">' + link + '</a>'));
+  h.push(p('Best regards,<br>' + e(kind === 'submit' ? o.pic : (o.decBy || user.pic)) + '<br>' + e(NA_ENV.teamLabel()) + ', MANI Medical Hanoi'));
+  h.push('<div style="margin-top:16px;font-size:12px;color:#777">Sent by MMH CRM · case ' + e(o.id) + '</div></div>');
+  return h.join('');
+}
+/* SKU dán cả phiếu xác nhận đơn ⇒ chỉ lấy "MÃ × SL" (vd. "EX-SS14 * 1 set 450" ⇒ "EX-SS14 × 1"); không nhận ra mã nào ⇒ giữ chữ, cắt ngắn */
+function naSkuShort_(s){
+  s = String(s == null ? '' : s); var out = [], seen = {}, re = /\b([A-Z][A-Z0-9]{0,6}(?:[-\/][A-Z0-9]{1,8})+|[A-Z]{2,}[0-9]{2,}[A-Z0-9]*)\s*[*x×]\s*(\d+)/g, m;
+  while((m = re.exec(s))){ var k = m[1] + ' × ' + m[2]; if(!seen[k]){ seen[k] = 1; out.push(k); } }
+  return out.length ? out.join(', ') : s.replace(/\n/g, ', ');
+}
+function naSubjEn_(o, kind){
+  var t = o.type === 'new_sku' ? 'New SKU' : 'New Account', a = naShort_(o.account, 70);
+  var head = kind === 'submit' ? 'Approval Request' : kind === 'approve' ? 'Approved' : kind === 'return' ? 'Returned for Changes' : 'Rejected';
+  return '[MMH CRM] ' + head + ': ' + t + ' – ' + a + ' (' + o.pic + ')';
+}
 function naKindLabel_(k){ return k === 'dist' ? naL_('Xác nhận NPP', 'Distributor confirmation') : k === 'order' ? naL_('Chứng từ đơn hàng', 'Order document') : k === 'tender' ? naL_('Thông báo trúng thầu', 'Tender award') : naL_('Khác', 'Other'); }
 function naSendMail_(o, kind, user, to, cc, wk){
   var out = { ok:false };
   try{
-    var subj = (kind === 'submit' ? naL_('[MMH CRM] Xin xác nhận ', '[MMH CRM] Approval request · ') : kind === 'approve' ? naL_('[MMH CRM] ĐÃ XÁC NHẬN ', '[MMH CRM] APPROVED · ') : kind === 'return' ? naL_('[MMH CRM] CẦN BỔ SUNG ', '[MMH CRM] CHANGES REQUESTED · ') : naL_('[MMH CRM] KHÔNG XÁC NHẬN ', '[MMH CRM] REJECTED · ')) +
-      naTypeLabel_(o.type) + ' · ' + o.account + ' · ' + o.pic + (o.month ? ' · ' + o.month : '');
+    var subj = NA_ENV.lang() === 'en' ? naSubjEn_(o, kind) : ((kind === 'submit' ? naL_('[MMH CRM] Xin xác nhận ', '[MMH CRM] Approval request · ') : kind === 'approve' ? naL_('[MMH CRM] ĐÃ XÁC NHẬN ', '[MMH CRM] APPROVED · ') : kind === 'return' ? naL_('[MMH CRM] CẦN BỔ SUNG ', '[MMH CRM] CHANGES REQUESTED · ') : naL_('[MMH CRM] KHÔNG XÁC NHẬN ', '[MMH CRM] REJECTED · ')) +
+      naTypeLabel_(o.type) + ' · ' + o.account + ' · ' + o.pic + (o.month ? ' · ' + o.month : ''));
     /* ảnh ⇒ nhúng trong thân email (cid:), file khác ⇒ đính kèm */
     var att = [], size = 0, skipped = 0, imgs = [], inl = {};
     if(kind !== 'reject') (o.files || []).forEach(function(f, i){
