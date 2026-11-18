@@ -1,0 +1,21 @@
+name: msc probe (tạm)
+on:
+  push:
+    branches: [claude/nice-brown-m3e3tu]
+    paths: [tools/msc/bot.mjs, .github/workflows/msc-probe.yml]
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: |
+          mkdir -p /tmp/pw && cd /tmp/pw && npm init -y >/dev/null && npm i playwright@1.48.2 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+      - env: { WT_OUT: /tmp/pw/wt-out, WT_DRY: 'IB2600177513 IB2600177303', WT_DBG: '1', WT_PAR: '1' }
+        run: cp tools/msc/bot.mjs /tmp/pw/ && cd /tmp/pw && node bot.mjs; ls -la /tmp/pw/wt-out | head -40
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: probe, path: /tmp/pw/wt-out/, retention-days: 2, if-no-files-found: ignore }

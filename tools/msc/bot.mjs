@@ -293,6 +293,14 @@ async function ensureValues(pg, url, re, tabs) {
 }
 /* nút "Tải TBMT" (và "Tải KQLCNT" / "Tải KHLCNT" nếu có): trang tự dựng PDF bằng pdfmake trên trình duyệt (file như người dùng tải tay).
    Bắt file theo 3 đường: sự kiện download · móc pdfMake.createPdf lấy base64 · trang mới (blob:) ⇒ không được thì mới in trang. */
+
+/* chẩn đoán (WT_DBG=1): liệt kê nút / link có chữ Tải / Xuất / In đang hiện */
+async function dbgBtns(pg, label) {
+  if (!process.env.WT_DBG) return;
+  const L = await pg.evaluate(() => [...document.querySelectorAll('button,a,[role=button],span,div')].filter(e => e.offsetParent && e.children.length <= 2 && /^(Tải|Xuất|In |Download|Quyết định|.*\.pdf$)/i.test((e.innerText || '').trim()) && (e.innerText || '').trim().length < 90)
+    .map(e => e.tagName + '.' + String(e.className || '').slice(0, 30) + ' "' + (e.innerText || '').trim().replace(/\s+/g, ' ') + '"').filter((x, i, a) => a.indexOf(x) === i).slice(0, 25)).catch(() => []);
+  say('    [dbg ' + label + '] ' + L.join(' | '));
+}
 async function pagePdf(pg, ctx2, sec, type, re) {
   if (!wants(ctx2, sec)) return true;
   // phần tử NHỎ NHẤT đang hiện có chữ đúng "Tải TBMT"… (không lấy khối cha chứa cả đoạn chữ)
@@ -412,6 +420,7 @@ async function doJob(pg, job, cap) {
     const put = (k, v) => { if (v && !info.fields[k]) info.fields[k] = v; };
     put('Ngày đăng tải', pk.posted); put('Thời điểm đóng thầu', pk.close);
     if (!info.planNo) info.planNo = info.fields['Mã KHLCNT'] || '';
+    await dbgBtns(pg, 'TBMT');
     if (!(await pagePdf(pg, c, 'tbmt', 'Thông báo mời thầu', /^Tải\s*(TBMT|thông báo)/i))) await printPage(pg, c, 'tbmt', 'Thông báo mời thầu');
     await attachments(pg, c, 'tbmt', '');
     if (wants(c, 'hsmt') && await clickTab(pg, 'Hồ sơ mời thầu')) {   // bảng chương HSMT tải chậm ⇒ chờ tới khi có tên file trong bảng
@@ -429,6 +438,7 @@ async function doJob(pg, job, cap) {
     if (await clickTab(pg, 'Kết quả lựa chọn nhà thầu')) {
       await waitText(pg, 'Xuất Excel|Quyết định phê duyệt|Nhà thầu trúng', 25000); await pg.waitForTimeout(1200); await closePopups(pg);
       info.kqFields = await readFields(pg); delete info.kqFields._pkgs;
+      await dbgBtns(pg, 'KQ');
       if (!(await pagePdf(pg, c, 'kq', 'Kết quả lựa chọn nhà thầu', /^Tải\s*(KQLCNT|KQ\s*LCNT|kết quả)/i))) await printPage(pg, c, 'kq', 'Kết quả lựa chọn nhà thầu');
       await attachments(pg, c, 'kq', '');
       await excels(pg, c, 'kq');
