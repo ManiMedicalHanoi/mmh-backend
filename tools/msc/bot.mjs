@@ -134,7 +134,7 @@ async function readFields(pg) {
       const hr = [...tb.querySelectorAll('tr')].find(tr => tr.querySelector('th') && /Giá gói thầu/.test(tr.innerText)) || tb.querySelector('tr');
       const head = [...hr.querySelectorAll('th,td')].map(th => th.innerText.trim().replace(/\s*\(VND\)\s*$/, ''));
       const rows = [...tb.querySelectorAll('tr')].filter(tr => tr !== hr && !tr.querySelector('th')).map(tr => [...tr.querySelectorAll('td')].map(td => td.innerText.trim())).filter(r => r.length >= Math.min(head.length - 2, 6));
-      o._pkgs = rows.slice(0, 30).map(r => { const x = {}; head.forEach((h, i) => { if (h && r[i] != null && !x[h]) x[h] = r[i].slice(0, 300); }); return x; });
+      o._pkgs = rows.slice(0, 30);
     }
     return o;
   }, KNOWN).catch(() => ({}));
@@ -157,6 +157,20 @@ async function labelOf(el) {
     }
     return '';
   }).catch(() => '');
+}
+/* 1 dòng bảng "Danh sách gói thầu" (KHLCNT): tiêu đề 2 tầng làm lệch cột ⇒ nhận theo nội dung ô */
+function pkgRow(r) {
+  const o = {}, dur = [];
+  r.forEach(v => {
+    if (!o['Giá gói thầu'] && /^\d{1,3}(\.\d{3}){2,}$/.test(v)) o['Giá gói thầu'] = v;
+    else if (!o['Hình thức LCNT'] && /^(Đấu thầu|Chào hàng|Chỉ định|Mua sắm trực tiếp|Tự thực hiện|Đàm phán|Lựa chọn nhà thầu trong trường hợp đặc biệt)/i.test(v)) o['Hình thức LCNT'] = v;
+    else if (!o['Phương thức LCNT'] && /giai đoạn|túi hồ sơ/i.test(v)) o['Phương thức LCNT'] = v;
+    else if (!o['Loại hợp đồng'] && /^(Trọn gói|Đơn giá|Theo thời gian|Theo chi phí|Theo kết quả|Hỗn hợp)/i.test(v)) o['Loại hợp đồng'] = v;
+    else if (/^\d+([.,]\d+)?\s*(tháng|ngày|năm|tuần)$/i.test(v)) dur.push(v);
+    else if (!o['Chi tiết nguồn vốn'] && /(nguồn|vốn|ngân sách|quỹ|thu sự nghiệp)/i.test(v) && v.length > 12) o['Chi tiết nguồn vốn'] = v;
+  });
+  if (dur.length) o['Thời gian thực hiện gói thầu'] = dur[dur.length - 1];   // ô thời gian cuối = thời gian thực hiện (trước là thời gian tổ chức LCNT)
+  return o;
 }
 const extOf = n => ((String(n).match(/\.([a-z0-9]{2,5})$/i) || [])[1] || '').toLowerCase();
 function docName(no, label, ext, used) {
@@ -187,7 +201,8 @@ async function attachments(pg, ctx2, sec, prefix) {
     for (const e of document.querySelectorAll('tags.tags-fileAttach, body a, body span, body div, body td, body p, body li, body button')) {
       if (!e.offsetParent || e.closest('[data-wtf]') || e.querySelector('[data-wtf]')) continue;
       const t = (e.innerText || '').trim();
-      if (e.matches('tags.tags-fileAttach') || (RX.test(t) && t.length < 250 && ![...e.children].some(c => RX.test((c.innerText || '').trim())))) e.setAttribute('data-wtf', String(n++));
+      if (!t || t.length > 250) continue;
+      if (e.matches('tags.tags-fileAttach') || (RX.test(t) && ![...e.children].some(c => RX.test((c.innerText || '').trim())))) e.setAttribute('data-wtf', String(n++));
     }
   }).catch(() => {});
   const items = pg.locator('[data-wtf]');
@@ -261,7 +276,7 @@ async function doJob(pg, job, cap) {
   if (pk.plan) {   // Kế hoạch lựa chọn nhà thầu
     await waitValues(pg, 'PL\\d{6}'); await closePopups(pg);
     info.fields = await readFields(pg);
-    const F = info.fields, PK = F._pkgs || [], P0 = PK[0] || {}; delete F._pkgs;
+    const F = info.fields, PK = F._pkgs || [], P0 = pkgRow(PK[0] || []); delete F._pkgs;
     info.pkgs = PK.length; if (DRY) info._p0 = P0;
     const put = (k, v) => { if (v && !F[k]) F[k] = v; };
     put('Giá gói thầu', F['Dự toán mua sắm'] || pk.price); put('Ngày đăng tải', pk.posted || F['Thời gian đăng tải']);
@@ -283,7 +298,10 @@ async function doJob(pg, job, cap) {
     if (!info.planNo) info.planNo = info.fields['Mã KHLCNT'] || '';
     await printPage(pg, c, 'tbmt', 'Thông báo mời thầu');
     await attachments(pg, c, 'tbmt', '');
-    if (await clickTab(pg, 'Hồ sơ mời thầu')) { await waitText(pg, 'Chương|Phần', 15000); await attachments(pg, c, 'tbmt', 'HSMT'); }
+    if (await clickTab(pg, 'Hồ sơ mời thầu')) {   // bảng chương HSMT tải chậm ⇒ chờ tới khi có tên file trong bảng
+      await pg.waitForFunction(() => [...document.querySelectorAll('td')].some(td => td.offsetParent && /\.(pdf|docx?|xlsx?|zip|rar)\s*$/i.test(td.innerText)), null, { timeout: 20000 }).catch(() => say('    · tab HSMT chưa hiện file'));
+      await attachments(pg, c, 'tbmt', 'HSMT');
+    }
     if (await clickTab(pg, 'Kết quả lựa chọn nhà thầu')) {
       await waitText(pg, 'Xuất Excel|Quyết định phê duyệt|Nhà thầu trúng', 25000); await pg.waitForTimeout(1200); await closePopups(pg);
       info.kqFields = await readFields(pg); delete info.kqFields._pkgs;
