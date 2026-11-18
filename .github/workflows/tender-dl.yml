@@ -46,6 +46,8 @@ jobs:
           if [ -z "$WT_BOT_KEY" ]; then echo "Chưa có secret WT_BOT_KEY — bỏ qua."; echo "n=0" >> "$GITHUB_OUTPUT"; exit 0; fi
           N=$(curl -sSL --max-time 90 -H 'Content-Type: application/json' -d "{\"action\":\"botPeek\",\"key\":\"$WT_BOT_KEY\",\"bot\":\"github-actions\"}" "$URL" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const j=JSON.parse(s);console.log(j.ok?j.n:0); if(!j.ok) console.error(j.error||s.slice(0,200));}catch(e){console.log(0);console.error(s.slice(0,200));}})")
           echo "Gói cần tải: $N"; echo "n=$N" >> "$GITHUB_OUTPUT"
+          # gộp ngay 2 file tổng (Danh sách hàng hóa / nhà thầu đã tải) — không chờ hết lượt
+          curl -sSL --max-time 330 -H 'Content-Type: application/json' -d "{\"action\":\"botMerge\",\"key\":\"$WT_BOT_KEY\"}" "$URL" | head -c 800; echo
       - name: Cài trình duyệt
         if: steps.peek.outputs.n != '0'
         run: |

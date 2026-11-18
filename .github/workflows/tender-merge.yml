@@ -1,0 +1,31 @@
+name: Theo dõi gói thầu — gộp file tổng
+# Gộp ngay "Danh sách hàng hóa" / "Danh sách nhà thầu" đã tải ⇒ 2 file tổng ở thư mục "Tự động tải thông tin thầu" (tender-info ▸ MMH_WatchMerge.gs, action botMerge).
+# Máy chủ vẫn tự gộp 15 phút / lần + đầu / cuối mỗi lượt bot — workflow này để chạy tay khi cần ngay. requeue = dọn bản in trang cũ + tải lại gói Đã tải trước mốc.
+on:
+  workflow_dispatch:
+    inputs:
+      force: { description: 'Gộp lại tất cả (1) hay chỉ file mới (để trống)', required: false, default: '' }
+      requeue: { description: 'Dọn bản in trang cũ + tải lại gói Đã tải trước mốc (vd. 2026-11-18 12:00:00) — để trống nếu không cần', required: false, default: '' }
+permissions: { contents: read }
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      WT_BOT_KEY: ${{ secrets.WT_BOT_KEY }}
+      FORCE: ${{ github.event.inputs.force }}
+      RQ: ${{ github.event.inputs.requeue }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { sparse-checkout: backends.json, sparse-checkout-cone-mode: false }
+      - name: Gộp
+        run: |
+          URL=$(node -e "console.log(require('./backends.json')['tender-info'].url)")
+          post() { curl -sSL --max-time 340 -H 'Content-Type: application/json' -d "$1" "$URL" | head -c 2000; echo; }
+          if [ -n "$RQ" ]; then post "$(node -e "console.log(JSON.stringify({action:'botRequeue',key:process.env.WT_BOT_KEY,before:process.env.RQ,run:1}))")"; fi
+          for i in 1 2 3 4 5 6; do
+            R=$(post "$(node -e "console.log(JSON.stringify({action:'botMerge',key:process.env.WT_BOT_KEY,force:process.env.FORCE?1:0}))" )")
+            echo "Lượt $i: $R"
+            echo "$R" | grep -q '"left":0' && break
+            echo "$R" | grep -q '"busy":true' && sleep 60
+          done
