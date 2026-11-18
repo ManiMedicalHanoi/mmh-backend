@@ -87,6 +87,17 @@ function ehDriveDiag_(p){
         return cut(sh.getName(), 40) + (sh.isSheetHidden() ? ' (ẩn)' : '') + ' · ' + lr + '×' + sh.getLastColumn() + (hd ? ' · ' + hd : '');
       });
     }
+    else if (part === 'tab'){   /* 18/11/2026: đọc nội dung 1 tab (chỉ đọc, che SĐT / email) · id = file (mặc định file Report Hub Marketing) · name = tên tab chứa chữ · off / n dòng */
+      var ss2 = SpreadsheetApp.openById(String(p.id || SS_ID)), nm = String(p.name || '').toLowerCase(), sh2 = null;
+      ss2.getSheets().forEach(function(x){ if (!sh2 && x.getName().toLowerCase().indexOf(nm) >= 0) sh2 = x; });
+      if (!sh2) return { ok:false, error:'Không thấy tab', tabs: ss2.getSheets().map(function(x){ return x.getName(); }) };
+      var off = Math.max(1, +p.off || 1), n = Math.min(120, +p.n || 60), lr2 = sh2.getLastRow(), lc2 = Math.min(+p.cols || 26, sh2.getLastColumn());
+      out.file = ss2.getName(); out.tab = sh2.getName(); out.size = lr2 + '×' + sh2.getLastColumn();
+      out.rows = lr2 >= off ? sh2.getRange(off, 1, Math.min(n, lr2 - off + 1), lc2).getDisplayValues().map(function(r, i){
+        while (r.length && !String(r[r.length - 1]).trim()) r.pop();
+        return (off + i) + ': ' + r.map(function(x){ return cut(safe(x), +p.w || 40); }).join(' ¦ ');
+      }).filter(function(x){ return !/^\d+: $/.test(x); }) : [];
+    }
     else if (part === 'cust'){
       var t = evsReadTab_(SpreadsheetApp.openById(EVS_OFF_ID), ['CUSTOMER LIST'], 'Tel');
       if (!t) return { ok:false, error:'Không có tab CUSTOMER LIST' };
