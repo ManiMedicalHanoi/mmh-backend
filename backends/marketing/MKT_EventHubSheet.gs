@@ -60,6 +60,12 @@ function ehTplBlank_(fileId){
       }
     }
     for (var k = 0; k < cl.length; k += 400) sh.getRangeList(cl.slice(k, k + 400)).clearContent();
+    /* dòng tiêu đề / tiêu đề phụ còn ghi ngày của sự kiện cũ, vd. "Ngày 1 (09/11/2026)" ⇒ bỏ phần ngày */
+    var DRE = /\s*\(?\s*\d{1,2}\s*\/\s*\d{1,2}(\s*\/\s*\d{2,4})?(\s*[-–]\s*\d{1,2}(\s*\/\s*\d{1,2})?(\s*\/\s*\d{2,4})?)?\s*\)?/g;
+    for (var i2 = 0; i2 <= Math.max(keepTo, 0) && i2 < lr; i2++) for (var j2 = 0; j2 < lc; j2++){
+      var sv = V[i2][j2]; if (typeof sv !== 'string' || F[i2][j2] || !/\d{1,2}\s*\/\s*\d{1,2}/.test(sv)) continue;
+      var nv = sv.replace(DRE, '').replace(/\s{2,}/g, ' ').trim(); if (nv !== sv){ sh.getRange(i2 + 1, j2 + 1).setValue(nv); n++; }
+    }
     rep.push(sh.getName() + ': xoá ' + n + ' ô' + (hdr >= 0 ? ' (giữ đến dòng ' + (keepTo + 1) + ')' : ''));
   });
   PropertiesService.getScriptProperties().setProperty('EH_TPL_BLANK_' + fileId, ehNow_());

@@ -661,3 +661,9 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
 - **18/11/2026 — Event Hub v2.2: nối app Sự kiện ⇄ Report Hub CHỈ ĐỌC (`marketing/MKT_EventHubRH.gs`)**: `ehBoot` trả `rhk` = Key task Report Hub trùng tên sự kiện (`ehRhKeys_`, đọc `readWeekly`, đệm 5 phút) ⇒ app hiện key + số sub-task.
   `evList` (Report Hub gợi ý tên key) thêm sự kiện tạo trên app (`src:'APP'`) + `eh` (mã sự kiện) / `u` (link app) / `f` (folder) ⇒ Report Hub v20.0 cảnh báo trùng Key task THEO SỰ KIỆN ở mọi tháng, vẫn cho tạo (người dùng chốt).
   KHÔNG chép việc của app sang sheet WEEKLY (vẫn `EH_HUB_LINK = false`).
+- **18/11/2026 — Event Hub v2.3: DUYỆT ẤN PHẨM / BÀI ĐĂNG 3 CẤP (`marketing/MKT_EventHubApv.gs`, người dùng chốt)**: tab **APPROVALS** (file Event Hub). Minh Trang (bài đăng) / Đức Anh (thiết kế, designer ngoài) nộp
+  ⇒ file nháp vào **MKT Online ▸ Draft ▸ Sự kiện/<tên> | Sản phẩm/<nhóm> | Khác** (`ehUpload` + `apvId`) ⇒ ① Thương ⇒ ② Giang xác nhận nội dung (email người làm, CC Thương · Nguyen Ha · Tuyen) ⇒ ③ chị Tuyên duyệt cuối
+  (`EH_APV.STEPS`, đổi bằng Script Property `EH_APV_STEPS`). Thiết kế duyệt xong ⇒ file CHUYỂN (moveTo) vào folder bản cuối: sản phẩm = folder kho Product Data (`EH_APV.PD` = FOLDER_MAP của app Product Data, nhóm SP × loại),
+  sự kiện = Event Access của sự kiện. Bài đăng ⇒ "Chờ đăng" ⇒ người làm dán link (`apv.post`) ⇒ "Đã đăng" (chỉ lưu link; không ghi vào file MKT Online report). Trả lại cần nhận xét ⇒ về người làm, nộp lại bắt đầu từ ①.
+  ehSave op `apv.add` (`later:1` = chờ tải file xong mới báo) · `apv.submit` · `apv.decide` (approve|return, note) · `apv.resubmit` · `apv.post` · `apv.delete`; boot trả `apv` / `apvSteps` / `pdCats` / `docTypes` / `online`.
+  Thông báo: email `mmhMail_` + RH_Notify (link `#apv-<id>`). v2.1 file mẫu: bỏ ngày cũ trong dòng tiêu đề phụ ("Ngày 1 (09/11/2026)" ⇒ "Ngày 1").

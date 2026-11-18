@@ -39,7 +39,9 @@ function ehBootBuild_(ss){
            checkins: ehRead_(ss, 'CHECKINS').slice(-400).map(ehClean2_),
            partners: ehRead_(ss, 'PARTNERS').map(ehClean2_), pnotice: ehRead_(ss, 'PNOTICE').slice(-500).map(ehClean2_),   /* v1.8 */ notify: ehRead_(ss, 'NOTIFY').slice(-150).map(ehClean2_), plan: plan, people: ehPeople_(),
            roles: EH.ROLES, status: EH.STATUS, groups: tpl.filter(function(t){ return /lớn/i.test(ehS_(t.kind)); }).map(function(t){ return { group: t.group, role: t.role }; }),
-           book: ss.getUrl(), filesUrl: ehFilesRoot_().getUrl(), mgrs: ehMgrs_(ss), builtAt: ehNow_() };
+           book: ss.getUrl(), filesUrl: ehFilesRoot_().getUrl(), mgrs: ehMgrs_(ss), builtAt: ehNow_(),
+           apv: (function(){ try { return ehApvList_(ss); } catch(e){ return []; } })(), apvSteps: ehApvSteps_(), pdCats: Object.keys(EH_APV.PD), docTypes: EH_APV.DOC,   /* v2.3 */
+           online: 'https://drive.google.com/drive/folders/' + EH_DIR.ONLINE };
 }
 function ehBootWarm_(){
   if (ehBigGet_('eh_boot')) return 'warm';
