@@ -38,6 +38,12 @@ function ehPlanTpl_(type){
 function ehFoldersApi_(p){
   var ss = ehBook_(), me = ehMe_(p, ss); if (me.err && String(p.key || '') !== ehKey_()) return { ok:false, code:'AUTH', error: me.err };
   var op = String(p.op || ''), boss = me.manager || String(p.key || '') === ehKey_();
+  if (op === 'tplblank'){   /* v2.1: làm trắng file mẫu hiện tại (chỉ bản sao trong folder _MẪU) */
+    if (!boss) return { ok:false, code:'PERM', error:'Chỉ quản lý được sửa file mẫu.' };
+    var bid = (/[-\w]{25,}/.exec(String(p.id || '')) || [])[0] || ehPlanTpl_(''); if (!bid) return { ok:false, error:'Chưa có file mẫu.' };
+    try { if (DriveApp.getFileById(bid).getName().indexOf('(xoá nội dung cũ') > 0) DriveApp.getFileById(bid).setName('MẪU · File kế hoạch sự kiện'); } catch(e){}
+    return ehTplBlank_(bid);
+  }
   if (op === 'tpl' || op === 'tplmake'){
     if (!boss) return { ok:false, code:'PERM', error:'Chỉ quản lý được đặt file mẫu.' };
     var m = /[-\w]{25,}/.exec(String(p.id || '')); if (!m) return { ok:false, error:'Dán link file Google Sheet.' };
@@ -45,7 +51,10 @@ function ehFoldersApi_(p){
     var kind = /^(EXHIBITION|SEMINAR|WORKSHOP)$/.test(String(p.kind || '')) ? '_' + p.kind : '';
     if (op === 'tplmake'){   /* chép 1 file kế hoạch có sẵn thành file MẪU (tên không bắt đầu bằng ngày ⇒ đồng bộ bỏ qua) — người dùng xoá nội dung cũ 1 lần, giữ bố cục */
       var dir = DriveApp.getFolderById(EH.ROOT), it = dir.getFoldersByName('_MẪU file kế hoạch'), md = it.hasNext() ? it.next() : dir.createFolder('_MẪU file kế hoạch');
-      f = f.makeCopy('MẪU · File kế hoạch sự kiện' + (kind ? ' · ' + kind.slice(1) : '') + ' (xoá nội dung cũ, giữ bố cục)', md);
+      f = f.makeCopy('MẪU · File kế hoạch sự kiện' + (kind ? ' · ' + kind.slice(1) : ''), md);
+      var bl = ehTplBlank_(f.getId());   /* v2.1: làm trắng nội dung, giữ bố cục */
+      PropertiesService.getScriptProperties().setProperty('EH_PLAN_TPL' + kind, f.getId());
+      return { ok:true, tpl: { id: f.getId(), name: f.getName(), url: f.getUrl(), kind: kind.slice(1) }, blank: bl };
     }
     PropertiesService.getScriptProperties().setProperty('EH_PLAN_TPL' + kind, f.getId());
     return { ok:true, tpl: { id: f.getId(), name: f.getName(), url: f.getUrl(), kind: kind.slice(1) } };
@@ -82,7 +91,8 @@ function ehMakeEvFolder_(ev, place){
   var note = '';
   var tid = ehPlanTpl_(ev.type);
   if (tid){
-    try { var cp = DriveApp.getFileById(tid).makeCopy(name, subs['Plan']); ev.planFileId = cp.getId(); ev.planUrl = cp.getUrl(); }
+    try { var cp = DriveApp.getFileById(tid).makeCopy(name, subs['Plan']); ev.planFileId = cp.getId(); ev.planUrl = cp.getUrl();
+      ehAutoPlanAdd_(cp.getId()); try { ehPlanFill_(ev); } catch(e2){ note = 'Chưa ghi được thông tin vào file tổng: ' + String(e2.message || e2).slice(0, 100); } }
     catch(e){ note = 'Chưa chép được file mẫu: ' + String(e.message || e).slice(0, 120); }
   } else note = 'Chưa đặt file Google Sheet mẫu (Cài đặt ▸ File mẫu) — folder Plan đang trống.';
   return { folder: fo.getUrl(), where: where, plan: ev.planUrl || '', note: note };
