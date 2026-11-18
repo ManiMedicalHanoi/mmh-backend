@@ -143,20 +143,33 @@ function rsResolve_(link) {
 function rsRespSheet_(ss, formId) {
   var all = ss.getSheets(), hit = null;
   all.forEach(function (sh) { var u = ''; try { u = sh.getFormUrl() || ''; } catch (x) {} if (!hit && u && (!formId || u.indexOf(formId) >= 0)) hit = sh; });
-  return hit || all[0];
+  if (hit) return hit;
+  /* Sheet không nối form: chọn trang tính nhiều dữ liệu nhất (trang đầu thường là trang tổng hợp / biểu đồ) */
+  var best = all[0], sc = -1;
+  all.forEach(function (sh) { try { if (sh.isSheetHidden()) return; var v = sh.getLastRow() * Math.min(sh.getLastColumn(), 30); if (v > sc) { sc = v; best = sh; } } catch (x) {} });
+  return best;
+}
+/* dòng tiêu đề câu hỏi: dòng đầu tiên trong 10 dòng có nhiều ô chữ (file có dòng tên khảo sát / ghi chú ở trên) */
+function rsHeadRow_(sh) {
+  var lr = sh.getLastRow(), lc = sh.getLastColumn(); if (lr < 2 || lc < 1) return 1;
+  var V = sh.getRange(1, 1, Math.min(10, lr), lc).getValues();
+  var cnt = V.map(function (r) { return r.filter(function (x) { return typeof x === 'string' && x.trim() !== ''; }).length; });
+  var mx = Math.max.apply(null, cnt); if (mx < 2) return 1;
+  for (var i = 0; i < cnt.length; i++) if (cnt[i] >= Math.max(2, mx * 0.6)) return i + 1;
+  return 1;
 }
 function rsCount_(e) {
   var c = CacheService.getScriptCache(), k = 'rsc2_' + e.id;
   try { var h = c.get(k); if (h) return JSON.parse(h); } catch (x) {}
   var out = { n: 0, last: '', today: 0, days: [], recent: [] }, ts = [], hosp = [];
   if (e.sheetId) {
-    var sh = rsRespSheet_(SpreadsheetApp.openById(e.sheetId), e.formId), lr = sh.getLastRow(), lc = sh.getLastColumn();
-    out.n = Math.max(0, lr - 1);
-    if (lr > 1) {
-      var head = sh.getRange(1, 1, 1, Math.max(1, lc)).getValues()[0], hc = -1;
-      head.forEach(function (t, i) { if (hc < 0 && i > 0 && /bệnh viện|phòng khám|cơ sở công tác|nơi công tác/i.test(rsS_(t))) hc = i; });
-      ts = sh.getRange(2, 1, lr - 1, 1).getValues().map(function (r) { return rsTs_(r[0]); });
-      if (hc >= 0) hosp = sh.getRange(2, hc + 1, lr - 1, 1).getValues().map(function (r) { return rsS_(r[0]).slice(0, 60); });
+    var sh = rsRespSheet_(SpreadsheetApp.openById(e.sheetId), e.formId), lr = sh.getLastRow(), lc = sh.getLastColumn(), hr = rsHeadRow_(sh);
+    out.n = Math.max(0, lr - hr);
+    if (lr > hr) {
+      var head = sh.getRange(hr, 1, 1, Math.max(1, lc)).getValues()[0], hc = -1;
+      head.forEach(function (t, i) { if (hc < 0 && i > 0 && /bệnh viện|phòng khám|cơ sở công tác|nơi công tác|tên lab|đơn vị/i.test(rsS_(t))) hc = i; });
+      ts = sh.getRange(hr + 1, 1, lr - hr, 1).getValues().map(function (r) { return rsTs_(r[0]); });
+      if (hc >= 0) hosp = sh.getRange(hr + 1, hc + 1, lr - hr, 1).getValues().map(function (r) { return rsS_(r[0]).slice(0, 60); });
     }
   } else if (e.formId) {
     var rs = FormApp.openById(e.formId).getResponses(); out.n = rs.length;

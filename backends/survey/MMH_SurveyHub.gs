@@ -274,7 +274,8 @@ function rsSheetData_(e, me, cnt, pii) {
   var base = { ok: true, v: RS.VER, id: e.id, title: e.title || ss.getName(), n: 0, last: cnt.last, pii: pii, formUrl: '', editUrl: '',
     sheetUrl: 'https://docs.google.com/spreadsheets/d/' + e.sheetId + '/edit', accepting: false, src: 'sheet', questions: [], answers: [] };
   if (lr < 2 || lc < 1) return base;
-  var V = sh.getRange(1, 1, lr, lc).getValues(), H = V.shift().map(rsS_);
+  var hr = rsHeadRow_(sh); if (lr <= hr) return base;
+  var V = sh.getRange(hr, 1, lr - hr + 1, lc).getValues(), H = V.shift().map(rsS_);
   V = V.filter(function (r) { return r.some(function (x) { return rsS_(x) !== ''; }); });
   var tc = -1; H.forEach(function (h, i) { if (tc < 0 && /^(timestamp|dấu thời gian|thời gian|ngày giờ|ngày gửi|submitted at)$/i.test(h)) tc = i; });
   if (tc < 0 && V.length && rsTs_(V[0][0])) tc = 0;
