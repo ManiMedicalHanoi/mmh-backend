@@ -1,5 +1,7 @@
 /**
- * MMH_SurveyNative.gs v1.0 (18/11/2026) — HỆ THỐNG KHẢO SÁT RIÊNG CỦA MMH (không dùng Google Form), người dùng yêu cầu 18/11/2026:
+ * MMH_SurveyNative.gs v1.1 (18/11/2026; v1.1: mục tiêu khảo sát · thêm loại câu rating (sao) / date / number · mã QR PNG + SVG (MMH_QR.gs) ·
+ *   task Report Hub Marketing tự tạo khi tạo khảo sát (dưới Key task sự kiện) · trang gửi email Marketing khao-sat/gui.html: nsInfo / nsMailSend ⇒ email trang trọng
+ *   (To Thuong + Trang, CC Tuyen + Nguyen Ha — tra email theo RH_Users) kèm QR, link khảo sát, link kết quả ⇒ task Report Hub Completed) — HỆ THỐNG KHẢO SÁT RIÊNG CỦA MMH (không dùng Google Form), người dùng yêu cầu 18/11/2026:
  *   - Trang trả lời theo phong cách MANI (trang tĩnh GitHub Pages `Training-Hub/khao-sat/?s=<mã>`), kết quả vẫn ghi vào GOOGLE SHEET.
  *   - Bắt buộc trước câu hỏi: ① đồng ý xử lý dữ liệu cá nhân ② họ tên + số điện thoại (+ nơi công tác) ③ theo dõi page Facebook
  *     MANI Dental (khảo sát nha khoa) / MANI Ophthalmic (khảo sát nhãn khoa) — bấm nút ⇒ mở app Facebook ⇒ quay lại trang tự sang phần câu hỏi.
@@ -29,14 +31,16 @@
  *   consent: true | {title, text, agree:{q,v}, optional:[{q,v}]}  (mặc định SV_CONSENT của MMH_SurveyAPI.gs — luôn có, không tắt được),
  *   info: [{id, q, t:"text"|"phone"|"radio"|"list", options, required}]  (mặc định Họ và tên* · Số điện thoại* · Nơi công tác*), infoExtra: [...] (thêm sau mặc định),
  *   oncePerPhone (mặc định true: mỗi SĐT trả lời 1 lần), notify: ["email"] (email mỗi lượt trả lời), editors: ["email"],
+ *   objective: "mục tiêu khảo sát" (người dùng duyệt; in trong email gửi Marketing), owner: "<PIC người tạo>" (thiếu ⇒ người đăng nhập trang tao.html),
+ *   mail: {to:[PIC], cc:[PIC]} (mặc định NS.MAIL), task: false | {type, keyNo, keyName} (task Report Hub; mặc định tự tạo),
  *   sections: [{ id, title, help, go:"<id phần>"|"submit", questions: [ Q ] }]
  * }
- * Q = { id, t: "radio"|"checkbox"|"list"|"text"|"phone"|"paragraph"|"scale"|"grid"|"checkgrid"|"header",
+ * Q = { id, t: "radio"|"checkbox"|"list"|"text"|"phone"|"paragraph"|"scale"|"grid"|"checkgrid"|"rating"|"date"|"number"|"header",
  *       q, help, options:[ "…" | {v, go:"<id phần>"|"next"|"submit"} ], other, required (mặc định true; paragraph / header false), max,
- *       low, high, lowLabel, highLabel, rows, cols }
+ *       low, high, lowLabel, highLabel, rows, cols, max (rating: số sao 3–10, mặc định 5), min / max (number) }
  */
 var NS = {
-  VER: '1.0',
+  VER: '1.1',
   PAGE: 'https://manimedicalhanoi.github.io/Training-Hub/khao-sat/',
   TAB: 'Câu trả lời', SPEC_TAB: '_SPEC', PEOPLE_TAB: 'NGƯỜI THAM GIA KHẢO SÁT',
   PEOPLE_HEAD: ['Thời gian', 'Họ và tên', 'Số điện thoại', 'Nơi công tác', 'Khảo sát', 'Sự kiện', 'Nhóm', 'Đồng ý xử lý dữ liệu', 'Nhận thông tin từ MMH', 'Theo dõi page', 'Mã khảo sát', 'Mã lượt'],
@@ -44,7 +48,11 @@ var NS = {
     dental: { name: 'MANI Dental', url: 'https://www.facebook.com/share/1GQTtanSu9/', line: 'Cập nhật thông tin sản phẩm, hội thảo và kiến thức nha khoa' },
     ophthalmic: { name: 'MANI Ophthalmic', url: 'https://www.facebook.com/share/1KCCXDVW8x/', line: 'Cập nhật thông tin sản phẩm, hội thảo và kỹ thuật phẫu thuật nhãn khoa' }
   },
-  TYPES: ['radio', 'checkbox', 'list', 'text', 'phone', 'paragraph', 'scale', 'grid', 'checkgrid', 'header'],
+  TYPES: ['radio', 'checkbox', 'list', 'text', 'phone', 'paragraph', 'scale', 'grid', 'checkgrid', 'rating', 'date', 'number', 'header'],
+  SEND: 'https://manimedicalhanoi.github.io/Training-Hub/khao-sat/gui.html',
+  APP: 'https://manimedicalhanoi.github.io/mmh-library/survey/',
+  HUB_URL: 'https://script.google.com/macros/s/AKfycbzn-5chMgO7lQPKmot8P7UkP9C40MdCPtiTTa4H1gcKepVsnr1IYfcB7sSdK1_jrZYY/exec',   // Report Hub ▸ marketing
+  MAIL: { to: ['Thuong', 'Trang'], cc: ['Tuyen', 'Nguyen Ha'] },   // người dùng chọn 18/11/2026 (Trang ≠ Minh Trang)
   TZ: 'Asia/Ho_Chi_Minh', CHUNK: 45000
 };
 
@@ -110,6 +118,8 @@ function nsNorm_(spec, old) {
         if (!(o.high > o.low) || o.high - o.low > 10) throw new Error('SPEC: thang điểm câu "' + o.q.slice(0, 50) + '" sai');
         o.lowLabel = nsS_(q.lowLabel); o.highLabel = nsS_(q.highLabel);
       }
+      if (t === 'rating') { o.max = Math.max(3, Math.min(10, parseInt(q.max, 10) || 5)); o.lowLabel = nsS_(q.lowLabel); o.highLabel = nsS_(q.highLabel); }
+      if (t === 'number') { if (q.min != null && q.min !== '') o.min = Number(q.min); if (q.max != null && q.max !== '') o.max = Number(q.max); o.unit = nsS_(q.unit); }
       if (t === 'grid' || t === 'checkgrid') {
         o.rows = (q.rows || []).map(nsS_).filter(String); o.cols = (q.cols || []).map(nsS_).filter(String);
         if (!o.rows.length || o.cols.length < 2) throw new Error('SPEC: câu lưới "' + o.q.slice(0, 50) + '" thiếu hàng / cột');
@@ -139,11 +149,16 @@ function nsNorm_(spec, old) {
     v: 1, title: nsS_(spec.title), intro: nsS_(spec.intro), minutes: parseInt(spec.minutes, 10) || 0, confirmation: nsS_(spec.confirmation),
     grp: grp, prod: nsS_(spec.prod) || 'Chung', event: ev, page: page, followRequired: page !== 'none' && spec.followRequired !== false,
     consent: { title: nsS_(c.title), text: nsS_(c.text), agree: { q: nsS_(c.agree.q), v: nsS_(c.agree.v) }, optional: (c.optional || []).map(function (x) { return { q: nsS_(x.q), v: nsS_(x.v) }; }) },
+    objective: nsS_(spec.objective), owner: nsS_(spec.owner),
+    mail: { to: nsPics_((spec.mail || {}).to, NS.MAIL.to), cc: nsPics_((spec.mail || {}).cc, NS.MAIL.cc) },
+    task: spec.task === false ? false : (typeof spec.task === 'object' && spec.task ? { type: nsS_(spec.task.type), keyNo: nsS_(spec.task.keyNo), keyName: nsS_(spec.task.keyName) } : {}),
     info: info, oncePerPhone: spec.oncePerPhone !== false, open: old ? old.open !== false : spec.open !== false,
     notify: (spec.notify || []).map(nsS_).filter(function (x) { return /@/.test(x); }), editors: (spec.editors || []).map(nsS_).filter(function (x) { return /@/.test(x); }),
     sections: secs
   };
 }
+
+function nsPics_(v, def) { return (Array.isArray(v) ? v : v ? String(v).split(/\s*,\s*/) : def).map(nsS_).filter(String); }
 
 /* ---------- lưu / đọc (tab ẩn _SPEC, mỗi ô ≤ 45.000 ký tự) ---------- */
 function nsStoreSave_(ss, st) {
@@ -245,7 +260,11 @@ function nsCreate_(spec, by) {
   var url = nsLink_(code), sheetUrl = 'https://docs.google.com/spreadsheets/d/' + file.id + '/edit';
   try { rsAppend_({ id: file.id, formId: '', sheetId: file.id, title: sp.title + (sp.event.name ? ' · ' + sp.event.name : ''), by: by || 'MMH Survey', at: st.at, watch: [], told: 0, hidden: false, grp: sp.grp, prod: sp.prod, src: 'mmh' }); } catch (x) { console.warn('nsCreate_ rsAppend_: ' + x.message); }
   svLog_({ type: 'mmh-survey', title: sp.title, items: nsQs_(st).length, shortUrl: url, sheetUrl: sheetUrl, editUrl: '', summaryUrl: '', formId: code, sheetId: file.id });
-  return { ok: true, code: code, url: url, sheetUrl: sheetUrl, folderUrl: 'https://drive.google.com/drive/folders/' + folder.getId(), nq: nsQs_(st).length, page: sp.page, grp: sp.grp, prod: sp.prod };
+  /* task Report Hub cho người tạo (MMH_SurveyNotify.gs) — lỗi không chặn việc tạo khảo sát; trang gửi email tạo lại khi cần */
+  st.owner = nsS_(sp.owner || by);
+  if (sp.task !== false && st.owner) { try { st.task = nsHubTask_(st, st.owner); } catch (x) { st.taskErr = x.message; } nsStoreSave_(ss, st); }
+  return { ok: true, code: code, url: url, sheetUrl: sheetUrl, folderUrl: 'https://drive.google.com/drive/folders/' + folder.getId(), nq: nsQs_(st).length, page: sp.page, grp: sp.grp, prod: sp.prod,
+    send: NS.SEND + '?s=' + code, app: NS.APP + '#s=' + encodeURIComponent(file.id), owner: st.owner, task: st.task || null, taskErr: st.taskErr || '' };
 }
 function nsUpdate_(code, spec) {
   var L = nsLoad_(code, true); if (!L) throw new Error('Không có khảo sát mã ' + code);
@@ -326,6 +345,13 @@ function nsVal_(q, v) {
       });
       if (q.required && out.some(function (x) { return !x; })) throw { req: q };
       return out;
+    case 'rating':
+      var rt = parseInt(v, 10); if (!(rt >= 1 && rt <= q.max)) throw new Error('Số sao không hợp lệ ở câu: ' + q.q.slice(0, 60)); return rt;
+    case 'number':
+      var nb = Number(String(v).replace(/\s/g, '').replace(',', '.'));
+      if (!isFinite(nb) || (q.min != null && nb < q.min) || (q.max != null && nb > q.max)) throw new Error('Số chưa đúng ở câu: ' + q.q.slice(0, 60)); return nb;
+    case 'date':
+      var dm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(nsS_(v)); if (!dm) throw new Error('Ngày chưa đúng ở câu: ' + q.q.slice(0, 60)); return dm[3] + '/' + dm[2] + '/' + dm[1];
     case 'phone':
       var ph = nsPhone_(v); if (!ph) throw new Error('Số điện thoại chưa đúng ở câu: ' + q.q.slice(0, 60)); return ph;
     default: return nsS_(v).slice(0, q.t === 'paragraph' ? 5000 : 1000);
@@ -412,6 +438,7 @@ function nsRsData_(e, code, cnt, pii) {
     else if (q.t === 'checkbox') { o.t = 'checkbox'; o.opts = q.options.map(function (z) { return z.v; }); }
     else if (q.t === 'scale') { o.t = 'scale'; o.lo = q.low; o.hi = q.high; o.ll = q.lowLabel; o.hl = q.highLabel; for (var s = q.low; s <= q.high; s++) o.opts.push(String(s)); }
     else if (q.t === 'grid' || q.t === 'checkgrid') { o.t = q.t; o.rows = q.rows; o.cols = q.cols; }
+    else if (q.t === 'rating') { o.t = 'scale'; o.lo = 1; o.hi = q.max; o.ll = q.lowLabel || ''; o.hl = q.highLabel || ''; for (var s2 = 1; s2 <= q.max; s2++) o.opts.push(String(s2)); }
     else if (q.t === 'phone') o.pii = true;
     Q.push(o); M.push({ c: st.cols[q.id], t: q.t, opts: o.opts, pii: o.pii });
   });
@@ -442,12 +469,24 @@ function nsRoute_(a, p) {
       return m;
     }
     if (a === 'nsSubmit') return nsSubmit_(p);
+    /* nhân sự đăng nhập email (trang gui.html / tao.html): phiên tk của Training Hub */
+    var me = p.tk ? rsWho_(p.tk) : null; if (me && me.err) me = null;
+    if (a === 'nsInfo' || a === 'nsMailSend') {
+      if (!me) return { ok: false, code: 'AUTH', error: 'Cần đăng nhập email công ty (mở Report Hub / CRM / Training Hub trên trình duyệt này rồi tải lại trang).' };
+      return a === 'nsInfo' ? nsInfo_(nsS_(p.s), me) : nsMailSend_(nsS_(p.s), me, String(p.force) === '1');
+    }
     if (nsS_(p.key) !== nsKey_()) return { ok: false, error: 'KEY' };
     var spec = p.spec; if (typeof spec === 'string') { try { spec = JSON.parse(spec); } catch (x) { spec = null; } }
     if (!spec && p.pz) spec = svUnz_(p.pz);
-    if (a === 'nsCreate') return nsCreate_(spec, nsS_(p.by));
+    if (a === 'nsCreate') return nsCreate_(spec, me ? me.pic : nsS_(p.by));
     if (a === 'nsUpdate') return nsUpdate_(nsS_(p.s), spec);
     if (a === 'nsSet') return nsSetOpen_(nsS_(p.s), String(p.open) !== '0' && String(p.open) !== 'false');
+    if (a === 'nsTask') {  // tạo lại task Report Hub (khoá): s, owner?
+      var Lt = nsLoad_(nsS_(p.s), true); if (!Lt) return { ok: false, error: 'Không có mã ' + p.s };
+      var ow = nsS_(p.owner) || Lt.st.owner || Lt.st.by; Lt.st.owner = ow;
+      try { Lt.st.task = nsHubTask_(Lt.st, ow); Lt.st.taskErr = ''; } catch (x) { Lt.st.taskErr = x.message; }
+      nsStoreSave_(Lt.ss, Lt.st); nsDrop_(nsS_(p.s)); return { ok: !Lt.st.taskErr, task: Lt.st.task || null, error: Lt.st.taskErr || undefined };
+    }
     if (a === 'nsGet') { var L = nsLoad_(nsS_(p.s), true); return L ? { ok: true, code: p.s, spec: L.st.spec, cols: L.st.cols } : { ok: false, error: 'Không có mã ' + p.s }; }
     if (a === 'nsList') {
       var P = PropertiesService.getScriptProperties().getProperties(), out = [];
