@@ -587,3 +587,6 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   (`op=run` = thêm vào app + lối tắt; bỏ bài kiểm tra / form thử / form trống / form đăng ký; `off` theo `next`). `rsHub&op=status|sync` = xem / đồng bộ cây.
   Tốc độ (18/11/2026): cột "Số liệu (tự động)" = số câu trả lời / ngày lưu sẵn (`rsSnapSet_`) ⇒ `rsList` chỉ làm mới mục cũ > 10 phút trong ~7 giây, `rsTick` làm mới cả bảng; `rsData` đệm 6 giờ theo số câu trả lời.
   **Chọn tài liệu cần tải (18/11/2026, người dùng yêu cầu)**: app gửi `want` (tbmt · hsmt · kq · nt · hh · qd · kh, trống = tất cả) ở `wHit op=dl` / `wQuick` ⇒ `info.want` (`wtWant_`) ⇒ bot (`wants` / `keyOf`) chỉ in / tải / ghi loại đã chọn.
+  **Gói thầu theo bệnh viện (18/11/2026, người dùng: chọn bệnh viện ⇒ list gói ⇒ tải từng gói / nhiều gói)**: `wtdPkgBuild_` (trong `wtTick`, chỉ ghi lại khi 3 tab dữ liệu đổi — `WT_PKG_SIG`) ⇒ sheet ẩn
+  **THEO DÕI · GÓI THEO CĐT** (khoá CĐT · loại · số · tên · ngày · giá · giá trúng · nhà thầu · hình thức · tỉnh · số gói KH · nguồn · CĐT · dự án · mở thầu; xếp theo khoá CĐT rồi ngày mới trước).
+  `wPkgs {inv}` = gói của 1 CĐT (TextFinder cột A ⇒ chỉ đọc đúng đoạn) + trạng thái tải nếu đã có trong GÓI TÌM THẤY. `wGrab {inv, items:[{type,no}], want}` ⇒ thêm / đặt lại dòng GÓI TÌM THẤY = Chờ tải, người bấm vào danh sách theo dõi gói.

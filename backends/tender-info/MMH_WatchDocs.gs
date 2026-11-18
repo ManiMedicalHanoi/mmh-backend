@@ -199,3 +199,91 @@ function wtdInvestors_(p) {
   }
   return wtdInvBuild_(wtLoad_(wtBook_()));
 }
+
+
+/* ════════════════════════════════════════════════════════════════════
+   GÓI THẦU THEO CHỦ ĐẦU TƯ (18/11/2026, người dùng: "chọn bệnh viện ⇒ ra list gói thầu ⇒ tự tải từng gói hoặc nhiều gói")
+   wtdPkgBuild_ (trong wtTick, cùng dữ liệu wtLoad_) ⇒ sheet ẩn THEO DÕI · GÓI THEO CĐT, xếp theo khoá CĐT rồi ngày mới trước
+   (gộp như wtScan_: type + số; KHLCNT nhiều gói ⇒ n). wPkgs {inv} = gói của 1 CĐT (TextFinder cột A ⇒ đọc đúng đoạn, không đọc cả sheet);
+   wGrab {items:[{type,no}], want} = đưa gói chọn vào GÓI TÌM THẤY (người bấm là người theo dõi gói đó) + Chờ tải.
+   ════════════════════════════════════════════════════════════════════ */
+const WTD_PKG_SHEET = 'THEO DÕI · GÓI THEO CĐT';
+const WTD_PKG_HEAD = ['Khoá CĐT', 'Loại', 'Số', 'Tên gói', 'Ngày', 'Giá gói', 'Giá trúng', 'Nhà thầu trúng', 'Hình thức', 'Tỉnh', 'Số gói (KH)', 'Nguồn', 'Chủ đầu tư', 'Dự án', 'Mở thầu'];
+function wtdPkgBuild_(data, force) {
+  // dữ liệu không đổi (số dòng + ngày cập nhật lớn nhất 3 tab) ⇒ không ghi lại ~35.000 dòng
+  const sig = ['khmt', 'tbmt', 'kqdt'].map(function (t) { let m = ''; data[t].forEach(function (r) { if ((r.upd || '') > m) m = r.upd; }); return data[t].length + '/' + m; }).join(' ');
+  const P = PropertiesService.getScriptProperties();
+  if (!force && P.getProperty('WT_PKG_SIG') === sig && wtBook_().getSheetByName(WTD_PKG_SHEET)) return -1;
+  const g = {};
+  ['khmt', 'tbmt', 'kqdt'].forEach(function (type) {
+    data[type].forEach(function (r) {
+      const key = r.invKey + '|' + type + ':' + (r.no || ('r' + r.row));
+      if (!g[key]) g[key] = { r: r, names: [] };
+      if (g[key].names.indexOf(r.name) < 0) g[key].names.push(r.name);
+    });
+  });
+  const rows = Object.keys(g).map(function (k) {
+    const x = g[k], r = x.r, nm = x.names.length > 1 ? x.names[0] + ' (+' + (x.names.length - 1) + ' gói)' : x.names[0];
+    return [r.invKey, r.type, r.no, wtS_(nm).slice(0, 400), r.date || r.upd || '', r.price, r.win, wtS_(r.winner).slice(0, 300), r.form, r.prov, x.names.length, r.type + '!' + r.row, r.inv, wtS_(r.proj).slice(0, 300), r.open];
+  }).sort(function (a, b) { return a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : String(b[4]).localeCompare(String(a[4])); });
+  const ss = wtBook_(), sh = wtSheet_(ss, WTD_PKG_SHEET, WTD_PKG_HEAD);
+  try { sh.hideSheet(); } catch (e) {}
+  const last = sh.getLastRow();
+  if (last > 1) sh.getRange(2, 1, last - 1, WTD_PKG_HEAD.length).clearContent();
+  if (rows.length) sh.getRange(2, 1, rows.length, WTD_PKG_HEAD.length).setNumberFormat('@').setValues(rows.map(function (r) { return r.map(function (c) { return c === undefined || c === null ? '' : String(c); }); }));
+  P.setProperty('WT_PKG_SIG', sig);
+  return rows.length;
+}
+function wtdPkgRows_(invKey) {
+  const ss = wtBook_();
+  let sh = ss.getSheetByName(WTD_PKG_SHEET);
+  if (!sh || sh.getLastRow() < 2) { wtdPkgBuild_(wtLoad_(ss), true); sh = ss.getSheetByName(WTD_PKG_SHEET); }
+  if (!sh || sh.getLastRow() < 2 || !invKey) return [];
+  const col = sh.getRange(2, 1, sh.getLastRow() - 1, 1);
+  const f = col.createTextFinder(invKey).matchEntireCell(true).matchCase(true).findAll();
+  if (!f.length) return [];
+  const r0 = f[0].getRow(), r1 = f[f.length - 1].getRow();
+  return sh.getRange(r0, 1, r1 - r0 + 1, WTD_PKG_HEAD.length).getValues().filter(function (r) { return wtS_(r[0]) === invKey; });
+}
+function wtdPkgs_(me, p) {
+  const invKey = wtNorm_(p.inv);
+  if (!invKey) return { ok: false, error: 'Thiếu tên chủ đầu tư.' };
+  const rows = wtdPkgRows_(invKey);
+  const H = wtHits_(wtBook_()), hk = {};
+  H.forEach(function (h) { hk[h.type + ':' + wtBare_(h.no)] = h; });
+  const list = rows.slice(0, 400).map(function (r) {
+    const type = wtS_(r[1]), no = wtS_(r[2]), h = no ? hk[type + ':' + wtBare_(no)] : null;
+    return [type, no, wtS_(r[3]), wtS_(r[4]), wtS_(r[5]), wtS_(r[6]), wtS_(r[7]), wtS_(r[8]), +r[10] || 1, h ? h.status : '', h ? (h.files || []).length : 0, h ? h.key : ''];
+  });
+  return { ok: true, inv: wtS_(p.inv), cols: ['type', 'no', 'name', 'date', 'price', 'win', 'winner', 'form', 'n', 'status', 'files', 'key'], list: list, total: rows.length };
+}
+function wtdGrab_(me, p) {
+  const items = (typeof p.items === 'string' ? wtJson_(p.items, []) : (p.items || [])).filter(function (x) { return x && x.no && WT.TYPES[x.type]; }).slice(0, 40);
+  if (!items.length) return { ok: false, error: 'Chưa chọn gói nào có số TBMT / KHLCNT.' };
+  const want = wtWant_(p.want), invKey = wtNorm_(p.inv), rows = invKey ? wtdPkgRows_(invKey) : [];
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(20000)) return { ok: false, code: 'BUSY', error: 'Máy chủ đang bận — thử lại sau ít giây.' };
+  const out = [];
+  try {
+    const ss = wtBook_(), sh = wtSheet_(ss, WT.SH_H, WT.HH), H = wtHits_(ss), now = wtNow_(), add = [];
+    items.forEach(function (it) {
+      const key = it.type + ':' + it.no;
+      const ex = H.filter(function (h) { return h.key === key || (h.type === it.type && wtBare_(h.no) === wtBare_(it.no)); })[0];
+      if (ex) {
+        const w = ex.watchers.indexOf(me.mail) < 0 ? ex.watchers.concat([me.mail]) : ex.watchers;
+        sh.getRange(ex.row, 7).setValue(wtInfoWant_(ex.info, want));
+        sh.getRange(ex.row, 10, 1, 5).setValues([[w.join(', '), WT.ST.WAIT, JSON.stringify(ex.files || []), 0, '']]);
+        out.push(ex.key); return;
+      }
+      const r = rows.filter(function (x) { return wtS_(x[1]) === it.type && wtBare_(x[2]) === wtBare_(it.no); })[0];
+      const info = r ? { proj: wtS_(r[13]), price: wtS_(r[5]), win: wtS_(r[6]), winner: wtS_(r[7]), form: wtS_(r[8]), open: wtS_(r[14]), prov: wtS_(r[9]), n: +r[10] || 1, grab: 1, by: me.pic }
+                     : { grab: 1, by: me.pic };
+      if (want.length) info.want = want;
+      const inv = r ? wtS_(r[12]) : wtS_(p.inv);
+      add.push([key, it.type, it.no, inv, wtNorm_(inv), r ? wtS_(r[3]) : it.no, JSON.stringify(info), r ? wtS_(r[4]) : '', now, me.mail, WT.ST.WAIT, '[]', 0, '', '', '', r ? wtS_(r[11]) : 'chọn trên bản đồ']);
+      out.push(key);
+    });
+    if (add.length) sh.getRange(sh.getLastRow() + 1, 1, add.length, WT.HH.length).setValues(add);
+  } finally { lock.releaseLock(); }
+  return Object.assign(wtBoot_(me, {}), { queued: out });
+}
