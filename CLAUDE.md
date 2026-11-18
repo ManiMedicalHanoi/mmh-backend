@@ -638,3 +638,11 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   `botAgentList {key, worker, agent}` (file trong `info.agentFiles` chưa done, thử < 4 lần) ⇒ lấy file qua Agent (gọi thẳng kèm Origin muasamcong; không được ⇒ Chrome / Edge ẨN mở muasamcong để chính trang gọi Agent)
   ⇒ `botAgentPut {key, hit, orig, name, mime, b64}` = như `wUpload` (đúng thư mục + tên chuẩn + Sheet tổng hợp, đánh dấu done) hoặc `{err}` (tries + 1) ⇒ XOÁ file tạm trên máy. Trạng thái `WT_AGW_SEEN / NAME / AGENT / LAST` ⇒ wBoot `agw`
   (app: dòng "Máy tải Agent" ở tab Tài liệu + Cài đặt bot). Chưa chạy thử trên máy Windows thật (chỉ thử với máy chủ + Agent giả lập).
+- **18/11/2026 — Event Hub v2.0: folder sự kiện tự tạo (`marketing/MKT_EventHubFolder.gs`, người dùng chốt)**: thư mục gốc **Event FY68** = `EH.ROOT` `1maHn2DD…`, **MKT Online** = `EH_DIR.ONLINE` `1005C31T…`
+  (nơi để bản nháp bài đăng / thiết kế — luồng duyệt Thương → Giang → chị Tuyên làm sau; bản cuối: ấn phẩm sản phẩm ⇒ folder kho Product Data theo nhóm SP × loại, ấn phẩm sự kiện ⇒ "Event Access" của sự kiện, bài đăng ⇒ chỉ lưu link ở file MKT Online report).
+  `ehSave event.add` nhận `place` = `root` (folder riêng ở gốc Event FY68) · `dr:<id>` (trong folder báo cáo viên có sẵn) · `drnew:<Tên>` (tạo "DR. <TÊN>") ⇒ `ehMakeEvFolder_`: folder "yyyymmdd[-dd | -MMDD] <Tên>_<Loại EN>"
+  + Plan · Event Access · Media · Survey + file tổng chép từ file mẫu (`EH_PLAN_TPL[_EXHIBITION|_SEMINAR|_WORKSHOP]`) vào Plan, ghi folderId / planFileId. Sự kiện cũ GIỮ NGUYÊN chỗ (người dùng: "để nguyên hiện tại").
+  Action `ehFolders` (phiên tk / key): danh sách folder báo cáo viên (`EH_DIR.DR_RE`, đệm 10 phút) + link 2 gốc + file mẫu; `op=tpl&id=` đặt file mẫu · `op=tplmake&id=` chép 1 file kế hoạch thành "MẪU · File kế hoạch sự kiện" trong folder `_MẪU file kế hoạch`.
+  `ehUpload_` ⇒ folder thật của sự kiện (`ehEvDirOf_`: folderId / cha của file kế hoạch, bỏ cấp Plan / cột folder MKT Offline): ảnh việc giai đoạn II ⇒ Media, khảo sát ⇒ Survey, còn lại ⇒ Event Access; không có ⇒ "Event Hub · Tệp tải lên" như cũ.
+  `ehPlanFiles_` quét sâu 4 cấp (báo cáo viên ▸ nhóm ▸ sự kiện ▸ Plan), bỏ folder ảnh / ấn phẩm / `_MẪU`; đồng bộ ghi folderId = folder sự kiện. Sự kiện tạo trên app: ô trống trong file kế hoạch không xoá thông tin app.
+  `ehNameMeta_` đọc "-MMDD" (sự kiện sang tháng) trước "-DD".

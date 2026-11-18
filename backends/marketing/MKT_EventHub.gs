@@ -25,7 +25,7 @@
  *       người phụ trách tự ghi) — không bắt buộc tải file khi chỉ cần chữ. Việc app KHÔNG còn đẩy sang Report Hub (Event_Sync.gs v2.3).
  *************************************************************************************************/
 var EH = {
-  VER: '1.9',
+  VER: '2.0',
   ROOT: '1maHn2DD34aJBaNnH4q9Di0YH2wMurYuZ',     /* thư mục Drive "Event FY68" */
   BOOK_NAME: 'MMH · Event Hub FY68 (dữ liệu app Sự kiện MKT)',
   FILES_NAME: 'Event Hub · Tệp tải lên',
@@ -327,7 +327,7 @@ function ehParsePlan_(ss){
 var EH_CITY = [['hai phong', 'Hải Phòng'], ['haiphong', 'Hải Phòng'], ['ninh binh', 'Ninh Bình'], ['hanoi', 'Hà Nội'], ['ha noi', 'Hà Nội'],
                ['ho chi minh', 'TP.HCM'], ['hcm', 'TP.HCM'], ['da nang', 'Đà Nẵng'], ['can tho', 'Cần Thơ'], ['nghe an', 'Nghệ An']];
 function ehNameMeta_(name){
-  var m = /^(\d{8})(?:\s*[-–]\s*(\d{2}|\d{4}))?/.exec(String(name).replace(/\s+/g, ''));
+  var m = /^(\d{8})(?:\s*[-–]\s*(\d{4}(?!\d)|\d{2}(?!\d)))?/.exec(String(name).replace(/\s+/g, ''));   /* v2.0: "-0102" (sang tháng) đọc trước "-02" */
   if (!m) return null;
   var y = m[1].slice(0, 4), mo = m[1].slice(4, 6), d = m[1].slice(6, 8), start = y + '-' + mo + '-' + d, end = start;
   if (m[2] && m[2].length === 2) end = y + '-' + mo + '-' + m[2];
@@ -353,14 +353,15 @@ function ehClean_(s){ return String(s || '').replace(/\s*\n\s*/g, ' · ').replac
 function ehPlanFiles_(){
   var out = [], skip = {}, pr = PropertiesService.getScriptProperties();
   skip[pr.getProperty('EH_BOOK') || '-'] = 1; skip[pr.getProperty('EH_FILES') || '-'] = 1;
-  function walk(fo, depth){
+  function walk(fo, depth, par){
+    var evDir = depth === 0 || EH_DIR.DR_RE.test(fo.getName()) ? null : /^plan$/i.test(fo.getName().trim()) ? par : { id: fo.getId(), url: fo.getUrl() };
     var it = fo.getFilesByType(MimeType.GOOGLE_SHEETS);
     while (it.hasNext()){ var f = it.next(); if (skip[f.getId()]) continue; if (!/^\s*\d{8}/.test(f.getName())) continue;
-      out.push({ id: f.getId(), name: f.getName(), url: f.getUrl(), updated: f.getLastUpdated().toISOString() }); }
+      out.push({ id: f.getId(), name: f.getName(), url: f.getUrl(), updated: f.getLastUpdated().toISOString(), dir: evDir }); }
     var xl = fo.getFilesByType(MimeType.MICROSOFT_EXCEL);
     while (xl.hasNext()){ var x = xl.next(); if (/^\s*\d{8}/.test(x.getName())) out.push({ id: x.getId(), name: x.getName(), url: x.getUrl(), updated: x.getLastUpdated().toISOString(), xlsx: true }); }
-    if (depth >= 2) return;
-    var sub = fo.getFolders(); while (sub.hasNext()){ var s = sub.next(); if (!skip[s.getId()]) walk(s, depth + 1); }
+    if (depth >= 4) return;   /* v2.0: Event FY68 ▸ báo cáo viên ▸ (nhóm) ▸ sự kiện ▸ Plan */
+    var sub = fo.getFolders(); while (sub.hasNext()){ var s = sub.next(); if (!skip[s.getId()] && !EH_DIR.SKIP_RE.test(s.getName()) && !/^_m[aẫ]u/i.test(s.getName())) walk(s, depth + 1, { id: fo.getId(), url: fo.getUrl() }); }
   }
   walk(DriveApp.getFolderById(EH.ROOT), 0);
   return out;
@@ -407,6 +408,7 @@ function ehSync_(opt){
       if (!ev){ ev = { id: 'EV' + meta.start.replace(/-/g, '').slice(2) + '-' + evsHash_(f.id).slice(0, 4).toUpperCase(), follow: meta.start >= today ? 'Có' : 'Không',
                        src: 'FILE', state: '' }; EH.ROLES.forEach(function(r){ ev[r] = ehTeamDefault_(ss, r); }); events.push(ev); byId[ev.id] = ev; rep.evNew++; }
       ev.planFileId = f.id; ev.planUrl = f.url; ev.start = meta.start; ev.end = meta.end;
+      if (!ehS_(ev.folderId) && f.dir){ ev.folderId = f.dir.id; ev.folderUrl = f.dir.url; }   /* v2.0: folder sự kiện = cha của file kế hoạch (bỏ cấp "Plan") */
       if (!ev.type || ev.src === 'FILE' || ev.src === 'OFFLINE+FILE') ev.type = meta.type;
       if (meta.city) ev.city = meta.city;
       if (ev.src === 'OFFLINE') ev.src = 'OFFLINE+FILE';
@@ -414,11 +416,12 @@ function ehSync_(opt){
       var need = !planBy[ev.id] || ehS_(planBy[ev.id].fileId) !== f.id || ehS_(sr.parsed) !== f.updated || opt.force;
       if (!need || Date.now() - T0 > EH.BUDGET) return;
       try {
-        var plan = ehParsePlan_(SpreadsheetApp.openById(f.id)), I = plan.info;
+        var plan = ehParsePlan_(SpreadsheetApp.openById(f.id)), I = plan.info, keep0 = ev.src === 'APP' ? JSON.parse(JSON.stringify(ev)) : null;   /* v2.0: sự kiện tạo trên app ⇒ ô trống trong file không xoá thông tin app */
         ev.name = ehFirst_(I.name) || ev.name || f.name; ev.venue = ehClean_(I.venue); ev.organizer = ehFirst_(I.organizer); ev.format = ehClean_(I.format);
         ev.purpose = ehClean_(I.purpose); ev.audience = ehClean_(I.audience); ev.scale = ehClean_(I.scale || I.guests); ev.speakers = ehClean_(I.speakers);
         ev.fee = ehClean_(I.fee); ev.npp = ehClean_(I.npp); ev.sales = ehClean_(I.sales); ev.kpi = ehClean_(I.kpi); ev.products = ehProducts_(plan, f.name);
         ev.dateWarn = '';
+        if (keep0) ['name', 'venue', 'organizer', 'format', 'purpose', 'audience', 'scale', 'speakers', 'fee', 'npp', 'sales', 'kpi', 'products'].forEach(function(k){ if (!ehS_(ev[k]) && ehS_(keep0[k])) ev[k] = keep0[k]; });
         var dt = ehClean_(I.dateText);
         if (/TBC|chưa chốt|dự kiến/i.test(dt + ' ' + ev.venue)) ev.state = ev.state || 'Chờ chốt';
         var dm = /(\d{1,2})\s*[\/\-.]\s*(\d{1,2})\s*[\/\-.]\s*(20\d\d)/.exec(dt) || /\d{1,2}\s*[-–]\s*\d{1,2}\s*\/\s*(\d{1,2})\s*\/\s*(20\d\d)/.exec(dt);
@@ -589,7 +592,8 @@ function ehRoute_(action, user, p){
     if (action === 'ehLink') return ehLinkApi_(p);   /* v1.2 — MKT_EventHubLink.gs */
     if (action === 'ehUnlink') return ehUnlinkApi_(p);   /* 18/11/2026 — ngắt app ⇄ Report Hub, rà / dọn sub-task (MKT_EventHubUnlink.gs) */
     if (action === 'ehDriveDiag') return ehDriveDiag_(p);
-    if (action === 'ehForm') return ehFormApi_(p);   /* v1.9 — mẫu việc Event form_Task + số đăng ký file tổng (MKT_EventHubForm.gs) */
+    if (action === 'ehForm') return ehFormApi_(p);
+    if (action === 'ehFolders') return ehFoldersApi_(p);   /* v2.0 — folder sự kiện / báo cáo viên / file mẫu (MKT_EventHubFolder.gs) */   /* v1.9 — mẫu việc Event form_Task + số đăng ký file tổng (MKT_EventHubForm.gs) */
     if (action === 'ehPartner') return ehPartner_(p);   /* v1.8 — trang đối tác (không đăng nhập, chỉ số đếm) */
     if (action === 'ehGate') return ehGateApi_(p);   /* 17/11/2026 — rà Drive (chỉ đọc), MKT_EventHubDiag.gs */
     if (action === 'ehUpload') return ehOnce_(p, function(){ return ehUpload_(p); });
@@ -773,12 +777,18 @@ function ehUpload_(p){
   if (!ehCanEv_(me, ev) && !(tk && ehS_(tk.pic) === me.pic) && team.indexOf(me.pic) < 0) return { ok:false, code:'PERM', error:'Chỉ người trong đội sự kiện được tải tệp lên.' };
   var b64 = String(p.data || '').replace(/^data:[^,]*,/, ''); if (!b64) return { ok:false, error:'Thiếu nội dung file.' };
   if (b64.length * 0.75 > EH.MAX_MB * 1048576) return { ok:false, error:'File lớn hơn ' + EH.MAX_MB + ' MB — tải lên Drive rồi dán link.' };
-  var root = ehFilesRoot_(), evName = (ehS_(ev.start).replace(/-/g, '') + ' ' + ehS_(ev.name)).slice(0, 90), fo = null;
-  if (ehS_(ev.folderId)){ try { fo = DriveApp.getFolderById(ev.folderId); } catch(e){ fo = null; } }
-  if (!fo){ fo = root.createFolder(evName); ev.folderId = fo.getId(); ev.folderUrl = fo.getUrl(); ehPut_(ss, 'EVENTS', EH.COLS.EVENTS, ev); }
-  var sub = fo, gname = tk ? ehS_(tk.group) : 'Chung';
-  if (gname){ var it = fo.getFoldersByName(gname); sub = it.hasNext() ? it.next() : fo.createFolder(gname); }
-  var name = ehS_(p.name) || 'tep', mime = ehS_(p.mime) || 'application/octet-stream';
+  var name = ehS_(p.name) || 'tep', mime = ehS_(p.mime) || 'application/octet-stream', fo = null, sub = null;
+  try { fo = ehEvDirOf_(ev); } catch(e){ fo = null; }   /* v2.0: folder thật của sự kiện ⇒ Event Access / Media / Survey */
+  if (fo){
+    sub = ehEvSubFor_(fo, tk, mime);
+    if (ehS_(ev.folderId) !== fo.getId()){ ev.folderId = fo.getId(); ev.folderUrl = fo.getUrl(); ehPut_(ss, 'EVENTS', EH.COLS.EVENTS, ev); }
+  } else {
+    var root = ehFilesRoot_(), evName = (ehS_(ev.start).replace(/-/g, '') + ' ' + ehS_(ev.name)).slice(0, 90);
+    if (ehS_(ev.folderId)){ try { fo = DriveApp.getFolderById(ev.folderId); } catch(e){ fo = null; } }
+    if (!fo){ fo = root.createFolder(evName); ev.folderId = fo.getId(); ev.folderUrl = fo.getUrl(); ehPut_(ss, 'EVENTS', EH.COLS.EVENTS, ev); }
+    sub = fo; var gname = tk ? ehS_(tk.group) : 'Chung';
+    if (gname){ var it = fo.getFoldersByName(gname); sub = it.hasNext() ? it.next() : fo.createFolder(gname); }
+  }
   var file = sub.createFile(Utilities.newBlob(Utilities.base64Decode(b64), mime, name));
   var kind = /^image\//.test(mime) ? 'image' : 'file';
   var f = { id: ehId_('F'), eventId: ev.id, taskId: tk ? tk.id : '', kind: kind, name: name, url: file.getUrl(), driveId: file.getId(), mime: mime,
