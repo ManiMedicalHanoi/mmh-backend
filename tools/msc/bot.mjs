@@ -9,7 +9,7 @@
 //     (Danh sách nhà thầu, Danh sách hàng hóa — trang tự tạo file, không cần Agent)
 //  4. File đính kèm (thẻ tags-fileAttach): trang gọi Agent http://localhost:1234/api/download/file/browser/public?fileId=…
 //     ⇒ bot bắt fileId; có Agent ⇒ tự lấy file; không ⇒ ghi tên file vào info.agentFiles (app hiện nút mở trang gói).
-// Biến môi trường: WT_URL, WT_BOT_KEY, WT_N (gói / lượt, mặc định 6), WT_PAR (song song, mặc định 3), WT_AGENT (1 = có Agent).
+// Biến môi trường: WT_URL, WT_BOT_KEY, WT_N (gói / lượt, mặc định 6), WT_MIN (phút nhận gói mới, mặc định 15), WT_PAR (song song, mặc định 3), WT_AGENT (1 = có Agent).
 import { chromium } from 'playwright';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -24,7 +24,10 @@ const safe = (s, n = 150) => String(s || '').replace(/[\\/:*?"<>|\r\n\t]+/g, ' '
 const DRY = process.env.WT_DRY ? process.env.WT_DRY.split(/[ ,]+/).filter(Boolean) : null;   // chạy thử: WT_DRY="IB2500491794 PL2500276110" ⇒ không gọi máy chủ, in kết quả
 if (!DRY && (!URL || !KEY)) { say('Thiếu WT_URL / WT_BOT_KEY — dừng.'); process.exit(0); }
 fs.mkdirSync(OUT, { recursive: true });
-setTimeout(() => { say('⏱ quá 20 phút — dừng'); process.exit(3); }, 20 * 60e3).unref();
+// KHÔNG in trang thành PDF nữa (18/11/2026, người dùng: bản in trang không phải tài liệu thật; tab Kết quả không có nút tải PDF — QĐ phê duyệt / báo cáo đánh giá chỉ tải qua Agent). WT_PRINT=1 ⇒ in như cũ.
+const PRINT = process.env.WT_PRINT === '1';
+const MIN = +(process.env.WT_MIN || 15), T0 = Date.now();   // lượt chạy nhận gói mới tới hết MIN phút (gói đang làm vẫn làm xong)
+setTimeout(() => { say('⏱ quá ' + (MIN + 12) + ' phút — dừng'); process.exit(3); }, (MIN + 12) * 60e3).unref();
 
 async function api(action, body) {
   if (DRY) {
@@ -409,7 +412,7 @@ async function doJob(pg, job, cap) {
     put('Loại hợp đồng', P0['Loại hợp đồng']); put('Thời gian thực hiện gói thầu', P0['Thời gian thực hiện gói thầu']);
     info.planNo = info.fields['Mã KHLCNT'] || info.planNo || c.no;
     info.planName = info.fields['Tên KHLCNT'] || info.fields['Tên dự toán mua sắm'] || info.fields['Tên dự án'] || info.planName;
-    if (!(await pagePdf(pg, c, 'kh', 'Kế hoạch lựa chọn nhà thầu', /^Tải\s*(KHLCNT|KH\s*LCNT|kế hoạch)/i))) await printPage(pg, c, 'kh', 'Kế hoạch lựa chọn nhà thầu');
+    if (!(await pagePdf(pg, c, 'kh', 'Kế hoạch lựa chọn nhà thầu', /^Tải\s*(KHLCNT|KH\s*LCNT|kế hoạch)/i)) && PRINT) await printPage(pg, c, 'kh', 'Kế hoạch lựa chọn nhà thầu');
     await attachments(pg, c, 'kh', '');
     await excels(pg, c, 'kh');
   } else {
@@ -421,7 +424,7 @@ async function doJob(pg, job, cap) {
     put('Ngày đăng tải', pk.posted); put('Thời điểm đóng thầu', pk.close);
     if (!info.planNo) info.planNo = info.fields['Mã KHLCNT'] || '';
     await dbgBtns(pg, 'TBMT');
-    if (!(await pagePdf(pg, c, 'tbmt', 'Thông báo mời thầu', /^Tải\s*(TBMT|thông báo)/i))) await printPage(pg, c, 'tbmt', 'Thông báo mời thầu');
+    if (!(await pagePdf(pg, c, 'tbmt', 'Thông báo mời thầu', /^Tải\s*(TBMT|thông báo)/i)) && PRINT) await printPage(pg, c, 'tbmt', 'Thông báo mời thầu');
     await attachments(pg, c, 'tbmt', '');
     if (wants(c, 'hsmt') && await clickTab(pg, 'Hồ sơ mời thầu')) {   // bảng chương HSMT tải chậm ⇒ chờ tới khi có tên file trong bảng
       await pg.waitForFunction(() => [...document.querySelectorAll('td')].some(td => td.offsetParent && /\.(pdf|docx?|xlsx?|zip|rar)\s*$/i.test(td.innerText)), null, { timeout: 20000 }).catch(() => say('    · tab HSMT chưa hiện file'));
@@ -439,7 +442,7 @@ async function doJob(pg, job, cap) {
       await waitText(pg, 'Xuất Excel|Quyết định phê duyệt|Nhà thầu trúng', 25000); await pg.waitForTimeout(1200); await closePopups(pg);
       info.kqFields = await readFields(pg); delete info.kqFields._pkgs;
       await dbgBtns(pg, 'KQ');
-      if (!(await pagePdf(pg, c, 'kq', 'Kết quả lựa chọn nhà thầu', /^Tải\s*(KQLCNT|KQ\s*LCNT|kết quả)/i))) await printPage(pg, c, 'kq', 'Kết quả lựa chọn nhà thầu');
+      if (!(await pagePdf(pg, c, 'kq', 'Kết quả lựa chọn nhà thầu', /^Tải\s*(KQLCNT|KQ\s*LCNT|kết quả)/i)) && PRINT) await printPage(pg, c, 'kq', 'Kết quả lựa chọn nhà thầu');
       await attachments(pg, c, 'kq', '');
       await excels(pg, c, 'kq');
     }
@@ -476,7 +479,7 @@ async function worker() {
       await pg.screenshot({ path: path.join(OUT, job.no + '_loi.png') }).catch(() => {});
       await api('botDone', { hit: job.key, status: 'error', note: e.message.split('\n')[0].slice(0, 300) });
     }
-    if (total >= N) break;
+    if (total >= N || Date.now() - T0 > MIN * 60e3) break;
   }
   await pg.close();
 }
