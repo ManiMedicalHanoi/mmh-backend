@@ -312,7 +312,12 @@ async function pagePdf(pg, ctx2, sec, type, re) {
         return d; };
     };
     hook(); window.__wtHookT = setInterval(hook, 200);
+    // mọi file dựng trên trình duyệt (pdfmake / FileSaver / blob) đều đi qua URL.createObjectURL ⇒ giữ lại bản PDF
+    if (!window.__wtCou) { window.__wtCou = 1; const cou = URL.createObjectURL;
+      URL.createObjectURL = function (b) { try { if (b && b.size > 1000 && (/pdf/i.test(b.type || '') || !b.type)) { const r = new FileReader(); r.onload = () => { const s = String(r.result || ''); if (!window.__wtPdf) window.__wtPdf = s.slice(s.indexOf(',') + 1); }; r.readAsDataURL(b); } } catch (e) {} return cou.apply(this, arguments); }; }
+    window.__wtLog = []; const ce = console.error; console.error = function () { try { window.__wtLog.push([].map.call(arguments, String).join(' ').slice(0, 200)); } catch (e) {} return ce.apply(this, arguments); };
   }).catch(() => {});
+  const nres = []; const onres = r => { if (/services\//.test(r.url())) nres.push(r.status() + ' ' + r.url().split('?')[0].split('/services/')[1]); }; pg.on('response', onres);
   const ctx = pg.context();
   const dlP = pg.waitForEvent('download', { timeout: 60000 }).catch(() => null);
   const popP = ctx.waitForEvent('page', { timeout: 60000 }).catch(() => null);
@@ -334,6 +339,8 @@ async function pagePdf(pg, ctx2, sec, type, re) {
     if (d === null) break;
   }
   await pg.evaluate(() => clearInterval(window.__wtHookT)).catch(() => {});
+  pg.off('response', onres);
+  if (!buf) { const dbg = await pg.evaluate(() => ({ pm: !!window.pdfMake, log: (window.__wtLog || []).slice(0, 5) })).catch(() => ({})); say('    · dò "' + txt + '": pdfMake=' + dbg.pm + ' · API ' + nres.slice(0, 8).join(' | ') + (dbg.log && dbg.log.length ? ' · lỗi trang: ' + dbg.log.join(' / ') : '')); }
   await closePopups(pg);
   if (!buf || buf.length < 1500 || buf.slice(0, 4).toString() !== '%PDF') { say(`    · "${txt}": chưa lấy được file PDF${buf ? ' (' + buf.length + ' byte)' : ''}`); return false; }
   const name = docName(ctx2.no, type, 'pdf', ctx2.used), f = path.join(OUT, ctx2.job.key.replace(/\W+/g, '_') + '_' + name);

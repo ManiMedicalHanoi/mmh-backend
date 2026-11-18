@@ -16,5 +16,5 @@ jobs:
       - name: Cài trình duyệt
         run: mkdir -p /tmp/pw && cd /tmp/pw && npm init -y >/dev/null && npm i playwright@1.48.2 >/dev/null && npx playwright install --with-deps chromium >/dev/null
       - name: Chạy thử bot
-        env: { WT_DRY: "IB2500491794 PL2500276110", WT_PAR: "1" }
+        env: { WT_DRY: "IB2500491794", WT_PAR: "1" }
         run: cp tools/msc/bot.mjs /tmp/pw/ && cd /tmp/pw && node bot.mjs | grep -v "\[thử\] info"
