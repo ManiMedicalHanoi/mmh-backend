@@ -59,6 +59,8 @@ jobs:
         if: always() && steps.peek.outputs.n != '0'
         env: { GH_TOKEN: '${{ github.token }}' }
         run: |
+          # gộp Danh sách hàng hóa / nhà thầu vừa tải vào 2 file tổng (MMH_WatchMerge.gs)
+          curl -sSL --max-time 330 -H 'Content-Type: application/json' -d "{\"action\":\"botMerge\",\"key\":\"$WT_BOT_KEY\"}" "$WT_URL" | head -c 600; echo
           N=$(curl -sSL --max-time 90 -H 'Content-Type: application/json' -d "{\"action\":\"botPeek\",\"key\":\"$WT_BOT_KEY\",\"bot\":\"github-actions\"}" "$WT_URL" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const j=JSON.parse(s);console.log(j.ok?j.n:0);}catch(e){console.log(0);}})")
           echo "Còn $N gói"
           if [ "$N" != "0" ]; then gh workflow run tender-dl.yml --ref main -R "$GITHUB_REPOSITORY" && echo "Đã gọi lượt kế"; fi
