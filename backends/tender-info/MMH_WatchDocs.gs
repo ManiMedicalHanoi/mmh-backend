@@ -1,0 +1,201 @@
+/* ════════════════════════════════════════════════════════════════════
+   MMH_WatchDocs.gs v1.0 (18/11/2026) — LƯU HỒ SƠ TẢI TỪ MUASAMCONG VÀO 3 THƯ MỤC + SHEET TỔNG HỢP (người dùng yêu cầu)
+   Thư mục mẹ "Tự động tải thông tin thầu" (của mmh.product) ▸ 3 thư mục con: Kết quả trúng thầu · Thông báo mời thầu · Kế hoạch lựa chọn nhà thầu.
+   Mỗi gói 1 thư mục con "<Số> - <Bệnh viện>" trong đúng thư mục loại (TBMT / KQLCNT / KHLCNT) — cùng 1 số TBMT có tài liệu TBMT (Tải TBMT, HSMT)
+   và tài liệu kết quả (QĐ phê duyệt KQLCNT, báo cáo đánh giá, DS nhà thầu, DS hàng hóa) ⇒ mỗi tài liệu vào thư mục theo PHẦN (sec) bot gửi.
+   File Excel (.xlsx / .xls) ⇒ chuyển thành Google Sheet (Drive v2 convert). Tên file bot đặt sẵn: "<Số> - <Loại tài liệu>.<đuôi>".
+   Sheet "Tổng hợp tài liệu thầu đã tải" ở thư mục mẹ: 1 dòng / tài liệu (cả tài liệu cần Agent chưa tải được — cột Link = trang gói).
+   Đổi thư mục: Script Property WT_DL_ROOT / WT_DL_KQ / WT_DL_TBMT / WT_DL_KH.
+   ════════════════════════════════════════════════════════════════════ */
+const WTD = {
+  ROOT: '1sYXQx1_h3PBkm_zor8GhsIAM_ZMG5yxv',
+  DIR: { kq: '1-8g4gKGcLRFyjwXyBxekFLVNuHqMdSoI', tbmt: '1ASNCJ7Kyc2B9alysJTX0ligZn4xrtRCH', kh: '1w9fYlMYeI_Xmicu2m_rUXqT-IOxAYK4b' },
+  PROP: { kq: 'WT_DL_KQ', tbmt: 'WT_DL_TBMT', kh: 'WT_DL_KH' },
+  SEC_LABEL: { kq: 'KQLCNT', tbmt: 'TBMT', kh: 'KHLCNT' },
+  SUM_NAME: 'Tổng hợp tài liệu thầu đã tải',
+  SUM_SHEET: 'Tài liệu',
+  HEAD: ['STT', 'Khu vực', 'Tỉnh thành', 'Tên bệnh viện', 'Loại thông tin', 'Tên gói thầu / dự án', 'Số TBMT / KHLCNT', 'Giá gói thầu (VND)',
+    'Ngày đăng tải', 'Thời điểm đóng thầu', 'Loại tài liệu', 'Link tài liệu', 'Nguồn vốn', 'Hình thức lựa chọn nhà thầu', 'Phương thức lựa chọn nhà thầu',
+    'Loại hợp đồng', 'Gói thầu có nhiều phần/lô', 'Số lượng phần (lô)', 'Địa điểm thực hiện gói thầu', 'Số quyết định phê duyệt', 'Ngày phê duyệt',
+    'Thời gian thực hiện (tháng)', 'Giá trúng thầu (VND)', 'Nhà thầu trúng thầu', 'Mã KHLCNT', 'Tên dự toán / dự án', 'Trang gói trên muasamcong', 'Tải lúc', 'Khoá']
+};
+
+/* ── tỉnh ⇒ miền (34 tỉnh mới + tên cũ hay gặp trong địa chỉ) ── */
+const WTD_REGION = (function () {
+  const N = 'Hà Nội|Hải Phòng|Quảng Ninh|Cao Bằng|Lạng Sơn|Lai Châu|Điện Biên|Sơn La|Lào Cai|Tuyên Quang|Thái Nguyên|Phú Thọ|Bắc Ninh|Hưng Yên|Ninh Bình|Hà Giang|Yên Bái|Bắc Kạn|Hòa Bình|Hoà Bình|Vĩnh Phúc|Bắc Giang|Hải Dương|Thái Bình|Hà Nam|Nam Định';
+  const C = 'Thanh Hóa|Thanh Hoá|Nghệ An|Hà Tĩnh|Quảng Trị|Huế|Thừa Thiên Huế|Đà Nẵng|Quảng Ngãi|Gia Lai|Đắk Lắk|Đắc Lắk|Khánh Hòa|Khánh Hoà|Lâm Đồng|Quảng Bình|Quảng Nam|Kon Tum|Bình Định|Phú Yên|Ninh Thuận|Đắk Nông|Bình Thuận';
+  const S = 'Hồ Chí Minh|Đồng Nai|Tây Ninh|Đồng Tháp|Vĩnh Long|An Giang|Cần Thơ|Cà Mau|Bình Phước|Bình Dương|Bà Rịa - Vũng Tàu|Bà Rịa Vũng Tàu|Long An|Tiền Giang|Bến Tre|Trà Vinh|Hậu Giang|Sóc Trăng|Bạc Liêu|Kiên Giang';
+  const m = {};
+  [[N, 'Miền Bắc'], [C, 'Miền Trung'], [S, 'Miền Nam']].forEach(function (x) { x[0].split('|').forEach(function (p) { m[wtNorm_(p)] = [p, x[1]]; }); });
+  return m;
+})();
+/** "Phường Phước Hậu, Tỉnh Vĩnh Long" / "Tỉnh Vĩnh Long" / "Ha Noi" ⇒ [tỉnh, miền] */
+function wtdProvince_(s) {
+  const t = wtNorm_(String(s || '').replace(/(tỉnh|thành phố|tp\.?)\s*/gi, ' '));
+  if (!t) return ['', ''];
+  let best = null;
+  Object.keys(WTD_REGION).forEach(function (k) { if ((' ' + t + ' ').indexOf(' ' + k + ' ') >= 0 && (!best || k.length > best.length)) best = k; });
+  return best ? WTD_REGION[best] : ['', ''];
+}
+function wtdMoney_(s) { const d = String(s || '').replace(/[^\d]/g, ''); return d ? Number(d) : ''; }
+/** "24 tháng" ⇒ 24 · "365 ngày" ⇒ 12 · "2 năm" ⇒ 24 */
+function wtdMonths_(s) {
+  const t = String(s || '').toLowerCase().replace(',', '.');
+  const m = t.match(/([\d.]+)\s*(tháng|ngày|năm|tuần)/);
+  if (!m) return '';
+  const n = parseFloat(m[1]); if (!isFinite(n)) return '';
+  const v = m[2] === 'tháng' ? n : m[2] === 'năm' ? n * 12 : m[2] === 'tuần' ? n / 4.345 : n / 30.4;
+  return Math.round(v * 10) / 10;
+}
+
+function wtdDir_(sec) {
+  const P = PropertiesService.getScriptProperties(), id = P.getProperty(WTD.PROP[sec] || '') || WTD.DIR[sec] || WTD.DIR.tbmt;
+  return DriveApp.getFolderById(id);
+}
+/** Thư mục gói "<Số> - <Bệnh viện>" trong thư mục loại */
+function wtdPkgFolder_(sec, no, inv) {
+  return wtSub_(wtdDir_(sec), (no + (inv ? ' - ' + inv : '')).slice(0, 120));
+}
+/** Lưu 1 file vào Drive; Excel ⇒ Google Sheet. Trả { id, url, name, gsheet } */
+function wtdSave_(folder, name, bytes, mime) {
+  const ext = (name.match(/\.([a-z0-9]+)$/i) || [])[1] || '';
+  const base = name.replace(/\.[a-z0-9]+$/i, '');
+  if (/^xlsx?$/i.test(ext)) {
+    try {
+      const old = folder.getFilesByName(base);
+      while (old.hasNext()) old.next().setTrashed(true);
+      const blob = Utilities.newBlob(bytes, mime || MimeType.MICROSOFT_EXCEL, name);
+      const f = Drive.Files.insert({ title: base, mimeType: MimeType.GOOGLE_SHEETS, parents: [{ id: folder.getId() }] }, blob, { convert: true, supportsAllDrives: true });
+      return { id: f.id, url: 'https://docs.google.com/spreadsheets/d/' + f.id + '/edit', name: base, gsheet: true };
+    } catch (e) { Logger.log('wtdSave_ chuyển Google Sheet lỗi: ' + e.message); }
+  }
+  const old = folder.getFilesByName(name);
+  while (old.hasNext()) old.next().setTrashed(true);
+  const f = folder.createFile(Utilities.newBlob(bytes, mime || 'application/octet-stream', name));
+  return { id: f.getId(), url: f.getUrl(), name: name, gsheet: false };
+}
+
+/* ── Sheet tổng hợp ở thư mục mẹ ── */
+function wtdSumBook_() {
+  const P = PropertiesService.getScriptProperties();
+  let id = P.getProperty('WT_SUM');
+  if (id) { try { const b = SpreadsheetApp.openById(id); if (!DriveApp.getFileById(id).isTrashed()) return b; } catch (e) {} }
+  const root = DriveApp.getFolderById(P.getProperty('WT_DL_ROOT') || WTD.ROOT);
+  const it = root.getFilesByName(WTD.SUM_NAME);
+  let book;
+  if (it.hasNext()) book = SpreadsheetApp.openById(it.next().getId());
+  else {
+    book = SpreadsheetApp.create(WTD.SUM_NAME);
+    DriveApp.getFileById(book.getId()).moveTo(root);
+  }
+  P.setProperty('WT_SUM', book.getId());
+  return book;
+}
+function wtdSumSheet_(book) {
+  let sh = book.getSheetByName(WTD.SUM_SHEET);
+  if (!sh) {
+    sh = book.getSheets()[0];
+    sh.setName(WTD.SUM_SHEET);
+  }
+  if (sh.getLastRow() < 1 || wtS_(sh.getRange(1, 1).getValue()) !== 'STT') {
+    sh.getRange(1, 1, 1, WTD.HEAD.length).setValues([WTD.HEAD]).setFontWeight('bold').setBackground('#CFE2F3').setWrap(true).setVerticalAlignment('middle');
+    sh.setFrozenRows(1);
+    sh.setFrozenColumns(4);
+    [48, 90, 120, 220, 90, 300, 140, 130, 120, 140, 200, 220, 160, 150, 160, 120, 90, 80, 220, 150, 100, 90, 130, 220, 120, 260, 120, 140, 10].forEach(function (w, i) { sh.setColumnWidth(i + 1, w); });
+    sh.getRange('H:H').setNumberFormat('#,##0');
+    sh.getRange('W:W').setNumberFormat('#,##0');
+    sh.hideColumns(WTD.HEAD.length);
+  }
+  return sh;
+}
+
+/** docs = [{ sec, docType, name, url, agent }]; info = thông tin gói bot đọc trên trang. Ghi / cập nhật 1 dòng / tài liệu (khoá = số + loại tài liệu + tên). */
+function wtdSumWrite_(h, info, docs) {
+  if (!docs || !docs.length) return 0;
+  const book = wtdSumBook_(), sh = wtdSumSheet_(book);
+  const n = WTD.HEAD.length, last = sh.getLastRow();
+  const keys = last > 1 ? sh.getRange(2, n, last - 1, 1).getValues().map(function (r) { return wtS_(r[0]); }) : [];
+  const I = info || {}, F = I.fields || {}, K = I.kqFields || {};
+  let sec_ = 'tbmt';
+  const g = function (k) { return wtS_((sec_ === 'kq' && K[k]) || F[k] || K[k]); };
+  const place = g('Địa điểm thực hiện gói thầu') || I.place || '';
+  let pr = wtdProvince_(I.prov || place);
+  if (!pr[0] && h.info && h.info.prov) pr = wtdProvince_(h.info.prov);
+  const now = wtNow_(), out = [], upd = [];
+  const linkAt = [];
+  docs.forEach(function (d) {
+    const sec = d.sec || 'tbmt'; sec_ = sec;
+    const no = sec === 'kh' ? (wtS_(I.planNo) || h.no) : h.no;
+    const key = [no, d.docType, d.name].join('|');
+    const row = ['', pr[1], pr[0], wtS_(I.investor) || h.investor, WTD.SEC_LABEL[sec] || sec,
+      sec === 'kh' ? (wtS_(I.planName) || g('Tên dự toán mua sắm') || h.name) : (wtS_(I.bidName) || h.name), no,
+      wtdMoney_(g('Giá gói thầu') || (h.info || {}).price), g('Ngày đăng tải') || wtS_(I.posted), g('Thời điểm đóng thầu') || wtS_(I.close),
+      d.docType + (d.agent ? ' (cần Agent — chưa tải)' : ''), d.url ? d.url : (I.url || ''),
+      g('Chi tiết nguồn vốn') || g('Nguồn vốn'), g('Hình thức lựa chọn nhà thầu'), g('Phương thức lựa chọn nhà thầu'), g('Loại hợp đồng'),
+      g('Gói thầu có nhiều phần/lô'), g('Số lượng phần (lô)'), place, g('Số quyết định phê duyệt'), g('Ngày phê duyệt'),
+      wtdMonths_(g('Thời gian thực hiện gói thầu') || g('Thời gian thực hiện hợp đồng') || g('Thời gian thực hiện')), wtdMoney_(K['Giá trúng thầu'] || g('Giá trúng thầu') || (h.info || {}).win),
+      wtS_(K['Nhà thầu trúng thầu'] || K['Tên nhà thầu trúng thầu']) || g('Nhà thầu trúng thầu') || wtS_((h.info || {}).winner), g('Mã KHLCNT') || wtS_(I.planNo), g('Tên dự toán mua sắm') || g('Tên dự án'), wtS_(I.url), now, key];
+    const at = keys.indexOf(key);
+    if (at >= 0) { row[0] = at + 1; upd.push([at + 2, row]); linkAt.push([at + 2, row[11]]); } else { out.push(row); keys.push(key); }
+  });
+  upd.forEach(function (u) { sh.getRange(u[0], 1, 1, n).setValues([u[1]]); });
+  const start0 = sh.getLastRow() + 1;
+  if (out.length) {
+    const start = start0;
+    out.forEach(function (r, i) { r[0] = start - 1 + i; });
+    sh.getRange(start, 1, out.length, n).setValues(out);
+  }
+  // link bấm được — chỉ các dòng vừa ghi (ô cũ đã là chữ "Mở" có link, đọc lại sẽ mất link)
+  out.forEach(function (r, i) { linkAt.push([start0 + i, r[11]]); });
+  linkAt.forEach(function (x) {
+    const u = wtS_(x[1]);
+    if (!/^https?:/.test(u)) return;
+    try { sh.getRange(x[0], 12).setRichTextValue(SpreadsheetApp.newRichTextValue().setText(/docs\.google\.com\/spreadsheets/.test(u) ? 'Mở (Google Sheet)' : /muasamcong/.test(u) ? 'Trang gói' : 'Mở').setLinkUrl(u).build()); } catch (e) {}
+  });
+  return out.length + upd.length;
+}
+function wtdSumUrl_() {
+  const id = PropertiesService.getScriptProperties().getProperty('WT_SUM');
+  return id ? 'https://docs.google.com/spreadsheets/d/' + id + '/edit' : '';
+}
+function wtdRootUrl_() { return 'https://drive.google.com/drive/folders/' + (PropertiesService.getScriptProperties().getProperty('WT_DL_ROOT') || WTD.ROOT); }
+
+/* ── Danh sách chủ đầu tư dựng sẵn (app mở nhanh): sheet ẩn "THEO DÕI · CHỦ ĐẦU TƯ" + đệm ── */
+const WTD_INV_SHEET = 'THEO DÕI · CHỦ ĐẦU TƯ';
+function wtdInvBuild_(data) {
+  const by = {};
+  ['khmt', 'tbmt', 'kqdt'].forEach(function (type, ti) {
+    data[type].forEach(function (r) {
+      let x = by[r.invKey];
+      if (!x) x = by[r.invKey] = [r.inv, 0, 0, 0, '', r.prov];
+      x[1 + ti]++;
+      if (r.upd > x[4]) x[4] = r.upd;
+      if (!x[5] && r.prov) x[5] = r.prov;
+    });
+  });
+  const list = Object.keys(by).map(function (k) { return by[k]; }).sort(function (a, b) { return (b[1] + b[2] + b[3]) - (a[1] + a[2] + a[3]); });
+  const ss = wtBook_(), sh = wtSheet_(ss, WTD_INV_SHEET, ['Chủ đầu tư', 'KH LCNT', 'TBMT', 'Kết quả', 'Cập nhật', 'Tỉnh']);
+  try { sh.hideSheet(); } catch (e) {}
+  const last = sh.getLastRow();
+  if (last > 1) sh.getRange(2, 1, last - 1, 6).clearContent();
+  if (list.length) sh.getRange(2, 1, list.length, 6).setValues(list);
+  const res = { ok: true, cols: ['name', 'khmt', 'tbmt', 'kqdt', 'last', 'prov'], list: list, at: wtNow_(), v: Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyyMMddHHmm') };
+  wtBigPut_(CacheService.getScriptCache(), 'wt_inv2', JSON.stringify(res), 21600);
+  PropertiesService.getScriptProperties().setProperty('WT_INV_V', res.v);
+  return res;
+}
+/** app: ?since=<v> ⇒ { same:true } khi danh sách chưa đổi (app dùng bản lưu trên máy) */
+function wtdInvestors_(p) {
+  const v = PropertiesService.getScriptProperties().getProperty('WT_INV_V') || '';
+  if (v && wtS_(p.since) === v) return { ok: true, same: true, v: v };
+  const hit = wtBigGet_(CacheService.getScriptCache(), 'wt_inv2');
+  if (hit) return JSON.parse(hit);
+  const sh = wtBook_().getSheetByName(WTD_INV_SHEET);
+  if (sh && sh.getLastRow() > 1) {
+    const list = sh.getRange(2, 1, sh.getLastRow() - 1, 6).getValues().map(function (r) { return [wtS_(r[0]), +r[1] || 0, +r[2] || 0, +r[3] || 0, wtS_(r[4]), wtS_(r[5])]; });
+    const res = { ok: true, cols: ['name', 'khmt', 'tbmt', 'kqdt', 'last', 'prov'], list: list, v: v || 'sheet' };
+    wtBigPut_(CacheService.getScriptCache(), 'wt_inv2', JSON.stringify(res), 21600);
+    return res;
+  }
+  return wtdInvBuild_(wtLoad_(wtBook_()));
+}

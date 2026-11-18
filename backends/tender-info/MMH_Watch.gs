@@ -14,7 +14,7 @@
    Lần đầu theo dõi 1 chủ đầu tư: hiện gói trong WT.BASE_DAYS ngày gần nhất (không báo), tự tải gói trong WT.DL_BASE_DAYS ngày.
    ════════════════════════════════════════════════════════════════════ */
 const WT = {
-  VER: '1.1',
+  VER: '1.2',
   MASTER_ID: '1byCL6NjhqBuEcd-K5pxYRrQj2XXs6GMIvR79x45mHRQ',   // Training Master (RH_Users, RH_Secret, RH_Notify)
   APP_URL: 'https://manimedicalhanoi.github.io/Tender-Result/theo-doi/',
   SH_W: 'THEO DÕI · DANH SÁCH',
@@ -61,7 +61,7 @@ function wtDo_(a, p) {
   if (me.err) return { ok: false, code: 'AUTH', error: me.err };
   wtEnsureTrig_();
   if (a === 'wBoot') return wtBoot_(me, p);
-  if (a === 'wInvestors') return wtInvestors_(p);
+  if (a === 'wInvestors') return wtdInvestors_(p);
   if (a === 'wSave') return wtSave_(me, p);
   if (a === 'wDel') return wtDel_(me, p);
   if (a === 'wHit') return wtHitOp_(me, p);
@@ -269,7 +269,7 @@ function wtBoot_(me, p) {
     hits: hits, types: WT.TYPES,
     bot: { seen: P.getProperty('WT_BOT_SEEN') || '', name: P.getProperty('WT_BOT_NAME') || '', hasKey: !!P.getProperty('WT_BOT_KEY'),
       queue: H.filter(function (h) { return h.status === WT.ST.WAIT || h.status === WT.ST.WORK; }).length },
-    lastScan: P.getProperty('WT_LAST_SCAN') || ''
+    lastScan: P.getProperty('WT_LAST_SCAN') || '', sumUrl: wtdSumUrl_(), rootUrl: wtdRootUrl_(), invV: P.getProperty('WT_INV_V') || ''
   };
 }
 function wtHitOut_(h) {
@@ -381,7 +381,7 @@ function wtScan_(opt) {
   const ss = wtBook_(), all = wtWatches_(ss).filter(function (w) { return w.active && w.types.length && (!opt.only || w.id === opt.only); });
   const P = PropertiesService.getScriptProperties();
   if (!all.length) { P.setProperty('WT_LAST_SCAN', wtNow_() + ' · 0 mục theo dõi'); return { watches: 0, added: 0 }; }
-  const data = wtLoad_(ss), today = new Date();
+  const data = opt.data || wtLoad_(ss), today = new Date();
   const ago = function (d, n) { if (!d) return false; const t = new Date(d + 'T00:00:00+07:00'); return (today - t) / 864e5 <= n; };
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(60000)) return { busy: true };
@@ -482,7 +482,7 @@ function wtNotifyNew_(news) {
 
 /* ══════════ TRIGGER ══════════ */
 function wtTick() {
-  try { wtScan_({}); } catch (e) { Logger.log('wtTick: ' + e.message); PropertiesService.getScriptProperties().setProperty('WT_LAST_SCAN', wtNow_() + ' · lỗi: ' + e.message); }
+  try { const data = wtLoad_(wtBook_()); try { wtdInvBuild_(data); } catch (e) { Logger.log('wtdInvBuild_: ' + e.message); } wtScan_({ data: data }); } catch (e) { Logger.log('wtTick: ' + e.message); PropertiesService.getScriptProperties().setProperty('WT_LAST_SCAN', wtNow_() + ' · lỗi: ' + e.message); }
 }
 function wtEnsureTrig_() {
   const P = PropertiesService.getScriptProperties();
@@ -561,21 +561,21 @@ function wtBotFile_(p) {
   if (bytes.length > WT.MAX_FILE) return { ok: false, error: 'File quá lớn (> 35 MB).' };
   const name = wtS_(p.name).replace(/[\\/:*?"<>|]+/g, '_').slice(0, 150) || ('file_' + Date.now());
   const inv = h.investor && h.investor !== '(đang tra)' ? h.investor : (wtS_(p.investor) || 'Tải ngay');
-  const nm = h.name && h.name !== h.no ? h.name : wtS_(p.bidName);
-  const folder = wtSub_(wtSub_(wtRoot_(), inv), WT.TYPES[h.type] + ' · ' + h.no + (nm ? ' · ' + nm.slice(0, 60) : ''));
-  const old = folder.getFilesByName(name);
-  while (old.hasNext()) old.next().setTrashed(true);
-  const f = folder.createFile(Utilities.newBlob(bytes, wtS_(p.mime) || 'application/octet-stream', name));
+  const sec = WTD.DIR[wtS_(p.sec)] ? wtS_(p.sec) : (h.type === 'khmt' ? 'kh' : h.type === 'kqdt' ? 'kq' : 'tbmt');
+  const pkgNo = sec === 'kh' && wtS_(p.planNo) ? wtS_(p.planNo) : h.no;
+  const folder = wtdPkgFolder_(sec, pkgNo, inv);
+  const sv = wtdSave_(folder, name, bytes, wtS_(p.mime));
+  const f = { getUrl: function () { return sv.url; }, getId: function () { return sv.id; } };
   const lock = LockService.getScriptLock();
   if (lock.tryLock(20000)) {
     try {
       const sh = wtSheet_(ss, WT.SH_H, WT.HH), cur = wtHits_(ss).filter(function (x) { return x.key === h.key; })[0];
-      const files = (cur.files || []).filter(function (x) { return x.name !== name; });
-      files.push({ name: name, url: f.getUrl(), id: f.getId(), size: bytes.length, kind: wtS_(p.kind) });
+      const files = (cur.files || []).filter(function (x) { return x.name !== name && x.name !== sv.name; });
+      files.push({ name: sv.name, url: f.getUrl(), id: f.getId(), size: bytes.length, kind: wtS_(p.kind), sec: sec, gsheet: sv.gsheet });
       sh.getRange(cur.row, 12).setValue(JSON.stringify(files));
     } finally { lock.releaseLock(); }
   }
-  return { ok: true, id: f.getId(), url: f.getUrl(), folder: folder.getUrl() };
+  return { ok: true, id: f.getId(), url: f.getUrl(), name: sv.name, gsheet: sv.gsheet, folder: folder.getUrl() };
 }
 
 function wtBotDone_(p) {
@@ -597,6 +597,12 @@ function wtBotDone_(p) {
     h.status = st;
   } finally { lock.releaseLock(); }
   wtBotLog_(ss, p.bot, h.key, 'done', st, p.note);
+  let sumN = 0;
+  try {
+    const docs = typeof p.docs === 'string' ? wtJson_(p.docs, []) : (p.docs || []);
+    const inf = typeof p.info === 'string' ? wtJson_(p.info, {}) : (p.info || {});
+    sumN = wtdSumWrite_(h, inf, docs);
+  } catch (e) { Logger.log('wtdSumWrite_: ' + e.message); wtBotLog_(ss, p.bot, h.key, 'sum', 'lỗi', e.message); }
   if (st === WT.ST.DONE) {
     const fresh = wtHits_(ss).filter(function (x) { return x.key === h.key; })[0] || h;
     const W = wtWatches_(ss), feed = [];
@@ -608,5 +614,5 @@ function wtBotDone_(p) {
     });
     wtFeed_(feed);
   }
-  return { ok: true, status: st };
+  return { ok: true, status: st, sum: sumN, sumUrl: wtdSumUrl_() };
 }
