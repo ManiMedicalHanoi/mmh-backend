@@ -25,9 +25,10 @@ var RSH = {
   },
   /* thứ tự quan trọng: sản phẩm cụ thể trước, "Chung" sau (so trên tên đã bỏ dấu) */
   RULES: [
+    ['Surgical', 'Chung', /(glocom|glaucom).*(dich kinh|vong mac|dkvm)|(dich kinh|vong mac|dkvm).*(glocom|glaucom)/],
     ['Dental', 'Chỉ khâu nha khoa', /(chi khau|suture).*(nha khoa|dental)|(nha khoa|dental).*(chi khau|suture)/],
     ['Surgical', 'Móc mở vùng bè', /trabecul|\bhook\b|moc mo vung be|glocom|glaucom/],
-    ['Surgical', 'Kìm vi phẫu', /forcep|kim vi phau|kep vi phau|\bdkvm\b|dich kinh vong mac|vitreo/],
+    ['Surgical', 'Kìm vi phẫu', /forcep|kim vi phau|kep vi phau|dung cu vi phau|\bdkvm\b|dich kinh.{0,4}vong mac|vitreo/],
     ['Surgical', 'Manipler (ghim da)', /manipler|ghim da|stapler/],
     ['Surgical', 'Trocar', /trocar/],
     ['Surgical', 'Eyeless', /eyeless/],
@@ -38,10 +39,11 @@ var RSH = {
     ['Dental', 'IPR', /\bipr\b/],
     ['Dental', 'Vật liệu MMG', /composite|\bbond\b|tay trang|bleach|\bmmg\b|zirconia|primer|cement|vat lieu|\blab\b|labo/],
     ['Surgical', 'Chung', /nhan khoa|\bmat\b|ophthal|\bvos\b|apsoprs|tao hinh|oculo|mi mat|phau thuat|ngoai khoa|surgical/],
-    ['Dental', 'Chung', /nha khoa|dental|rang ham mat|\brhm\b|nha si|rang/]
+    ['Dental', 'Chung', /nha khoa|dental|rang ham mat|\brhm\b|nha si|\brang\b|nha chu|phuc hinh|implant|noi nha/]
   ],
   SKIP: /bai kiem tra|kiem tra sau dao tao|\bquiz\b|\btest\b|\bthu nghiem\b|\(thu\)|ban sao|copy of|untitled|khong co tieu de|bieu mau khong co tieu de|\bmau\b/,
   REG: /dang ky|dang ki|registration|register|xac nhan tham du/,
+  SURV: /khao sat|survey|phieu|y kien|danh gia|feedback|nhu cau|thoi quen|trai nghiem|questionnaire/,
   SHORTCUT: 'application/vnd.google-apps.shortcut',
   FORM: 'application/vnd.google-apps.form',
   SHEET: 'application/vnd.google-apps.spreadsheet',
@@ -156,8 +158,17 @@ function rshCandidates_() {
   var sheets = rshList_("mimeType='" + RSH.SHEET + "' and trashed=false and (" + words.map(function (w) { return "name contains '" + w + "'"; }).join(' or ') + ')', 'sheet');
   var seen = {}; return forms.concat(sheets).filter(function (c) { if (seen[c.id]) return false; seen[c.id] = 1; return true; });
 }
+/* lọc nhanh theo tên file trên Drive (không cần mở form) */
+function rshPre_(name) {
+  var t = rshNk_(name).replace(/\((cau tra loi|responses|ket qua|phan hoi)\)/g, '');
+  if (RSH.SKIP.test(t)) return 'bài kiểm tra / thử';
+  if (!RSH.SURV.test(t)) return RSH.REG.test(t) ? 'form đăng ký' : 'không phải khảo sát';
+  if (RSH.REG.test(t) && !/khao sat|survey/.test(t)) return 'form đăng ký';
+  return '';
+}
 function rshSkip_(row) {
   var t = rshNk_(row.title || row.name);
+  if (!row.err) { var pre = rshPre_(row.title || row.name); if (pre) return pre; }
   if (row.err) return 'không mở được';
   if (row.quiz || RSH.SKIP.test(t)) return 'bài kiểm tra / thử';
   if (RSH.REG.test(t) && !/khao sat|survey/.test(t)) return 'form đăng ký';
@@ -179,6 +190,8 @@ function rshScan_(p) {
   for (i = off; i < cand.length && i < off + n; i++) {
     if (Date.now() - t0 > 240000) break;
     var c = cand[i], row = { k: c.k, id: c.id, name: c.name, owner: c.owner, mod: c.mod };
+    var pre = rshPre_(c.name);
+    if (pre && !have[c.id]) { row.skip = pre; var pc = rsClassify_(c.name); row.grp = pc.grp; row.prod = pc.prod; out.push(row); continue; }
     try {
       if (c.k === 'form') {
         var f = FormApp.openById(c.id), dest = '';
@@ -209,8 +222,10 @@ function rshScan_(p) {
     out.push(row);
   }
   var next = i < cand.length ? i : null;
+  var brief = p.brief === '1';
   return { ok: true, v: RSH.VER, op: run ? 'run' : 'dry', total: cand.length, forms: Object.keys(formIds).length, off: off, next: next, sync: sync,
-    items: out.map(function (r) {
+    skipped: out.filter(function (r) { return r.skip; }).length,
+    items: out.filter(function (r) { return !brief || !r.skip || r.n > 0; }).map(function (r) {
       return [r.k === 'form' ? 'F' : 'S', r.n == null ? '?' : r.n, r.grp + '/' + r.prod, r.skip || 'OK', r.inApp || '-', r.owner, r.mod, rsS_(r.title || r.name).slice(0, 70), r.place || '', r.id].join('|');
     }) };
 }
