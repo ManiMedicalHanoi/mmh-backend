@@ -129,7 +129,7 @@ function wnCompat_(a, b) {
   return true;
 }
 /* tên dạng "TTYT huyện X / trạm y tế / BVĐK khu vực X" hay trùng giữa các tỉnh ⇒ chỉ tự khớp khi biết tỉnh */
-function wnGeneric_(key) { return key.length < 13 || /^(trungtamyte|tramyte|phongkham|nhakhoa|benhviendakhoa(khuvuc|huyen|quan|thixa|thanhpho)|benhvien(huyen|quan|thixa))/.test(key); }
+function wnGeneric_(key) { return key.length < 13 || /^(trungtamyte|tramyte|phongkham|nhakhoa|benhviendakhoa(khuvuc|huyen|quan(?!y)|thixa|thanhpho)|benhvien(huyen|quan(?!y|doi|dan|khu)|thixa))/.test(key); }
 
 /**
  * ent = {name, alt:[tên khác — tên chuẩn / tên danh mục], prov, no:[tên CĐT người dùng đã chọn "Không phải"], ok: tên CĐT đã xác nhận ở nguồn khác}
