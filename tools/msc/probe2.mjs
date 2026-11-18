@@ -33,75 +33,49 @@ async function clickAndWatch(pg, label, el) {
   if (d) { const f = `${OUT}/${d.suggestedFilename()}`; await d.saveAs(f); say(`  ✅ [${label}] tải: ${d.suggestedFilename()} ${fs.statSync(f).size} byte`); }
 }
 
-// 1) tìm link Agent / hướng dẫn cài đặt
-await p.goto('https://muasamcong.mof.gov.vn/', { waitUntil: 'domcontentloaded', timeout: 90000 });
-await p.waitForTimeout(5000); await closePopups(p);
-const links = await p.$$eval('a', els => els.map(e => ({ t: (e.innerText || e.title || '').trim().slice(0, 80), h: e.href })).filter(x => /agent|cài đặt|cai-dat|bộ cài|setup|\.exe|\.msi|\.zip|plugin|tiện ích|huong-dan|tai-lieu/i.test(x.t + ' ' + x.h)));
-say('1) link liên quan:', JSON.stringify(links).slice(0, 3000));
-const html = await p.content();
-const m = html.match(/[^"'\s]{0,200}(agent|Agent)[^"'\s]{0,200}\.(exe|msi|zip|jar|dmg)/g); say('   chuỗi file agent trong HTML:', JSON.stringify(m || []).slice(0, 1500));
-let agentUrl = (m || []).map(s => s.match(/https?:\/\/[^"'\s]+/)).filter(Boolean).map(x => x[0])[0] || '';
-for (const l of links.filter(x => /huong-dan|cai-dat|agent/i.test(x.h)).slice(0, 4)) {
-  try {
-    await p.goto(l.h, { waitUntil: 'domcontentloaded', timeout: 60000 }); await p.waitForTimeout(3000); await closePopups(p);
-    const sub = await p.$$eval('a', els => els.map(e => ({ t: (e.innerText || '').trim().slice(0, 80), h: e.href })).filter(x => /agent|\.exe|\.msi|\.zip|cài đặt|bộ cài|tải về/i.test(x.t + ' ' + x.h)));
-    say('   trang', l.h.slice(0, 120), '⇒', JSON.stringify(sub).slice(0, 1500));
-    const ex = sub.find(x => /\.(exe|msi|zip)(\?|$)/i.test(x.h) && /agent|egp|client|cai/i.test(x.h + x.t)); if (ex && !agentUrl) agentUrl = ex.h;
-  } catch (e) { say('   lỗi trang', e.message.split('\n')[0]); }
-}
-say('   => agentUrl:', agentUrl);
-if (agentUrl) {
-  try {
-    execSync(`curl -sSL --max-time 120 -o ${OUT}/agent.bin "${agentUrl}"`); const sz = fs.statSync(`${OUT}/agent.bin`).size; say('   tải bộ cài', sz, 'byte');
-    const s = execSync(`strings -n 8 ${OUT}/agent.bin | grep -Eio "https?://[a-zA-Z0-9./_?=&%-]{6,200}|/api/[a-zA-Z0-9/_?=&%-]{4,120}|download[a-zA-Z0-9/_?=&%-]{0,80}" | sort | uniq -c | sort -rn | head -60 || true`, { maxBuffer: 1 << 24 }).toString();
-    say('   chuỗi trong bộ cài:\n' + s);
-  } catch (e) { say('   lỗi bộ cài', e.message.split('\n')[0]); }
-}
 
-// 2) trang gói IB2500491794: Thông tin chung + HSMT + nút tải hàng loạt
+// A) Thông tin chung: chờ giá trị + JSON API + in PDF
 await p.goto('https://muasamcong.mof.gov.vn/', { waitUntil: 'domcontentloaded', timeout: 90000 });
 await p.waitForSelector('input[placeholder*="IB000202"]:visible', { timeout: 30000 }); await closePopups(p);
 const box = p.locator('input[placeholder*="IB000202"]:visible').first(); await box.fill('IB2500491794');
-await Promise.all([p.waitForResponse(r => /smart\/search\?token/.test(r.url()) && (r.request().postData() || '').includes('IB2500491794'), { timeout: 45000 }), box.press('Enter')]);
+const sr = await Promise.all([p.waitForResponse(r => /smart\/search\?token/.test(r.url()) && (r.request().postData() || '').includes('IB2500491794'), { timeout: 45000 }), box.press('Enter')]).then(x => x[0]);
+say('A0) search hit:', short(await sr.text(), 1500));
 const href = await p.locator('a[href*="render=detail"]').first().getAttribute('href');
+const jsons = []; p.on('response', async r => { if (/services\//.test(r.url()) && /json/.test(r.headers()['content-type'] || '')) { const t = await r.text().catch(() => ''); jsons.push(r.url().split('?')[0].split('/services/')[1] + ' ⇒ ' + short(t, 1800)); } });
 await p.goto(href, { waitUntil: 'domcontentloaded', timeout: 90000 });
-await p.waitForFunction(() => /Mã TBMT/.test(document.body.innerText), null, { timeout: 30000 }).catch(() => {}); await closePopups(p);
-const info = await p.evaluate(() => [...document.querySelectorAll('.infomation__content')].map(r => { const t = r.querySelector('.infomation__content__title'); const v = t && t.nextElementSibling; return [t ? t.innerText.trim() : '', v ? v.innerText.trim().slice(0, 200) : '']; }).filter(x => x[0]));
-say('2) Thông tin chung (' + info.length + '):', JSON.stringify(info).slice(0, 4000));
-const right = await p.evaluate(() => (document.body.innerText.match(/Thời điểm đóng thầu[\s\S]{0,80}/) || [''])[0]); say('   khung phải:', short(right, 200));
-await clickAndWatch(p, 'Tải TBMT', p.locator(':is(a,button,tags,span):text-is("Tải TBMT")').first());
-await p.locator(':is(a,button,li,span,div):text-is("Hồ sơ mời thầu"):visible').last().click({ timeout: 8000 }).catch(e => say('   tab HSMT lỗi', e.message.split('\n')[0]));
-await p.waitForTimeout(4000); await closePopups(p);
-const hsmt = await p.evaluate(() => [...document.querySelectorAll('tr')].map(tr => [...tr.querySelectorAll('td')].map(td => td.innerText.trim().slice(0, 120))).filter(r => r.length));
-say('   HSMT bảng:', JSON.stringify(hsmt).slice(0, 2500));
-const tagsH = await p.$$eval('tags.tags-fileAttach', els => els.filter(e => e.offsetParent).map(e => e.innerText.trim()));
-say('   HSMT file:', JSON.stringify(tagsH));
-await clickAndWatch(p, 'Tải tất cả file đính kèm', p.locator(':is(a,button,span,tags):text-is("Tải tất cả file đính kèm")').first());
-await clickAndWatch(p, 'Tải tất cả biểu mẫu webform', p.locator(':is(a,button,span,tags):text-is("Tải tất cả biểu mẫu webform")').first());
-if (tagsH[0]) await clickAndWatch(p, 'file HSMT ' + tagsH[0], p.locator('tags.tags-fileAttach:visible').first());
-
-// 3) tìm KHLCNT
-await p.goto('https://muasamcong.mof.gov.vn/', { waitUntil: 'domcontentloaded', timeout: 90000 });
-await p.waitForSelector('input[placeholder*="IB000202"]:visible', { timeout: 30000 }); await closePopups(p);
-await p.locator('label:has-text("KHLCNT"):visible').first().click({ timeout: 5000 }).catch(e => say('   radio KHLCNT lỗi', e.message.split('\n')[0]));
-const ph = await p.$$eval('input:visible', els => els.map(e => e.placeholder).filter(Boolean)); say('3) ô nhập sau khi chọn KHLCNT:', JSON.stringify(ph));
-const box2 = p.locator('input[type=text]:visible').first(); await box2.fill('PL2500276110');
-const resp = await Promise.all([p.waitForResponse(r => /search/.test(r.url()) && (r.request().postData() || '').includes('PL2500276110'), { timeout: 45000 }).catch(() => null), box2.press('Enter')]).then(x => x[0]);
-if (resp) say('   API KHLCNT:', resp.url().slice(0, 200), '·', short(resp.request().postData(), 500), '⇒', short(await resp.text().catch(() => ''), 1200));
-await p.waitForTimeout(4000);
-const hrefs2 = await p.$$eval('a', els => els.map(e => e.href).filter(h => /render=detail|plan/i.test(h))); say('   link KHLCNT:', JSON.stringify(hrefs2.slice(0, 3)));
-if (hrefs2[0]) {
-  await p.goto(hrefs2[0], { waitUntil: 'domcontentloaded', timeout: 90000 }); await p.waitForTimeout(8000); await closePopups(p);
-  say('   trang KHLCNT:', short(await p.evaluate(() => document.body.innerText), 2500));
-  const tg = await p.$$eval('tags.tags-fileAttach', els => els.filter(e => e.offsetParent).map(e => e.innerText.trim())); say('   file KHLCNT:', JSON.stringify(tg));
-  const bt = await p.$$eval('a,button', els => [...new Set(els.filter(e => e.offsetParent).map(e => (e.innerText || '').trim()).filter(s => /tải|xuất|excel/i.test(s)))]); say('   nút tải KHLCNT:', JSON.stringify(bt));
-}
-// 4) gói chỉ định thầu rút gọn IB2500572120: thử các lựa chọn tìm
-await p.goto('https://muasamcong.mof.gov.vn/', { waitUntil: 'domcontentloaded', timeout: 90000 });
-await p.waitForSelector('input[placeholder*="IB000202"]:visible', { timeout: 30000 }); await closePopups(p);
-const box3 = p.locator('input[placeholder*="IB000202"]:visible').first(); await box3.fill('IB2500572120');
-const r3 = await Promise.all([p.waitForResponse(r => /smart\/search\?token/.test(r.url()) && (r.request().postData() || '').includes('IB2500572120'), { timeout: 45000 }).catch(() => null), box3.press('Enter')]).then(x => x[0]);
-if (r3) say('4) CĐT rút gọn: gửi', short(r3.request().postData(), 600), '⇒', short(await r3.text().catch(() => ''), 600));
+await p.waitForFunction(() => { const r = [...document.querySelectorAll('.infomation__content')].find(x => /Mã TBMT/.test(x.innerText)); return r && /IB\d{6}/.test(r.innerText); }, null, { timeout: 40000 }).catch(() => say('   chờ giá trị hết giờ'));
+await p.waitForTimeout(2500); await closePopups(p);
+const info = await p.evaluate(() => [...document.querySelectorAll('.infomation__content')].map(r => { const t = r.querySelector('.infomation__content__title'); const tt = t ? t.innerText.trim() : ''; return [tt, r.innerText.replace(tt, '').trim().slice(0, 160)]; }).filter(x => x[0]));
+say('A1) Thông tin chung:', JSON.stringify(info).slice(0, 5000));
+say('A2) JSON API:\n' + jsons.slice(0, 12).join('\n'));
+try { await p.pdf({ path: OUT + '/tbmt.pdf', format: 'A4', printBackground: true }); say('A3) page.pdf', fs.statSync(OUT + '/tbmt.pdf').size); } catch (e) { say('A3) pdf lỗi', e.message.split('\n')[0]); }
+// B) Agent: bỏ chặn localhost, bấm file đính kèm ⇒ hộp thoại Agent
+await p.unroute(/^https?:\/\/(localhost|127\.0\.0\.1):1234\//);
+await p.locator(':is(a,button,li,span,div):text-is("Hồ sơ mời thầu"):visible').last().click({ timeout: 8000 }).catch(() => {});
 await p.waitForTimeout(3000);
-say('   trang:', short((await p.evaluate(() => document.body.innerText)).replace(/^[\s\S]*Sửa tiêu chí tìm kiếm/, ''), 800));
+await p.locator('tags.tags-fileAttach:visible').first().click({ timeout: 6000, force: true }).catch(e => say('   bấm file lỗi', e.message.split('\n')[0]));
+await p.waitForTimeout(6000);
+const modal = await p.evaluate(() => { const m = [...document.querySelectorAll('.ant-modal, [role=dialog], .modal')].filter(e => e.offsetParent || getComputedStyle(e).display !== 'none'); return m.map(e => e.innerText.slice(0, 600) + ' || links: ' + JSON.stringify([...e.querySelectorAll('a')].map(a => a.innerText.trim() + ' ' + a.href))).join('\n---\n'); });
+say('B1) hộp thoại:', modal.slice(0, 3000));
+const allA = await p.$$eval('a', els => els.map(e => (e.innerText || '').trim().slice(0, 60) + ' ' + e.href).filter(x => /agent|\.exe|\.msi|\.zip|setup|cài/i.test(x)));
+say('B2) link:', JSON.stringify(allA).slice(0, 2000));
+const scripts = await p.$$eval('script[src]', els => els.map(e => e.src)); say('B3) script:', JSON.stringify(scripts).slice(0, 1500));
+for (const u of scripts.filter(u => /muasamcong/.test(u)).slice(0, 12)) {
+  try { const t = await (await ctx.request.get(u, { timeout: 30000 })).text(); const hits = [...new Set((t.match(/[^"'`\s]{0,80}(agent|Agent|1234)[^"'`\s]{0,120}/g) || []).filter(x => /http|\.exe|\.msi|\.zip|download|setup/i.test(x)))].slice(0, 15); if (hits.length) say('   ' + u.slice(-70) + ':', JSON.stringify(hits).slice(0, 2500)); } catch (e) {}
+}
+// C) KHLCNT: ghi mọi yêu cầu search
+await p.goto('https://muasamcong.mof.gov.vn/', { waitUntil: 'domcontentloaded', timeout: 90000 });
+await p.waitForSelector('input[placeholder*="IB000202"]:visible', { timeout: 30000 }); await closePopups(p);
+const radios = await p.$$eval('label:visible, .ant-radio-wrapper', els => els.map(e => e.innerText.trim()).filter(Boolean).slice(0, 20)); say('C0) radio:', JSON.stringify(radios));
+await p.locator('label:has-text("KHLCNT"):visible').first().click({ timeout: 5000 }).catch(e => say('   radio lỗi', e.message.split('\n')[0]));
+await p.waitForTimeout(1500);
+const box2 = p.locator('input[placeholder*="KHLCNT"]:visible').first(); await box2.fill('PL2500276110');
+const n0 = reqs.length; await box2.press('Enter'); await p.waitForTimeout(9000);
+say('C1) yêu cầu:', reqs.slice(n0).filter(u => /search|plan/i.test(u)).slice(0, 6).join(' || ').slice(0, 2500));
+say('C2) url:', p.url().slice(0, 300));
+const hrefs2 = await p.$$eval('a', els => els.map(e => e.href).filter(h => /render=detail|plan|khlcnt/i.test(h))); say('C3) link:', JSON.stringify(hrefs2.slice(0, 5)));
+say('C4) trang:', short((await p.evaluate(() => document.body.innerText)).replace(/^[\s\S]*Sửa tiêu chí tìm kiếm/, ''), 1200));
+if (hrefs2[0]) { await p.goto(hrefs2[0], { waitUntil: 'domcontentloaded', timeout: 90000 }); await p.waitForTimeout(9000); await closePopups(p);
+  say('C5) trang KHLCNT:', short(await p.evaluate(() => document.body.innerText), 3000));
+  const bt = await p.$$eval('a,button,tags', els => [...new Set(els.filter(e => e.offsetParent).map(e => (e.innerText || '').trim()).filter(s => /tải|xuất|excel|\.pdf|\.doc/i.test(s)))]); say('C6) nút / file:', JSON.stringify(bt)); }
 await b.close();
