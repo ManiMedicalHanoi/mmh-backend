@@ -609,6 +609,9 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   Mỗi lượt bot nhận gói tới 40 phút (`WT_MIN`) rồi TỰ GỌI LƯỢT KẾ khi còn gói (`gh workflow run`, quyền `actions: write`). Bot KHÔNG in trang thành PDF nữa (`WT_PRINT=1` mới in): TBMT = file nút "Tải TBMT" (pdfmake);
   tab Kết quả không có nút tải PDF (QĐ phê duyệt / báo cáo đánh giá chỉ qua Agent). `botRequeue {key, before, run}`: gói Đã tải trước mốc ⇒ bỏ bản in "… - Kết quả lựa chọn nhà thầu.pdf" (Thùng rác + dòng Sheet tổng hợp) ⇒ Chờ tải lại.
   Agent (`localhost:1234`) chỉ nhận yêu cầu có Origin muasamcong ⇒ link mở thẳng từ app luôn 403 ⇒ app chỉ còn "Mở trang gói" + "Thêm file đã tải" (tự đổi tên, đúng thư mục).
+  **Rà soát 18/11/2026 (tender-info v1.6)**: `wtHitOut_` ⇒ `wtInfoSlim_` (app chỉ nhận url · prov · want · winner · win · price · open · form · close · agentFiles…, bỏ fields / kqFields / moFields — boot cũ vài MB / 800 gói);
+  email gói mới có giá gói / giá trúng / nhà thầu trúng / mở thầu / tỉnh + từ khoá đang lọc + link `#g=<key>` từng gói. `botNames` (khoá bot, chỉ đọc) + workflow **Theo dõi gói thầu — đối chiếu tên** (`tools/msc/names.mjs`):
+  so tên CĐT Báo Đấu Thầu · CĐT file tổng hàng hóa · danh mục cơ sở y tế (csyt.js của Tender Map = Working Map) · khách CRM Surgical / Dental / Eyeless VN (`customerIndex`) ⇒ số khớp + danh sách chưa khớp (artifact names-report.json).
   **Tải lên tài liệu cần Agent + đệm gói (18/11/2026, người dùng yêu cầu)**: `wUpload {key, b64, name, docType, sec, orig}` (người theo dõi gói / quản lý) ⇒ "<Số> - <Loại tài liệu>.<đuôi>" vào thư mục gói đúng phần,
   files của gói + `agentFiles[orig].done/url` + dòng Sheet tổng hợp (cùng khoá số | loại | tên gốc ⇒ thay dòng "cần Agent"); `botDone` giữ dấu done khi bot chạy lại. App: link "Tải bằng Agent"
   (`http://localhost:1234/api/download/file/browser/public?fileId=…`, máy có Agent) + "Trang gói" + hộp "Thêm tài liệu đã tải" (tự nhận tài liệu theo tên file).
