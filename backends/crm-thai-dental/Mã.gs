@@ -1388,6 +1388,7 @@ function route_(p){
   if(/^trip(Master|Propose)2$/.test(a)) return tripRoute_(a, user, p);  /* v1.16 */
   switch(a){
     case 'thdSample': return thdSampleApi_(p);
+    case 'naResend': return thdNaResendApi_(p);                         /* 18/11/2026 — TH_NaResend.gs (gửi lại email xin duyệt Mở mới cho người duyệt mới, cần key) */
     case 'thdCare': return thdCareApi_(p);                               /* 17/11/2026 — TH_DentalCare.gs (diagnostics) */
     case 'thdFix': return thdFixApi_(p);                                 /* 02/11/2026 — TH_DentalFix.gs */                           /* 30/10/2026 — dữ liệu mẫu thử KPI (TH_DentalSample.gs) */
     case 'rpLog': return rplApi_(p);                                      /* ⭐ 23/10/2026: thống kê gửi báo cáo (MMH_ReportLog.gs) */
