@@ -208,6 +208,8 @@ function rsData_(e, me) {
   var cnt = rsCount_(e), pii = !!(me.priv || me.pic === e.by);
   var ck = 'rsd_' + e.id + '_' + cnt.n + '_' + (pii ? 1 : 0), cache = CacheService.getScriptCache();
   var hit = rsCacheGet_(cache, ck); if (hit) return hit;
+  var nsc = !e.formId && nsCodeOfSheet_(e.sheetId);  // khảo sát hệ thống MMH (MMH_SurveyNative.gs): loại câu lấy theo bản mô tả
+  if (nsc) { var nd = nsRsData_(e, nsc, cnt, pii); rsCachePut_(cache, ck, nd, 21600); return nd; }
   var form = null;
   if (e.formId) { try { form = FormApp.openById(e.formId); } catch (x) { if (!e.sheetId) throw x; } }
   if (!form) {
@@ -385,7 +387,7 @@ function rsRoute_(a, p) {
       var items = LL.map(function (e) {
         var c = SN[e.id] || { n: 0, last: '' }, err = c.err || '';
         var cl = e.grp ? { grp: rshGrpNorm_(e.grp), prod: e.prod || 'Chung' } : rsClassify_(e.title);
-        return { id: e.id, title: e.title, grp: cl.grp, prod: cl.prod, auto: !e.grp, kind: e.formId ? 'form' : 'sheet', n: c.n, last: c.last, today: c.today || 0, days: c.days || [], recent: (c.recent || []).slice(0, 4), by: e.by, at: e.at, watch: e.watch.indexOf(me.pic) >= 0, watchers: e.watch.length,
+        return { id: e.id, title: e.title, grp: cl.grp, prod: cl.prod, auto: !e.grp, kind: e.formId ? 'form' : (nsCodeOfSheet_(e.sheetId) ? 'mmh' : 'sheet'), link: !e.formId && nsCodeOfSheet_(e.sheetId) ? nsLink_(nsCodeOfSheet_(e.sheetId)) : '', n: c.n, last: c.last, today: c.today || 0, days: c.days || [], recent: (c.recent || []).slice(0, 4), by: e.by, at: e.at, watch: e.watch.indexOf(me.pic) >= 0, watchers: e.watch.length,
           formUrl: e.formId ? 'https://docs.google.com/forms/d/' + e.formId + '/edit' : '', sheetUrl: e.sheetId ? 'https://docs.google.com/spreadsheets/d/' + e.sheetId + '/edit' : '',
           canDel: me.admin || me.pic === e.by, canSet: me.admin || me.priv || me.pic === e.by, err: err };
       });
