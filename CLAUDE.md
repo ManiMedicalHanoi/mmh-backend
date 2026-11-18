@@ -585,3 +585,4 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   Khảo sát CHỈ có Sheet (không có / không mở được form, hoặc Sheet bản sao có form mới trống) ⇒ `rsSheetData_` suy kiểu câu từ dữ liệu (lưới "[…]", chọn nhiều nối ", ", thang 1–5, chọn 1, tự ghi).
   Rà soát Drive (mọi Google Form + Sheet tên khảo sát / survey / phản hồi… mà mmh.product mở được): workflow Kiểm tra ▸ ping `survey?action=rsScan&key=<SV.KEY>&op=dry&off=0&n=40&full=1`
   (`op=run` = thêm vào app + lối tắt; bỏ bài kiểm tra / form thử / form trống / form đăng ký; `off` theo `next`). `rsHub&op=status|sync` = xem / đồng bộ cây.
+  **Chọn tài liệu cần tải (18/11/2026, người dùng yêu cầu)**: app gửi `want` (tbmt · hsmt · kq · nt · hh · qd · kh, trống = tất cả) ở `wHit op=dl` / `wQuick` ⇒ `info.want` (`wtWant_`) ⇒ bot (`wants` / `keyOf`) chỉ in / tải / ghi loại đã chọn.

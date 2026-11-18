@@ -320,12 +320,20 @@ function wtDel_(me, p) {
   return wtBoot_(me, {});
 }
 
+/** Loại tài liệu người dùng chọn tải (app ▸ hộp "Chọn tài liệu"); trống = tải mọi loại. Lưu ở info.want, bot đọc qua job.info.want */
+const WT_WANT = ['tbmt', 'hsmt', 'kq', 'nt', 'hh', 'qd', 'kh'];
+function wtWant_(v) {
+  const a = (Array.isArray(v) ? v : String(v || '').split(',')).map(function (x) { return wtS_(x).toLowerCase(); }).filter(function (x) { return WT_WANT.indexOf(x) >= 0; });
+  return a.length && a.length < WT_WANT.length ? a.filter(function (x, i) { return a.indexOf(x) === i; }) : [];
+}
+function wtInfoWant_(info, want) { const o = Object.assign({}, info || {}); if (want.length) o.want = want; else delete o.want; return JSON.stringify(o); }
+
 function wtHitOp_(me, p) {
   const ss = wtBook_(), sh = wtSheet_(ss, WT.SH_H, WT.HH), H = wtHits_(ss);
   const h = H.filter(function (x) { return x.key === wtS_(p.key); })[0];
   if (!h) return { ok: false, error: 'Không tìm thấy gói.' };
   if (!me.boss && !h.watchers.some(function (m) { return wtLocal_(m) === me.local; })) return { ok: false, error: 'Bạn không theo dõi gói này.' };
-  if (p.op === 'dl') { sh.getRange(h.row, 11, 1, 4).setValues([[WT.ST.WAIT, JSON.stringify(h.files || []), 0, '']]); }
+  if (p.op === 'dl') { sh.getRange(h.row, 7).setValue(wtInfoWant_(h.info, wtWant_(p.want))); sh.getRange(h.row, 11, 1, 4).setValues([[WT.ST.WAIT, JSON.stringify(h.files || []), 0, '']]); }
   else if (p.op === 'skip') sh.getRange(h.row, 11).setValue(WT.ST.OFF);
   else return { ok: false, error: 'Thao tác không hợp lệ.' };
   return { ok: true, key: h.key, status: p.op === 'dl' ? WT.ST.WAIT : WT.ST.OFF };
@@ -338,7 +346,7 @@ function wtQuick_(me, p) {
   if (nos.length > 30) return { ok: false, error: 'Tối đa 30 số mỗi lần.' };
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) return { ok: false, code: 'BUSY', error: 'Máy chủ đang bận — thử lại sau ít giây.' };
-  const out = [];
+  const out = [], want = wtWant_(p.want);
   try {
     const ss = wtBook_(), sh = wtSheet_(ss, WT.SH_H, WT.HH), H = wtHits_(ss), now = wtNow_(), add = [];
     const bare = function (n) { return String(n || '').toUpperCase().replace(/\s+/g, '').replace(/-\d+$/, ''); };
@@ -347,13 +355,14 @@ function wtQuick_(me, p) {
       if (ex.length) {
         ex.forEach(function (h) {
           const w = h.watchers.indexOf(me.mail) < 0 ? h.watchers.concat([me.mail]) : h.watchers;
+          sh.getRange(h.row, 7).setValue(wtInfoWant_(h.info, want));
           sh.getRange(h.row, 10, 1, 5).setValues([[w.join(', '), WT.ST.WAIT, JSON.stringify(h.files || []), 0, '']]);
           out.push(h.key);
         });
         return;
       }
       const type = /^PL/.test(b) ? 'khmt' : 'tbmt', key = 'n:' + b;
-      add.push([key, type, b, '(đang tra)', '', b, JSON.stringify({ quick: 1, by: me.pic }), '', now, me.mail, WT.ST.WAIT, '[]', 0, '', '', '', 'tải ngay']);
+      add.push([key, type, b, '(đang tra)', '', b, wtInfoWant_({ quick: 1, by: me.pic }, want), '', now, me.mail, WT.ST.WAIT, '[]', 0, '', '', '', 'tải ngay']);
       out.push(key);
     });
     if (add.length) sh.getRange(sh.getLastRow() + 1, 1, add.length, WT.HH.length).setValues(add);

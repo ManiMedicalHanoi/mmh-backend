@@ -193,6 +193,16 @@ function docType(sec, label, fname) {
   return label || (sec === 'kq' ? 'Tài liệu kết quả' : sec === 'kh' ? 'Tài liệu KHLCNT' : 'Tài liệu TBMT');
 }
 
+/* người dùng chọn tải 1 số loại tài liệu (app ▸ Chọn tài liệu ⇒ info.want): tbmt · hsmt · kq · nt · hh · qd · kh; trống = tất cả */
+function wants(c, ...keys) { const W = (c.job.info || {}).want; return !W || !W.length || keys.some(k => W.indexOf(k) >= 0); }
+function keyOf(sec, type, prefix) {
+  if (/^Danh sách nhà thầu/.test(type)) return ['nt'];
+  if (/^Danh sách hàng hóa/.test(type)) return ['hh'];
+  if (/^(Quyết định|Báo cáo)/.test(type)) return sec === 'kh' ? ['qd', 'kh'] : ['qd'];
+  if (prefix === 'HSMT') return ['hsmt'];
+  return [sec === 'kq' ? 'kq' : sec];
+}
+
 async function attachments(pg, ctx2, sec, prefix) {
   const { job, files, docs, cap, used } = ctx2;
   // file đính kèm = thẻ tags.tags-fileAttach + mọi phần tử lá đang hiện có chữ là tên file (.pdf/.doc…) — trang KHLCNT, bảng HSMT không dùng thẻ tags
@@ -213,6 +223,7 @@ async function attachments(pg, ctx2, sec, prefix) {
     if (!orig || seen.has(orig)) continue; seen.add(orig);
     const label = (await labelOf(el)) || orig.replace(/\.[a-z0-9]+$/i, '');
     const type = (prefix ? prefix + ' - ' : '') + docType(sec, label, orig);
+    if (!wants(ctx2, ...keyOf(sec, type, prefix))) continue;
     const name = docName(ctx2.no, type, extOf(orig), used);
     cap.length = 0;
     await el.click({ timeout: 5000 }).catch(() => {});
@@ -233,6 +244,7 @@ async function attachments(pg, ctx2, sec, prefix) {
 }
 
 async function excels(pg, ctx2, sec) {
+  if (!wants(ctx2, 'nt', 'hh')) return;
   const btns = pg.locator(':is(a,button):text-is("Xuất Excel"):visible');
   const n = await btns.count();
   for (let k = 0; k < n; k++) {
@@ -247,6 +259,7 @@ async function excels(pg, ctx2, sec) {
     await closePopups(pg);
     if (!d) { say(`    · Xuất Excel #${k + 1}: không ra file`); ctx2.miss = (ctx2.miss || 0) + 1; continue; }
     const sug = d.suggestedFilename(), type = docType(sec, label, sug);
+    if (!wants(ctx2, ...keyOf(sec, type, ''))) { say(`    · bỏ qua ${type} (không chọn)`); continue; }
     const name = docName(ctx2.no, type, extOf(sug) || 'xlsx', ctx2.used), f = path.join(OUT, ctx2.job.key.replace(/\W+/g, '_') + '_' + name);
     await d.saveAs(f);
     ctx2.files.push({ name, file: f, sec, type });
@@ -255,6 +268,7 @@ async function excels(pg, ctx2, sec) {
 }
 /* in trang đang xem thành PDF (bản lưu nội dung trang muasamcong — không cần Agent) */
 async function printPage(pg, ctx2, sec, type) {
+  if (!wants(ctx2, sec)) return;
   try {
     const name = docName(ctx2.no, type, 'pdf', ctx2.used), f = path.join(OUT, ctx2.job.key.replace(/\W+/g, '_') + '_' + name);
     await pg.emulateMedia({ media: 'screen' });
@@ -315,7 +329,7 @@ async function doJob(pg, job, cap) {
     if (!info.planNo) info.planNo = info.fields['Mã KHLCNT'] || '';
     await printPage(pg, c, 'tbmt', 'Thông báo mời thầu');
     await attachments(pg, c, 'tbmt', '');
-    if (await clickTab(pg, 'Hồ sơ mời thầu')) {   // bảng chương HSMT tải chậm ⇒ chờ tới khi có tên file trong bảng
+    if (wants(c, 'hsmt') && await clickTab(pg, 'Hồ sơ mời thầu')) {   // bảng chương HSMT tải chậm ⇒ chờ tới khi có tên file trong bảng
       await pg.waitForFunction(() => [...document.querySelectorAll('td')].some(td => td.offsetParent && /\.(pdf|docx?|xlsx?|zip|rar)\s*$/i.test(td.innerText)), null, { timeout: 20000 }).catch(() => say('    · tab HSMT chưa hiện file'));
       await attachments(pg, c, 'tbmt', 'HSMT');
     }
