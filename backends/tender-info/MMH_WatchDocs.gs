@@ -258,9 +258,11 @@ function wtdPkgs_(me, p) {
   return { ok: true, inv: wtS_(p.inv), cols: ['type', 'no', 'name', 'date', 'price', 'win', 'winner', 'form', 'n', 'status', 'files', 'key'], list: list, total: rows.length };
 }
 function wtdGrab_(me, p) {
-  const items = (typeof p.items === 'string' ? wtJson_(p.items, []) : (p.items || [])).filter(function (x) { return x && x.no && WT.TYPES[x.type]; }).slice(0, 40);
+  const items = (typeof p.items === 'string' ? wtJson_(p.items, []) : (p.items || [])).filter(function (x) { return x && x.no && WT.TYPES[x.type]; }).slice(0, 60);
   if (!items.length) return { ok: false, error: 'Chưa chọn gói nào có số TBMT / KHLCNT.' };
-  const want = wtWant_(p.want), invKey = wtNorm_(p.inv), rows = invKey ? wtdPkgRows_(invKey) : [];
+  const want = wtWant_(p.want), rowsBy = {};
+  const rowsOf = function (inv) { const k = wtNorm_(inv); if (!k) return []; if (!rowsBy[k]) rowsBy[k] = wtdPkgRows_(k); return rowsBy[k]; };
+  items.forEach(function (it) { rowsOf(it.inv || p.inv); });   // đọc trước khi giữ khoá
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) return { ok: false, code: 'BUSY', error: 'Máy chủ đang bận — thử lại sau ít giây.' };
   const out = [];
@@ -275,15 +277,77 @@ function wtdGrab_(me, p) {
         sh.getRange(ex.row, 10, 1, 5).setValues([[w.join(', '), WT.ST.WAIT, JSON.stringify(ex.files || []), 0, '']]);
         out.push(ex.key); return;
       }
-      const r = rows.filter(function (x) { return wtS_(x[1]) === it.type && wtBare_(x[2]) === wtBare_(it.no); })[0];
+      const r = rowsOf(it.inv || p.inv).filter(function (x) { return wtS_(x[1]) === it.type && wtBare_(x[2]) === wtBare_(it.no); })[0];
       const info = r ? { proj: wtS_(r[13]), price: wtS_(r[5]), win: wtS_(r[6]), winner: wtS_(r[7]), form: wtS_(r[8]), open: wtS_(r[14]), prov: wtS_(r[9]), n: +r[10] || 1, grab: 1, by: me.pic }
                      : { grab: 1, by: me.pic };
       if (want.length) info.want = want;
-      const inv = r ? wtS_(r[12]) : wtS_(p.inv);
+      const inv = r ? wtS_(r[12]) : wtS_(it.inv || p.inv);
       add.push([key, it.type, it.no, inv, wtNorm_(inv), r ? wtS_(r[3]) : it.no, JSON.stringify(info), r ? wtS_(r[4]) : '', now, me.mail, WT.ST.WAIT, '[]', 0, '', '', '', r ? wtS_(r[11]) : 'chọn trên bản đồ']);
       out.push(key);
     });
     if (add.length) sh.getRange(sh.getLastRow() + 1, 1, add.length, WT.HH.length).setValues(add);
   } finally { lock.releaseLock(); }
   return Object.assign(wtBoot_(me, {}), { queued: out });
+}
+
+
+/* ════════════════════════════════════════════════════════════════════
+   GÓI GẦN ĐÂY (18/11/2026, người dùng: xem gói mới trong tuần / tháng, thống kê giá trị + hình thức LCNT, gói sắp đóng thầu)
+   wtdRecentBuild_ (trong wtTick, cùng chữ ký WT_PKG_SIG — chỉ dựng lại khi dữ liệu đổi) ⇒ gói có NGÀY CẬP NHẬT (cột Thời gian cập nhật — lúc gói được
+   bổ sung vào file) hoặc ngày trong 90 ngày, hoặc TBMT còn hạn mở thầu ⇒ đệm `wt_rec` + sheet ẩn THEO DÕI · GÓI GẦN ĐÂY (dự phòng), phiên bản WT_REC_V.
+   wRecent {since} ⇒ { v, cols, rows } hoặc { same:true }. App tự tính thống kê / lọc 7 · 30 · 90 ngày / tỉnh / sắp đóng thầu.
+   ════════════════════════════════════════════════════════════════════ */
+const WTD_REC_SHEET = 'THEO DÕI · GÓI GẦN ĐÂY';
+const WTD_REC_COLS = ['type', 'no', 'name', 'inv', 'date', 'upd', 'price', 'win', 'form', 'prov', 'close', 'n', 'winner'];
+function wtdRecentBuild_(data, force) {
+  const P = PropertiesService.getScriptProperties();
+  const sig = ['khmt', 'tbmt', 'kqdt'].map(function (t) { let m = ''; data[t].forEach(function (r) { if ((r.upd || '') > m) m = r.upd; }); return data[t].length + '/' + m; }).join(' ') + '|' + Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
+  if (!force && P.getProperty('WT_REC_SIG') === sig && wtBigGet_(CacheService.getScriptCache(), 'wt_rec')) return -1;
+  const today = Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
+  const from = Utilities.formatDate(new Date(Date.now() - 90 * 864e5), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
+  const g = {};
+  ['khmt', 'tbmt', 'kqdt'].forEach(function (type) {
+    data[type].forEach(function (r) {
+      const close = type === 'tbmt' ? wtDateOf_(r.open) : '';
+      const d = r.upd || r.date || '';
+      if (!(d >= from || (r.date || '') >= from || (close && close >= today))) return;
+      const key = r.invKey + '|' + type + ':' + (r.no || ('r' + r.row));
+      if (!g[key]) g[key] = { r: r, names: [], close: close };
+      if (g[key].names.indexOf(r.name) < 0) g[key].names.push(r.name);
+    });
+  });
+  const rows = Object.keys(g).map(function (k) {
+    const x = g[k], r = x.r, nm = x.names.length > 1 ? x.names[0] + ' (+' + (x.names.length - 1) + ' gói)' : x.names[0];
+    return [r.type, r.no, wtS_(nm).slice(0, 220), r.inv, r.date || '', r.upd || r.date || '', wtdMoney_(r.price) || 0, wtdMoney_(r.win) || 0, wtS_(r.form).slice(0, 80), r.prov, x.close, x.names.length, wtS_(r.winner).slice(0, 120)];
+  }).sort(function (a, b) { return String(b[5]).localeCompare(String(a[5])); });
+  const v = wtNow_();
+  const res = { ok: true, v: v, cols: WTD_REC_COLS, rows: rows, from: from };
+  wtBigPut_(CacheService.getScriptCache(), 'wt_rec', JSON.stringify(res), 21600);
+  try {
+    const ss = wtBook_(), sh = wtSheet_(ss, WTD_REC_SHEET, WTD_REC_COLS);
+    try { sh.hideSheet(); } catch (e) {}
+    const last = sh.getLastRow();
+    if (last > 1) sh.getRange(2, 1, last - 1, WTD_REC_COLS.length).clearContent();
+    if (rows.length) sh.getRange(2, 1, rows.length, WTD_REC_COLS.length).setNumberFormat('@').setValues(rows.map(function (r) { return r.map(function (c) { return c === undefined || c === null ? '' : String(c); }); }));
+  } catch (e) { Logger.log('wtdRecentBuild_ sheet: ' + e.message); }
+  P.setProperty('WT_REC_SIG', sig); P.setProperty('WT_REC_V', v);
+  return rows.length;
+}
+function wtdRecent_(me, p) {
+  const v = PropertiesService.getScriptProperties().getProperty('WT_REC_V') || '';
+  if (v && wtS_(p.since) === v) return { ok: true, same: true, v: v };
+  const hit = wtBigGet_(CacheService.getScriptCache(), 'wt_rec');
+  if (hit) return JSON.parse(hit);
+  const sh = wtBook_().getSheetByName(WTD_REC_SHEET);
+  if (sh && sh.getLastRow() > 1) {
+    const rows = sh.getRange(2, 1, sh.getLastRow() - 1, WTD_REC_COLS.length).getValues().map(function (r) {
+      return r.map(function (c, i) { return i === 6 || i === 7 || i === 11 ? (+c || 0) : wtS_(c); });
+    });
+    const res = { ok: true, v: v || 'sheet', cols: WTD_REC_COLS, rows: rows };
+    wtBigPut_(CacheService.getScriptCache(), 'wt_rec', JSON.stringify(res), 21600);
+    return res;
+  }
+  wtdRecentBuild_(wtLoad_(wtBook_()), true);
+  const h2 = wtBigGet_(CacheService.getScriptCache(), 'wt_rec');
+  return h2 ? JSON.parse(h2) : { ok: false, error: 'Chưa dựng được danh sách gói gần đây.' };
 }

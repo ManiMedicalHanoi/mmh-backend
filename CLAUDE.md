@@ -590,3 +590,6 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   **Gói thầu theo bệnh viện (18/11/2026, người dùng: chọn bệnh viện ⇒ list gói ⇒ tải từng gói / nhiều gói)**: `wtdPkgBuild_` (trong `wtTick`, chỉ ghi lại khi 3 tab dữ liệu đổi — `WT_PKG_SIG`) ⇒ sheet ẩn
   **THEO DÕI · GÓI THEO CĐT** (khoá CĐT · loại · số · tên · ngày · giá · giá trúng · nhà thầu · hình thức · tỉnh · số gói KH · nguồn · CĐT · dự án · mở thầu; xếp theo khoá CĐT rồi ngày mới trước).
   `wPkgs {inv}` = gói của 1 CĐT (TextFinder cột A ⇒ chỉ đọc đúng đoạn) + trạng thái tải nếu đã có trong GÓI TÌM THẤY. `wGrab {inv, items:[{type,no}], want}` ⇒ thêm / đặt lại dòng GÓI TÌM THẤY = Chờ tải, người bấm vào danh sách theo dõi gói.
+  **Gói gần đây + thống kê (18/11/2026, người dùng yêu cầu)**: `wtdRecentBuild_` (wtTick) ⇒ gói có Thời gian cập nhật / ngày trong 90 ngày hoặc TBMT còn hạn mở thầu ⇒ đệm `wt_rec` + sheet ẩn **THEO DÕI · GÓI GẦN ĐÂY**
+  (`WT_REC_V`); `wRecent {since}` ⇒ `{v, cols, rows}` (type · no · name · inv · date · upd · price số · win số · form · prov · close · n · winner) — app tự lọc 7 / 30 / 90 ngày, thống kê giá trị + hình thức LCNT, gói sắp đóng thầu.
+  `wGrab` nhận `items[].inv` (chọn gói của nhiều bệnh viện 1 lần). `wPing` (công khai) trả `lastScan` · `trig` (số trigger wtTick thật) · `invV` · `recV`; `wtEnsureTrig_` kiểm trigger thật khi lần quét cuối > 2 giờ.

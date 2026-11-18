@@ -47,7 +47,11 @@ function wtRoute_(e, isPost) {
 }
 
 function wtDo_(a, p) {
-  if (a === 'wPing') return { ok: true, app: 'tender-watch', v: WT.VER };
+  if (a === 'wPing') {   // chẩn đoán công khai: lần quét cuối + trigger 30 phút có thật không (không trả dữ liệu)
+    const P = PropertiesService.getScriptProperties(); let trig = -1;
+    try { trig = ScriptApp.getProjectTriggers().filter(function (t) { return t.getHandlerFunction() === 'wtTick'; }).length; } catch (e) {}
+    return { ok: true, app: 'tender-watch', v: WT.VER, lastScan: P.getProperty('WT_LAST_SCAN') || '', trig: trig, invV: P.getProperty('WT_INV_V') || '', recV: P.getProperty('WT_REC_V') || '' };
+  }
   if (/^bot/.test(a)) {
     if (!wtBotOk_(p.key)) return { ok: false, code: 'KEY', error: 'Khoá bot không đúng.' };
     if (a === 'botPeek') { wtBotSeen_(p.bot); return { ok: true, n: wtBotEligible_(wtHits_(wtBook_())).length }; }
@@ -69,6 +73,7 @@ function wtDo_(a, p) {
   if (a === 'wBotKey') return wtBotKey_(me, p);
   if (a === 'wQuick') return wtQuick_(me, p);
   if (a === 'wPkgs') return wtdPkgs_(me, p);
+  if (a === 'wRecent') return wtdRecent_(me, p);
   if (a === 'wGrab') return wtdGrab_(me, p);
   return { ok: false, error: 'Không có lệnh ' + a };
 }
@@ -271,7 +276,7 @@ function wtBoot_(me, p) {
     hits: hits, types: WT.TYPES,
     bot: { seen: P.getProperty('WT_BOT_SEEN') || '', name: P.getProperty('WT_BOT_NAME') || '', hasKey: !!P.getProperty('WT_BOT_KEY'),
       queue: H.filter(function (h) { return h.status === WT.ST.WAIT || h.status === WT.ST.WORK; }).length },
-    lastScan: P.getProperty('WT_LAST_SCAN') || '', sumUrl: wtdSumUrl_(), rootUrl: wtdRootUrl_(), invV: P.getProperty('WT_INV_V') || ''
+    lastScan: P.getProperty('WT_LAST_SCAN') || '', sumUrl: wtdSumUrl_(), rootUrl: wtdRootUrl_(), invV: P.getProperty('WT_INV_V') || '', recV: P.getProperty('WT_REC_V') || ''
   };
 }
 function wtHitOut_(h) {
@@ -493,11 +498,13 @@ function wtNotifyNew_(news) {
 
 /* ══════════ TRIGGER ══════════ */
 function wtTick() {
-  try { const data = wtLoad_(wtBook_()); try { wtdInvBuild_(data); } catch (e) { Logger.log('wtdInvBuild_: ' + e.message); } try { wtdPkgBuild_(data); } catch (e) { Logger.log('wtdPkgBuild_: ' + e.message); } wtScan_({ data: data }); } catch (e) { Logger.log('wtTick: ' + e.message); PropertiesService.getScriptProperties().setProperty('WT_LAST_SCAN', wtNow_() + ' · lỗi: ' + e.message); }
+  try { const data = wtLoad_(wtBook_()); try { wtdInvBuild_(data); } catch (e) { Logger.log('wtdInvBuild_: ' + e.message); } try { wtdPkgBuild_(data); } catch (e) { Logger.log('wtdPkgBuild_: ' + e.message); } try { wtdRecentBuild_(data); } catch (e) { Logger.log('wtdRecentBuild_: ' + e.message); } wtScan_({ data: data }); } catch (e) { Logger.log('wtTick: ' + e.message); PropertiesService.getScriptProperties().setProperty('WT_LAST_SCAN', wtNow_() + ' · lỗi: ' + e.message); }
 }
 function wtEnsureTrig_() {
   const P = PropertiesService.getScriptProperties();
-  if (P.getProperty('WT_TRIG') === '1') return;
+  // cờ đã cài + lần quét cuối < 2 giờ ⇒ tin; quá lâu chưa quét ⇒ kiểm trigger thật (bài học Tender Map 11/11/2026: cờ có mà trigger không chạy)
+  const last = (P.getProperty('WT_LAST_SCAN') || '').slice(0, 19), age = last ? (Date.now() - new Date(last.replace(' ', 'T') + '+07:00').getTime()) / 6e4 : 1e9;
+  if (P.getProperty('WT_TRIG') === '1' && age < 120) return;
   try {
     if (!ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'wtTick'; })) ScriptApp.newTrigger('wtTick').timeBased().everyMinutes(30).create();
     P.setProperty('WT_TRIG', '1');
