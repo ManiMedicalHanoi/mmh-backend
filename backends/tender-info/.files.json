@@ -1,5 +1,7 @@
 [
   "appsscript.json",
   "Mã.gs",
-  "Webapp.gs"
+  "Webapp.gs",
+  "MMH_MailDomain.gs",
+  "MMH_Watch.gs"
 ]
