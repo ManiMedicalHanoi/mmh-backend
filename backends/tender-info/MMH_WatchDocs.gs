@@ -280,10 +280,10 @@ function wtdPkgs_(me, p) {
   const cols = ['type', 'no', 'name', 'date', 'price', 'win', 'winner', 'form', 'n', 'status', 'files', 'key', 'inv', 'close'];
   // trạng thái tải (status / files / key) app tự ghép từ danh sách gói đang theo dõi ⇒ trúng đệm là trả ngay, không mở file Sheet
   const c = CacheService.getScriptCache(), ck = wtdPkgCk_(invKey), hit = c.get(ck);
-  if (hit) { const o = JSON.parse(hit); return { ok: true, inv: wtS_(p.inv), cols: cols, list: o.list, total: o.total, cached: true }; }
+  if (hit) { const o = JSON.parse(hit); return { ok: true, inv: wtS_(p.inv), cols: cols, list: o.list, total: o.total, cached: true, crm: wnCrmOf_(invKey) }; }
   const rows = wtdPkgRows_(invKey), list = wtdPkgOut_(rows), s = JSON.stringify({ list: list, total: rows.length });
   if (s.length < 95000) { try { c.put(ck, s, 21600); } catch (e) {} }
-  return { ok: true, inv: wtS_(p.inv), cols: cols, list: list, total: rows.length };
+  return { ok: true, inv: wtS_(p.inv), cols: cols, list: list, total: rows.length, crm: wnCrmOf_(invKey) };
 }
 function wtdGrab_(me, p) {
   const items = (typeof p.items === 'string' ? wtJson_(p.items, []) : (p.items || [])).filter(function (x) { return x && x.no && WT.TYPES[x.type]; }).slice(0, 60);

@@ -638,3 +638,10 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   `botAgentList {key, worker, agent}` (file trong `info.agentFiles` chưa done, thử < 4 lần) ⇒ lấy file qua Agent (gọi thẳng kèm Origin muasamcong; không được ⇒ Chrome / Edge ẨN mở muasamcong để chính trang gọi Agent)
   ⇒ `botAgentPut {key, hit, orig, name, mime, b64}` = như `wUpload` (đúng thư mục + tên chuẩn + Sheet tổng hợp, đánh dấu done) hoặc `{err}` (tries + 1) ⇒ XOÁ file tạm trên máy. Trạng thái `WT_AGW_SEEN / NAME / AGENT / LAST` ⇒ wBoot `agw`
   (app: dòng "Máy tải Agent" ở tab Tài liệu + Cài đặt bot). Chưa chạy thử trên máy Windows thật (chỉ thử với máy chủ + Agent giả lập).
+- **18/11/2026 — TÊN CHUNG: chủ đầu tư ⇄ khách CRM ⇄ danh mục cơ sở y tế (`tender-info/MMH_WatchNames.gs`, tender-info v1.7, người dùng yêu cầu)**: KHÔNG sửa tên ở bất kỳ file nào
+  (CUSTOMER CODE của CRM, csyt.js, dữ liệu Báo Đấu Thầu giữ nguyên) — chỉ ghi sheet ẩn **TÊN CHUNG · ĐỐI CHIẾU** (1 dòng / khách CRM Surgical · Dental · Eyeless VN hoặc cơ sở csyt, ID = `nguồn|mã`):
+  tên theo nguồn (bản sao) ⇒ tên chủ đầu tư muasamcong + độ khớp + trạng thái **Tự khớp** (tên trùng sau chuẩn hoá + cùng tỉnh mới / cũ, không có tên trùng khác, ≥ 90) ·
+  **Cần xác nhận** (gần giống / nhiều tên trùng / chủ đầu tư không ghi tỉnh, 65–89) · **Đã xác nhận** / **Không khớp** (người dùng bấm — lượt sau KHÔNG ghi đè) · Chưa thấy.
+  Bộ so tên `wn*` là hàm thuần; `tools/msc/names.mjs` nạp chính file đó (vm) + tên chuẩn Surgical `VM_STD` + csyt.js ⇒ `botNameSync` (workflow **Theo dõi gói thầu — đối chiếu tên**, 02:23 hằng đêm + bấm tay, `mode=report` chỉ in).
+  App (phiên email): `wAcct {src: crm-surgical|crm-dental|crm-eyeless|csyt, code, name, prov, alt}` ⇒ chủ đầu tư + gói sơ bộ (đang mời thầu · KQ / KH / TBMT 12 tháng, 6 gói mới nhất, từ đệm `wp2:`;
+  khách chưa có trong bảng ⇒ so ngay) — Working Map dùng; `wName op=list|set|find` (xác nhận: mọi người đăng nhập, ghi tên người bấm); `wPkgs` trả `crm` (khách CRM đã khớp); boot trả `nm` (đếm trạng thái).

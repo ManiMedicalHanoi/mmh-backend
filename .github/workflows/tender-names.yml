@@ -1,15 +1,21 @@
 name: Theo dõi gói thầu — đối chiếu tên
-# CHỈ ĐỌC: so tên chủ đầu tư (Báo Đấu Thầu, file tổng hàng hóa) với danh mục cơ sở y tế của Tender Map / Working Map và khách CRM Surgical / Dental / Eyeless VN (tools/msc/names.mjs).
-on: { workflow_dispatch: {} }
+# TÊN CHUNG: so tên chủ đầu tư (Báo Đấu Thầu / muasamcong) với khách CRM Surgical / Dental / Eyeless VN + danh mục cơ sở y tế (Tender Map / Working Map)
+# ⇒ ghi bảng đối chiếu "TÊN CHUNG · ĐỐI CHIẾU" của tender-info (tools/msc/names.mjs). Không sửa tên ở nguồn nào. mode=report ⇒ chỉ in, không ghi.
+on:
+  workflow_dispatch:
+    inputs:
+      mode: { description: 'sync = ghi bảng đối chiếu · report = chỉ in', default: 'sync', type: choice, options: [sync, report] }
+  schedule:
+    - cron: '23 19 * * *'   # 02:23 giờ Việt Nam
 permissions: { contents: read }
 jobs:
   names:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    env: { WT_BOT_KEY: '${{ secrets.WT_BOT_KEY }}' }
+    timeout-minutes: 20
+    env: { WT_BOT_KEY: '${{ secrets.WT_BOT_KEY }}', NAMES_MODE: '${{ inputs.mode || ''sync'' }}' }
     steps:
       - uses: actions/checkout@v4
-        with: { sparse-checkout: "backends.json\ntools/msc", sparse-checkout-cone-mode: false }
+        with: { sparse-checkout: "backends.json\ntools/msc\nbackends/tender-info/MMH_WatchNames.gs\nbackends/crm-surgical/MMH_AccNames.gs", sparse-checkout-cone-mode: false }
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
       - run: node tools/msc/names.mjs
