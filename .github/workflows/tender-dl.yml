@@ -11,6 +11,11 @@ on:
   schedule:
     - cron: '*/5 0-14 * * 1-6'
   workflow_dispatch:
+    inputs:
+      requeue:
+        description: 'Dọn bản in trang cũ + tải lại gói Đã tải trước mốc này (vd. 2026-11-18 12:00:00) — để trống nếu không cần'
+        required: false
+        default: ''
 permissions: { contents: read, actions: write }
 concurrency: { group: tender-dl, cancel-in-progress: false }
 jobs:
@@ -30,9 +35,14 @@ jobs:
         with: { node-version: 20 }
       - name: Còn gói cần tải?
         id: peek
+        env: { RQ: '${{ github.event.inputs.requeue }}' }
         run: |
           URL=$(node -e "console.log(require('./backends.json')['tender-info'].url)")
           echo "WT_URL=$URL" >> "$GITHUB_ENV"
+          if [ -n "$RQ" ] && [ -n "$WT_BOT_KEY" ]; then
+            BODY=$(node -e "console.log(JSON.stringify({action:'botRequeue',key:process.env.WT_BOT_KEY,before:process.env.RQ,run:1}))")
+            curl -sSL --max-time 120 -H 'Content-Type: application/json' -d "$BODY" "$URL" | head -c 1500; echo
+          fi
           if [ -z "$WT_BOT_KEY" ]; then echo "Chưa có secret WT_BOT_KEY — bỏ qua."; echo "n=0" >> "$GITHUB_OUTPUT"; exit 0; fi
           N=$(curl -sSL --max-time 90 -H 'Content-Type: application/json' -d "{\"action\":\"botPeek\",\"key\":\"$WT_BOT_KEY\",\"bot\":\"github-actions\"}" "$URL" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const j=JSON.parse(s);console.log(j.ok?j.n:0); if(!j.ok) console.error(j.error||s.slice(0,200));}catch(e){console.log(0);console.error(s.slice(0,200));}})")
           echo "Gói cần tải: $N"; echo "n=$N" >> "$GITHUB_OUTPUT"
