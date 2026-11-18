@@ -2,7 +2,7 @@
 // Chạy 1 lần trên GitHub Actions (workflow lots-probe, nhánh làm việc). Không gọi backend, không ghi dữ liệu thầu.
 import { chromium } from 'playwright';
 import fs from 'node:fs';
-const NOS = (process.env.NOS || 'IB2600597308 IB2600604507 IB2500469837 IB2400477249').split(/\s+/).filter(Boolean);
+const NOS = (process.env.NOS || 'IB2500470103 IB2400564280 IB2500030200 IB2500602738 IB2300259536').split(/\s+/).filter(Boolean);
 const OUT = process.env.OUT || 'probe-out';
 fs.mkdirSync(OUT, { recursive: true });
 const HOME = 'https://muasamcong.mof.gov.vn/';
