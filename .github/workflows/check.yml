@@ -40,6 +40,14 @@ jobs:
           CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
           B: ${{ inputs.diff }}
         run: node tools/gas.mjs diff $B
-      - if: ${{ !cancelled() && inputs.ping != '' }}
+      - if: ${{ !cancelled() && inputs.ping != '' && inputs.ping != 'weekplan' }}
         env: { P: '${{ inputs.ping }}' }
         run: node tools/gas.mjs ping "$P"
+  weekplan:
+    if: github.event_name == 'workflow_dispatch' && inputs.ping == 'weekplan'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: node tools/weekplan.mjs
