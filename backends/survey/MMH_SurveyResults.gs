@@ -352,6 +352,7 @@ function rsRoute_(a, p) {
       try {
         if (a === 'rsScan') return rsOut_(rshScan_(p), p);
         if (p.op === 'sync') return rsOut_({ ok: true, sync: rshSync_() }, p);
+        if (p.op === 'set') return rsOut_({ ok: true, set: rshSetMany_(p.set) }, p);
         return rsOut_({ ok: true, v: RSH.VER, last: JSON.parse(PropertiesService.getScriptProperties().getProperty('RSH_LAST') || 'null'),
           tree: rshWalk_().map(function (w) { return w.path.join('/') + '|' + (w.sc ? 'lối tắt' : 'file') + '|' + rsS_(w.name).slice(0, 70); }) }, p);
       } finally { lk2.releaseLock(); }
