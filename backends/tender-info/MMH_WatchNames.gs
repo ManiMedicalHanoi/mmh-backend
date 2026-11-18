@@ -59,7 +59,7 @@ function wnKey_(s) {
     .replace(/\bbvdkkv\b/g, 'benh vien da khoa khu vuc').replace(/\bbvdk\b/g, 'benh vien da khoa').replace(/\bbvyhct\b/g, 'benh vien y hoc co truyen')
     .replace(/\bbv\b/g, 'benh vien').replace(/\bttyt\b/g, 'trung tam y te').replace(/\bdkkv\b/g, 'da khoa khu vuc').replace(/\bdk\b/g, 'da khoa')
     .replace(/\btw\b/g, 'trung uong').replace(/\bdhyd\b/g, 'dai hoc y duoc').replace(/\bdh\b/g, 'dai hoc').replace(/\btphcm\b|\bhcm\b/g, 'ho chi minh')
-    .replace(/\b(tinh|thanh pho|tp)\s+(?=[a-z])/g, '').replace(/\b(huyen|quan|thi xa|thi tran)\s+(?=[a-z])/g, '').replace(/[^a-z0-9]/g, '');
+    .replace(/\b(tinh|thanh pho|tp)\s+(?=[a-z])/g, '').replace(/\b(huyen|thi xa|thi tran)\s+(?=[a-z])/g, '').replace(/\bquan\s+(?!y\b|doi\b|dan\b|khu\b)(?=[a-z])/g, '').replace(/[^a-z0-9]/g, '');
 }
 var WN_STOP = { benh: 1, vien: 1, da: 1, khoa: 1, trung: 1, tam: 1, y: 1, te: 1, tinh: 1, thanh: 1, pho: 1, tp: 1, huyen: 1, quan: 1, thi: 1, xa: 1, so: 1,
   khu: 1, vuc: 1, cong: 1, ty: 1, tnhh: 1, co: 1, phan: 1, mot: 1, chu: 1, dau: 1, tu: 1, va: 1, cac: 1, ban: 1, ly: 1, du: 1 };
@@ -101,21 +101,35 @@ function wnKind_(f) {
   if (/ trung tam /.test(f)) return 'tt';
   return 'other';
 }
+/* tên tỉnh cũ có trong tên (Mắt Nam Định ≠ Mắt Ninh Bình dù cùng tỉnh mới) */
+var WN_OLD = null;
+function wnOld_(f) {
+  if (!WN_OLD) {
+    WN_OLD = []; const ali = { 'ba ria vung tau': 'brvt', 'ba ria': 'brvt', 'vung tau': 'brvt', 'tp hcm': 'hcm', 'tphcm': 'hcm', 'hcm': 'hcm', 'sai gon': 'hcm', 'ho chi minh': 'hcm', 'thua thien hue': 'hue', 'tt hue': 'hue', 'hue': 'hue', 'bac can': 'bac kan', 'hoa binh': 'hoa binh', 'thanh hoa': 'thanh hoa', 'khanh hoa': 'khanh hoa', 'dac lac': 'dak lak', 'dak lak': 'dak lak', 'dac nong': 'dak nong' };
+    WN_PROV.forEach(function (g) { g[1].forEach(function (o) { const k = wnFold_(o); WN_OLD.push([' ' + k + ' ', ali[k] || k]); }); });
+    Object.keys(ali).forEach(function (k) { WN_OLD.push([' ' + k + ' ', ali[k]]); });
+    WN_OLD.sort(function (a, b) { return b[0].length - a[0].length; });
+  }
+  const t = ' ' + f + ' ';
+  for (let i = 0; i < WN_OLD.length; i++) if (t.indexOf(WN_OLD[i][0]) >= 0) return WN_OLD[i][1];
+  return '';
+}
 function wnSig_(name) {
   const f = wnFold_(name).replace(/\bbvdk\b/g, 'benh vien da khoa').replace(/\bbv\b/g, 'benh vien').replace(/\bttyt\b/g, 'trung tam y te').replace(/\bpk\b/g, 'phong kham');
   const sp = WN_SPEC.filter(function (k) { return (' ' + f + ' ').indexOf(' ' + k + ' ') >= 0; }).sort().join(',');
   const nums = (f.match(/\b\d+\b/g) || []).filter(function (n) { return n.length < 5; }).sort().join(',');
-  return { kind: wnKind_(f), spec: sp, nums: nums };
+  return { kind: wnKind_(f), spec: sp, nums: nums, op: wnOld_(f) };
 }
 /** 2 tên có thể là 1 nơi không (loại · chuyên khoa · số hiệu không mâu thuẫn) */
 function wnCompat_(a, b) {
   if (a.kind !== b.kind && !(a.kind === 'other' || b.kind === 'other' || a.kind === 'tt' || b.kind === 'tt')) return false;
   if (a.spec !== b.spec) return false;
   if (a.nums !== b.nums) return false;
+  if (a.op && b.op && a.op !== b.op) return false;
   return true;
 }
 /* tên dạng "TTYT huyện X / trạm y tế / BVĐK khu vực X" hay trùng giữa các tỉnh ⇒ chỉ tự khớp khi biết tỉnh */
-function wnGeneric_(key) { return /^(trungtamyte|tramyte|benhviendakhoakhuvuc|benhviendakhoahuyen|benhvienmat|benhvien)/.test(key) && key.length < 26 && !/trunguong|daihoc|quany/.test(key); }
+function wnGeneric_(key) { return key.length < 13 || /^(trungtamyte|tramyte|phongkham|nhakhoa|benhviendakhoa(khuvuc|huyen|quan(?!y)|thixa|thanhpho)|benhvien(huyen|quan(?!y|doi|dan|khu)|thixa))/.test(key); }
 
 /**
  * ent = {name, alt:[tên khác — tên chuẩn / tên danh mục], prov, no:[tên CĐT người dùng đã chọn "Không phải"], ok: tên CĐT đã xác nhận ở nguồn khác}
@@ -135,7 +149,7 @@ function wnMatch_(ix, ent) {
     same.forEach(function (x) {
       if (P && x.p && x.p !== P) put(x, 60, 'tên trùng · khác tỉnh');
       else if (P && x.p) put(x, ni ? 96 : 100, ni ? 'tên chuẩn trùng' : 'tên trùng');
-      else if (k.length >= 16 && !wnGeneric_(k)) put(x, ni ? 92 : 94, (ni ? 'tên chuẩn trùng' : 'tên trùng') + ' · tên riêng');   // tên đủ dài, không phải dạng hay trùng giữa các tỉnh
+      else if (same.length === 1 && !wnGeneric_(k) && wnCompat_(sig[ni], x.sig || (x.sig = wnSig_(x.name)))) put(x, ni ? 92 : 94, (ni ? 'tên chuẩn trùng' : 'tên trùng') + ' · tên riêng');   // tên riêng của bệnh viện, chỉ 1 chủ đầu tư mang tên này
       else put(x, 86, 'tên trùng · chưa rõ tỉnh');
     });
   });
