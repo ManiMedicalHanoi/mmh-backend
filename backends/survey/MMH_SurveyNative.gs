@@ -27,7 +27,8 @@
  *   title, intro, minutes, confirmation,
  *   grp: "Dental" | "Surgical",  prod: "<sản phẩm>" (cây Product Survey; thiếu ⇒ "Chung"),
  *   event: {name, date:"yyyy-mm-dd"}  (lưu theo sự kiện: thư mục "<yyyymmdd> <tên>" + cột Sự kiện),
- *   page: "dental" | "ophthalmic" | "none"  (mặc định theo grp: Dental ⇒ dental, Surgical ⇒ ophthalmic), followRequired (mặc định true),
+ *   page: "dental" | "ophthalmic" | "none"  (mặc định theo grp: Dental ⇒ dental, Surgical ⇒ ophthalmic) — lời mời theo dõi page ở TRANG CẢM ƠN sau khi gửi (người dùng chốt 18/11/2026;
+ *     không chặn việc gửi), gift (mặc định true: "…để nhận phần quà từ Mani Medical Hanoi"), followText (thay câu mời),
  *   consent: true | {title, text, agree:{q,v}, optional:[{q,v}]}  (mặc định SV_CONSENT của MMH_SurveyAPI.gs — luôn có, không tắt được),
  *   info: [{id, q, t:"text"|"phone"|"radio"|"list", options, required}]  (mặc định Họ và tên* · Số điện thoại* · Nơi công tác*), infoExtra: [...] (thêm sau mặc định),
  *   oncePerPhone (mặc định true: mỗi SĐT trả lời 1 lần), notify: ["email"] (email mỗi lượt trả lời), editors: ["email"],
@@ -147,7 +148,7 @@ function nsNorm_(spec, old) {
   });
   return {
     v: 1, title: nsS_(spec.title), intro: nsS_(spec.intro), minutes: parseInt(spec.minutes, 10) || 0, confirmation: nsS_(spec.confirmation),
-    grp: grp, prod: nsS_(spec.prod) || 'Chung', event: ev, page: page, followRequired: page !== 'none' && spec.followRequired !== false,
+    grp: grp, prod: nsS_(spec.prod) || 'Chung', event: ev, page: page, followRequired: false, gift: spec.gift !== false, followText: nsS_(spec.followText),
     consent: { title: nsS_(c.title), text: nsS_(c.text), agree: { q: nsS_(c.agree.q), v: nsS_(c.agree.v) }, optional: (c.optional || []).map(function (x) { return { q: nsS_(x.q), v: nsS_(x.v) }; }) },
     objective: nsS_(spec.objective), owner: nsS_(spec.owner),
     mail: { to: nsPics_((spec.mail || {}).to, NS.MAIL.to), cc: nsPics_((spec.mail || {}).cc, NS.MAIL.cc) },
@@ -290,7 +291,7 @@ function nsMeta_(code) {
   var sp = L.st.spec, fb = sp.page === 'none' ? null : NS.FB[sp.page];
   return { ok: true, v: NS.VER, token: nsToken_(code), survey: {
     s: code, title: sp.title, intro: sp.intro, minutes: sp.minutes, confirmation: sp.confirmation, grp: sp.grp, open: sp.open !== false,
-    event: sp.event, page: fb ? { key: sp.page, name: fb.name, url: fb.url, line: fb.line } : null, followRequired: sp.followRequired,
+    event: sp.event, page: fb ? { key: sp.page, name: fb.name, url: fb.url, line: fb.line } : null, followRequired: false, followAt: 'end', gift: sp.gift !== false, followText: sp.followText || '',
     consent: sp.consent, info: sp.info, sections: sp.sections, nq: nsQs_(L.st).length
   } };
 }
@@ -376,7 +377,7 @@ function nsSubmit_(b) {
     });
   } catch (e) { if (e && e.req) return { ok: false, code: 'REQ', step: 'info', error: 'Vui lòng điền: ' + e.req.q }; return { ok: false, code: 'REQ', step: 'info', error: e.message }; }
   var fst = nsS_(fl.st);
-  if (sp.followRequired && fst !== 'opened' && fst !== 'before') return { ok: false, code: 'REQ', step: 'follow', error: 'Vui lòng theo dõi page ' + NS.FB[sp.page].name + ' trước khi trả lời.' };
+  /* theo dõi page nay ở trang cảm ơn ⇒ ghi bằng nsFollow sau khi gửi; app cũ gửi kèm follow thì vẫn ghi */
   var fTxt = fst === 'opened' ? 'Đã mở page và xác nhận theo dõi' + (fl.at ? ' (' + Utilities.formatDate(new Date(Number(fl.at) || Date.now()), NS.TZ, 'HH:mm dd/MM') + ')' : '') : fst === 'before' ? 'Xác nhận đã theo dõi từ trước' : '';
   put(st.cols._agree, 'Đồng ý'); put(st.cols._opt, (cs.opt || []).some(Boolean) ? 'Đồng ý' : ''); put(st.cols._follow, fTxt);
   put(st.cols._event, sp.event.name ? ((sp.event.date ? Utilities.formatDate(new Date(sp.event.date + 'T00:00:00'), NS.TZ, 'dd/MM/yyyy') + ' · ' : '') + sp.event.name) : '');
@@ -414,6 +415,27 @@ function nsSubmit_(b) {
     } catch (x) { console.warn('nsSubmit_ mail: ' + x.message); }
   }
   return { ok: true, rid: rid };
+}
+/** trang cảm ơn: bác sĩ bấm theo dõi page sau khi gửi ⇒ ghi cột "Theo dõi page" của đúng lượt (rid) + tab NGƯỜI THAM GIA */
+function nsFollow_(b) {
+  var code = nsS_(b.s), rid = nsS_(b.rid), st = nsS_(b.st);
+  if (!nsTokenOk_(code, b.token)) return { ok: false, code: 'TOKEN', error: 'Phiên đã hết hạn — tải lại trang.' };
+  if (!/^R[0-9A-Z]{4,14}$/.test(rid) || (st !== 'opened' && st !== 'before')) return { ok: false, error: 'Thiếu thông tin' };
+  var L = nsLoad_(code, false); if (!L) return { ok: false, code: 'NONE', error: 'Không có khảo sát' };
+  var txt = st === 'opened' ? 'Đã mở page và xác nhận theo dõi (' + Utilities.formatDate(new Date(Number(b.at) || Date.now()), NS.TZ, 'HH:mm dd/MM') + ')' : 'Xác nhận đã theo dõi từ trước';
+  var lk = LockService.getScriptLock(); if (!lk.tryLock(20000)) return { ok: false, code: 'BUSY', error: 'Máy chủ đang bận' };
+  try {
+    var sh = SpreadsheetApp.openById(L.reg.sheetId).getSheetByName(NS.TAB), lr = sh.getLastRow(); if (lr < 2) return { ok: false, error: 'Không thấy lượt trả lời' };
+    var hit = sh.getRange(2, 2, lr - 1, 1).createTextFinder(rid).matchEntireCell(true).findNext();
+    if (!hit) return { ok: false, error: 'Không thấy lượt trả lời' };
+    sh.getRange(hit.getRow(), L.st.cols._follow).setValue(txt);
+    try {
+      var pp = svLogSheet_().getParent().getSheetByName(NS.PEOPLE_TAB), pl = pp ? pp.getLastRow() : 0;
+      var ph = pl > 1 ? pp.getRange(2, 12, pl - 1, 1).createTextFinder(rid).matchEntireCell(true).findNext() : null;
+      if (ph) pp.getRange(ph.getRow(), 10).setValue(txt);
+    } catch (x) {}
+  } finally { lk.releaseLock(); }
+  return { ok: true };
 }
 function nsEsc_(s) { return nsS_(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 /* kho chung người tham gia (đã đồng ý xử lý dữ liệu) — tab của file nhật ký "MMH Survey · Danh sách form đã tạo" */
@@ -469,6 +491,7 @@ function nsRoute_(a, p) {
       return m;
     }
     if (a === 'nsSubmit') return nsSubmit_(p);
+    if (a === 'nsFollow') return nsFollow_(p);
     /* nhân sự đăng nhập email (trang gui.html / tao.html): phiên tk của Training Hub */
     var me = p.tk ? rsWho_(p.tk) : null; if (me && me.err) me = null;
     if (a === 'nsInfo' || a === 'nsMailSend') {
