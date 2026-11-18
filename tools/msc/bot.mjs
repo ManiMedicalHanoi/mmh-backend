@@ -309,8 +309,8 @@ async function pagePdf(pg, ctx2, sec, type, re) {
     window.__wtPdf = null;
     const hook = () => { const M = window.pdfMake; if (!M || !M.createPdf || M.__wt) return;
       const o = M.createPdf; M.__wt = 1;
-      M.createPdf = function () { const d = o.apply(this, arguments); const keep = b => { window.__wtPdf = b; };
-        ['download', 'open', 'print'].forEach(k => { const f = d[k]; d[k] = function () { try { d.getBase64(keep); } catch (e) {} if (k !== 'download' && f) { /* không mở tab */ } }; });
+      M.createPdf = function () { window.__wtCalls = (window.__wtCalls || 0) + 1; const d = o.apply(this, arguments); const keep = b => { if (b && !window.__wtPdf) window.__wtPdf = b; };
+        ['download', 'open', 'print'].forEach(k => { const f = d[k]; if (!f) return; d[k] = function () { try { const r = d.getBase64(keep); if (r && r.then) r.then(keep).catch(() => {}); } catch (e) {} return k === 'download' ? f.apply(d, arguments) : undefined; }; });
         return d; };
     };
     hook(); window.__wtHookT = setInterval(hook, 200);
@@ -342,13 +342,34 @@ async function pagePdf(pg, ctx2, sec, type, re) {
   }
   await pg.evaluate(() => clearInterval(window.__wtHookT)).catch(() => {});
   pg.off('response', onres);
-  if (!buf) { const dbg = await pg.evaluate(() => ({ pm: !!window.pdfMake, log: (window.__wtLog || []).slice(0, 5) })).catch(() => ({})); say('    · dò "' + txt + '": pdfMake=' + dbg.pm + ' · API ' + nres.slice(0, 8).join(' | ') + (dbg.log && dbg.log.length ? ' · lỗi trang: ' + dbg.log.join(' / ') : '')); }
+  if (!buf) { const dbg = await pg.evaluate(() => ({ pm: !!window.pdfMake, calls: window.__wtCalls || 0, tag: (document.querySelector('[data-wtb]') || {}).outerHTML, log: (window.__wtLog || []).slice(0, 5) })).catch(() => ({})); say('    · dò "' + txt + '": pdfMake=' + dbg.pm + ' · createPdf ' + dbg.calls + ' lần · nút ' + String(dbg.tag || '').slice(0, 160) + ' · API ' + nres.slice(0, 8).join(' | ') + (dbg.log && dbg.log.length ? ' · lỗi trang: ' + dbg.log.join(' / ') : '')); }
   await closePopups(pg);
   if (!buf || buf.length < 1500 || buf.slice(0, 4).toString() !== '%PDF') { say(`    · "${txt}": chưa lấy được file PDF${buf ? ' (' + buf.length + ' byte)' : ''}`); return false; }
   const name = docName(ctx2.no, type, 'pdf', ctx2.used), f = path.join(OUT, ctx2.job.key.replace(/\W+/g, '_') + '_' + name);
   fs.writeFileSync(f, buf); ctx2.files.push({ name, file: f, sec, type });
   say(`    ⬇ ${name} ("${txt}", ${how}, ${buf.length} byte)`);
   return true;
+}
+/* file "Biên bản mở thầu" ở khung phải (biểu tượng PDF + nút tải, không có đuôi .pdf trong chữ): bấm thử ⇒ tải thẳng / Agent (fileId) */
+async function bbmtFile(pg, c) {
+  if (c.agentFiles.some(a => a.tab === 'mo') || c.files.some(f => f.sec === 'mo' && /\.pdf$/i.test(f.name))) return;
+  const n = await pg.evaluate(() => {
+    document.querySelectorAll('[data-wtm]').forEach(e => e.removeAttribute('data-wtm')); let k = 0;
+    const C = [...document.querySelectorAll('body *')].filter(e => e.offsetParent && /^Biên bản mở thầu$/i.test((e.innerText || '').trim()) && !e.closest('[role=tab],.ant-tabs-tab,li,nav,h1,h2,h3,h4'));
+    C.filter(e => !C.some(o => o !== e && e.contains(o))).forEach(e => { const box = e.parentElement || e; if (box.querySelector('img,svg,i,[class*=icon],[class*=pdf]')) { box.setAttribute('data-wtm', String(k++)); } });
+    return k;
+  }).catch(() => 0);
+  for (let i = n - 1; i >= 0; i--) {
+    const el = pg.locator(`[data-wtm="${i}"]`); c.cap.length = 0;
+    const dlP = pg.waitForEvent('download', { timeout: 12000 }).catch(() => null);
+    await el.click({ timeout: 5000, force: true }).catch(() => {});
+    const icon = el.locator('svg,img,i,[class*=icon]').last(); if (await icon.count()) await icon.click({ timeout: 3000, force: true }).catch(() => {});
+    const d = await dlP; await closePopups(pg);
+    if (d) { const name = docName(c.no, 'Biên bản mở thầu', 'pdf', c.used), f = path.join(OUT, c.job.key.replace(/\W+/g, '_') + '_' + name); await d.saveAs(f); c.files.push({ name, file: f, sec: 'mo', type: 'Biên bản mở thầu' }); say(`    ⬇ ${name} (tải thẳng)`); return; }
+    const fid = c.cap[c.cap.length - 1];
+    if (fid) { c.agentFiles.push({ name: 'Biên bản mở thầu.pdf', fileId: fid, tab: 'mo', type: 'Biên bản mở thầu' }); c.docs.push({ sec: 'mo', docType: 'Biên bản mở thầu', name: 'Biên bản mở thầu.pdf', agent: true }); say('    · Biên bản mở thầu — cần Agent'); return; }
+  }
+  say('    · Biên bản mở thầu: chưa thấy file (' + n + ' chỗ bấm)');
 }
 async function clickTab(pg, text) {
   const t = pg.locator(`:is(a,button,li,span,div,[role=tab]):text-is("${text}"):visible`).last();
@@ -399,7 +420,7 @@ async function doJob(pg, job, cap) {
       await waitText(pg, 'Tổng số nhà thầu|Thông tin nhà thầu|Xuất Excel', 25000); await pg.waitForTimeout(1200); await closePopups(pg);
       info.moFields = await readFields(pg); delete info.moFields._pkgs;
       const nT = parseInt(String(info.moFields['Tổng số nhà thầu tham dự'] || '').replace(/\D/g, ''), 10);
-      if (!(await pagePdf(pg, c, 'mo', 'Biên bản mở thầu', /^Tải\s*(biên bản|BBMT)/i))) await attachments(pg, c, 'mo', '');
+      if (!(await pagePdf(pg, c, 'mo', 'Biên bản mở thầu', /^Tải\s*(biên bản|BBMT)/i))) { await attachments(pg, c, 'mo', ''); await bbmtFile(pg, c); }
       await excels(pg, c, 'mo', (nT ? nT + ' ' : '') + 'Nhà thầu tham dự');
     }
     if (await clickTab(pg, 'Kết quả lựa chọn nhà thầu')) {
