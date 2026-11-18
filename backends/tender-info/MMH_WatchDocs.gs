@@ -9,9 +9,10 @@
    ════════════════════════════════════════════════════════════════════ */
 const WTD = {
   ROOT: '1sYXQx1_h3PBkm_zor8GhsIAM_ZMG5yxv',
-  DIR: { kq: '1-8g4gKGcLRFyjwXyBxekFLVNuHqMdSoI', tbmt: '1ASNCJ7Kyc2B9alysJTX0ligZn4xrtRCH', kh: '1w9fYlMYeI_Xmicu2m_rUXqT-IOxAYK4b' },
-  PROP: { kq: 'WT_DL_KQ', tbmt: 'WT_DL_TBMT', kh: 'WT_DL_KH' },
-  SEC_LABEL: { kq: 'KQLCNT', tbmt: 'TBMT', kh: 'KHLCNT' },
+  DIR: { kq: '1-8g4gKGcLRFyjwXyBxekFLVNuHqMdSoI', tbmt: '1ASNCJ7Kyc2B9alysJTX0ligZn4xrtRCH', kh: '1w9fYlMYeI_Xmicu2m_rUXqT-IOxAYK4b', mo: '' },   // mo: tự tạo "Biên bản mở thầu" trong thư mục mẹ
+  PROP: { kq: 'WT_DL_KQ', tbmt: 'WT_DL_TBMT', kh: 'WT_DL_KH', mo: 'WT_DL_MO' },
+  MO_NAME: 'Biên bản mở thầu',
+  SEC_LABEL: { kq: 'KQLCNT', tbmt: 'TBMT', kh: 'KHLCNT', mo: 'Biên bản mở thầu' },
   SUM_NAME: 'Tổng hợp tài liệu thầu đã tải',
   SUM_SHEET: 'Tài liệu',
   HEAD: ['STT', 'Khu vực', 'Tỉnh thành', 'Tên bệnh viện', 'Loại thông tin', 'Tên gói thầu / dự án', 'Số TBMT / KHLCNT', 'Giá gói thầu (VND)',
@@ -49,7 +50,14 @@ function wtdMonths_(s) {
 }
 
 function wtdDir_(sec) {
-  const P = PropertiesService.getScriptProperties(), id = P.getProperty(WTD.PROP[sec] || '') || WTD.DIR[sec] || WTD.DIR.tbmt;
+  const P = PropertiesService.getScriptProperties();
+  if (sec === 'mo') {   // thư mục "Biên bản mở thầu" (người dùng 18/11/2026): tạo 1 lần trong thư mục mẹ
+    const id0 = P.getProperty(WTD.PROP.mo);
+    if (id0) { try { const f = DriveApp.getFolderById(id0); if (!f.isTrashed()) return f; } catch (e) {} }
+    const f = wtSub_(DriveApp.getFolderById(P.getProperty('WT_DL_ROOT') || WTD.ROOT), WTD.MO_NAME);
+    P.setProperty(WTD.PROP.mo, f.getId()); return f;
+  }
+  const id = P.getProperty(WTD.PROP[sec] || '') || WTD.DIR[sec] || WTD.DIR.tbmt;
   return DriveApp.getFolderById(id);
 }
 /** Thư mục gói "<Số> - <Bệnh viện>" trong thư mục loại */
@@ -115,9 +123,9 @@ function wtdSumWrite_(h, info, docs) {
   const book = wtdSumBook_(), sh = wtdSumSheet_(book);
   const n = WTD.HEAD.length, last = sh.getLastRow();
   const keys = last > 1 ? sh.getRange(2, n, last - 1, 1).getValues().map(function (r) { return wtS_(r[0]); }) : [];
-  const I = info || {}, F = I.fields || {}, K = I.kqFields || {};
+  const I = info || {}, F = I.fields || {}, K = I.kqFields || {}, M = I.moFields || {};
   let sec_ = 'tbmt';
-  const g = function (k) { return wtS_((sec_ === 'kq' && K[k]) || F[k] || K[k]); };
+  const g = function (k) { return wtS_((sec_ === 'kq' && K[k]) || (sec_ === 'mo' && M[k]) || F[k] || K[k]); };
   const place = g('Địa điểm thực hiện gói thầu') || I.place || '';
   let pr = wtdProvince_(I.prov || place);
   if (!pr[0] && h.info && h.info.prov) pr = wtdProvince_(h.info.prov);
@@ -386,7 +394,7 @@ function wtdUpload_(me, p) {
   const b64 = wtS_(p.b64); if (!b64) return { ok: false, error: 'Thiếu nội dung file.' };
   const bytes = Utilities.base64Decode(b64);
   if (bytes.length > WT.MAX_FILE) return { ok: false, error: 'File quá lớn (> 35 MB).' };
-  const sec = WTD.DIR[wtS_(p.sec)] ? wtS_(p.sec) : (h.type === 'khmt' ? 'kh' : h.type === 'kqdt' ? 'kq' : 'tbmt');
+  const sec = wtS_(p.sec) in WTD.DIR ? wtS_(p.sec) : (h.type === 'khmt' ? 'kh' : h.type === 'kqdt' ? 'kq' : 'tbmt');
   const docType = wtS_(p.docType).replace(/[\\/:*?"<>|]+/g, ' ').slice(0, 90) || 'Tài liệu';
   const ext = ((wtS_(p.name).match(/\.([a-z0-9]{2,5})$/i) || [])[1] || 'pdf').toLowerCase();
   const no = wtBare_(sec === 'kh' && (h.info || {}).planNo ? h.info.planNo : h.no);

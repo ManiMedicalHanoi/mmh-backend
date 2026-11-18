@@ -329,7 +329,7 @@ function wtDel_(me, p) {
 }
 
 /** Loại tài liệu người dùng chọn tải (app ▸ hộp "Chọn tài liệu"); trống = tải mọi loại. Lưu ở info.want, bot đọc qua job.info.want */
-const WT_WANT = ['tbmt', 'hsmt', 'kq', 'nt', 'hh', 'qd', 'kh'];
+const WT_WANT = ['tbmt', 'hsmt', 'mo', 'kq', 'nt', 'hh', 'qd', 'kh'];
 function wtWant_(v) {
   const a = (Array.isArray(v) ? v : String(v || '').split(',')).map(function (x) { return wtS_(x).toLowerCase(); }).filter(function (x) { return WT_WANT.indexOf(x) >= 0; });
   return a.length && a.length < WT_WANT.length ? a.filter(function (x, i) { return a.indexOf(x) === i; }) : [];
@@ -589,7 +589,7 @@ function wtBotFile_(p) {
   if (bytes.length > WT.MAX_FILE) return { ok: false, error: 'File quá lớn (> 35 MB).' };
   const name = wtS_(p.name).replace(/[\\/:*?"<>|]+/g, '_').slice(0, 150) || ('file_' + Date.now());
   const inv = h.investor && h.investor !== '(đang tra)' ? h.investor : (wtS_(p.investor) || 'Tải ngay');
-  const sec = WTD.DIR[wtS_(p.sec)] ? wtS_(p.sec) : (h.type === 'khmt' ? 'kh' : h.type === 'kqdt' ? 'kq' : 'tbmt');
+  const sec = wtS_(p.sec) in WTD.DIR ? wtS_(p.sec) : (h.type === 'khmt' ? 'kh' : h.type === 'kqdt' ? 'kq' : 'tbmt');
   const pkgNo = sec === 'kh' && wtS_(p.planNo) ? wtS_(p.planNo) : h.no;
   const folder = wtdPkgFolder_(sec, pkgNo, inv);
   const sv = wtdSave_(folder, name, bytes, wtS_(p.mime));

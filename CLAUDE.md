@@ -593,3 +593,8 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   **Gói gần đây + thống kê (18/11/2026, người dùng yêu cầu)**: `wtdRecentBuild_` (wtTick) ⇒ gói có Thời gian cập nhật / ngày trong 90 ngày hoặc TBMT còn hạn mở thầu ⇒ đệm `wt_rec` + sheet ẩn **THEO DÕI · GÓI GẦN ĐÂY**
   (`WT_REC_V`); `wRecent {since}` ⇒ `{v, cols, rows}` (type · no · name · inv · date · upd · price số · win số · form · prov · close · n · winner) — app tự lọc 7 / 30 / 90 ngày, thống kê giá trị + hình thức LCNT, gói sắp đóng thầu.
   `wGrab` nhận `items[].inv` (chọn gói của nhiều bệnh viện 1 lần). `wPing` (công khai) trả `lastScan` · `trig` (số trigger wtTick thật) · `invV` · `recV`; `wtEnsureTrig_` kiểm trigger thật khi lần quét cuối > 2 giờ.
+  **Tải lên tài liệu cần Agent + đệm gói (18/11/2026, người dùng yêu cầu)**: `wUpload {key, b64, name, docType, sec, orig}` (người theo dõi gói / quản lý) ⇒ "<Số> - <Loại tài liệu>.<đuôi>" vào thư mục gói đúng phần,
+  files của gói + `agentFiles[orig].done/url` + dòng Sheet tổng hợp (cùng khoá số | loại | tên gốc ⇒ thay dòng "cần Agent"); `botDone` giữ dấu done khi bot chạy lại. App: link "Tải bằng Agent"
+  (`http://localhost:1234/api/download/file/browser/public?fileId=…`, máy có Agent) + "Trang gói" + hộp "Thêm tài liệu đã tải" (tự nhận tài liệu theo tên file).
+  `wPkgs` trả từ đệm `wp2:<md5 khoá CĐT>` (dựng ở `wtdPkgWarm_` trong wtTick, làm nóng lại mỗi 5 giờ) — KHÔNG mở file Sheet, không còn trả trạng thái tải (app tự ghép từ boot hits).
+  Bot: nút "Tải TBMT" / "Tải KQLCNT" / "Tải KHLCNT" (`pagePdf`) = PDF trang tự dựng bằng pdfmake (giống file người dùng tải tay) — bắt qua download / `pdfMake.createPdf` / `URL.createObjectURL` / tab mới; không được ⇒ in trang (`printPage`).

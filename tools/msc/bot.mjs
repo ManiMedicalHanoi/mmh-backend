@@ -110,7 +110,7 @@ const KNOWN = ['Mã TBMT', 'Ngày đăng tải', 'Mã KHLCNT', 'Tên KHLCNT', 'P
   'Lĩnh vực', 'Hình thức lựa chọn nhà thầu', 'Loại hợp đồng', 'Trong nước/ Quốc tế', 'Phương thức lựa chọn nhà thầu', 'Thời gian thực hiện hợp đồng', 'Thời gian thực hiện gói thầu',
   'Gói thầu có nhiều phần/lô', 'Số lượng phần (lô)', 'Hình thức dự thầu', 'Địa điểm thực hiện gói thầu', 'Thời điểm đóng thầu', 'Thời điểm mở thầu', 'Hiệu lực hồ sơ dự thầu',
   'Số tiền bảo đảm dự thầu', 'Số quyết định phê duyệt', 'Ngày phê duyệt', 'Cơ quan ban hành quyết định', 'Số lượng gói thầu', 'Dự toán mua sắm', 'Giá gói thầu', 'Giá dự toán',
-  'Thời gian đăng tải', 'Trạng thái đăng tải', 'Giá trúng thầu', 'Nhà thầu trúng thầu', 'Tên nhà thầu trúng thầu', 'Ngày phê duyệt kết quả'];
+  'Thời gian đăng tải', 'Trạng thái đăng tải', 'Tổng số nhà thầu tham dự', 'Thời điểm hoàn thành mở thầu', 'Tên chủ đầu tư', 'Hình thức LCNT', 'Giá trúng thầu', 'Nhà thầu trúng thầu', 'Tên nhà thầu trúng thầu', 'Ngày phê duyệt kết quả'];
 /* đọc mọi cặp "nhãn ⇒ giá trị" đang hiện + bảng "Danh sách gói thầu" (KHLCNT) */
 async function readFields(pg) {
   return pg.evaluate(KN => {
@@ -190,6 +190,7 @@ function docType(sec, label, fname) {
   }
   if (sec === 'tbmt' && /quyết định|quyet dinh/.test(t)) return 'Quyết định phê duyệt HSMT';
   if (sec === 'kh' && /quyết định|quyet dinh/.test(t)) return 'Quyết định phê duyệt KHLCNT';
+  if (sec === 'mo') return /nhà thầu|nha.?thau/.test(t) ? 'Nhà thầu tham dự' : 'Biên bản mở thầu';
   return label || (sec === 'kq' ? 'Tài liệu kết quả' : sec === 'kh' ? 'Tài liệu KHLCNT' : 'Tài liệu TBMT');
 }
 
@@ -200,6 +201,7 @@ function keyOf(sec, type, prefix) {
   if (/^Danh sách hàng hóa/.test(type)) return ['hh'];
   if (/^(Quyết định|Báo cáo)/.test(type)) return sec === 'kh' ? ['qd', 'kh'] : ['qd'];
   if (prefix === 'HSMT') return ['hsmt'];
+  if (sec === 'mo') return ['mo'];
   return [sec === 'kq' ? 'kq' : sec];
 }
 
@@ -243,8 +245,8 @@ async function attachments(pg, ctx2, sec, prefix) {
   }
 }
 
-async function excels(pg, ctx2, sec) {
-  if (!wants(ctx2, 'nt', 'hh')) return;
+async function excels(pg, ctx2, sec, fixType) {
+  if (sec === 'mo' ? !wants(ctx2, 'mo') : !wants(ctx2, 'nt', 'hh')) return;
   const btns = pg.locator(':is(a,button):text-is("Xuất Excel"):visible');
   const n = await btns.count();
   for (let k = 0; k < n; k++) {
@@ -258,7 +260,7 @@ async function excels(pg, ctx2, sec) {
     }
     await closePopups(pg);
     if (!d) { say(`    · Xuất Excel #${k + 1}: không ra file`); ctx2.miss = (ctx2.miss || 0) + 1; continue; }
-    const sug = d.suggestedFilename(), type = docType(sec, label, sug);
+    const sug = d.suggestedFilename(), type = fixType || docType(sec, label, sug);
     if (!wants(ctx2, ...keyOf(sec, type, ''))) { say(`    · bỏ qua ${type} (không chọn)`); continue; }
     const name = docName(ctx2.no, type, extOf(sug) || 'xlsx', ctx2.used), f = path.join(OUT, ctx2.job.key.replace(/\W+/g, '_') + '_' + name);
     await d.saveAs(f);
@@ -391,6 +393,14 @@ async function doJob(pg, job, cap) {
     if (wants(c, 'hsmt') && await clickTab(pg, 'Hồ sơ mời thầu')) {   // bảng chương HSMT tải chậm ⇒ chờ tới khi có tên file trong bảng
       await pg.waitForFunction(() => [...document.querySelectorAll('td')].some(td => td.offsetParent && /\.(pdf|docx?|xlsx?|zip|rar)\s*$/i.test(td.innerText)), null, { timeout: 20000 }).catch(() => say('    · tab HSMT chưa hiện file'));
       await attachments(pg, c, 'tbmt', 'HSMT');
+    }
+    // Biên bản mở thầu (người dùng 18/11/2026): PDF biên bản + Excel "Nhà thầu tham dự" ⇒ thư mục "Biên bản mở thầu", tên file có số nhà thầu
+    if (wants(c, 'mo') && await clickTab(pg, 'Biên bản mở thầu')) {
+      await waitText(pg, 'Tổng số nhà thầu|Thông tin nhà thầu|Xuất Excel', 25000); await pg.waitForTimeout(1200); await closePopups(pg);
+      info.moFields = await readFields(pg); delete info.moFields._pkgs;
+      const nT = parseInt(String(info.moFields['Tổng số nhà thầu tham dự'] || '').replace(/\D/g, ''), 10);
+      if (!(await pagePdf(pg, c, 'mo', 'Biên bản mở thầu', /^Tải\s*(biên bản|BBMT)/i))) await attachments(pg, c, 'mo', '');
+      await excels(pg, c, 'mo', (nT ? nT + ' ' : '') + 'Nhà thầu tham dự');
     }
     if (await clickTab(pg, 'Kết quả lựa chọn nhà thầu')) {
       await waitText(pg, 'Xuất Excel|Quyết định phê duyệt|Nhà thầu trúng', 25000); await pg.waitForTimeout(1200); await closePopups(pg);
