@@ -1,0 +1,19 @@
+name: Thử truy cập muasamcong (tạm)
+# Tạm: dò Agent / nút tải hàng loạt / KHLCNT trên muasamcong. Xoá trước khi gộp.
+on:
+  push:
+    branches: [claude/nice-brown-m3e3tu]
+    paths: ['.github/workflows/msc-probe.yml', 'tools/msc/probe2.mjs']
+permissions: { contents: read }
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Cài trình duyệt
+        run: mkdir -p /tmp/pw && cd /tmp/pw && npm init -y >/dev/null && npm i playwright@1.48.2 >/dev/null && npx playwright install --with-deps chromium >/dev/null
+      - name: Dò
+        run: cp tools/msc/probe2.mjs /tmp/pw/ && cd /tmp/pw && node probe2.mjs
