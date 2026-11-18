@@ -14,7 +14,7 @@
    Lần đầu theo dõi 1 chủ đầu tư: hiện gói trong WT.BASE_DAYS ngày gần nhất (không báo), tự tải gói trong WT.DL_BASE_DAYS ngày.
    ════════════════════════════════════════════════════════════════════ */
 const WT = {
-  VER: '1.4',
+  VER: '1.5',
   MASTER_ID: '1byCL6NjhqBuEcd-K5pxYRrQj2XXs6GMIvR79x45mHRQ',   // Training Master (RH_Users, RH_Secret, RH_Notify)
   APP_URL: 'https://manimedicalhanoi.github.io/Tender-Result/theo-doi/',
   SH_W: 'THEO DÕI · DANH SÁCH',
@@ -63,6 +63,7 @@ function wtDo_(a, p) {
     if (a === 'botFile') return wtBotFile_(p);
     if (a === 'botDone') return wtBotDone_(p);
     if (a === 'botRequeue') return wtdRequeue_(p);
+    if (a === 'botMerge') return Object.assign({ ok: true }, wtmMerge_({ force: wtTrue_(p.force) }));
     if (a === 'botPing') { wtBotSeen_(p.bot); return { ok: true, v: WT.VER }; }
     return { ok: false, error: 'Không có lệnh ' + a };
   }
@@ -80,6 +81,7 @@ function wtDo_(a, p) {
   if (a === 'wPkgs') return wtdPkgs_(me, p);
   if (a === 'wRecent') return wtdRecent_(me, p);
   if (a === 'wAll') return wtdAll_(me, p);
+  if (a === 'wMerge') { if (!me.boss) return { ok: false, error: 'Chỉ quản lý chạy gộp tay được.' }; return Object.assign({ ok: true }, wtmMerge_({ force: wtTrue_(p.force) })); }
   if (a === 'wUpload') return wtdUpload_(me, p);
   if (a === 'wGrab') return wtdGrab_(me, p);
   return { ok: false, error: 'Không có lệnh ' + a };
@@ -283,7 +285,7 @@ function wtBoot_(me, p) {
     hits: hits, types: WT.TYPES,
     bot: { seen: P.getProperty('WT_BOT_SEEN') || '', name: P.getProperty('WT_BOT_NAME') || '', hasKey: !!P.getProperty('WT_BOT_KEY'),
       queue: H.filter(function (h) { return h.status === WT.ST.WAIT || h.status === WT.ST.WORK; }).length },
-    lastScan: P.getProperty('WT_LAST_SCAN') || '', sumUrl: wtdSumUrl_(), rootUrl: wtdRootUrl_(), invV: P.getProperty('WT_INV_V') || '', recV: P.getProperty('WT_REC_V') || '', allV: P.getProperty('WT_ALL_V') || ''
+    lastScan: P.getProperty('WT_LAST_SCAN') || '', sumUrl: wtdSumUrl_(), rootUrl: wtdRootUrl_(), mg: wtmUrls_(), mgLast: JSON.parse(P.getProperty('WT_MG_LAST') || 'null'), invV: P.getProperty('WT_INV_V') || '', recV: P.getProperty('WT_REC_V') || '', allV: P.getProperty('WT_ALL_V') || ''
   };
 }
 function wtHitOut_(h) {
@@ -531,10 +533,12 @@ function wtEnsureTrig_() {
   const P = PropertiesService.getScriptProperties();
   // cờ đã cài + lần quét cuối < 2 giờ ⇒ tin; quá lâu chưa quét ⇒ kiểm trigger thật (bài học Tender Map 11/11/2026: cờ có mà trigger không chạy)
   const last = (P.getProperty('WT_LAST_SCAN') || '').slice(0, 19), age = last ? (Date.now() - new Date(last.replace(' ', 'T') + '+07:00').getTime()) / 6e4 : 1e9;
-  if (P.getProperty('WT_TRIG') === '1' && age < 120) return;
+  if (P.getProperty('WT_TRIG') === '2' && age < 120) return;
   try {
-    if (!ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'wtTick'; })) ScriptApp.newTrigger('wtTick').timeBased().everyMinutes(30).create();
-    P.setProperty('WT_TRIG', '1');
+    const T = ScriptApp.getProjectTriggers();
+    if (!T.some(function (t) { return t.getHandlerFunction() === 'wtTick'; })) ScriptApp.newTrigger('wtTick').timeBased().everyMinutes(30).create();
+    if (!T.some(function (t) { return t.getHandlerFunction() === 'wtmTick'; })) ScriptApp.newTrigger('wtmTick').timeBased().everyMinutes(15).create();   // gộp 2 file tổng (MMH_WatchMerge.gs)
+    P.setProperty('WT_TRIG', '2');
   } catch (e) { Logger.log('wtEnsureTrig_: ' + e.message); }
 }
 /** Chạy tay trong trình soạn: cài trigger + quét ngay */
