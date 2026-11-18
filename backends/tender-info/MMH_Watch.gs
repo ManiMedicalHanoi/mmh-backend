@@ -11,6 +11,7 @@
      wGoods {hang, win, dm, place, mode} / {op:'facets'} (lọc hàng hóa trúng thầu ở file tổng, MMH_WatchGoods.gs) ·
      wQuick {nos} (Tải ngay: số TBMT / KHLCNT bất kỳ ⇒ hàng đợi, không cần theo dõi) · wBoot · wInvestors · wSave {w: JSON} · wDel {id} · wHit {key, op: dl|skip} · wScan · wBotKey (Admin)
    Bot (khoá WT_BOT_KEY, Admin lấy trong app ▸ Cài đặt bot):
+     botAgentList / botAgentPut (máy tính có Agent tự tải file đính kèm, MMH_WatchAgent.gs) ·
      botPeek {key} (đếm, không giữ chỗ) · botNext {key, n} · botFile {key, hit, name, mime, b64} · botDone {key, hit, status: done|nofile|error, note, info}
    Lần đầu theo dõi 1 chủ đầu tư: hiện gói trong WT.BASE_DAYS ngày gần nhất (không báo), tự tải gói trong WT.DL_BASE_DAYS ngày.
    ════════════════════════════════════════════════════════════════════ */
@@ -66,6 +67,8 @@ function wtDo_(a, p) {
     if (a === 'botRequeue') return wtdRequeue_(p);
     if (a === 'botMerge') return Object.assign({ ok: true }, wtmMerge_({ force: wtTrue_(p.force) }));
     if (a === 'botPing') { wtBotSeen_(p.bot); return { ok: true, v: WT.VER }; }
+    if (a === 'botAgentList') return wtaList_(p);
+    if (a === 'botAgentPut') return wtaPut_(p);
     return { ok: false, error: 'Không có lệnh ' + a };
   }
   const me = wtWho_(p);
@@ -287,7 +290,7 @@ function wtBoot_(me, p) {
     hits: hits, types: WT.TYPES,
     bot: { seen: P.getProperty('WT_BOT_SEEN') || '', name: P.getProperty('WT_BOT_NAME') || '', hasKey: !!P.getProperty('WT_BOT_KEY'),
       queue: H.filter(function (h) { return h.status === WT.ST.WAIT || h.status === WT.ST.WORK; }).length },
-    lastScan: P.getProperty('WT_LAST_SCAN') || '', sumUrl: wtdSumUrl_(), rootUrl: wtdRootUrl_(), mg: wtmUrls_(), mgLast: JSON.parse(P.getProperty('WT_MG_LAST') || 'null'), invV: P.getProperty('WT_INV_V') || '', recV: P.getProperty('WT_REC_V') || '', allV: P.getProperty('WT_ALL_V') || ''
+    lastScan: P.getProperty('WT_LAST_SCAN') || '', sumUrl: wtdSumUrl_(), rootUrl: wtdRootUrl_(), mg: wtmUrls_(), mgLast: JSON.parse(P.getProperty('WT_MG_LAST') || 'null'), invV: P.getProperty('WT_INV_V') || '', recV: P.getProperty('WT_REC_V') || '', allV: P.getProperty('WT_ALL_V') || '', agw: wtaStatus_()
   };
 }
 function wtHitOut_(h) {
