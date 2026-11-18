@@ -519,6 +519,7 @@ function wtBotLog_(ss, bot, key, job, result, note) {
 }
 
 /** Gói bot cần làm: Chờ tải · Lỗi (chưa quá số lần, thử lại sau ≥ 1 giờ) · Đang tải quá hạn giữ chỗ */
+function wtBare_(no) { return String(no || '').toUpperCase().replace(/\s+/g, '').replace(/-\d+$/, ''); }
 function wtBotEligible_(H) {
   const now = Date.now(), age = function (s) { return s ? (now - new Date(String(s).replace(' ', 'T') + '+07:00').getTime()) / 6e4 : 1e9; };
   return H.filter(function (h) {
@@ -536,10 +537,18 @@ function wtBotNext_(p) {
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) return { ok: true, jobs: [] };
   try {
-    const sh = wtSheet_(ss, WT.SH_H, WT.HH), H = wtHits_(ss), jobs = [];
-    wtBotEligible_(H).sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); }).slice(0, n).forEach(function (h) {
-      sh.getRange(h.row, 11, 1, 4).setValues([[WT.ST.WORK, JSON.stringify(h.files || []), h.tries + 1, wtNow_()]]);
-      jobs.push({ key: h.key, type: h.type, no: h.no, investor: h.investor, name: h.name, info: h.info, date: h.date });
+    const sh = wtSheet_(ss, WT.SH_H, WT.HH), H = wtHits_(ss), jobs = [], E = wtBotEligible_(H), taken = {};
+    // cùng 1 số gói có thể có 2 dòng (TBMT + Kết quả) ⇒ chỉ 1 lượt tải; số đang có dòng "Đang tải" (chưa hết hạn) ⇒ bỏ qua
+    H.forEach(function (h) { if (h.status === WT.ST.WORK && E.indexOf(h) < 0) taken[wtBare_(h.no)] = 1; });
+    E.sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); }).forEach(function (h) {
+      const b = wtBare_(h.no);
+      if (jobs.length >= n || taken[b]) return;
+      taken[b] = 1;
+      const sib = E.filter(function (x) { return wtBare_(x.no) === b; });
+      const ws = sib.map(function (x) { return (x.info || {}).want || []; }), want = ws.some(function (w) { return !w.length; }) ? [] : [].concat.apply([], ws).filter(function (x, i, a) { return a.indexOf(x) === i; });
+      sib.forEach(function (x) { sh.getRange(x.row, 11, 1, 4).setValues([[WT.ST.WORK, JSON.stringify(x.files || []), x.tries + 1, wtNow_()]]); });
+      const info = Object.assign({}, h.info); if (want.length) info.want = want; else delete info.want;
+      jobs.push({ key: h.key, type: h.type, no: h.no, investor: h.investor, name: h.name, info: info, date: h.date, sib: sib.map(function (x) { return x.key; }) });
     });
     return { ok: true, jobs: jobs };
   } finally { lock.releaseLock(); }
@@ -604,6 +613,14 @@ function wtBotDone_(p) {
     sh.getRange(h.row, 11).setValue(st);
     sh.getRange(h.row, 15, 1, 2).setValues([[wtS_(p.note).slice(0, 500), st === WT.ST.ERR ? '' : wtNow_()]]);
     h.status = st;
+    // dòng khác cùng số gói (TBMT ⇄ Kết quả) đang chờ / đang tải ⇒ nhận cùng kết quả + file
+    const files = JSON.stringify(h.files || []);
+    wtHits_(ss).forEach(function (x) {
+      if (x.key === h.key || wtBare_(x.no) !== wtBare_(h.no) || [WT.ST.WAIT, WT.ST.WORK, WT.ST.ERR].indexOf(x.status) < 0) return;
+      sh.getRange(x.row, 7).setValue(JSON.stringify(Object.assign({}, x.info, info)));
+      sh.getRange(x.row, 11, 1, 2).setValues([[st, files]]);
+      sh.getRange(x.row, 15, 1, 2).setValues([[wtS_(p.note).slice(0, 500), st === WT.ST.ERR ? '' : wtNow_()]]);
+    });
   } finally { lock.releaseLock(); }
   wtBotLog_(ss, p.bot, h.key, 'done', st, p.note);
   let sumN = 0;
