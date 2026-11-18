@@ -150,6 +150,14 @@ function ehRegMasterFor_(e, M){
       var ok = k === nm || (k.length >= 12 && nm.indexOf(k) >= 0) || (nm.length >= 12 && k.indexOf(nm) >= 0);
       if (ok && (!best || M[k].n > best.n)) best = M[k];
     });
+    /* tên dạng "20260724 Jizai_Seminar_Dr. …" ⇒ cùng ngày bắt đầu + chung ≥ 1 từ có nghĩa */
+    var dm = /^(\d{4})(\d{2})(\d{2})\b/.exec(k);
+    if (!best && dm && String(e.start || '').slice(0, 10) === dm[1] + '-' + dm[2] + '-' + dm[3]){
+      var STOP = { dr: 1, the: 1, va: 1, cho: 1, su: 1, kien: 1, hoi: 1, thao: 1, mmh: 1, mani: 1, ha: 1, noi: 1, hanoi: 1 };
+      var W = function(x){ return String(x).split(' ').filter(function(w){ return w.length > 2 && !STOP[w] && !/^\d+$/.test(w); }); };
+      var kw = W(k), ew = W(ehNorm_(e.name) + ' ' + ehNorm_(e.offlineName));
+      if (kw.some(function(w){ return ew.indexOf(w) >= 0; })) best = M[k];
+    }
   });
   if (!best) return null;
   return { name: best.name, n: best.n, act: best.n - best.cancel, done: best.done, cancel: best.cancel, pending: best.pending, other: best.other,
