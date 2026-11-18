@@ -531,9 +531,15 @@ function thdNaFolder_(){
   if(id){ try{ DriveApp.getFolderById(id); return id; }catch(e){} }
   var name = 'MMH CRM Thailand Dental · New accounts & SKU', parent = null;
   try{ var it = DriveApp.getFileById(ss_().getId()).getParents(); if(it.hasNext()) parent = it.next(); }catch(e){}
-  var f = null;
-  if(parent){ var ex = parent.getFoldersByName(name); f = ex.hasNext() ? ex.next() : parent.createFolder(name); }
-  else f = DriveApp.createFolder(name);
+  var f = null, tries = [];
+  /* 18/11/2026: thư mục chứa file Sheet Thái từ chối ứng dụng tạo thư mục ("Access denied: DriveApp") ⇒ thử lần lượt:
+     cạnh file Sheet → trong thư mục chứng từ của Thailand Surgical (THD_NA_ALT) → Drive của tài khoản chạy hệ thống */
+  var inFolder = function(par){ var ex = par.getFoldersByName(name); return ex.hasNext() ? ex.next() : par.createFolder(name); };
+  if(parent){ try{ f = inFolder(parent); }catch(e){ tries.push('sheet folder: ' + (e && e.message || e)); } }
+  if(!f){ try{ f = inFolder(DriveApp.getFolderById(THD_NA_ALT)); }catch(e){ tries.push('TH surgical folder: ' + (e && e.message || e)); } }
+  if(!f){ try{ var ex2 = DriveApp.getFoldersByName(name); f = ex2.hasNext() ? ex2.next() : DriveApp.createFolder(name); }catch(e){ tries.push('My Drive: ' + (e && e.message || e)); } }
+  if(!f) throw new Error('Cannot create the evidence folder — ' + tries.join(' · '));
   p.setProperty('NA_FOLDER_ID', f.getId());
   return f.getId();
 }
+var THD_NA_ALT = '1NpZkyMi-cIe_2FLHO9_2WsX_DiCFLYDf';   /* thư mục chứng từ NEW ACCOUNT & SKU của crm-thai (Surgical) — NA_FOLDER_TH */

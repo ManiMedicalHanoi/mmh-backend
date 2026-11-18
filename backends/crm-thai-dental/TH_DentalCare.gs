@@ -50,6 +50,7 @@ function thdCareApi_(p){
     try{
       var fid = NA_ENV.folderId(), f = DriveApp.getFolderById(fid);
       out.folder = { id: fid, name: f.getName() };
+      try{ var pi = f.getParents(); out.folder.parent = pi.hasNext() ? pi.next().getName() : '(My Drive)'; }catch(e){}
       if(str_(p.write) === '1'){
         var t = f.createFile(Utilities.newBlob('test', 'text/plain', 'thdCare-test.txt')); t.setTrashed(true); out.write = 'ok';
       }
