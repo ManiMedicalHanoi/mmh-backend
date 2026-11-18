@@ -355,8 +355,10 @@ async function bbmtFile(pg, c) {
   if (c.agentFiles.some(a => a.tab === 'mo') || c.files.some(f => f.sec === 'mo' && /\.pdf$/i.test(f.name))) return;
   const n = await pg.evaluate(() => {
     document.querySelectorAll('[data-wtm]').forEach(e => e.removeAttribute('data-wtm')); let k = 0;
-    const C = [...document.querySelectorAll('body *')].filter(e => e.offsetParent && /^Biên bản mở thầu$/i.test((e.innerText || '').trim()) && !e.closest('[role=tab],.ant-tabs-tab,li,nav,h1,h2,h3,h4'));
-    C.filter(e => !C.some(o => o !== e && e.contains(o))).forEach(e => { const box = e.parentElement || e; if (box.querySelector('img,svg,i,[class*=icon],[class*=pdf]')) { box.setAttribute('data-wtm', String(k++)); } });
+    const C = [...document.querySelectorAll('body *')].filter(e => e.offsetParent && /^\s*Biên bản mở thầu\s*$/i.test(e.textContent || '') && !e.closest('[role=tab],[role=tablist],.ant-tabs-tab,nav'));
+    const leaf = C.filter(e => !C.some(o => o !== e && e.contains(o)));
+    window.__wtDbg = leaf.map(e => e.tagName + '.' + String(e.className || '').slice(0, 40) + ' < ' + (e.parentElement ? e.parentElement.tagName + '.' + String(e.parentElement.className || '').slice(0, 40) + ' [' + e.parentElement.innerHTML.replace(/\s+/g, ' ').slice(0, 220) + ']' : '')).slice(0, 6);
+    leaf.forEach(e => { const box = e.closest('a,button,[role=button],li,div') || e; box.setAttribute('data-wtm', String(k++)); });
     return k;
   }).catch(() => 0);
   for (let i = n - 1; i >= 0; i--) {
@@ -369,7 +371,8 @@ async function bbmtFile(pg, c) {
     const fid = c.cap[c.cap.length - 1];
     if (fid) { c.agentFiles.push({ name: 'Biên bản mở thầu.pdf', fileId: fid, tab: 'mo', type: 'Biên bản mở thầu' }); c.docs.push({ sec: 'mo', docType: 'Biên bản mở thầu', name: 'Biên bản mở thầu.pdf', agent: true }); say('    · Biên bản mở thầu — cần Agent'); return; }
   }
-  say('    · Biên bản mở thầu: chưa thấy file (' + n + ' chỗ bấm)');
+  const dbg = await pg.evaluate(() => window.__wtDbg || []).catch(() => []);
+  say('    · Biên bản mở thầu: chưa thấy file (' + n + ' chỗ bấm) · ' + dbg.join(' || '));
 }
 async function clickTab(pg, text) {
   const t = pg.locator(`:is(a,button,li,span,div,[role=tab]):text-is("${text}"):visible`).last();
