@@ -578,3 +578,10 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   KHLCNT: radio "KHLCNT" ⇒ ô `input[placeholder*="KHLCNT"]` ⇒ smart/search (type `es-plan-project-p`) ⇒ trang `render=detail-v2&type=es-plan-project-p`; bảng "Danh sách gói thầu" ⇒ nguồn vốn / hình thức / thời gian.
   `wInvestors` đọc sheet ẩn **THEO DÕI · CHỦ ĐẦU TƯ** (dựng ở `wtTick`, phiên bản `WT_INV_V`; `since` = phiên bản app đang có ⇒ `{same:true}`), app lưu danh sách trên máy (`wt_inv2`).
   Thử bot không ghi máy chủ: `WT_DRY="IB2500491794 PL2500276110" node tools/msc/bot.mjs`. Đã dò (18/11/2026): không có đường tải file đính kèm nào ngoài Agent (nút "Tải tất cả file đính kèm" cũng gọi localhost:1234), trang không có link bộ cài Agent.
+- **18/11/2026 — MMH Survey: MỘT NGUỒN "Product Survey" + phân loại Surgical / Dental → sản phẩm (survey `MMH_SurveyHub.gs` v1.0, `MMH_SurveyResults.gs` v1.2, API v3.4; người dùng yêu cầu)**:
+  folder Shared drive **Product Survey** (`RSH.ROOT` `1EAjHy69…`) = `<Nhóm>/<Sản phẩm>/<form · Sheet kết quả · .xlsx · lối tắt>`; nhóm = folder cấp 1 (Surgical / Dental / Khác), sản phẩm = folder cấp 2
+  (danh mục gợi ý `RSH.PRODUCTS`). `rshSync_` (trong `rsTick` + `rsList` ≤ 1 lần / 15 phút): file mới trong cây ⇒ thêm vào tab KẾT QUẢ KHẢO SÁT (cột mới Nhóm · Sản phẩm · Nguồn = drive | scan | app),
+  .xlsx ⇒ bản Google Sheet cạnh đó (1 lần, `RSX_<id>`). App đổi phân loại (`rsSet`) ⇒ chuyển file / lối tắt sang đúng folder (Nguồn = app, folder không ghi đè). `rsAdd` tự phân loại theo tên (`rsClassify_`) + tạo lối tắt.
+  Khảo sát CHỈ có Sheet (không có / không mở được form, hoặc Sheet bản sao có form mới trống) ⇒ `rsSheetData_` suy kiểu câu từ dữ liệu (lưới "[…]", chọn nhiều nối ", ", thang 1–5, chọn 1, tự ghi).
+  Rà soát Drive (mọi Google Form + Sheet tên khảo sát / survey / phản hồi… mà mmh.product mở được): workflow Kiểm tra ▸ ping `survey?action=rsScan&key=<SV.KEY>&op=dry&off=0&n=40&full=1`
+  (`op=run` = thêm vào app + lối tắt; bỏ bài kiểm tra / form thử / form trống / form đăng ký; `off` theo `next`). `rsHub&op=status|sync` = xem / đồng bộ cây.
