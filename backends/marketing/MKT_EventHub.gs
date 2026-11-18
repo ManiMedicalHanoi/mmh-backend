@@ -25,7 +25,7 @@
  *       người phụ trách tự ghi) — không bắt buộc tải file khi chỉ cần chữ. Việc app KHÔNG còn đẩy sang Report Hub (Event_Sync.gs v2.3).
  *************************************************************************************************/
 var EH = {
-  VER: '1.8',
+  VER: '1.9',
   ROOT: '1maHn2DD34aJBaNnH4q9Di0YH2wMurYuZ',     /* thư mục Drive "Event FY68" */
   BOOK_NAME: 'MMH · Event Hub FY68 (dữ liệu app Sự kiện MKT)',
   FILES_NAME: 'Event Hub · Tệp tải lên',
@@ -43,7 +43,8 @@ var EH = {
              'regUrl', 'rules'],   /* v1.8: nguồn số đăng ký + luật thông báo đối tác (MKT_EventHubGate.gs) */
     TASKS: ['id', 'eventId', 'parentId', 'group', 'title', 'role', 'pic', 'due', 'offset', 'unit', 'dueManual', 'status', 'proof', 'hint', 'note', 'order',
             'doneAt', 'updatedAt', 'updatedBy', 'createdBy', 'priority', 'sample', 'block', 'milestone', 'noteId', 'fuTotal', 'fuDone', 'fuOrder',   /* v1.5 */
-            'result'],   /* v1.7: kết quả bằng chữ — thay được file / link khi chuyển Xong */
+            'result',    /* v1.7: kết quả bằng chữ — thay được file / link khi chuyển Xong */
+            'phase', 'startAt', 'formKey'],   /* v1.9: việc theo mẫu Event form_Task (MKT_EventHubForm.gs) */
     FILES: ['id', 'eventId', 'taskId', 'kind', 'name', 'url', 'driveId', 'mime', 'size', 'by', 'at', 'note', 'thumb', 'sample'],
     COMMENTS: ['id', 'eventId', 'taskId', 'by', 'at', 'text', 'mentions', 'sample'],
     MEETINGS: ['id', 'eventId', 'date', 'title', 'attendees', 'content', 'actions', 'by', 'at', 'updatedAt', 'updatedBy', 'sample'],   /* v1.4 — biên bản họp */
@@ -463,6 +464,7 @@ function ehSync_(opt){
     tasks.forEach(function(t){ has[ehS_(t.eventId)] = 1; });
     var add = [];
     events.forEach(function(e){
+      if (EH_FORM_ON) return;   /* v1.9: Owner tự chọn việc từ mẫu Event form_Task (event.pick) */
       if (gen[e.id] || has[e.id] || ehS_(e.follow) !== 'Có' || !ehS_(e.start) || ehS_(e.start) < today || e.state === 'Huỷ') return;
       var nt = ehTasksFor_(e, tpl); add = add.concat(nt); gen[e.id] = today;
       if (nt.late && e._r){ e.latePlan = String(nt.late); ehPut_(ss, 'EVENTS', EH.COLS.EVENTS, e); }
@@ -473,7 +475,10 @@ function ehSync_(opt){
     tasks.forEach(function(t){
       if (ehS_(t.dueManual) || ehS_(t.offset) === '') return;
       var e = byId[ehS_(t.eventId)]; if (!e) return;
-      var d = ehDue_(e, t.offset, ehS_(t.unit)); if (d && d !== ehS_(t.due)){ t.due = d; ehPut_(ss, 'TASKS', EH.COLS.TASKS, t); moved++; }
+      var d = ehDue_(e, t.offset, ehS_(t.unit)); if (d && d !== ehS_(t.due)){
+        var d0 = ehDate_(ehS_(t.due)), sa = ehDate_(ehS_(t.startAt));   /* v1.9: ngày bắt đầu dời cùng hạn */
+        if (d0 && sa){ sa.setDate(sa.getDate() + Math.round((ehDate_(d) - d0) / 864e5)); t.startAt = ehIso_(sa); }
+        t.due = d; ehPut_(ss, 'TASKS', EH.COLS.TASKS, t); moved++; }
     });
     rep.dueMoved = moved;
 
@@ -584,6 +589,7 @@ function ehRoute_(action, user, p){
     if (action === 'ehLink') return ehLinkApi_(p);   /* v1.2 — MKT_EventHubLink.gs */
     if (action === 'ehUnlink') return ehUnlinkApi_(p);   /* 18/11/2026 — ngắt app ⇄ Report Hub, rà / dọn sub-task (MKT_EventHubUnlink.gs) */
     if (action === 'ehDriveDiag') return ehDriveDiag_(p);
+    if (action === 'ehForm') return ehFormApi_(p);   /* v1.9 — mẫu việc Event form_Task + số đăng ký file tổng (MKT_EventHubForm.gs) */
     if (action === 'ehPartner') return ehPartner_(p);   /* v1.8 — trang đối tác (không đăng nhập, chỉ số đếm) */
     if (action === 'ehGate') return ehGateApi_(p);   /* 17/11/2026 — rà Drive (chỉ đọc), MKT_EventHubDiag.gs */
     if (action === 'ehUpload') return ehOnce_(p, function(){ return ehUpload_(p); });
@@ -698,6 +704,8 @@ function ehSave_(p){
     if (ehS_(tk.status) === 'Pending' && !ehS_(tk.block)) return { ok:false, code:'BLOCK', error:'Ghi rõ lý do Pending (cần ai hỗ trợ) để Owner biết.' };
     if (ehS_(tk.status) !== 'Pending' && ehS_(tk.block)){ tk.block = ''; if (ch2.indexOf('block') < 0) ch2.push('block'); }
     ['fuTotal', 'fuDone', 'fuOrder'].forEach(function(k){ if (ch2.indexOf(k) >= 0 && tk[k] !== '' && !(+tk[k] >= 0)) tk[k] = ''; });
+    if (ch2.indexOf('status') >= 0 && st0 === 'Chờ duyệt' && tk.status === 'Xong' && !boss)   /* v1.9: chỉ Owner / quản lý duyệt việc chờ duyệt */
+      return { ok:false, code:'PERM', error:'Việc đang chờ duyệt — Owner sự kiện hoặc quản lý duyệt.' };
     if (ch2.indexOf('status') >= 0){
       if (tk.status === 'Xong'){
         var need = ehS_(tk.proof);
@@ -717,9 +725,14 @@ function ehSave_(p){
     if (ch2.indexOf('pic') >= 0 && keep.pic && d.notify !== false) EH_N.push({ to: keep.pic, kind: 'assign', ev: ev3, task: keep });
     if (ch2.indexOf('status') >= 0 && keep.status === 'Chờ duyệt' && ev3 && ehS_(ev3.Owner)) EH_N.push({ to: ehS_(ev3.Owner), kind: 'review', ev: ev3, task: keep });
     if (keep.status === 'Pending' && (ch2.indexOf('status') >= 0 || ch2.indexOf('block') >= 0) && ev3 && ehS_(ev3.Owner)) EH_N.push({ to: ehS_(ev3.Owner), kind: 'block', ev: ev3, task: keep, text: ehS_(keep.block) });
+    var trashed = 0;
+    if (ch2.indexOf('status') >= 0 && st0 === 'Chờ duyệt' && /^(Đang làm|Chưa làm)$/.test(keep.status) && boss && d.trash !== false){   /* v1.9: trả lại ⇒ file đã nộp vào Thùng rác */
+      try { trashed = ehFormTrashFiles_(ss, me, keep, ehS_(d.reason)); } catch(x){}
+      if (trashed){ try { CacheService.getScriptCache().remove('eh_boot'); } catch(x){} }
+    }
     if (ch2.indexOf('status') >= 0 && st0 === 'Chờ duyệt' && /^(Đang làm|Chưa làm)$/.test(keep.status) && keep.pic && keep.pic !== me.pic)
-      EH_N.push({ to: keep.pic, kind: 'return', ev: ev3, task: keep, text: ehS_(d.reason || keep.note) });
-    return { ok:true, task: ehClean2_(keep) };
+      EH_N.push({ to: keep.pic, kind: 'return', ev: ev3, task: keep, text: ehS_(d.reason || keep.note) + (trashed ? ' · ' + trashed + ' file đã nộp được chuyển vào Thùng rác' : '') });
+    return { ok:true, task: ehClean2_(keep), trashed: trashed };
   }
   if (op === 'link.add'){
     var url = ehS_(d.url); if (!/^https?:\/\//i.test(url)) return { ok:false, error:'Link phải bắt đầu bằng http:// hoặc https://' };

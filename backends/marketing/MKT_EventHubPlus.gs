@@ -202,7 +202,8 @@ function ehSave2_(ss, me, op, d, events, evBy, now){
               scale: ehS_(d.scale), products: ehS_(d.products), kpi: ehS_(d.kpi), note: ehS_(d.note), cover: ehS_(d.cover), target: ehS_(d.target), budgetPlan: ehS_(d.budgetPlan),
               state: ehS_(d.state), follow: 'Có', src: 'APP', updatedAt: now, updatedBy: me.pic };
     EH.ROLES.forEach(function(r){ e[r] = (r in d) ? ehS_(d[r]) : ehTeamDefault_(ss, r); });
-    var tasks = d.template === false || d.template === '0' ? [] : ehTasksFor_(e, ehRead_(ss, 'TEMPLATE'));   /* v1.5: hạn mẫu đã qua ⇒ dồn hạn (ehCompress_) */
+    var tasks = d.picks ? ehFormTasks_(e, d.picks, me, []) :                                                 /* v1.9: việc đã tick từ mẫu Event form_Task */
+                d.template === false || d.template === '0' || EH_FORM_ON ? [] : ehTasksFor_(e, ehRead_(ss, 'TEMPLATE'));   /* v1.5: hạn mẫu đã qua ⇒ dồn hạn (ehCompress_) */
     var today = ehIso_(new Date());
     if (tasks.late) e.latePlan = String(tasks.late);
     tasks.forEach(function(t){ t.createdBy = me.pic; });
@@ -219,6 +220,7 @@ function ehSave2_(ss, me, op, d, events, evBy, now){
     }
     return { ok:true, event: e, tasks: tasks, tmp: ehS_(d.id) };
   }
+  if (op === 'event.pick') return ehFormPickOp_(ss, me, d, evBy);   /* v1.9: thêm việc theo mẫu cho sự kiện có sẵn */
   if (op === 'event.delete'){
     var ev = evBy[ehS_(d.id)]; if (!ev) return { ok:true };
     if (!me.manager) return { ok:false, code:'PERM', error:'Chỉ quản lý được xoá sự kiện.' };
