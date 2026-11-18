@@ -9,6 +9,7 @@
 
    App (phiên email công ty do Training Hub ký, tham số tk):
      wGoods {hang, win, dm, place, mode} / {op:'facets'} (lọc hàng hóa trúng thầu ở file tổng, MMH_WatchGoods.gs) ·
+     wAcct / wName (tên chung CĐT ⇄ CRM ⇄ danh mục cơ sở y tế, MMH_WatchNames.gs) ·
      wQuick {nos} (Tải ngay: số TBMT / KHLCNT bất kỳ ⇒ hàng đợi, không cần theo dõi) · wBoot · wInvestors · wSave {w: JSON} · wDel {id} · wHit {key, op: dl|skip} · wScan · wBotKey (Admin)
    Bot (khoá WT_BOT_KEY, Admin lấy trong app ▸ Cài đặt bot):
      botAgentList / botAgentPut (máy tính có Agent tự tải file đính kèm, MMH_WatchAgent.gs) ·
@@ -16,7 +17,7 @@
    Lần đầu theo dõi 1 chủ đầu tư: hiện gói trong WT.BASE_DAYS ngày gần nhất (không báo), tự tải gói trong WT.DL_BASE_DAYS ngày.
    ════════════════════════════════════════════════════════════════════ */
 const WT = {
-  VER: '1.6',
+  VER: '1.7',
   MASTER_ID: '1byCL6NjhqBuEcd-K5pxYRrQj2XXs6GMIvR79x45mHRQ',   // Training Master (RH_Users, RH_Secret, RH_Notify)
   APP_URL: 'https://manimedicalhanoi.github.io/Tender-Result/theo-doi/',
   SH_W: 'THEO DÕI · DANH SÁCH',
@@ -69,8 +70,9 @@ function wtDo_(a, p) {
       const inv = wtdInvestors_({}), d = wtgData_(), g = {};
       d.rows.forEach(function (r) { const k = r[2] + '|' + r[1]; g[k] = (g[k] || 0) + 1; });
       return { ok: true, inv: inv.list || [], goods: Object.keys(g).map(function (k) { const x = k.split('|'); return [x[0], x[1], g[k]]; }),
-        watches: wtWatches_(wtBook_()).map(function (w) { return w.investor; }) };
+        watches: wtWatches_(wtBook_()).map(function (w) { return w.investor; }), dec: wnDecisions_() };
     }
+    if (a === 'botNameSync') return wnSync_(p);   // lượt đối chiếu tên (MMH_WatchNames.gs)
     if (a === 'botMerge') return Object.assign({ ok: true }, wtmMerge_({ force: wtTrue_(p.force) }));
     if (a === 'botPing') { wtBotSeen_(p.bot); return { ok: true, v: WT.VER }; }
     if (a === 'botAgentList') return wtaList_(p);
@@ -95,6 +97,8 @@ function wtDo_(a, p) {
   if (a === 'wUpload') return wtdUpload_(me, p);
   if (a === 'wGrab') return wtdGrab_(me, p);
   if (a === 'wGoods') return wtgGoods_(me, p);
+  if (a === 'wAcct') return wnAcct_(me, p);
+  if (a === 'wName') return wnName_(me, p);
   return { ok: false, error: 'Không có lệnh ' + a };
 }
 
@@ -296,6 +300,7 @@ function wtBoot_(me, p) {
     hits: hits, types: WT.TYPES,
     bot: { seen: P.getProperty('WT_BOT_SEEN') || '', name: P.getProperty('WT_BOT_NAME') || '', hasKey: !!P.getProperty('WT_BOT_KEY'),
       queue: H.filter(function (h) { return h.status === WT.ST.WAIT || h.status === WT.ST.WORK; }).length },
+    nm: wtJson_(P.getProperty('WN_STAT'), null),
     lastScan: P.getProperty('WT_LAST_SCAN') || '', sumUrl: wtdSumUrl_(), rootUrl: wtdRootUrl_(), mg: wtmUrls_(), mgLast: JSON.parse(P.getProperty('WT_MG_LAST') || 'null'), invV: P.getProperty('WT_INV_V') || '', recV: P.getProperty('WT_REC_V') || '', allV: P.getProperty('WT_ALL_V') || '', agw: wtaStatus_()
   };
 }
