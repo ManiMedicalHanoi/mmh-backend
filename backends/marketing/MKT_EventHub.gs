@@ -25,7 +25,7 @@
  *       người phụ trách tự ghi) — không bắt buộc tải file khi chỉ cần chữ. Việc app KHÔNG còn đẩy sang Report Hub (Event_Sync.gs v2.3).
  *************************************************************************************************/
 var EH = {
-  VER: '2.0',
+  VER: '2.1',
   ROOT: '1maHn2DD34aJBaNnH4q9Di0YH2wMurYuZ',     /* thư mục Drive "Event FY68" */
   BOOK_NAME: 'MMH · Event Hub FY68 (dữ liệu app Sự kiện MKT)',
   FILES_NAME: 'Event Hub · Tệp tải lên',
@@ -240,7 +240,7 @@ function ehOverview_(g){
   g.slice(0, 30).forEach(function(row){
     row.forEach(function(cell, j){
       var k = EH_OV[ehNorm_(cell)];
-      if (k && !(k in info)){ for (var x = j + 1; x < row.length; x++) if (row[x] && row[x] !== cell){ info[k] = row[x]; break; } if (!(k in info)) info[k] = ''; }
+      if (k && !(k in info)){ for (var x = j + 1; x < row.length; x++) if (row[x] && row[x] !== cell){ if (!EH_OV[ehNorm_(row[x])]) info[k] = row[x]; break; } if (!(k in info)) info[k] = ''; }   /* v2.1: ô trống ⇒ không lấy nhầm đề mục kế bên */
     });
   });
   var h = ehHdr_(g, ['hạng mục', 'chi tiết']);
@@ -421,8 +421,8 @@ function ehSync_(opt){
         ev.purpose = ehClean_(I.purpose); ev.audience = ehClean_(I.audience); ev.scale = ehClean_(I.scale || I.guests); ev.speakers = ehClean_(I.speakers);
         ev.fee = ehClean_(I.fee); ev.npp = ehClean_(I.npp); ev.sales = ehClean_(I.sales); ev.kpi = ehClean_(I.kpi); ev.products = ehProducts_(plan, f.name);
         ev.dateWarn = '';
-        if (keep0) ['name', 'venue', 'organizer', 'format', 'purpose', 'audience', 'scale', 'speakers', 'fee', 'npp', 'sales', 'kpi', 'products'].forEach(function(k){   /* sự kiện tạo trên app: thông tin app ưu tiên, file chỉ điền ô app còn trống */
-          if (ehS_(keep0[k])) ev[k] = keep0[k]; });
+        if (keep0) ['name', 'venue', 'organizer', 'format', 'purpose', 'audience', 'scale', 'speakers', 'fee', 'npp', 'sales', 'kpi', 'products'].forEach(function(k){   /* v2.1: sự kiện tạo trên app ⇒ file (mẫu trắng, 2 chiều) sửa gì lấy nấy, ô trống giữ thông tin app */
+          if (!ehS_(ev[k]) && ehS_(keep0[k])) ev[k] = keep0[k]; });
         var dt = ehClean_(I.dateText);
         if (/TBC|chưa chốt|dự kiến/i.test(dt + ' ' + ev.venue)) ev.state = ev.state || 'Chờ chốt';
         var dm = /(\d{1,2})\s*[\/\-.]\s*(\d{1,2})\s*[\/\-.]\s*(20\d\d)/.exec(dt) || /\d{1,2}\s*[-–]\s*\d{1,2}\s*\/\s*(\d{1,2})\s*\/\s*(20\d\d)/.exec(dt);
@@ -655,6 +655,7 @@ function ehSave_(p){
     allow.forEach(function(k){ if (k in d && ehS_(d[k]) !== ehS_(ev[k])){ ch.push(k + ': ' + ehS_(ev[k]) + ' → ' + ehS_(d[k])); ev[k] = ehS_(d[k]); } });
     if (!ch.length) return { ok:true, event: ehClean2_(ev) };
     ev.updatedAt = now; ev.updatedBy = me.pic; ehPut_(ss, 'EVENTS', EH.COLS.EVENTS, ev);
+    try { ehPlanFill_(ev, allow.filter(function(k){ return k in d; })); } catch(x){}   /* v2.1: sửa trên app ⇒ ghi vào file tổng do hệ thống tạo */
     /* đổi đội ⇒ việc chưa giao tay (người = người cũ của vai trò) đổi theo */
     var tasks = ehRead_(ss, 'TASKS'), moved = [];
     EH.ROLES.forEach(function(r){

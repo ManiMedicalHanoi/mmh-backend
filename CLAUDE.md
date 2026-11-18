@@ -653,3 +653,8 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   Bộ so tên `wn*` là hàm thuần; `tools/msc/names.mjs` nạp chính file đó (vm) + tên chuẩn Surgical `VM_STD` + csyt.js ⇒ `botNameSync` (workflow **Theo dõi gói thầu — đối chiếu tên**, 02:23 hằng đêm + bấm tay, `mode=report` chỉ in).
   App (phiên email): `wAcct {src: crm-surgical|crm-dental|crm-eyeless|csyt, code, name, prov, alt}` ⇒ chủ đầu tư + gói sơ bộ (đang mời thầu · KQ / KH / TBMT 12 tháng, 6 gói mới nhất, từ đệm `wp2:`;
   khách chưa có trong bảng ⇒ so ngay) — Working Map dùng; `wName op=list|set|find` (xác nhận: mọi người đăng nhập, ghi tên người bấm); `wPkgs` trả `crm` (khách CRM đã khớp); boot trả `nm` (đếm trạng thái).
+- **18/11/2026 — Event Hub v2.1: file mẫu TRẮNG + điền 2 chiều (`marketing/MKT_EventHubSheet.gs`, người dùng: "bố cục trắng về mặt nội dung… không động đến dữ liệu đang có")**:
+  `ehTplBlank_` CHỈ chạy trên bản sao "MẪU…" trong folder `_MẪU file kế hoạch` (`ehTplSafe_`): giữ tiêu đề / đề mục CHỮ HOA / dòng tiêu đề bảng (+ dòng tiêu đề phụ trước dòng có số No / STT) / công thức / định dạng / dropdown,
+  xoá chữ · số · ngày còn lại (Overview: dưới bảng HẠNG MỤC chỉ giữ đề mục cột đầu). `ehFolders op=tplmake` tự làm trắng; `op=tplblank` làm lại. **Không ghi file kế hoạch của sự kiện đang có.**
+  `ehPlanFill_`: app ⇒ file tổng CHỈ với file hệ thống tạo (Script Property `EH_AUTOPLAN`) — ghi ô cạnh đề mục Overview (`EH_FILL`) lúc tạo sự kiện + mỗi lần `event.update`; sheet ⇒ app như cũ (ô trống không xoá thông tin app).
+  `ehOverview_`: ô giá trị trống ⇒ không lấy nhầm đề mục kế bên.
