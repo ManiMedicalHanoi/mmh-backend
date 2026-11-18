@@ -126,7 +126,8 @@ async function readFields(pg) {
     let txt = document.body.innerText;
     if (tb) txt = txt.split(tb.innerText).join('\n');          // bảng gói thầu đọc riêng ở dưới, không lẫn vào nhãn ⇒ giá trị
     const lines = [].concat(...txt.split('\n').map(x => x.split('\t'))).map(x => x.trim()).filter(Boolean);
-    for (let i = 0; i < lines.length - 1; i++) {
+    const nInfo = Object.keys(o).length;
+    for (let i = 0; nInfo < 5 && i < lines.length - 1; i++) {     // chỉ khi trang không theo khối .infomation__content (vd. KHLCNT dạng bảng)
       const k = lines[i];
       if (KN.indexOf(k) >= 0 && !o[k] && KN.indexOf(lines[i + 1]) < 0) o[k] = (lines[i + 1] + (/^\d\d:\d\d$/.test(lines[i + 1]) && /^\d\d\/\d\d\/\d{4}$/.test(lines[i + 2] || '') ? ' ' + lines[i + 2] : '')).slice(0, 500);
     }
@@ -140,7 +141,7 @@ async function readFields(pg) {
   }, KNOWN).catch(() => ({}));
 }
 /* chờ trang điền giá trị thật (nhãn hiện trước, số liệu đến sau) */
-const waitValues = (pg, re) => pg.waitForFunction(s => { const R = new RegExp(s); return [...document.querySelectorAll('.infomation__content')].some(r => r.offsetParent && R.test(r.innerText)) || new RegExp('[\\n\\t]\\s*' + s).test(document.body.innerText); }, re, { timeout: 40000 }).then(() => true, () => false);
+const waitValues = (pg, re) => pg.waitForFunction(s => { const R = new RegExp(s); return [...document.querySelectorAll('.infomation__content')].some(r => r.offsetParent && R.test(r.innerText)) || (/^PL/.test(s) && new RegExp('[\\n\\t]\\s*' + s).test(document.body.innerText)); }, re, { timeout: 40000 }).then(() => true, () => false);
 
 /* nhãn của 1 phần tử (file đính kèm / nút Excel): tiêu đề dòng chứa nó, bỏ "Chương V:", "Phần 2:" và tên file */
 async function labelOf(el) {
@@ -258,6 +259,18 @@ async function printPage(pg, ctx2, sec, type) {
     if (fs.statSync(f).size > 3000) { ctx2.files.push({ name, file: f, sec, type }); say(`    ⬇ ${name} (in trang)`); }
   } catch (e) { say('    ! in PDF: ' + e.message.split('\n')[0]); }
 }
+/* chờ số liệu; trang chậm ⇒ tải lại 1 lần rồi chờ tiếp */
+async function ensureValues(pg, url, re, tabs) {
+  for (let i = 0; i < 2; i++) {
+    for (const t of tabs) await clickTab(pg, t);
+    if (await waitValues(pg, re)) return true;
+    if (i) break;
+    say('    · trang chậm — tải lại');
+    await pg.goto(url, { waitUntil: 'domcontentloaded', timeout: 90000 }).catch(() => {});
+    await pg.waitForTimeout(3000); await closePopups(pg);
+  }
+  return false;
+}
 async function clickTab(pg, text) {
   const t = pg.locator(`:is(a,button,li,span,div,[role=tab]):text-is("${text}"):visible`).last();
   if (!(await t.count())) return false;
@@ -274,7 +287,8 @@ async function doJob(pg, job, cap) {
   const c = { job, no: job.no.toUpperCase().replace(/-\d+$/, ''), files: [], docs: [], agentFiles: [], cap, used: new Set() };
   const info = { url: pk.url, investor: pk.investor, bidName: pk.bidName, planNo: pk.planNo, planName: pk.planName, prov: pk.prov, posted: pk.posted, fields: {}, kqFields: {} };
   if (pk.plan) {   // Kế hoạch lựa chọn nhà thầu
-    await waitValues(pg, 'PL\\d{6}'); await closePopups(pg);
+    if (!(await ensureValues(pg, pk.url, 'PL\\d{8}', []))) say('    · KHLCNT chưa hiện số liệu');
+    await closePopups(pg);
     info.fields = await readFields(pg);
     const F = info.fields, PK = F._pkgs || [], P0 = pkgRow(PK[0] || []); delete F._pkgs;
     info.pkgs = PK.length; if (DRY) info._p0 = P0;
@@ -288,9 +302,8 @@ async function doJob(pg, job, cap) {
     await attachments(pg, c, 'kh', '');
     await excels(pg, c, 'kh');
   } else {
-    await clickTab(pg, 'Thông báo mời thầu');    // dữ liệu tab chỉ tải khi mở tab (gói đã có kết quả mặc định mở tab Kết quả)
-    await clickTab(pg, 'Thông tin chung');
-    if (!(await waitValues(pg, 'IB\\d{8}'))) say('    · Thông tin chung chưa hiện số TBMT');
+    // dữ liệu tab chỉ tải khi mở tab (gói đã có kết quả mặc định mở tab Kết quả)
+    if (!(await ensureValues(pg, pk.url, 'IB\\d{8}', ['Thông báo mời thầu', 'Thông tin chung']))) say('    · Thông tin chung chưa hiện số TBMT');
     await pg.waitForTimeout(800); await closePopups(pg);
     info.fields = await readFields(pg); delete info.fields._pkgs;
     const put = (k, v) => { if (v && !info.fields[k]) info.fields[k] = v; };
