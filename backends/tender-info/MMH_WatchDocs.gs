@@ -293,17 +293,16 @@ function wtdGrab_(me, p) {
   items.forEach(function (it) { rowsOf(it.inv || p.inv); });   // đọc trước khi giữ khoá
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) return { ok: false, code: 'BUSY', error: 'Máy chủ đang bận — thử lại sau ít giây.' };
-  const out = [];
+  const out = [], skipped = [], force = wtTrue_(p.force);
   try {
     const ss = wtBook_(), sh = wtSheet_(ss, WT.SH_H, WT.HH), H = wtHits_(ss), now = wtNow_(), add = [];
     items.forEach(function (it) {
       const key = it.type + ':' + it.no;
       const ex = H.filter(function (h) { return h.key === key || (h.type === it.type && wtBare_(h.no) === wtBare_(it.no)); })[0];
       if (ex) {
-        const w = ex.watchers.indexOf(me.mail) < 0 ? ex.watchers.concat([me.mail]) : ex.watchers;
-        sh.getRange(ex.row, 7).setValue(wtInfoWant_(ex.info, want));
-        sh.getRange(ex.row, 10, 1, 5).setValues([[w.join(', '), WT.ST.WAIT, JSON.stringify(ex.files || []), 0, '']]);
-        out.push(ex.key); return;
+        const q = wtReq_(sh, ex, me, want, force);
+        if (q.skip) skipped.push({ key: ex.key, no: ex.no, why: q.skip, at: ex.done || ex.last || '', n: (ex.files || []).length }); else out.push(ex.key);
+        return;
       }
       const r = rowsOf(it.inv || p.inv).filter(function (x) { return wtS_(x[1]) === it.type && wtBare_(x[2]) === wtBare_(it.no); })[0];
       const info = r ? { proj: wtS_(r[13]), price: wtS_(r[5]), win: wtS_(r[6]), winner: wtS_(r[7]), form: wtS_(r[8]), open: wtS_(r[14]), prov: wtS_(r[9]), n: +r[10] || 1, grab: 1, by: me.pic }
@@ -315,7 +314,7 @@ function wtdGrab_(me, p) {
     });
     if (add.length) sh.getRange(sh.getLastRow() + 1, 1, add.length, WT.HH.length).setValues(add);
   } finally { lock.releaseLock(); }
-  return Object.assign(wtBoot_(me, {}), { queued: out });
+  return Object.assign(wtBoot_(me, {}), { queued: out, skipped: skipped });
 }
 
 
@@ -380,6 +379,41 @@ function wtdRecent_(me, p) {
   return h2 ? JSON.parse(h2) : { ok: false, error: 'Chưa dựng được danh sách gói gần đây.' };
 }
 
+
+/* ════════════════════════════════════════════════════════════════════
+   TOÀN BỘ GÓI — BẢN GỌN CHO THỐNG KÊ (18/11/2026, người dùng: thống kê "toàn bộ" hoặc "từ ngày đến ngày", thống kê từng bệnh viện)
+   wtdAllBuild_ (wtTick, chỉ dựng lại khi 3 tab dữ liệu đổi — WT_ALL_SIG) ⇒ đệm `wt_all` (chia mảnh), phiên bản WT_ALL_V.
+   wAll {since} ⇒ { v, invs:[tên], provs:[tỉnh], forms:[hình thức], rows:[[loại 0 KH·1 TBMT·2 KQ, iCĐT, ngày yyyymmdd, giá (nghìn đ), giá trúng (nghìn đ), iHình thức, iTỉnh]] } hoặc { same:true }.
+   Mỗi gói 1 dòng (CĐT + loại + số); app tự lọc theo kỳ / tỉnh / CĐT và tính thống kê.
+   ════════════════════════════════════════════════════════════════════ */
+function wtdAllBuild_(data, force) {
+  const P = PropertiesService.getScriptProperties(), c = CacheService.getScriptCache();
+  const sig = ['khmt', 'tbmt', 'kqdt'].map(function (t) { let m = ''; data[t].forEach(function (r) { if ((r.upd || '') > m) m = r.upd; }); return data[t].length + '/' + m; }).join(' ');
+  if (!force && P.getProperty('WT_ALL_SIG') === sig && wtBigGet_(c, 'wt_all')) return -1;
+  const invs = [], invI = {}, provs = [''], provI = { '': 0 }, forms = [''], formI = { '': 0 }, seen = {}, rows = [];
+  const idx = function (arr, map, v) { v = wtS_(v); if (!(v in map)) { map[v] = arr.length; arr.push(v); } return map[v]; };
+  ['khmt', 'tbmt', 'kqdt'].forEach(function (type, ti) {
+    data[type].forEach(function (r) {
+      const k = r.invKey + '|' + type + ':' + (r.no || ('r' + r.row));
+      if (seen[k]) return; seen[k] = 1;
+      if (!(r.invKey in invI)) { invI[r.invKey] = invs.length; invs.push(r.inv); }
+      const d = +(String(r.date || r.upd || '').replace(/-/g, '')) || 0;
+      rows.push([ti, invI[r.invKey], d, Math.round((wtdMoney_(r.price) || 0) / 1000), Math.round((wtdMoney_(r.win) || 0) / 1000),
+        idx(forms, formI, wtS_(r.form).slice(0, 80)), idx(provs, provI, r.prov)]);
+    });
+  });
+  const v = wtNow_();
+  wtBigPut_(c, 'wt_all', JSON.stringify({ ok: true, v: v, invs: invs, provs: provs, forms: forms, rows: rows }), 21600);
+  P.setProperty('WT_ALL_SIG', sig); P.setProperty('WT_ALL_V', v);
+  return rows.length;
+}
+function wtdAll_(me, p) {
+  const v = PropertiesService.getScriptProperties().getProperty('WT_ALL_V') || '';
+  if (v && wtS_(p.since) === v && wtBigGet_(CacheService.getScriptCache(), 'wt_all')) return { ok: true, same: true, v: v };
+  let hit = wtBigGet_(CacheService.getScriptCache(), 'wt_all');
+  if (!hit) { wtdAllBuild_(wtLoad_(wtBook_()), true); hit = wtBigGet_(CacheService.getScriptCache(), 'wt_all'); }
+  return hit ? JSON.parse(hit) : { ok: false, error: 'Chưa dựng được dữ liệu thống kê.' };
+}
 
 /* ════════════════════════════════════════════════════════════════════
    NGƯỜI DÙNG TẢI LÊN TÀI LIỆU CẦN AGENT (18/11/2026, người dùng: "tải bằng Agent trên máy ⇒ thêm vào app ⇒ hệ thống tự đổi tên + đúng folder")

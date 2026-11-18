@@ -14,7 +14,7 @@
    Lần đầu theo dõi 1 chủ đầu tư: hiện gói trong WT.BASE_DAYS ngày gần nhất (không báo), tự tải gói trong WT.DL_BASE_DAYS ngày.
    ════════════════════════════════════════════════════════════════════ */
 const WT = {
-  VER: '1.2',
+  VER: '1.3',
   MASTER_ID: '1byCL6NjhqBuEcd-K5pxYRrQj2XXs6GMIvR79x45mHRQ',   // Training Master (RH_Users, RH_Secret, RH_Notify)
   APP_URL: 'https://manimedicalhanoi.github.io/Tender-Result/theo-doi/',
   SH_W: 'THEO DÕI · DANH SÁCH',
@@ -50,7 +50,7 @@ function wtDo_(a, p) {
   if (a === 'wPing') {   // chẩn đoán công khai: lần quét cuối + trigger 30 phút có thật không (không trả dữ liệu)
     const P = PropertiesService.getScriptProperties(); let trig = -1;
     try { trig = ScriptApp.getProjectTriggers().filter(function (t) { return t.getHandlerFunction() === 'wtTick'; }).length; } catch (e) {}
-    return { ok: true, app: 'tender-watch', v: WT.VER, lastScan: P.getProperty('WT_LAST_SCAN') || '', trig: trig, invV: P.getProperty('WT_INV_V') || '', recV: P.getProperty('WT_REC_V') || '' };
+    return { ok: true, app: 'tender-watch', v: WT.VER, lastScan: P.getProperty('WT_LAST_SCAN') || '', trig: trig, invV: P.getProperty('WT_INV_V') || '', recV: P.getProperty('WT_REC_V') || '', allV: P.getProperty('WT_ALL_V') || '' };
   }
   if (/^bot/.test(a)) {
     if (!wtBotOk_(p.key)) return { ok: false, code: 'KEY', error: 'Khoá bot không đúng.' };
@@ -74,6 +74,7 @@ function wtDo_(a, p) {
   if (a === 'wQuick') return wtQuick_(me, p);
   if (a === 'wPkgs') return wtdPkgs_(me, p);
   if (a === 'wRecent') return wtdRecent_(me, p);
+  if (a === 'wAll') return wtdAll_(me, p);
   if (a === 'wUpload') return wtdUpload_(me, p);
   if (a === 'wGrab') return wtdGrab_(me, p);
   return { ok: false, error: 'Không có lệnh ' + a };
@@ -277,7 +278,7 @@ function wtBoot_(me, p) {
     hits: hits, types: WT.TYPES,
     bot: { seen: P.getProperty('WT_BOT_SEEN') || '', name: P.getProperty('WT_BOT_NAME') || '', hasKey: !!P.getProperty('WT_BOT_KEY'),
       queue: H.filter(function (h) { return h.status === WT.ST.WAIT || h.status === WT.ST.WORK; }).length },
-    lastScan: P.getProperty('WT_LAST_SCAN') || '', sumUrl: wtdSumUrl_(), rootUrl: wtdRootUrl_(), invV: P.getProperty('WT_INV_V') || '', recV: P.getProperty('WT_REC_V') || ''
+    lastScan: P.getProperty('WT_LAST_SCAN') || '', sumUrl: wtdSumUrl_(), rootUrl: wtdRootUrl_(), invV: P.getProperty('WT_INV_V') || '', recV: P.getProperty('WT_REC_V') || '', allV: P.getProperty('WT_ALL_V') || ''
   };
 }
 function wtHitOut_(h) {
@@ -341,10 +342,13 @@ function wtHitOp_(me, p) {
   const h = H.filter(function (x) { return x.key === wtS_(p.key); })[0];
   if (!h) return { ok: false, error: 'Không tìm thấy gói.' };
   if (!me.boss && !h.watchers.some(function (m) { return wtLocal_(m) === me.local; })) return { ok: false, error: 'Bạn không theo dõi gói này.' };
-  if (p.op === 'dl') { sh.getRange(h.row, 7).setValue(wtInfoWant_(h.info, wtWant_(p.want))); sh.getRange(h.row, 11, 1, 4).setValues([[WT.ST.WAIT, JSON.stringify(h.files || []), 0, '']]); }
-  else if (p.op === 'skip') sh.getRange(h.row, 11).setValue(WT.ST.OFF);
-  else return { ok: false, error: 'Thao tác không hợp lệ.' };
-  return { ok: true, key: h.key, status: p.op === 'dl' ? WT.ST.WAIT : WT.ST.OFF };
+  if (p.op === 'dl') {
+    const q = wtReq_(sh, h, me, wtWant_(p.want), wtTrue_(p.force), true);
+    if (q.skip) return { ok: true, key: h.key, skipped: q.skip, status: h.status, at: h.done || h.last || '', n: (h.files || []).length };
+    return { ok: true, key: h.key, status: WT.ST.WAIT };
+  }
+  if (p.op === 'skip') { if (h.status === WT.ST.WORK) return { ok: false, error: 'Gói đang tải — đợi bot tải xong.' }; sh.getRange(h.row, 11).setValue(WT.ST.OFF); return { ok: true, key: h.key, status: WT.ST.OFF }; }
+  return { ok: false, error: 'Thao tác không hợp lệ.' };
 }
 
 /* ══════════ TẢI NGAY (số bất kỳ) ══════════ */
@@ -354,7 +358,7 @@ function wtQuick_(me, p) {
   if (nos.length > 30) return { ok: false, error: 'Tối đa 30 số mỗi lần.' };
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) return { ok: false, code: 'BUSY', error: 'Máy chủ đang bận — thử lại sau ít giây.' };
-  const out = [], want = wtWant_(p.want);
+  const out = [], skipped = [], want = wtWant_(p.want), force = wtTrue_(p.force);
   try {
     const ss = wtBook_(), sh = wtSheet_(ss, WT.SH_H, WT.HH), H = wtHits_(ss), now = wtNow_(), add = [];
     const bare = function (n) { return String(n || '').toUpperCase().replace(/\s+/g, '').replace(/-\d+$/, ''); };
@@ -362,10 +366,8 @@ function wtQuick_(me, p) {
       const ex = H.filter(function (h) { return bare(h.no) === b; });
       if (ex.length) {
         ex.forEach(function (h) {
-          const w = h.watchers.indexOf(me.mail) < 0 ? h.watchers.concat([me.mail]) : h.watchers;
-          sh.getRange(h.row, 7).setValue(wtInfoWant_(h.info, want));
-          sh.getRange(h.row, 10, 1, 5).setValues([[w.join(', '), WT.ST.WAIT, JSON.stringify(h.files || []), 0, '']]);
-          out.push(h.key);
+          const q = wtReq_(sh, h, me, want, force);
+          if (q.skip) skipped.push({ key: h.key, no: h.no, why: q.skip, at: h.done || h.last || '', n: (h.files || []).length }); else out.push(h.key);
         });
         return;
       }
@@ -375,7 +377,26 @@ function wtQuick_(me, p) {
     });
     if (add.length) sh.getRange(sh.getLastRow() + 1, 1, add.length, WT.HH.length).setValues(add);
   } finally { lock.releaseLock(); }
-  return Object.assign(wtBoot_(me, {}), { queued: out });
+  return Object.assign(wtBoot_(me, {}), { queued: out, skipped: skipped });
+}
+
+/** CHỐNG TẢI LẶP (18/11/2026, người dùng yêu cầu): yêu cầu tải 1 gói đã có trong GÓI TÌM THẤY.
+ *  Đang tải ⇒ bỏ qua ('work') · Chờ tải ⇒ chỉ gộp loại tài liệu ('wait') · Đã tải / Không có file ⇒ bỏ qua ('done') trừ khi force (người dùng bấm "Tải lại")
+ *  · Lỗi / Không tải / trống ⇒ đưa lại vào hàng đợi. Luôn thêm người bấm vào danh sách theo dõi gói. */
+function wtReq_(sh, h, me, want, force, noWatch) {
+  const w = !noWatch && h.watchers.indexOf(me.mail) < 0 ? h.watchers.concat([me.mail]) : h.watchers;
+  if (w !== h.watchers) sh.getRange(h.row, 10).setValue(w.join(', '));
+  if (h.status === WT.ST.WORK) return { skip: 'work' };
+  if (h.status === WT.ST.WAIT) {
+    const cur = (h.info || {}).want || [];
+    const m = !cur.length || !want.length ? [] : cur.concat(want.filter(function (x) { return cur.indexOf(x) < 0; }));
+    sh.getRange(h.row, 7).setValue(wtInfoWant_(h.info, m.length >= WT_WANT.length ? [] : m));
+    return { skip: 'wait' };
+  }
+  if (!force && (h.status === WT.ST.DONE || h.status === WT.ST.NOFILE)) return { skip: 'done' };
+  sh.getRange(h.row, 7).setValue(wtInfoWant_(h.info, want));
+  sh.getRange(h.row, 11, 1, 4).setValues([[WT.ST.WAIT, JSON.stringify(h.files || []), 0, '']]);
+  return {};
 }
 
 /* ══════════ GÓI TÌM THẤY ══════════ */
@@ -499,7 +520,7 @@ function wtNotifyNew_(news) {
 
 /* ══════════ TRIGGER ══════════ */
 function wtTick() {
-  try { const data = wtLoad_(wtBook_()); try { wtdInvBuild_(data); } catch (e) { Logger.log('wtdInvBuild_: ' + e.message); } try { wtdPkgBuild_(data); } catch (e) { Logger.log('wtdPkgBuild_: ' + e.message); } try { wtdRecentBuild_(data); } catch (e) { Logger.log('wtdRecentBuild_: ' + e.message); } wtScan_({ data: data }); } catch (e) { Logger.log('wtTick: ' + e.message); PropertiesService.getScriptProperties().setProperty('WT_LAST_SCAN', wtNow_() + ' · lỗi: ' + e.message); }
+  try { const data = wtLoad_(wtBook_()); try { wtdInvBuild_(data); } catch (e) { Logger.log('wtdInvBuild_: ' + e.message); } try { wtdPkgBuild_(data); } catch (e) { Logger.log('wtdPkgBuild_: ' + e.message); } try { wtdRecentBuild_(data); } catch (e) { Logger.log('wtdRecentBuild_: ' + e.message); } try { wtdAllBuild_(data); } catch (e) { Logger.log('wtdAllBuild_: ' + e.message); } wtScan_({ data: data }); } catch (e) { Logger.log('wtTick: ' + e.message); PropertiesService.getScriptProperties().setProperty('WT_LAST_SCAN', wtNow_() + ' · lỗi: ' + e.message); }
 }
 function wtEnsureTrig_() {
   const P = PropertiesService.getScriptProperties();
