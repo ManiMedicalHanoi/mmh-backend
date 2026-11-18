@@ -204,13 +204,14 @@ function ehSave2_(ss, me, op, d, events, evBy, now){
     EH.ROLES.forEach(function(r){ e[r] = (r in d) ? ehS_(d[r]) : ehTeamDefault_(ss, r); });
     var tasks = d.picks ? ehFormTasks_(e, d.picks, me, []) :                                                 /* v1.9: việc đã tick từ mẫu Event form_Task */
                 d.template === false || d.template === '0' || EH_FORM_ON ? [] : ehTasksFor_(e, ehRead_(ss, 'TEMPLATE'));   /* v1.5: hạn mẫu đã qua ⇒ dồn hạn (ehCompress_) */
-    var today = ehIso_(new Date());
+    var today = ehIso_(new Date()), dir = null;
+    if (d.place){ try { dir = ehMakeEvFolder_(e, d.place); } catch(x){ dir = { error: 'Chưa tạo được folder: ' + String(x && x.message || x).slice(0, 160) }; } }   /* v2.0: folder + file tổng */
     if (tasks.late) e.latePlan = String(tasks.late);
     tasks.forEach(function(t){ t.createdBy = me.pic; });
     ehAppend_(ss, 'EVENTS', EH.COLS.EVENTS, [e]);
     if (tasks.length) ehAppend_(ss, 'TASKS', EH.COLS.TASKS, tasks);
     var pr = PropertiesService.getScriptProperties(), gen = {}; try { gen = JSON.parse(pr.getProperty('EH_GEN') || '{}'); } catch(x){} gen[e.id] = today; pr.setProperty('EH_GEN', JSON.stringify(gen));
-    ehLog_(ss, me, 'Tạo sự kiện', e.id, '', e.name + ' · ' + e.start + ' · ' + tasks.length + ' việc theo mẫu');
+    ehLog_(ss, me, 'Tạo sự kiện', e.id, '', e.name + ' · ' + e.start + ' · ' + tasks.length + ' việc theo mẫu' + (dir && dir.folder ? ' · folder ' + dir.where : ''));
     if (d.notify !== false){
       var cnt = {}; tasks.forEach(function(t){ if (t.pic && t.parentId) cnt[t.pic] = (cnt[t.pic] || 0) + 1; });
       var done = {};
@@ -218,7 +219,7 @@ function ehSave2_(ss, me, op, d, events, evBy, now){
         var roles = EH.ROLES.filter(function(x){ return ehS_(e[x]) === who; }).join(' + ');
         EH_N.push({ to: who, kind: 'team', ev: e, role: roles, count: cnt[who] || 0 }); });
     }
-    return { ok:true, event: e, tasks: tasks, tmp: ehS_(d.id) };
+    return { ok:true, event: e, tasks: tasks, tmp: ehS_(d.id), dir: dir };
   }
   if (op === 'event.pick') return ehFormPickOp_(ss, me, d, evBy);   /* v1.9: thêm việc theo mẫu cho sự kiện có sẵn */
   if (op === 'event.delete'){
