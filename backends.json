@@ -289,5 +289,15 @@
     "sheetId": "11xBjne7dlKuOLXAO6t2OvPYy4bI2v-4_DvQ3MKLanIo",
     "sheetUrl": "https://docs.google.com/spreadsheets/d/11xBjne7dlKuOLXAO6t2OvPYy4bI2v-4_DvQ3MKLanIo/edit?gid=1920318451#gid=1920318451",
     "note": "File launch IPR-01EF (Shared Drive, thư mục '2025 Launching IPR Dia-Burs'). Script gắn Sheet, không có web app ⇒ deploy chỉ đẩy code + lưu phiên bản; chạy bằng menu MMH trong Sheet. Dùng để dựng lại file theo SOP ra mắt sản phẩm (MMH-SOP-015, 17/11/2026)."
+  },
+  "mkt-reg": {
+    "name": "Data đăng ký tổng khách tham dự sự kiện MKT (Form đăng ký theo KOL — script gắn Sheet)",
+    "apps": [
+      "ManiMedicalHanoi/MMH-Event-MKTOnline"
+    ],
+    "scriptId": "1ST1FusrO4rwm1151h5K2veA9qo7ywNODBg72x04QTiRq7KxGu738zFD0",
+    "sheetId": "1fzV1vc-C0U-PdFq3O8P7mceOWs9hj5qGKY6eyYSvkS0",
+    "sheetUrl": "https://docs.google.com/spreadsheets/d/1fzV1vc-C0U-PdFq3O8P7mceOWs9hj5qGKY6eyYSvkS0/edit?gid=1014817478#gid=1014817478",
+    "note": "File gốc nhận câu trả lời Google Form đăng ký sự kiện: mỗi KOL / bác sĩ 1 link form, đổ về 1 tab; cột A Event name do Marketing dán tay, có tiến trình done / cancel / pending, cột nguồn 'Anh chị biết đến sự kiện qua đâu' (MANI = MMH tuyển, khác = NPP). Nguồn số đăng ký cho app Sự kiện MKT / Report Hub (chỉ đọc số đếm, không đưa tên / SĐT khách lên app). Người dùng gửi 18/11/2026."
   }
 }
