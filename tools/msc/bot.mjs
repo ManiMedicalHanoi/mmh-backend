@@ -295,7 +295,7 @@ async function doJob(pg, job, cap) {
     await closePopups(pg);
     info.fields = await readFields(pg);
     const F = info.fields, PK = F._pkgs || [], P0 = pkgRow(PK[0] || []); delete F._pkgs;
-    info.pkgs = PK.length; if (DRY) info._p0 = P0;
+    info.pkgs = PK.length;
     const put = (k, v) => { if (v && !F[k]) F[k] = v; };
     put('Giá gói thầu', F['Dự toán mua sắm'] || pk.price); put('Ngày đăng tải', pk.posted || F['Thời gian đăng tải']);
     put('Chi tiết nguồn vốn', P0['Chi tiết nguồn vốn']); put('Hình thức lựa chọn nhà thầu', P0['Hình thức LCNT']); put('Phương thức lựa chọn nhà thầu', P0['Phương thức LCNT']);
