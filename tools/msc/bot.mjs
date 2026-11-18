@@ -293,10 +293,16 @@ async function ensureValues(pg, url, re, tabs) {
    Bắt file theo 3 đường: sự kiện download · móc pdfMake.createPdf lấy base64 · trang mới (blob:) ⇒ không được thì mới in trang. */
 async function pagePdf(pg, ctx2, sec, type, re) {
   if (!wants(ctx2, sec)) return true;
-  const btn = pg.locator(':is(a,button,span,div,tags):visible').filter({ hasText: re }).last();
-  if (!(await btn.count())) return false;
-  const txt = ((await btn.innerText().catch(() => '')) || '').trim();
-  if (!re.test(txt) || txt.length > 30) return false;
+  // phần tử NHỎ NHẤT đang hiện có chữ đúng "Tải TBMT"… (không lấy khối cha chứa cả đoạn chữ)
+  const found = await pg.evaluate(src => {
+    const R = new RegExp(src, 'i'); document.querySelectorAll('[data-wtb]').forEach(e => e.removeAttribute('data-wtb'));
+    const C = [...document.querySelectorAll('body *')].filter(e => e.offsetParent && R.test((e.innerText || '').trim()) && (e.innerText || '').trim().length <= 30);
+    const leaf = C.filter(e => !C.some(o => o !== e && e.contains(o)));
+    const el = leaf[0]; if (!el) return '';
+    const clickable = el.closest('a,button,[role=button],tags,span') || el; clickable.setAttribute('data-wtb', '1'); return (el.innerText || '').trim();
+  }, re.source).catch(() => '');
+  if (!found) return false;
+  const btn = pg.locator('[data-wtb]').first(), txt = found;
   await pg.evaluate(() => {
     window.__wtPdf = null;
     const hook = () => { const M = window.pdfMake; if (!M || !M.createPdf || M.__wt) return;
