@@ -454,3 +454,44 @@ function wtdUpload_(me, p) {
   wtBotLog_(ss, 'app · ' + me.pic, h.key, 'upload', sv.name, orig);
   return { ok: true, name: sv.name, url: sv.url, gsheet: sv.gsheet, folder: folder.getUrl(), hit: wtHitOut_(wtHits_(ss).filter(function (x) { return x.key === h.key; })[0]) };
 }
+
+
+/* ════════════════════════════════════════════════════════════════════
+   DỌN BẢN "IN TRANG" + TẢI LẠI (18/11/2026, người dùng: "tải pdf bị sai, không đúng file")
+   Lượt bot đầu (bản cũ) in trang thành PDF: "Thông báo mời thầu" (nay lấy đúng file nút Tải TBMT) và "Kết quả lựa chọn nhà thầu"
+   (tab Kết quả KHÔNG có nút tải PDF — QĐ phê duyệt / báo cáo đánh giá chỉ tải qua Agent) ⇒ botRequeue {key, before, run}:
+   gói Đã tải trước mốc `before` ⇒ bỏ file "… - Kết quả lựa chọn nhà thầu.pdf" (Thùng rác Drive + bỏ khỏi gói + xoá dòng Sheet tổng hợp) ⇒ Chờ tải lại.
+   Không run=1 ⇒ chỉ liệt kê.
+   ════════════════════════════════════════════════════════════════════ */
+function wtdRequeue_(p) {
+  const before = wtS_(p.before) || '2026-11-18 12:00:00', run = wtTrue_(p.run);
+  const ss = wtBook_(), sh = wtSheet_(ss, WT.SH_H, WT.HH), H = wtHits_(ss);
+  const isPrint = function (f) { return /Kết quả lựa chọn nhà thầu\.pdf$/i.test(wtS_(f.name)); };
+  const L = H.filter(function (h) { return (h.status === WT.ST.DONE || h.status === WT.ST.NOFILE) && wtS_(h.done || h.last) && wtS_(h.done || h.last) < before; });
+  const out = { before: before, run: run, n: L.length, trashed: 0, sumDel: 0, items: [] };
+  if (!run) { out.items = L.slice(0, 60).map(function (h) { return h.no + ' · ' + (h.files || []).filter(isPrint).length + ' bản in'; }); return Object.assign({ ok: true }, out); }
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) return { ok: false, code: 'BUSY', error: 'Máy chủ đang bận.' };
+  const dropNames = {};
+  try {
+    L.forEach(function (h) {
+      const keep = [];
+      (h.files || []).forEach(function (f) {
+        if (!isPrint(f)) { keep.push(f); return; }
+        try { if (f.id) DriveApp.getFileById(f.id).setTrashed(true); out.trashed++; } catch (e) {}
+        dropNames[wtS_(f.name)] = 1;
+      });
+      sh.getRange(h.row, 11, 1, 5).setValues([[WT.ST.WAIT, JSON.stringify(keep), 0, '', '']]);
+      out.items.push(h.no);
+    });
+  } finally { lock.releaseLock(); }
+  try {
+    const sh2 = wtdSumSheet_(wtdSumBook_()), n = WTD.HEAD.length, last = sh2.getLastRow();
+    if (last > 1) {
+      const keys = sh2.getRange(2, n, last - 1, 1).getValues().map(function (r) { return wtS_(r[0]); });
+      for (let i = keys.length - 1; i >= 0; i--) { const nm = keys[i].split('|').slice(2).join('|'); if (dropNames[nm] || (/\|Kết quả lựa chọn nhà thầu\|/.test(keys[i]) && /Kết quả lựa chọn nhà thầu\.pdf$/i.test(nm))) { sh2.deleteRow(i + 2); out.sumDel++; } }
+    }
+  } catch (e) { out.sumErr = String(e.message || e); }
+  try { CacheService.getScriptCache().remove('wt_q'); } catch (e) {}
+  return Object.assign({ ok: true }, out);
+}

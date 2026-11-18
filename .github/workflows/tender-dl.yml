@@ -5,16 +5,18 @@ name: Theo dõi gói thầu — tải hồ sơ
 # File đính kèm PDF cần Agent của muasamcong (chỉ chạy trên Windows) ⇒ ở đây chỉ ghi tên + mã file (app hiện nút mở trang gói).
 # Cần secret WT_BOT_KEY (Admin: app Theo dõi gói thầu ▸ Cài đặt bot ▸ Sao chép khoá ⇒ GitHub mmh-backend ▸ Settings ▸ Secrets ▸ Actions).
 # Chạy tay: Actions ▸ Theo dõi gói thầu — tải hồ sơ ▸ Run workflow.
+# ⚠️ Lịch cron của GitHub gần như không tự chạy (18/11/2026: 0 lượt trong 3,5 giờ) ⇒ người đánh thức chính = Training Hub (trigger hwWarm 5 phút ▸ RH_WtKick.gs:
+# hỏi tender-info wPing, còn gói chờ + không có lượt nào đang chạy ⇒ workflow_dispatch). Mỗi lượt tải tới 40 phút rồi TỰ GỌI LƯỢT KẾ khi hàng đợi còn gói.
 on:
   schedule:
     - cron: '*/5 0-14 * * 1-6'
   workflow_dispatch:
-permissions: { contents: read }
+permissions: { contents: read, actions: write }
 concurrency: { group: tender-dl, cancel-in-progress: false }
 jobs:
   dl:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 58
     env:
       WT_BOT_KEY: ${{ secrets.WT_BOT_KEY }}
     steps:
@@ -41,8 +43,15 @@ jobs:
           npx playwright install --with-deps chromium >/dev/null
       - name: Tải hồ sơ từ muasamcong
         if: steps.peek.outputs.n != '0'
-        env: { WT_OUT: /tmp/pw/wt-out, WT_PAR: '3', WT_N: '12' }
+        env: { WT_OUT: /tmp/pw/wt-out, WT_PAR: '3', WT_N: '400', WT_MIN: '40' }
         run: cp tools/msc/bot.mjs /tmp/pw/ && cd /tmp/pw && node bot.mjs
+      - name: Còn gói ⇒ gọi lượt kế
+        if: always() && steps.peek.outputs.n != '0'
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          N=$(curl -sSL --max-time 90 -H 'Content-Type: application/json' -d "{\"action\":\"botPeek\",\"key\":\"$WT_BOT_KEY\",\"bot\":\"github-actions\"}" "$WT_URL" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const j=JSON.parse(s);console.log(j.ok?j.n:0);}catch(e){console.log(0);}})")
+          echo "Còn $N gói"
+          if [ "$N" != "0" ]; then gh workflow run tender-dl.yml --ref main -R "$GITHUB_REPOSITORY" && echo "Đã gọi lượt kế"; fi
       - uses: actions/upload-artifact@v4
         if: failure() && steps.peek.outputs.n != '0'
         with: { name: tender-dl-loi, path: /tmp/pw/wt-out/*.png, retention-days: 5, if-no-files-found: ignore }

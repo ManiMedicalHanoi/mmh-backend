@@ -14,7 +14,7 @@
    Lần đầu theo dõi 1 chủ đầu tư: hiện gói trong WT.BASE_DAYS ngày gần nhất (không báo), tự tải gói trong WT.DL_BASE_DAYS ngày.
    ════════════════════════════════════════════════════════════════════ */
 const WT = {
-  VER: '1.3',
+  VER: '1.4',
   MASTER_ID: '1byCL6NjhqBuEcd-K5pxYRrQj2XXs6GMIvR79x45mHRQ',   // Training Master (RH_Users, RH_Secret, RH_Notify)
   APP_URL: 'https://manimedicalhanoi.github.io/Tender-Result/theo-doi/',
   SH_W: 'THEO DÕI · DANH SÁCH',
@@ -50,7 +50,11 @@ function wtDo_(a, p) {
   if (a === 'wPing') {   // chẩn đoán công khai: lần quét cuối + trigger 30 phút có thật không (không trả dữ liệu)
     const P = PropertiesService.getScriptProperties(); let trig = -1;
     try { trig = ScriptApp.getProjectTriggers().filter(function (t) { return t.getHandlerFunction() === 'wtTick'; }).length; } catch (e) {}
-    return { ok: true, app: 'tender-watch', v: WT.VER, lastScan: P.getProperty('WT_LAST_SCAN') || '', trig: trig, invV: P.getProperty('WT_INV_V') || '', recV: P.getProperty('WT_REC_V') || '', allV: P.getProperty('WT_ALL_V') || '' };
+    // số gói Chờ tải / Đang tải (Training Hub hwWarm đọc ⇒ đánh thức bot khi còn gói; đệm 60 giây)
+    let q = null; const c = CacheService.getScriptCache();
+    try { q = JSON.parse(c.get('wt_q') || 'null'); } catch (e) {}
+    if (!q) { q = { wait: 0, work: 0 }; try { wtHits_(wtBook_()).forEach(function (h) { if (h.status === WT.ST.WAIT) q.wait++; else if (h.status === WT.ST.WORK) q.work++; }); c.put('wt_q', JSON.stringify(q), 60); } catch (e) { q.err = String(e.message || e); } }
+    return { ok: true, app: 'tender-watch', v: WT.VER, lastScan: P.getProperty('WT_LAST_SCAN') || '', trig: trig, invV: P.getProperty('WT_INV_V') || '', recV: P.getProperty('WT_REC_V') || '', allV: P.getProperty('WT_ALL_V') || '', wait: q.wait, work: q.work, botSeen: P.getProperty('WT_BOT_SEEN') || '' };
   }
   if (/^bot/.test(a)) {
     if (!wtBotOk_(p.key)) return { ok: false, code: 'KEY', error: 'Khoá bot không đúng.' };
@@ -58,6 +62,7 @@ function wtDo_(a, p) {
     if (a === 'botNext') return wtBotNext_(p);
     if (a === 'botFile') return wtBotFile_(p);
     if (a === 'botDone') return wtBotDone_(p);
+    if (a === 'botRequeue') return wtdRequeue_(p);
     if (a === 'botPing') { wtBotSeen_(p.bot); return { ok: true, v: WT.VER }; }
     return { ok: false, error: 'Không có lệnh ' + a };
   }
