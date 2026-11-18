@@ -34,11 +34,23 @@ async function clickAndWatch(pg, label, el) {
 }
 
 
+/* gõ số + Enter, chờ đúng phản hồi tìm kiếm; trang chưa sẵn mã reCAPTCHA ⇒ thử lại (tối đa 3 lần) */
+async function searchFor(pg, box, no) {
+  for (let i = 0; i < 3; i++) {
+    await pg.waitForTimeout(1500 + i * 2500);
+    await box.fill(''); await box.fill(no);
+    const r = await Promise.all([pg.waitForResponse(x => /search/.test(x.url()) && /token=/.test(x.url()) && (x.request().postData() || '').includes(no), { timeout: 25000 }).catch(() => null), box.press('Enter')]).then(x => x[0]);
+    if (r) return r;
+    await closePopups(pg);
+  }
+  throw new Error('Trang tìm kiếm muasamcong không phản hồi (thử 3 lần)');
+}
+
 // A) Thông tin chung: chờ giá trị + JSON API + in PDF
 await p.goto('https://muasamcong.mof.gov.vn/', { waitUntil: 'domcontentloaded', timeout: 90000 });
 await p.waitForSelector('input[placeholder*="IB000202"]:visible', { timeout: 30000 }); await closePopups(p);
-const box = p.locator('input[placeholder*="IB000202"]:visible').first(); await box.fill('IB2500491794');
-const sr = await Promise.all([p.waitForResponse(r => /smart\/search\?token/.test(r.url()) && (r.request().postData() || '').includes('IB2500491794'), { timeout: 45000 }), box.press('Enter')]).then(x => x[0]);
+const box = p.locator('input[placeholder*="IB000202"]:visible').first();
+const sr = await searchFor(p, box, 'IB2500491794');
 say('A0) search hit:', short(await sr.text(), 1500));
 const href = await p.locator('a[href*="render=detail"]').first().getAttribute('href');
 const jsons = []; p.on('response', async r => { if (/services\//.test(r.url()) && /json/.test(r.headers()['content-type'] || '')) { const t = await r.text().catch(() => ''); jsons.push(r.url().split('?')[0].split('/services/')[1] + ' ⇒ ' + short(t, 1800)); } });
@@ -69,8 +81,9 @@ await p.waitForSelector('input[placeholder*="IB000202"]:visible', { timeout: 300
 const radios = await p.$$eval('label:visible, .ant-radio-wrapper', els => els.map(e => e.innerText.trim()).filter(Boolean).slice(0, 20)); say('C0) radio:', JSON.stringify(radios));
 await p.locator('label:has-text("KHLCNT"):visible').first().click({ timeout: 5000 }).catch(e => say('   radio lỗi', e.message.split('\n')[0]));
 await p.waitForTimeout(1500);
-const box2 = p.locator('input[placeholder*="KHLCNT"]:visible').first(); await box2.fill('PL2500276110');
-const n0 = reqs.length; await box2.press('Enter'); await p.waitForTimeout(9000);
+const box2 = p.locator('input[placeholder*="KHLCNT"]:visible').first();
+const n0 = reqs.length; const rk = await searchFor(p, box2, 'PL2500276110').catch(e => { say('   KHLCNT:', e.message); return null; }); await p.waitForTimeout(4000);
+if (rk) say('C0b) KHLCNT API:', rk.url().split('?')[0], '·', short(rk.request().postData(), 500), '⇒', short(await rk.text().catch(() => ''), 1500));
 say('C1) yêu cầu:', reqs.slice(n0).filter(u => /search|plan/i.test(u)).slice(0, 6).join(' || ').slice(0, 2500));
 say('C2) url:', p.url().slice(0, 300));
 const hrefs2 = await p.$$eval('a', els => els.map(e => e.href).filter(h => /render=detail|plan|khlcnt/i.test(h))); say('C3) link:', JSON.stringify(hrefs2.slice(0, 5)));
