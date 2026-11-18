@@ -421,7 +421,8 @@ function ehSync_(opt){
         ev.purpose = ehClean_(I.purpose); ev.audience = ehClean_(I.audience); ev.scale = ehClean_(I.scale || I.guests); ev.speakers = ehClean_(I.speakers);
         ev.fee = ehClean_(I.fee); ev.npp = ehClean_(I.npp); ev.sales = ehClean_(I.sales); ev.kpi = ehClean_(I.kpi); ev.products = ehProducts_(plan, f.name);
         ev.dateWarn = '';
-        if (keep0) ['name', 'venue', 'organizer', 'format', 'purpose', 'audience', 'scale', 'speakers', 'fee', 'npp', 'sales', 'kpi', 'products'].forEach(function(k){ if (!ehS_(ev[k]) && ehS_(keep0[k])) ev[k] = keep0[k]; });
+        if (keep0) ['name', 'venue', 'organizer', 'format', 'purpose', 'audience', 'scale', 'speakers', 'fee', 'npp', 'sales', 'kpi', 'products'].forEach(function(k){   /* sự kiện tạo trên app: thông tin app ưu tiên, file chỉ điền ô app còn trống */
+          if (ehS_(keep0[k])) ev[k] = keep0[k]; });
         var dt = ehClean_(I.dateText);
         if (/TBC|chưa chốt|dự kiến/i.test(dt + ' ' + ev.venue)) ev.state = ev.state || 'Chờ chốt';
         var dm = /(\d{1,2})\s*[\/\-.]\s*(\d{1,2})\s*[\/\-.]\s*(20\d\d)/.exec(dt) || /\d{1,2}\s*[-–]\s*\d{1,2}\s*\/\s*(\d{1,2})\s*\/\s*(20\d\d)/.exec(dt);
