@@ -25,7 +25,7 @@
  *       người phụ trách tự ghi) — không bắt buộc tải file khi chỉ cần chữ. Việc app KHÔNG còn đẩy sang Report Hub (Event_Sync.gs v2.3).
  *************************************************************************************************/
 var EH = {
-  VER: '2.2',
+  VER: '2.3',
   ROOT: '1maHn2DD34aJBaNnH4q9Di0YH2wMurYuZ',     /* thư mục Drive "Event FY68" */
   BOOK_NAME: 'MMH · Event Hub FY68 (dữ liệu app Sự kiện MKT)',
   FILES_NAME: 'Event Hub · Tệp tải lên',
@@ -640,6 +640,7 @@ function ehSave_(p){
   var op = String(p.op || ''), d = p.data || {}; if (typeof d === 'string'){ try { d = JSON.parse(d); } catch(e){ d = {}; } }
   var events = ehRead_(ss, 'EVENTS'), evBy = {}; events.forEach(function(e){ evBy[ehS_(e.id)] = e; });
   var now = ehNow_();
+  if (/^apv\./.test(op)) return ehApvOp_(ss, me, op, d, evBy);   /* v2.3 — duyệt ấn phẩm / bài đăng 3 cấp (MKT_EventHubApv.gs) */
   var x2 = ehSave2_(ss, me, op, d, events, evBy, now); if (x2) return x2;   /* v1.1 — MKT_EventHubPlus.gs */
   var x3 = ehSave3_(ss, me, op, d, events, evBy, now); if (x3) return x3;
   var x4 = ehSave4_(ss, me, op, d, events, evBy, now); if (x4) return x4;   /* v1.8 — MKT_EventHubGate.gs: đối tác · luật · nguồn đăng ký · thông báo */   /* v1.5 — MKT_EventHubFlow.gs: event.close / event.reopen / checkin.save */
@@ -773,6 +774,7 @@ function ehLinkName_(u){
 /* tải file: data = base64 (≤ EH.MAX_MB) ⇒ thư mục "Event Hub · Tệp tải lên/<yyyymmdd Tên sự kiện>/<Hạng mục>" */
 function ehUpload_(p){
   var ss = ehBook_(), me = ehMe_(p, ss); if (me.err) return { ok:false, code:'AUTH', error:me.err };
+  if (p.apvId) return ehApvUpload_(ss, me, p);   /* v2.3: bản nháp ⇒ folder Draft (MKT Online) */
   var events = ehRead_(ss, 'EVENTS'), ev = events.filter(function(e){ return ehS_(e.id) === ehS_(p.eventId); })[0];
   if (!ev) return { ok:false, error:'Không thấy sự kiện.' };
   var tk = p.taskId ? ehRead_(ss, 'TASKS').filter(function(t){ return ehS_(t.id) === ehS_(p.taskId); })[0] : null;
