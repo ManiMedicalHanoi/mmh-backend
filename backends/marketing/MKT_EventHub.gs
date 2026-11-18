@@ -582,6 +582,7 @@ function ehRoute_(action, user, p){
     if (action === 'ehSample') return ehSample_(p);
     if (action === 'ehDaily') return ehDailyApi_(p);
     if (action === 'ehLink') return ehLinkApi_(p);   /* v1.2 — MKT_EventHubLink.gs */
+    if (action === 'ehUnlink') return ehUnlinkApi_(p);   /* 18/11/2026 — ngắt app ⇄ Report Hub, rà / dọn sub-task (MKT_EventHubUnlink.gs) */
     if (action === 'ehDriveDiag') return ehDriveDiag_(p);
     if (action === 'ehPartner') return ehPartner_(p);   /* v1.8 — trang đối tác (không đăng nhập, chỉ số đếm) */
     if (action === 'ehGate') return ehGateApi_(p);   /* 17/11/2026 — rà Drive (chỉ đọc), MKT_EventHubDiag.gs */
