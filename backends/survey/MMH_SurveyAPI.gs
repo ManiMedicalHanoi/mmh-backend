@@ -57,7 +57,7 @@ function svHandle_(p, body) {
       if (a === 'qStart') return svOut_(Object.assign({ ok: true }, svQuizStart(fq, b2.info || {})));
       return svOut_(svQuizSubmit(fq, b2.token, b2.info || {}, b2.answers || {}, !!b2.auto));
     }
-    if (a === 'nsMeta' || a === 'nsSubmit') return svOut_(nsRoute_(a, Object.assign({}, p, body || {})));  // khảo sát hệ thống MMH (MMH_SurveyNative.gs) — trang Training-Hub/khao-sat/, công khai
+    if (a === 'nsMeta' || a === 'nsSubmit' || a === 'nsFollow') return svOut_(nsRoute_(a, Object.assign({}, p, body || {})));  // khảo sát hệ thống MMH (MMH_SurveyNative.gs) — trang Training-Hub/khao-sat/, công khai
     if (/^ns(Create|Update|Set|List|Get|Info|MailSend|Task)$/.test(a)) return svOut_(nsRoute_(a, Object.assign({}, p, body || {})));  // khoá SV_KEY kiểm trong nsRoute_
     if (/^pq(Meta|Start|Answer|Board|BoardAll|Feedback)$/.test(a)) return svOut_(pqRoute_(a, Object.assign({}, p, body || {})));  // bài kiểm tra đối tác kiểu Kahoot (MMH_PartnerQuiz.gs) — trang Training-Hub/quiz/doi-tac/, công khai
     if (/^rs(List|Add|Data|Watch|Remove|Tick|Diag|Push|PushGone|DelTest|Agg|Set|Scan|Hub)$/.test(a)) return rsRoute_(a, Object.assign({}, p, body || {}));  // app Kết quả khảo sát (MMH_SurveyResults.gs) — phiên email tk, không cần khoá
