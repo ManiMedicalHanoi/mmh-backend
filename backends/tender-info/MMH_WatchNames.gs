@@ -140,6 +140,9 @@ function wnMatch_(ix, ent) {
   const P = wnProv_(ent.prov) || names.map(wnProv_).filter(String)[0] || '';
   const bad = {}; (ent.no || []).forEach(function (n) { bad[wnKey_(n)] = 1; });
   const sig = names.map(wnSig_);
+  // loại khách theo CRM (cột Type: Clinic / Lab / University / Hospital…) khi tên không tự nói loại — "Ân Tâm" (phòng khám) ≠ "Bệnh viện An Bình"
+  const tf = wnFold_(ent.type), tk = /clinic|phong kham|nha khoa|\blab|labo|dealer|distributor|\bnpp\b|dai ly|pharma|cong ty/.test(tf) ? 'pk' : /univ|dai hoc|truong|school|college/.test(tf) ? 'edu' : /hospital|benh vien/.test(tf) ? 'bv' : '';
+  if (tk) sig.forEach(function (g) { if (g.kind === 'other' || g.kind === 'tt') g.kind = tk; });
   const cand = {};
   const put = function (x, s, how) { if (bad[x.key]) return; const c = cand[x.name]; if (!c || c.s < s) cand[x.name] = { x: x, s: s, how: how }; };
   if (ent.ok) { (ix.byKey[wnKey_(ent.ok)] || []).forEach(function (ok) { put(ok, 98, 'đã xác nhận ở nguồn khác'); }); }
@@ -292,7 +295,7 @@ function wnAcct_(me, p) {
   if (m) { inv = m[0]; st = m[1]; score = m[2]; how = m[3]; cands = m[4] || []; by = m[6] || ''; also = m[7] || []; }
   if (!m || st === WN.ST.NONE) {
     // khách mới / chưa có mã / chưa đối chiếu ⇒ so ngay với danh sách chủ đầu tư
-    const r = wnMatch_(wnInvIx_().ix, { name: p.name, alt: wtS_(p.alt) ? [wtS_(p.alt)] : [], prov: p.prov });
+    const r = wnMatch_(wnInvIx_().ix, { name: p.name, alt: wtS_(p.alt) ? [wtS_(p.alt)] : [], prov: p.prov, type: p.type });
     if (r.st !== 'none' || !m) { inv = r.inv; st = wnStOf_(r.st); score = r.score; how = r.how; cands = r.cands; also = r.also || []; }
   }
   const out = { ok: true, v: WN.VER, id: code ? id : '', st: { 'Tự khớp': 'auto', 'Đã xác nhận': 'ok', 'Cần xác nhận': 'ask', 'Không khớp': 'no' }[st] || 'none', score: score, how: how, by: by,

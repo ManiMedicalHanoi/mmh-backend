@@ -36,7 +36,7 @@ const facOf = (names, prov) => { const P = W.wnProv_(prov) || names.map(n => W.w
 
 const rows = [], stat = {};
 const add = (src, e, extra) => {
-  const k = ek(e.name, e.prov), r = W.wnMatch_(IX, { name: e.name, alt: e.alt, prov: e.prov, no: noBy[k] || [], ok: okBy[k] || '' });
+  const k = ek(e.name, e.prov), r = W.wnMatch_(IX, { name: e.name, alt: e.alt, prov: e.prov, type: e.type, no: noBy[k] || [], ok: okBy[k] || '' });
   rows.push(Object.assign({ src, code: e.code, name: e.name, prov: e.prov, type: e.type || '', pic: e.pic || '', inv: r.st === 'none' ? '' : r.inv, also: r.also || [], score: r.score, how: r.how, st: r.st, cands: r.cands }, extra || {}));
   const s = stat[src] = stat[src] || { total: 0, auto: 0, ask: 0, none: 0 }; s.total++; s[r.st]++;
 };
