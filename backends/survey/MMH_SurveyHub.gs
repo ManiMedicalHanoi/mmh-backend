@@ -38,8 +38,8 @@ var RSH = {
     ['Dental', 'Mũi khoan (DIA-BURS)', /\bburs?\b|mui khoan|dia-?burs/],
     ['Dental', 'IPR', /\bipr\b/],
     ['Dental', 'Vật liệu MMG', /composite|\bbond\b|tay trang|bleach|\bmmg\b|zirconia|primer|cement|vat lieu|\blab\b|labo/],
-    ['Surgical', 'Chung', /nhan khoa|\bmat\b|ophthal|\bvos\b|apsoprs|tao hinh|oculo|mi mat|phau thuat|ngoai khoa|surgical/],
-    ['Dental', 'Chung', /nha khoa|dental|rang ham mat|\brhm\b|nha si|\brang\b|nha chu|phuc hinh|implant|noi nha/]
+    ['Dental', 'Chung', /nha khoa|dental|rang ham mat|\brhm\b|nha si|\brang\b|nha chu|phuc hinh|implant|noi nha|gutta|\bgps?\b|mo mem/],
+    ['Surgical', 'Chung', /nhan khoa|\bmat\b|ophthal|\bvos\b|apsoprs|tao hinh|oculo|mi mat|phau thuat|ngoai khoa|surgical/]
   ],
   SKIP: /bai kiem tra|kiem tra sau dao tao|\bquiz\b|\btest\b|\bthu nghiem\b|\(thu\)|ban sao|copy of|untitled|khong co tieu de|bieu mau khong co tieu de|\bmau\b/,
   REG: /dang ky|dang ki|registration|register|xac nhan tham du/,
@@ -106,7 +106,7 @@ function rshXlsx_(w) {
   if (id) { try { if (!DriveApp.getFileById(id).isTrashed()) return id; } catch (x) {} }
   var base = rsS_(w.name).replace(/\.xlsx?$/i, '');
   var f = Drive.Files.copy({ name: base, mimeType: RSH.SHEET, parents: [w.parent] }, w.tid, { supportsAllDrives: true });
-  P.setProperty(k, f.id); return f.id;
+  P.setProperty(k, f.id); P.setProperty('RSXR_' + f.id, w.tid); return f.id;
 }
 
 /* ---------- đồng bộ Product Survey ⇒ danh sách app ---------- */
@@ -131,9 +131,30 @@ function rshSync_() {
       }
     }
     if (cls && e.src !== 'app' && (e.grp !== cls.grp || e.prod !== cls.prod)) { e.grp = cls.grp; e.prod = cls.prod; e.src = 'drive'; rsWriteRow_(e); rep.updated++; }
+    if (!w.path.length && !e.hidden) { try { rshPlace_(e, W); rep.placed = (rep.placed || 0) + 1; rshXlsxFollow_(w.tid, W); } catch (x) { rep.skip.push(w.name + ': ' + x.message); } }
   });
   PropertiesService.getScriptProperties().setProperty('RSH_LAST', JSON.stringify({ at: new Date().toISOString(), files: rep.files, added: rep.added, updated: rep.updated, conv: rep.conv }));
   return rep;
+}
+/* file .xlsx gốc đi theo bản Google Sheet đã chuyển (cùng folder) */
+function rshXlsxFollow_(sheetId, W) {
+  var x = PropertiesService.getScriptProperties().getProperty('RSXR_' + sheetId); if (!x) return;
+  var s = null, o = null; W.forEach(function (w) { if (w.tid === sheetId && !w.sc) s = w; if (w.tid === x && !w.sc) o = w; });
+  if (s && o && o.parent !== s.parent) { rshMove_(o.id, o.parent, s.parent); o.parent = s.parent; }
+}
+/* Admin / khoá: đặt phân loại cho nhiều file một lần — set = "id:Nhóm:Sản phẩm;id:…" (id = form hoặc Sheet) */
+function rshSetMany_(spec) {
+  var L = rsRead_(), W = rshWalk_(), out = [];
+  String(spec || '').split(';').forEach(function (part) {
+    var a = part.split(':'); if (a.length < 3) return;
+    var id = rsS_(a[0]), g = rshGrpNorm_(a[1]), pr = rsS_(a.slice(2).join(':')) || 'Chung', e = null;
+    L.forEach(function (x) { if (!e && (x.formId === id || x.sheetId === id)) e = x; });
+    if (!e) { out.push(id.slice(0, 10) + '|không có trong app'); return; }
+    e.grp = g; e.prod = pr; e.src = 'app'; rsWriteRow_(e);
+    var pl = ''; try { pl = rshPlace_(e, W); } catch (x) { pl = 'lỗi: ' + x.message; }
+    out.push(id.slice(0, 10) + '|' + g + '/' + pr + '|' + pl + '|' + rsS_(e.title).slice(0, 50));
+  });
+  return out;
 }
 function rshSyncLazy_() {
   var c = CacheService.getScriptCache(); if (c.get('rsh_sync')) return; c.put('rsh_sync', '1', 900);
