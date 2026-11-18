@@ -658,3 +658,6 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   xoá chữ · số · ngày còn lại (Overview: dưới bảng HẠNG MỤC chỉ giữ đề mục cột đầu). `ehFolders op=tplmake` tự làm trắng; `op=tplblank` làm lại. **Không ghi file kế hoạch của sự kiện đang có.**
   `ehPlanFill_`: app ⇒ file tổng CHỈ với file hệ thống tạo (Script Property `EH_AUTOPLAN`) — ghi ô cạnh đề mục Overview (`EH_FILL`) lúc tạo sự kiện + mỗi lần `event.update`; sheet ⇒ app như cũ (ô trống không xoá thông tin app).
   `ehOverview_`: ô giá trị trống ⇒ không lấy nhầm đề mục kế bên.
+- **18/11/2026 — Event Hub v2.2: nối app Sự kiện ⇄ Report Hub CHỈ ĐỌC (`marketing/MKT_EventHubRH.gs`)**: `ehBoot` trả `rhk` = Key task Report Hub trùng tên sự kiện (`ehRhKeys_`, đọc `readWeekly`, đệm 5 phút) ⇒ app hiện key + số sub-task.
+  `evList` (Report Hub gợi ý tên key) thêm sự kiện tạo trên app (`src:'APP'`) + `eh` (mã sự kiện) / `u` (link app) / `f` (folder) ⇒ Report Hub v20.0 cảnh báo trùng Key task THEO SỰ KIỆN ở mọi tháng, vẫn cho tạo (người dùng chốt).
+  KHÔNG chép việc của app sang sheet WEEKLY (vẫn `EH_HUB_LINK = false`).

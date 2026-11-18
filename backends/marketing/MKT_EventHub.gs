@@ -25,7 +25,7 @@
  *       người phụ trách tự ghi) — không bắt buộc tải file khi chỉ cần chữ. Việc app KHÔNG còn đẩy sang Report Hub (Event_Sync.gs v2.3).
  *************************************************************************************************/
 var EH = {
-  VER: '2.1',
+  VER: '2.2',
   ROOT: '1maHn2DD34aJBaNnH4q9Di0YH2wMurYuZ',     /* thư mục Drive "Event FY68" */
   BOOK_NAME: 'MMH · Event Hub FY68 (dữ liệu app Sự kiện MKT)',
   FILES_NAME: 'Event Hub · Tệp tải lên',
@@ -628,6 +628,7 @@ function ehBoot_(p){   /* v1.6: trúng đệm ⇒ không mở file Sheet (MKT_Ev
   var last = {}; try { last = JSON.parse(PropertiesService.getScriptProperties().getProperty('EH_LAST') || '{}'); } catch(e){}
   try { base.link = ehBigGet_('eh_link') || ehLinkGet_(book()); } catch(e){ base.link = {}; }
   try { base.reg = ehBigGet_('eh_reg') || ehgRegGet_(book()); } catch(e){ base.reg = {}; }   /* v1.8 */   /* v1.2: dữ liệu file MKT Offline / Digital theo sự kiện */
+  try { base.rhk = ehRhKeys_(base.events); } catch(e){ base.rhk = {}; }   /* v2.2: Key task Report Hub theo sự kiện (MKT_EventHubRH.gs) */
   base.ok = true; base.me = { pic: who.pic, manager: mgr, admin: !!who.admin, level: who.level }; base.sync = last; base.ver = EH.VER; base.cfg = ehCfg_(); base.cached = hit;
   if (!mgr) base.notify = (base.notify || []).filter(function(n){ return n.to === who.pic || n.by === who.pic; });
   delete base.mgrs;
