@@ -214,6 +214,7 @@ function ehFlowSubj_(K, items, evs){
 /* ══════════ ⑥ REPORT HUB: việc sự kiện ⇒ sub "H:" dưới Key task trùng tên — ĐÃ TẮT 11/11/2026 (Event_Sync.gs v2.3 EVS_HUB = false) ══════════ */
 function ehHubSubs_(idx){
   var out = { subs: {}, keyNk: {} };
+  if (typeof EH_HUB_LINK !== 'undefined' && !EH_HUB_LINK) return out;   /* 18/11/2026: tạm ngắt hẳn (MKT_EventHubUnlink.gs) */
   if (!PropertiesService.getScriptProperties().getProperty('EH_BOOK')) return out;
   var ss = ehBook_(), today = ehIso_(new Date()), U = ehUsers_(), par = {}, files = {};
   var E = ehRead_(ss, 'EVENTS'), T = ehRead_(ss, 'TASKS');
