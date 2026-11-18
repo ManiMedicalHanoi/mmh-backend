@@ -165,7 +165,7 @@ function pkgRow(r) {
   r.forEach(v => {
     if (!o['Giá gói thầu'] && /^\d{1,3}(\.\d{3}){2,}$/.test(v)) o['Giá gói thầu'] = v;
     else if (!o['Hình thức LCNT'] && /^(Đấu thầu|Chào hàng|Chỉ định|Mua sắm trực tiếp|Tự thực hiện|Đàm phán|Lựa chọn nhà thầu trong trường hợp đặc biệt)/i.test(v)) o['Hình thức LCNT'] = v;
-    else if (!o['Phương thức LCNT'] && /giai đoạn|túi hồ sơ/i.test(v)) o['Phương thức LCNT'] = v;
+    else if (!o['Phương thức LCNT'] && /^(Một|Hai) giai đoạn|túi hồ sơ/i.test(v)) o['Phương thức LCNT'] = v;
     else if (!o['Loại hợp đồng'] && /^(Trọn gói|Đơn giá|Theo thời gian|Theo chi phí|Theo kết quả|Hỗn hợp)/i.test(v)) o['Loại hợp đồng'] = v;
     else if (/^\d+([.,]\d+)?\s*(tháng|ngày|năm|tuần)$/i.test(v)) dur.push(v);
     else if (!o['Chi tiết nguồn vốn'] && /(nguồn|vốn|ngân sách|quỹ|thu sự nghiệp)/i.test(v) && v.length > 12) o['Chi tiết nguồn vốn'] = v;
@@ -239,9 +239,13 @@ async function excels(pg, ctx2, sec) {
     const b = btns.nth(k);
     await b.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
     const label = await labelOf(b);
-    const d = await Promise.all([pg.waitForEvent('download', { timeout: 40000 }).catch(() => null), b.click({ timeout: 5000 }).catch(() => null)]).then(x => x[0]);
+    let d = null;
+    for (let t = 0; t < 2 && !d; t++) {    // trang chậm ⇒ bấm lại 1 lần, chờ lâu hơn
+      if (t) { say(`    · Xuất Excel #${k + 1}: chưa ra file — bấm lại`); await closePopups(pg); await pg.waitForTimeout(3000); }
+      d = await Promise.all([pg.waitForEvent('download', { timeout: t ? 75000 : 45000 }).catch(() => null), b.click({ timeout: 8000, force: t > 0 }).catch(() => null)]).then(x => x[0]);
+    }
     await closePopups(pg);
-    if (!d) { say(`    · Xuất Excel #${k + 1}: không ra file`); continue; }
+    if (!d) { say(`    · Xuất Excel #${k + 1}: không ra file`); ctx2.miss = (ctx2.miss || 0) + 1; continue; }
     const sug = d.suggestedFilename(), type = docType(sec, label, sug);
     const name = docName(ctx2.no, type, extOf(sug) || 'xlsx', ctx2.used), f = path.join(OUT, ctx2.job.key.replace(/\W+/g, '_') + '_' + name);
     await d.saveAs(f);
@@ -332,7 +336,7 @@ async function doJob(pg, job, cap) {
   }
   info.agentFiles = c.agentFiles;
   const ag = c.agentFiles.length;
-  const d = await api('botDone', { hit: job.key, status: up ? 'done' : 'nofile', note: up + ' file' + (ag ? ' · ' + ag + ' file cần Agent' : ''), info: JSON.stringify(info), docs: JSON.stringify(c.docs) });
+  const d = await api('botDone', { hit: job.key, status: up ? 'done' : 'nofile', note: up + ' file' + (ag ? ' · ' + ag + ' file cần Agent' : '') + (c.miss ? ' · ' + c.miss + ' file Excel chưa xuất được (bấm Tải lại)' : ''), info: JSON.stringify(info), docs: JSON.stringify(c.docs) });
   say(`  ✓ ${job.no}: ${up} file${ag ? ' + ' + ag + ' cần Agent' : ''} · tổng hợp ${d.sum || 0} dòng · ${Math.round((Date.now() - t0) / 1000)} giây`);
 }
 
