@@ -8,6 +8,7 @@
    bot lấy việc (botNext) ⇒ tải TBMT / HSMT / Excel kết quả ⇒ gửi file (botFile, lưu Drive theo chủ đầu tư) ⇒ báo xong (botDone).
 
    App (phiên email công ty do Training Hub ký, tham số tk):
+     wGoods {hang, win, dm, place, mode} / {op:'facets'} (lọc hàng hóa trúng thầu ở file tổng, MMH_WatchGoods.gs) ·
      wQuick {nos} (Tải ngay: số TBMT / KHLCNT bất kỳ ⇒ hàng đợi, không cần theo dõi) · wBoot · wInvestors · wSave {w: JSON} · wDel {id} · wHit {key, op: dl|skip} · wScan · wBotKey (Admin)
    Bot (khoá WT_BOT_KEY, Admin lấy trong app ▸ Cài đặt bot):
      botPeek {key} (đếm, không giữ chỗ) · botNext {key, n} · botFile {key, hit, name, mime, b64} · botDone {key, hit, status: done|nofile|error, note, info}
@@ -84,6 +85,7 @@ function wtDo_(a, p) {
   if (a === 'wMerge') { if (!me.boss) return { ok: false, error: 'Chỉ quản lý chạy gộp tay được.' }; return Object.assign({ ok: true }, wtmMerge_({ force: wtTrue_(p.force) })); }
   if (a === 'wUpload') return wtdUpload_(me, p);
   if (a === 'wGrab') return wtdGrab_(me, p);
+  if (a === 'wGoods') return wtgGoods_(me, p);
   return { ok: false, error: 'Không có lệnh ' + a };
 }
 

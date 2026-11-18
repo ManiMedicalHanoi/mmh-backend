@@ -621,3 +621,9 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   `EH_FORM_ON` ⇒ đồng bộ KHÔNG tự sinh việc theo tab TEMPLATE cũ. Việc **Chờ duyệt** chỉ Owner / quản lý chuyển Xong; Owner trả lại (⇒ Đang làm / Chưa làm) ⇒ file đã nộp của việc vào **Thùng rác Drive** (`ehFormTrashFiles_`, `d.trash=false` để giữ).
   **Tuyển sinh**: sự kiện chưa dán link Form riêng ⇒ `ehgRegTick_` đếm từ file **"MMH - Data đăng ký sự kiện FY67"** (`EH_REG_MASTER`, backend `mkt-reg`): mọi tab có cột EVENT NAME, khớp tên sự kiện (bằng / chứa nhau ≥ 12 ký tự),
   `reg` = tổng − cancel, `conf` = done, nguồn MANI / NPP theo cột "Anh chị biết đến sự kiện qua" — CHỈ SỐ ĐẾM (`f.master = 1`). Kiểm tra: ping `marketing?action=ehForm&key=…&brief=1&full=1` · `&op=reg&full=1`.
+- **18/11/2026 — Lọc + tải hàng hóa trúng thầu (`tender-info/MMH_WatchGoods.gs`, app Theo dõi gói thầu v2.2 ▸ tab Hàng hóa, người dùng yêu cầu)**: action `wGoods {hang, win, dm, place, mode: all|any}`
+  đọc 2 file tổng của `MMH_WatchMerge.gs` (cột dò theo TÊN tiêu đề); mỗi ô nhiều từ khoá cách dấu phẩy = HOẶC, giữa các ô `all` = VÀ / `any` = HOẶC (so không dấu, chứa là khớp) ⇒ ≤ 3.000 dòng
+  (Khu vực · Tỉnh · CĐT · Gói · Số TBMT · Phần / lô · Nhà thầu trúng · Danh mục · Hãng · ĐVT · Khối lượng · Cấu hình · Đơn giá · Thành tiền · **Nhà thầu tham dự không trúng**).
+  Cột cuối = nhà thầu file nhà thầu tham dự cùng số TBMT + cùng mã phần / lô (dự phòng tên lô; file nhà thầu không chia lô ⇒ cả gói; lô không khớp ⇒ trống, không đoán), bỏ nhà thầu trúng
+  (Kết quả có "trúng" mà không "không / trượt / loại / huỷ", Giá trúng thầu > 0, hoặc trùng tên nhà thầu trúng), kèm giá dự thầu + Lý do không đáp ứng (không có ⇒ chữ cột Kết quả).
+  `op=facets` = gợi ý hãng / nhà thầu trúng / danh mục / tỉnh / CĐT. Đệm gọn `wtg_d` (6 giờ, dấu = số dòng 2 file + lần gộp cuối). App tự dựng Excel (SheetJS cdnjs).
