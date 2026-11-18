@@ -457,15 +457,30 @@ GH_CFG = os.path.join(os.environ.get('LOCALAPPDATA') or os.path.expanduser('~'),
 
 
 def gh_setup():
-    """Hỏi 1 lần: kho GitHub + token (fine-grained, chỉ kho đó, quyền Contents: Read and write). Lưu trên máy, KHÔNG nằm trong thư mục công cụ."""
-    import getpass
+    """Hỏi 1 lần: kho GitHub + token (fine-grained, chỉ kho đó, quyền Contents: Read and write). Kiểm token NGAY, sai thì cho dán lại.
+    Lưu trên máy (%LOCALAPPDATA%\\MMH_Agent\\github.json), KHÔNG nằm trong thư mục công cụ."""
     c = gh_cfg()
     repo = input(f'Kho GitHub (Enter = {c.get("repo") or "ManiMedicalHanoi/tender-docs"}): ').strip() or c.get('repo') or 'ManiMedicalHanoi/tender-docs'
-    tok = getpass.getpass('Dán token GitHub (không hiện chữ), Enter: ').strip() or c.get('token', '')
-    os.makedirs(os.path.dirname(GH_CFG), exist_ok=True)
-    with open(GH_CFG, 'w', encoding='utf-8') as f:
-        json.dump({'repo': repo, 'token': tok, 'branch': c.get('branch') or 'main'}, f)
-    print('Đã lưu cấu hình GitHub ở', GH_CFG)
+    for _ in range(5):
+        print('Dán token GitHub (bấm chuột phải hoặc Ctrl+V, token bắt đầu bằng github_pat_), rồi Enter:')
+        tok = re.sub(r'[\s"\'<>]', '', input('> '))
+        if not tok:
+            continue
+        if not tok.startswith(('github_pat_', 'ghp_')):
+            print(f'  ! Chuỗi vừa dán không giống token GitHub (bắt đầu bằng "{tok[:6]}…", dài {len(tok)} ký tự). Copy lại token rồi dán.')
+            continue
+        st, me = gh_api({'repo': repo, 'token': tok}, 'GET', '')
+        if st == 200:
+            perm = (me.get('permissions') or {})
+            os.makedirs(os.path.dirname(GH_CFG), exist_ok=True)
+            with open(GH_CFG, 'w', encoding='utf-8') as f:
+                json.dump({'repo': repo, 'token': tok, 'branch': me.get('default_branch') or 'main'}, f)
+            print(f'✓ Token dùng được với kho {repo}' + ('' if perm.get('push', True) else ' (CHƯA có quyền ghi: sửa token ▸ Contents: Read and write)') + '. Đã lưu ở', GH_CFG)
+            return
+        print({401: '  ! 401: token sai / hết hạn / đã xoá. Tạo token mới rồi dán lại.',
+               403: '  ! 403: token chưa được tổ chức duyệt hoặc thiếu quyền. Nhờ chủ tổ chức duyệt (Settings ▸ Personal access tokens ▸ Pending requests).',
+               404: '  ! 404: token chưa được chọn kho này (Repository access ▸ Only select repositories ▸ ' + repo.split('/')[-1] + ').'}.get(st, f'  ! Lỗi {st}: {me.get("message", "")}'))
+    print('Chưa lưu được token. Chạy lại "Cai dat GitHub.bat" khi đã có token đúng.')
 
 
 def gh_cfg():
@@ -500,7 +515,7 @@ def gh_push(root=None):
         return False
     st, me = gh_api(c, 'GET', '')
     if st != 200:
-        print(f'Không vào được kho {c["repo"]} (mã {st}: {me.get("message", "")}). Kiểm tra tên kho + token.')
+        print(f'Không vào được kho {c["repo"]} (mã {st}: {me.get("message", "")}). ' + ('Token sai / hết hạn: chạy lại "Cai dat GitHub.bat" và dán token mới.' if st == 401 else 'Kiểm tra token đã được duyệt và chọn đúng kho.'))
         return False
     root = root or OUT_DIR
     n = up = skip = bad = 0
