@@ -1,5 +1,5 @@
 /* ════════════════════════════════════════════════════════════════════
-   MMH_WatchGoods.gs v1.1 (18/11/2026 — v1.1: khớp nguyên ô / nguyên từ + gợi ý theo bộ lọc; v1.0, người dùng yêu cầu) — LỌC + TẢI "HÀNG HÓA TRÚNG THẦU" THEO TỪ KHOÁ
+   MMH_WatchGoods.gs v1.2 (18/11/2026 — v1.2: mọi điều kiện khớp theo từ; v1.1: khớp nguyên ô / nguyên từ + gợi ý theo bộ lọc; v1.0, người dùng yêu cầu) — LỌC + TẢI "HÀNG HÓA TRÚNG THẦU" THEO TỪ KHOÁ
    Nguồn: 2 file tổng do MMH_WatchMerge.gs gộp — ① "Kết quả trúng thầu - Tổng hợp danh mục hàng hóa" ② "Danh mục nhà thầu tham dự - Tổng hợp danh sách nhà thầu".
    wGoods {hang, win, dm, place, mode: all|any}  (mỗi ô nhiều từ khoá cách nhau dấu phẩy / chấm phẩy = HOẶC trong ô;
      giữa các ô: all = VÀ (mặc định) · any = HOẶC; so không dấu, chứa là khớp)
@@ -121,9 +121,10 @@ function wtgSpec_(p) {
   });
   return out;
 }
+/* v1.2 (18/11/2026, người dùng: "chọn Mani thì phải ra cả MANI, Inc"): MỌI điều kiện (chọn từ gợi ý hay gõ tự do) = ô CHỨA ĐỦ CỤM TỪ theo NGUYÊN TỪ
+   (không dấu / hoa thường): "Mani" khớp "Mani", "MANI, Inc", "Mani Inc." nhưng không khớp "Romania". Gợi ý chỉ để chọn nhanh đúng chính tả. */
 function wtgHit_(r, f, K) {
   return f.chips.some(function (c) {
-    if (c[1]) return (f.k === 'place' ? WTG.EXACT_PLACE : f.cols).some(function (i) { return K(r, i) === c[0]; });
     const w = ' ' + c[0] + ' ';
     return f.cols.some(function (i) { return (' ' + K(r, i) + ' ').indexOf(w) >= 0; });
   });
@@ -154,9 +155,21 @@ function wtgGoods_(me, p) {
         m[id][1]++;
       });
     });
-    const all = Object.keys(m).map(function (k) { return m[k]; });
+    let all = Object.keys(m).map(function (k) { return m[k]; });
     all.sort(function (a, b) { return b[1] - a[1] || a[0].localeCompare(b[0]); });
-    return { ok: true, field: fk, q: wtS_(p.q), list: all.slice(0, 40), more: Math.max(0, all.length - 40), rows: rowsIn };
+    const more = Math.max(0, all.length - 40);
+    // số dòng hiện bên cạnh = số dòng SẼ ra khi chọn (khớp theo từ: "Mani" đếm cả "MANI, Inc"); bỏ giá trị trùng cách viết
+    const cand = all.slice(0, 60), seenK = {};
+    const fcols = WTG.FIELD[fk];
+    cand.forEach(function (c) { c[3] = wtmK_(c[0]); c[1] = 0; });
+    d.rows.forEach(function (r) {
+      if (other.length && !any && !other.every(function (f) { return wtgHit_(r, f, K); })) return;
+      const txt = fcols.map(function (i) { return ' ' + K(r, i) + ' '; }).join('|');
+      cand.forEach(function (c) { if (txt.indexOf(' ' + c[3] + ' ') >= 0) c[1]++; });
+    });
+    all = cand.filter(function (c) { if (seenK[c[3]]) return false; seenK[c[3]] = 1; return true; })
+      .sort(function (a, b) { return b[1] - a[1] || a[0].length - b[0].length; }).slice(0, 40).map(function (c) { return [c[0], c[1], c[2]]; });
+    return { ok: true, field: fk, q: wtS_(p.q), list: all, more: more, rows: rowsIn };
   }
   if (!F.length) return { ok: false, error: 'Chọn ít nhất 1 điều kiện: Hãng sản xuất, Nhà thầu trúng thầu hoặc Danh mục hàng hóa.' };
   const out = [], pk = {}; let n = 0, sum = 0;

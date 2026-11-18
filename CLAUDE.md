@@ -629,6 +629,7 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   `op=facets` = gợi ý hãng / nhà thầu trúng / danh mục / tỉnh / CĐT. Đệm gọn `wtg_d` (6 giờ, dấu = số dòng 2 file + lần gộp cuối). App tự dựng Excel (SheetJS cdnjs).
   **v1.1 (18/11/2026, người dùng: "chọn hãng nào chỉ ra đúng hãng đó")**: `p.f` = JSON `{hang|win|dm|place: [[giá trị, x]]}` — x = 1 khớp NGUYÊN Ô (giá trị chọn từ gợi ý, không dấu / hoa thường), x = 0 chứa cụm từ theo NGUYÊN TỪ
   ("mani" không khớp "Romania"); `op=suggest {field, q, f, mode}` = giá trị có thật trong file (≤ 40, kèm số dòng), thu hẹp theo các ô khác khi VÀ. App v2.3: ô lọc dạng thẻ chọn, đổi điều kiện ⇒ tự lọc lại.
+  **v1.2 (18/11/2026, người dùng sửa ý)**: KHÔNG khớp nguyên ô nữa — mọi mục (chọn từ gợi ý hay gõ tự do) đều khớp THEO NGUYÊN TỪ: chọn "Mani" ra cả "MANI, Inc"; số dòng trong gợi ý = số dòng sẽ ra. App v2.4.
 - **18/11/2026 — Máy tính tự tải file "cần Agent" (`tender-info/MMH_WatchAgent.gs`, người dùng yêu cầu)**: chương trình chạy ngầm trên máy Windows đã cài VNeGP Client Agent
   (`Tender-Result/theo-doi/agent/agent_worker.py` + bộ cài `MMH_May_tai_Agent.zip`: tự cài Python / playwright, hỏi khoá bot, tự chạy khi mở máy qua thư mục Startup) — 2 phút / lần
   `botAgentList {key, worker, agent}` (file trong `info.agentFiles` chưa done, thử < 4 lần) ⇒ lấy file qua Agent (gọi thẳng kèm Origin muasamcong; không được ⇒ Chrome / Edge ẨN mở muasamcong để chính trang gọi Agent)
