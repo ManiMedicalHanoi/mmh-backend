@@ -1,5 +1,6 @@
 /**
- * MMH_SurveyResults.gs v1.1 (13/11/2026; v1.1: app đổi tên MMH Survey, chuyển sang MMH Wiki /mmh-library/survey/; số câu trả lời 14 ngày + câu trả lời gần nhất (giờ · bệnh viện)
+ * MMH_SurveyResults.gs v1.2 (18/11/2026; v1.2: MỘT NGUỒN "Product Survey" + phân loại Surgical / Dental → sản phẩm (cột Nhóm / Sản phẩm / Nguồn, rsSet, rsScan, rsHub —
+ *   MMH_SurveyHub.gs), đọc được khảo sát chỉ có Sheet (rsSheetData_) và Sheet có form trống (bản sao); v1.1 v1.1: app đổi tên MMH Survey, chuyển sang MMH Wiki /mmh-library/survey/; số câu trả lời 14 ngày + câu trả lời gần nhất (giờ · bệnh viện)
  *   cho biểu đồ; thông báo đẩy Web Push: rsPush lưu đăng ký của từng máy, rsTick trả `jobs` để workflow gửi, rsPushGone gỡ máy hết hạn) — app MMH Survey: xem kết quả mọi khảo sát Google Form,
  * thống kê theo từng câu hỏi (số người, %), thêm khảo sát mới bằng link, thông báo khi có câu trả lời mới.
  * Người dùng yêu cầu 13/11/2026.
@@ -13,16 +14,19 @@
  *   GET ?action=rsData&tk=…&id=…               ⇒ {ok, title, n, questions:[…], answers:[[ms, [giá trị theo câu]]], pii}
  *   GET ?action=rsWatch&tk=…&id=…&on=1|0       ⇒ theo dõi (nhận thông báo "Nhắc tôi" khi có câu trả lời mới)
  *   GET ?action=rsRemove&tk=…&id=…             ⇒ ẩn khỏi danh sách (Admin hoặc người thêm)
- *   GET ?action=rsTick&key=<SV.KEY>            ⇒ quét số câu trả lời, ghi RH_Notify cho người theo dõi (GitHub Actions gọi mỗi giờ)
+ *   GET ?action=rsTick&key=<SV.KEY>            ⇒ quét số câu trả lời, ghi RH_Notify cho người theo dõi (GitHub Actions gọi mỗi giờ) + đồng bộ folder Product Survey
+ *   GET ?action=rsSet&tk=…&id=…&grp=Surgical|Dental|Khác&prod=<sản phẩm>   ⇒ đổi phân loại + chuyển file / lối tắt trong Product Survey
+ *   GET ?action=rsScan&key=…|tk=<Admin>&op=dry|run&off=&n=   ⇒ rà mọi Google Form / Sheet khảo sát trên Drive (MMH_SurveyHub.gs)
+ *   GET ?action=rsHub&key=…|tk=<Admin>&op=sync|status        ⇒ đồng bộ / xem cây folder Product Survey
  * Mọi lệnh nhận callback=… (JSONP).
  *
  * Câu hỏi lấy theo FORM HIỆN TẠI: câu trùng tiêu đề (nhánh "ít nhất một phần") gộp làm một; tiêu đề lựa chọn bỏ đuôi "(chuyển sang …)".
  * Họ tên / số điện thoại / email chỉ trả cho Admin / Giám đốc / Trưởng bộ phận và người thêm khảo sát.
  */
 var RS = {
-  VER: '1.1', TAB: 'KẾT QUẢ KHẢO SÁT', PUSH_TAB: 'THÔNG BÁO ĐẨY',
+  VER: '1.2', TAB: 'KẾT QUẢ KHẢO SÁT', PUSH_TAB: 'THÔNG BÁO ĐẨY',
   PUSH_HEAD: ['PIC', 'Endpoint', 'p256dh', 'auth', 'Thiết bị', 'Đăng ký lúc'],
-  HEAD: ['Id', 'Form ID', 'Sheet ID', 'Tiêu đề', 'Thêm bởi', 'Thêm lúc', 'Theo dõi', 'Đã báo (số câu trả lời)', 'Ẩn'],
+  HEAD: ['Id', 'Form ID', 'Sheet ID', 'Tiêu đề', 'Thêm bởi', 'Thêm lúc', 'Theo dõi', 'Đã báo (số câu trả lời)', 'Ẩn', 'Nhóm', 'Sản phẩm', 'Nguồn'],
   APP: 'https://manimedicalhanoi.github.io/mmh-library/survey/',
   SEED: ['1r5CwavKqJMGtPN78QC2Ig92-ByOn7zNZ_2ugq-ZOAZQ', '1c7jwBaP96NVMIQCdpRZ4cZNn9BWjLDatCdCQ0G2p1x8'],
   OWNER: 'mmh.product@manimedicalhanoi.com',
@@ -75,6 +79,8 @@ function rsSheet_() {
     sh = ss.insertSheet(RS.TAB);
     sh.getRange(1, 1, 1, RS.HEAD.length).setValues([RS.HEAD]).setFontWeight('bold').setBackground('#CFE2F3');
     sh.setFrozenRows(1);
+  } else if (sh.getLastColumn() < RS.HEAD.length) {
+    sh.getRange(1, 1, 1, RS.HEAD.length).setValues([RS.HEAD]).setFontWeight('bold').setBackground('#CFE2F3');
   }
   return sh;
 }
@@ -83,12 +89,12 @@ function rsRead_() {
   return sh.getRange(2, 1, last - 1, RS.HEAD.length).getValues().map(function (r, i) {
     return { row: i + 2, id: rsS_(r[0]), formId: rsS_(r[1]), sheetId: rsS_(r[2]), title: rsS_(r[3]), by: rsS_(r[4]),
       at: r[5] instanceof Date ? r[5].toISOString() : rsS_(r[5]), watch: rsS_(r[6]) ? rsS_(r[6]).split(/\s*,\s*/) : [],
-      told: rsS_(r[7]) === '' ? null : Number(r[7]), hidden: rsTrue_(r[8]) };
+      told: rsS_(r[7]) === '' ? null : Number(r[7]), hidden: rsTrue_(r[8]), grp: rsS_(r[9]), prod: rsS_(r[10]), src: rsS_(r[11]) };
   }).filter(function (x) { return x.id; });
 }
 function rsWriteRow_(e) {
   rsSheet_().getRange(e.row, 1, 1, RS.HEAD.length).setValues([[e.id, e.formId, e.sheetId, e.title, e.by, e.at ? new Date(e.at) : new Date(),
-    e.watch.join(', '), e.told == null ? '' : e.told, e.hidden ? 'x' : '']]);
+    e.watch.join(', '), e.told == null ? '' : e.told, e.hidden ? 'x' : '', e.grp || '', e.prod || '', e.src || '']]);
 }
 function rsAppend_(e) {
   var sh = rsSheet_(); e.row = sh.getLastRow() + 1; rsWriteRow_(e); return e;
@@ -149,7 +155,7 @@ function rsCount_(e) {
     if (lr > 1) {
       var head = sh.getRange(1, 1, 1, Math.max(1, lc)).getValues()[0], hc = -1;
       head.forEach(function (t, i) { if (hc < 0 && i > 0 && /bệnh viện|phòng khám|cơ sở công tác|nơi công tác/i.test(rsS_(t))) hc = i; });
-      ts = sh.getRange(2, 1, lr - 1, 1).getValues().map(function (r) { return r[0] instanceof Date ? r[0].getTime() : 0; });
+      ts = sh.getRange(2, 1, lr - 1, 1).getValues().map(function (r) { return rsTs_(r[0]); });
       if (hc >= 0) hosp = sh.getRange(2, hc + 1, lr - 1, 1).getValues().map(function (r) { return rsS_(r[0]).slice(0, 60); });
     }
   } else if (e.formId) {
@@ -176,8 +182,13 @@ function rsData_(e, me) {
   var cnt = rsCount_(e), pii = !!(me.priv || me.pic === e.by);
   var ck = 'rsd_' + e.id + '_' + cnt.n + '_' + (pii ? 1 : 0), cache = CacheService.getScriptCache();
   var hit = rsCacheGet_(cache, ck); if (hit) return hit;
-  if (!e.formId) throw new Error('Khảo sát này chưa nối với Google Form nào — máy chủ chỉ thống kê được khảo sát làm bằng Google Form.');
-  var form = FormApp.openById(e.formId), T = FormApp.ItemType;
+  var form = null;
+  if (e.formId) { try { form = FormApp.openById(e.formId); } catch (x) { if (!e.sheetId) throw x; } }
+  if (!form) {
+    if (!e.sheetId) throw new Error('Khảo sát này chưa nối với Google Form hay Sheet kết quả nào.');
+    var sd = rsSheetData_(e, me, cnt, pii); rsCachePut_(cache, ck, sd, 300); return sd;
+  }
+  var T = FormApp.ItemType;
   var Q = [], byKey = {}, map = {}, sec = '', grp = '';
   form.getItems().forEach(function (it) {
     var t = it.getType(), title = rsS_(it.getTitle());
@@ -217,6 +228,7 @@ function rsData_(e, me) {
     });
     return [r.getTimestamp().getTime(), a];
   });
+  if (!A.length && cnt.n > 0 && e.sheetId) { var sd2 = rsSheetData_(e, me, cnt, pii); rsCachePut_(cache, ck, sd2, 300); return sd2; }  // Sheet bản sao (form mới trống) ⇒ đọc thẳng Sheet
   var out = { ok: true, v: RS.VER, id: e.id, title: form.getTitle(), n: A.length, last: cnt.last, pii: pii,
     formUrl: form.getPublishedUrl(), editUrl: form.getEditUrl(), sheetUrl: e.sheetId ? 'https://docs.google.com/spreadsheets/d/' + e.sheetId + '/edit' : '',
     accepting: form.isAcceptingResponses(), questions: Q, answers: A };
@@ -259,6 +271,7 @@ function rsPushDel_(eps) {
 
 /* ---------- thông báo câu trả lời mới ⇒ RH_Notify (nút "Nhắc tôi" của Report Hub / CRM) ---------- */
 function rsTick_() {
+  try { rshSync_(); } catch (x) { console.warn('rsTick_ rshSync_: ' + x.message); }
   var rows = [], jobs = [], L = rsRead_(), now = new Date(), changed = 0, subs = null;
   L.forEach(function (e) {
     if (e.hidden) return;
@@ -319,18 +332,31 @@ function rsRoute_(a, p) {
         return q.k + '|' + q.t + '|' + c + '|' + q.q.slice(0, 40) + (q.pii ? '|pii' : '');
       }) }, p);
     }
+    if (a === 'rsScan' || a === 'rsHub') {  // khoá SV_KEY (workflow Kiểm tra) hoặc phiên Admin
+      var wk = PropertiesService.getScriptProperties().getProperty('SV_KEY') || SV.KEY;
+      if (p.key !== wk) { var ma = rsWho_(p.tk); if (ma.err || !ma.admin) return rsOut_({ ok: false, error: 'KEY' }, p); }
+      var lk2 = LockService.getScriptLock(); lk2.waitLock(30000);
+      try {
+        if (a === 'rsScan') return rsOut_(rshScan_(p), p);
+        if (p.op === 'sync') return rsOut_({ ok: true, sync: rshSync_() }, p);
+        return rsOut_({ ok: true, v: RSH.VER, last: JSON.parse(PropertiesService.getScriptProperties().getProperty('RSH_LAST') || 'null'),
+          tree: rshWalk_().map(function (w) { return w.path.join('/') + '|' + (w.sc ? 'lối tắt' : 'file') + '|' + rsS_(w.name).slice(0, 70); }) }, p);
+      } finally { lk2.releaseLock(); }
+    }
     var me = rsWho_(p.tk);
     if (me.err) return rsOut_({ ok: false, code: 'AUTH', error: me.err }, p);
     if (a === 'rsList') {
-      rsSeed_(me);
+      rsSeed_(me); rshSyncLazy_();
       var items = rsRead_().filter(function (e) { return !e.hidden; }).map(function (e) {
         var c = { n: 0, last: '' }, err = '';
         try { c = rsCount_(e); } catch (x) { err = 'Không đọc được: ' + x.message; }
-        return { id: e.id, title: e.title, n: c.n, last: c.last, today: c.today || 0, days: c.days || [], recent: (c.recent || []).slice(0, 4), by: e.by, at: e.at, watch: e.watch.indexOf(me.pic) >= 0, watchers: e.watch.length,
+        var cl = e.grp ? { grp: rshGrpNorm_(e.grp), prod: e.prod || 'Chung' } : rsClassify_(e.title);
+        return { id: e.id, title: e.title, grp: cl.grp, prod: cl.prod, auto: !e.grp, kind: e.formId ? 'form' : 'sheet', n: c.n, last: c.last, today: c.today || 0, days: c.days || [], recent: (c.recent || []).slice(0, 4), by: e.by, at: e.at, watch: e.watch.indexOf(me.pic) >= 0, watchers: e.watch.length,
           formUrl: e.formId ? 'https://docs.google.com/forms/d/' + e.formId + '/edit' : '', sheetUrl: e.sheetId ? 'https://docs.google.com/spreadsheets/d/' + e.sheetId + '/edit' : '',
-          canDel: me.admin || me.pic === e.by, err: err };
+          canDel: me.admin || me.pic === e.by, canSet: me.admin || me.priv || me.pic === e.by, err: err };
       });
-      return rsOut_({ ok: true, v: RS.VER, me: { pic: me.pic, priv: me.priv, admin: me.admin }, owner: RS.OWNER, items: items }, p);
+      return rsOut_({ ok: true, v: RS.VER, me: { pic: me.pic, priv: me.priv, admin: me.admin }, owner: RS.OWNER, items: items,
+        cats: RSH.PRODUCTS, hub: 'https://drive.google.com/drive/folders/' + RSH.ROOT }, p);
     }
     if (a === 'rsPush') {
       var sub = {}; try { sub = JSON.parse(p.sub || '{}'); } catch (x) {}
@@ -357,15 +383,24 @@ function rsRoute_(a, p) {
           if (dup.hidden) { dup.hidden = false; if (dup.watch.indexOf(me.pic) < 0) dup.watch.push(me.pic); rsWriteRow_(dup); }
           return rsOut_({ ok: true, dup: true, item: { id: dup.id, title: dup.title } }, p);
         }
-        var cn = rsCount_(r);
-        var ne = rsAppend_({ id: r.id, formId: r.formId, sheetId: r.sheetId, title: r.title, by: me.pic, at: new Date().toISOString(), watch: [me.pic], told: cn.n, hidden: false });
-        return rsOut_({ ok: true, item: { id: ne.id, title: ne.title, n: cn.n } }, p);
+        var cn = rsCount_(r), ac = p.grp ? { grp: rshGrpNorm_(p.grp), prod: rsS_(p.prod) || 'Chung' } : rsClassify_(r.title);
+        var ne = rsAppend_({ id: r.id, formId: r.formId, sheetId: r.sheetId, title: r.title, by: me.pic, at: new Date().toISOString(), watch: [me.pic], told: cn.n, hidden: false,
+          grp: ac.grp, prod: ac.prod, src: p.grp ? 'app' : '' });
+        var pl = ''; try { pl = rshPlace_(ne); } catch (x) { pl = 'Chưa đưa được vào Product Survey: ' + x.message; }
+        return rsOut_({ ok: true, item: { id: ne.id, title: ne.title, n: cn.n, grp: ac.grp, prod: ac.prod }, place: pl }, p);
       }
       if (!e) return rsOut_({ ok: false, error: 'Không có khảo sát này trong danh sách.' }, p);
       if (a === 'rsWatch') {
         var on = String(p.on) !== '0', i = e.watch.indexOf(me.pic);
         if (on && i < 0) e.watch.push(me.pic); if (!on && i >= 0) e.watch.splice(i, 1);
         rsWriteRow_(e); return rsOut_({ ok: true, watch: on }, p);
+      }
+      if (a === 'rsSet') {
+        if (!(me.admin || me.priv || me.pic === e.by)) return rsOut_({ ok: false, error: 'Chỉ Admin / Giám đốc / Trưởng bộ phận hoặc người thêm khảo sát mới đổi được phân loại.' }, p);
+        var g = rshGrpNorm_(p.grp), pr = rsS_(p.prod).slice(0, 60) || 'Chung';
+        e.grp = g; e.prod = pr; e.src = 'app'; rsWriteRow_(e);
+        var pl2 = ''; try { pl2 = rshPlace_(e); } catch (x) { pl2 = 'Chưa chuyển được file trong Product Survey: ' + x.message; }
+        return rsOut_({ ok: true, grp: g, prod: pr, place: pl2 }, p);
       }
       if (a === 'rsRemove') {
         if (!(me.admin || me.pic === e.by)) return rsOut_({ ok: false, error: 'Chỉ Admin hoặc người thêm khảo sát mới bỏ được khỏi danh sách.' }, p);

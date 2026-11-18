@@ -569,3 +569,10 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   ⚠️ File đính kèm (thẻ `tags.tags-fileAttach`: QĐ phê duyệt, báo cáo đánh giá, HSMT) trang tải qua **Agent của muasamcong trên máy người dùng** (`http://localhost:1234/api/download/file/browser/public?fileId=…`) —
   máy chủ không có Agent ⇒ bot ghi tên + fileId vào `info.agentFiles`, app hiện nút mở trang gói. Máy Windows đã cài Agent: `tools/msc/tai_nhanh.py` (+ `.bat`, trang điều khiển http://127.0.0.1:8765) hoặc bot với `WT_AGENT=1` tự gọi Agent.
   Chưa xong: gói chỉ định thầu rút gọn (vd. IB2500572120) tìm không ra trên ô tìm kiếm mặc định.
+- **18/11/2026 — MMH Survey: MỘT NGUỒN "Product Survey" + phân loại Surgical / Dental → sản phẩm (survey `MMH_SurveyHub.gs` v1.0, `MMH_SurveyResults.gs` v1.2, API v3.4; người dùng yêu cầu)**:
+  folder Shared drive **Product Survey** (`RSH.ROOT` `1EAjHy69…`) = `<Nhóm>/<Sản phẩm>/<form · Sheet kết quả · .xlsx · lối tắt>`; nhóm = folder cấp 1 (Surgical / Dental / Khác), sản phẩm = folder cấp 2
+  (danh mục gợi ý `RSH.PRODUCTS`). `rshSync_` (trong `rsTick` + `rsList` ≤ 1 lần / 15 phút): file mới trong cây ⇒ thêm vào tab KẾT QUẢ KHẢO SÁT (cột mới Nhóm · Sản phẩm · Nguồn = drive | scan | app),
+  .xlsx ⇒ bản Google Sheet cạnh đó (1 lần, `RSX_<id>`). App đổi phân loại (`rsSet`) ⇒ chuyển file / lối tắt sang đúng folder (Nguồn = app, folder không ghi đè). `rsAdd` tự phân loại theo tên (`rsClassify_`) + tạo lối tắt.
+  Khảo sát CHỈ có Sheet (không có / không mở được form, hoặc Sheet bản sao có form mới trống) ⇒ `rsSheetData_` suy kiểu câu từ dữ liệu (lưới "[…]", chọn nhiều nối ", ", thang 1–5, chọn 1, tự ghi).
+  Rà soát Drive (mọi Google Form + Sheet tên khảo sát / survey / phản hồi… mà mmh.product mở được): workflow Kiểm tra ▸ ping `survey?action=rsScan&key=<SV.KEY>&op=dry&off=0&n=40&full=1`
+  (`op=run` = thêm vào app + lối tắt; bỏ bài kiểm tra / form thử / form trống / form đăng ký; `off` theo `next`). `rsHub&op=status|sync` = xem / đồng bộ cây.
