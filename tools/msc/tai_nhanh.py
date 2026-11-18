@@ -80,11 +80,29 @@ async def wait_text(pg, pattern, timeout=20000):
         return False
 
 
+def agent_up():
+    """Agent của muasamcong có đang mở cổng 1234 trên máy không (thử IPv4 rồi IPv6)."""
+    import socket
+    for host in ('127.0.0.1', '::1'):
+        try:
+            with socket.create_connection((host, 1234), timeout=2):
+                return True
+        except OSError:
+            pass
+    return False
+
+
 def agent_get(file_id):
-    """Gọi Agent trên máy (localhost:1234) lấy nội dung file theo fileId."""
-    url = AGENT + '/api/download/file/browser/public?fileId=' + urllib.parse.quote(file_id)
-    with urllib.request.urlopen(urllib.request.Request(url, headers={'Origin': 'https://muasamcong.mof.gov.vn'}), timeout=120) as r:
-        return r.read(), r.headers.get('Content-Type', ''), r.headers.get('Content-Disposition', '')
+    """Gọi Agent trên máy (cổng 1234) lấy nội dung file theo fileId."""
+    last = None
+    for base in ('http://127.0.0.1:1234', AGENT):
+        url = base + '/api/download/file/browser/public?fileId=' + urllib.parse.quote(file_id)
+        try:
+            with urllib.request.urlopen(urllib.request.Request(url, headers={'Origin': 'https://muasamcong.mof.gov.vn'}), timeout=120) as r:
+                return r.read(), r.headers.get('Content-Type', ''), r.headers.get('Content-Disposition', '')
+        except Exception as e:
+            last = e
+    raise last
 
 
 def decode_agent(body, ctype):
@@ -112,6 +130,20 @@ def decode_agent(body, ctype):
     return None
 
 
+def unrar(path):
+    """File .rar / .zip (vd. Chương V gói 2023) ⇒ giải nén vào thư mục cùng tên (tar có sẵn trên Windows 10/11). Không được thì giữ file gốc."""
+    if not re.search(r'\.(rar|zip|7z)$', path, re.I):
+        return
+    out = re.sub(r'\.(rar|zip|7z)$', '', path, flags=re.I)
+    try:
+        import subprocess
+        os.makedirs(out, exist_ok=True)
+        r = subprocess.run(['tar', '-xf', path, '-C', out], capture_output=True, timeout=120)
+        log(f'    giải nén {os.path.basename(path)}: ' + ('xong' if r.returncode == 0 and os.listdir(out) else 'không được (giữ file gốc)'))
+    except Exception as e:
+        log(f'    giải nén {os.path.basename(path)}: không được ({e})')
+
+
 async def grab_attachments(pg, folder, tag, j, captured):
     """Bấm từng file đính kèm (thẻ tags-fileAttach) ⇒ bắt fileId mà trang gửi tới Agent ⇒ tự lấy file từ Agent."""
     items = pg.locator('tags.tags-fileAttach:visible, .tags-fileAttach:visible')
@@ -120,9 +152,12 @@ async def grab_attachments(pg, folder, tag, j, captured):
     for i in range(n):
         el = items.nth(i)
         name = safe((await el.inner_text()).strip(), 150)
-        if not name or name in seen:
+        if not name or name in seen or re.match(r'(?i)^tải\b', name):
             continue
         seen.add(name)
+        if any(os.path.exists(os.path.join(folder, x)) for x in (name, name + '.pdf')):
+            log(f'  = {j["no"]}: đã có "{name}" (bỏ qua)')
+            continue
         captured.clear()
         try:
             await el.click(timeout=5000)
@@ -149,11 +184,14 @@ async def grab_attachments(pg, folder, tag, j, captured):
                 name += '.pdf' if data[:4] == b'%PDF' else ''
             with open(os.path.join(folder, name), 'wb') as f:
                 f.write(data)
+            unrar(os.path.join(folder, name))
             j['files'].append(name)
             log(f'  ⬇ {j["no"]} · {tag}: {name} ({len(data) // 1024} KB)')
         except Exception as e:
             j['errors'].append(f'{name}: Agent — {e}')
-            log(f'  ✗ {j["no"]}: Agent không trả file "{name}" ({e}). Kiểm tra Agent của muasamcong đang chạy.')
+            with open(os.path.join(folder, 'CHUA_TAI_DUOC.txt'), 'a', encoding='utf-8') as f:
+                f.write(f'{name}\t{e}\n')
+            log(f'  ✗ {j["no"]}: Agent không trả file "{name}" ({e}). Mở Agent của muasamcong rồi chạy lại (chỉ tải phần còn thiếu).')
 
 
 async def click_downloads(pg, folder, labels, j, tag):
@@ -297,6 +335,13 @@ async def worker(ctx, queue, opts):
 
 async def run(nos, opts):
     from playwright.async_api import async_playwright
+    if not agent_up():
+        log('⚠ CHƯA THẤY AGENT CỦA MUASAMCONG (cổng 1234 đóng). Hãy mở "VNeGP Client Agent" — công cụ chờ tối đa 10 phút…')
+        for _ in range(120):
+            await asyncio.sleep(5)
+            if agent_up():
+                break
+        log('✓ Agent đã chạy.' if agent_up() else '⚠ Vẫn chưa thấy Agent: chỉ tải được file Excel; file PDF / Word đính kèm sẽ báo lỗi.')
     with LOCK:
         STATE['running'] = True
         STATE['started'] = time.time()
@@ -407,12 +452,97 @@ class H(BaseHTTPRequestHandler):
         return self._j({'ok': True, 'n': len(nos)})
 
 
+# ───────────────────────── đẩy lên GitHub ─────────────────────────
+GH_CFG = os.path.join(os.environ.get('LOCALAPPDATA') or os.path.expanduser('~'), 'MMH_Agent', 'github.json')
+
+
+def gh_setup():
+    """Hỏi 1 lần: kho GitHub + token (fine-grained, chỉ kho đó, quyền Contents: Read and write). Lưu trên máy, KHÔNG nằm trong thư mục công cụ."""
+    import getpass
+    c = gh_cfg()
+    repo = input(f'Kho GitHub (Enter = {c.get("repo") or "ManiMedicalHanoi/tender-docs"}): ').strip() or c.get('repo') or 'ManiMedicalHanoi/tender-docs'
+    tok = getpass.getpass('Dán token GitHub (không hiện chữ), Enter: ').strip() or c.get('token', '')
+    os.makedirs(os.path.dirname(GH_CFG), exist_ok=True)
+    with open(GH_CFG, 'w', encoding='utf-8') as f:
+        json.dump({'repo': repo, 'token': tok, 'branch': c.get('branch') or 'main'}, f)
+    print('Đã lưu cấu hình GitHub ở', GH_CFG)
+
+
+def gh_cfg():
+    try:
+        with open(GH_CFG, encoding='utf-8') as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def gh_api(c, method, path, body=None):
+    req = urllib.request.Request('https://api.github.com/repos/' + c['repo'] + path, method=method,
+                                 data=json.dumps(body).encode() if body is not None else None,
+                                 headers={'Authorization': 'Bearer ' + c['token'], 'Accept': 'application/vnd.github+json',
+                                          'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'mmh-tai-nhanh'})
+    try:
+        with urllib.request.urlopen(req, timeout=180) as r:
+            return r.status, json.loads(r.read() or b'{}')
+    except urllib.error.HTTPError as e:
+        try:
+            return e.code, json.loads(e.read() or b'{}')
+        except Exception:
+            return e.code, {}
+
+
+def gh_push(root=None):
+    """Đẩy mọi file trong "Ho so thau" lên kho GitHub (thư mục ho-so/…). File không đổi thì bỏ qua."""
+    import base64, hashlib
+    c = gh_cfg()
+    if not c.get('repo') or not c.get('token'):
+        print('Chưa cài GitHub: chạy "Cai dat GitHub.bat" (hoặc python tai_nhanh.py --setup-github).')
+        return False
+    st, me = gh_api(c, 'GET', '')
+    if st != 200:
+        print(f'Không vào được kho {c["repo"]} (mã {st}: {me.get("message", "")}). Kiểm tra tên kho + token.')
+        return False
+    root = root or OUT_DIR
+    n = up = skip = bad = 0
+    for d, _, fs in os.walk(root):
+        for fn in sorted(fs):
+            p = os.path.join(d, fn)
+            rel = 'ho-so/' + os.path.relpath(p, root).replace(os.sep, '/')
+            data = open(p, 'rb').read()
+            n += 1
+            if len(data) > 95 * 1024 * 1024:
+                print('  ! quá lớn, bỏ qua:', rel); bad += 1; continue
+            blob = hashlib.sha1(b'blob %d\0' % len(data) + data).hexdigest()
+            q = '/contents/' + urllib.parse.quote(rel) + '?ref=' + c.get('branch', 'main')
+            st, cur = gh_api(c, 'GET', q)
+            sha = cur.get('sha') if st == 200 and isinstance(cur, dict) else None
+            if sha == blob:
+                skip += 1; continue
+            body = {'message': 'Tải hồ sơ: ' + rel, 'content': base64.b64encode(data).decode(), 'branch': c.get('branch', 'main')}
+            if sha:
+                body['sha'] = sha
+            st, r = gh_api(c, 'PUT', '/contents/' + urllib.parse.quote(rel), body)
+            if st in (200, 201):
+                up += 1; print('  ↑', rel)
+            else:
+                bad += 1; print(f'  ✗ {rel}: mã {st} {r.get("message", "")}')
+    print(f'GitHub {c["repo"]}: {n} file · đẩy mới {up} · không đổi {skip} · lỗi {bad}')
+    return bad == 0
+
+
 def main():
     args = sys.argv[1:]
+    if '--setup-github' in args:
+        gh_setup(); return
+    if '--push' in args:
+        gh_push(); return
     if '--cli' in args:
         nos = [a.upper() for a in args if re.fullmatch(r'(?i)(IB|PL)\d{8,12}(-\d+)?', a)]
         br = args[args.index('--browser') + 1] if '--browser' in args else 'chrome'
         asyncio.run(run(nos, {'show': '--show' in args, 'browser': br, 'par': 3}))
+        if gh_cfg().get('token'):
+            log('Đẩy hồ sơ lên GitHub…')
+            gh_push()
         return
     srv = ThreadingHTTPServer(('127.0.0.1', PORT), H)
     url = f'http://127.0.0.1:{PORT}/'
