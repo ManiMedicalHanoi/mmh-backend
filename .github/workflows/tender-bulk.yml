@@ -12,6 +12,8 @@ on:
       want: { description: 'Loại tài liệu (kq = KQLCNT, nt / hh = 2 Excel, qd = quyết định qua Agent)', default: 'kq,nt,hh,qd' }
       types: { description: 'kqdt = chỉ gói có kết quả · kqdt,tbmt = cả mời thầu', default: 'kqdt' }
       mail: { description: 'Email công ty người theo dõi (tuỳ chọn)', default: '' }
+      namef: { description: 'vt = chỉ gói vật tư / dụng cụ (dry / run)', default: '' }
+      to: { description: 'Đến ngày (yyyy-mm-dd, tuỳ chọn)', default: '' }
 permissions: { contents: read, actions: write }
 jobs:
   bulk:
@@ -25,6 +27,9 @@ jobs:
       BULK_WANT: ${{ inputs.want || 'kq,nt,hh,qd' }}
       BULK_TYPES: ${{ inputs.types || 'kqdt' }}
       BULK_MAIL: ${{ inputs.mail }}
+      BULK_NAMEF: ${{ inputs.namef }}
+      BULK_TO: ${{ inputs.to }}
+      BULK_TOPN: '60'
     steps:
       - uses: actions/checkout@v4
         with: { sparse-checkout: "backends.json\ntools/msc\nbackends/tender-info/MMH_WatchNames.gs", sparse-checkout-cone-mode: false }
