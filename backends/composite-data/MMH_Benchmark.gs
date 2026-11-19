@@ -285,13 +285,11 @@ function cbFill_(ss, p) {
     colDL.push(x ? [x.D, x.E, x.F, x.G, x.H, x.I, x.J, x.K, x.L] : ['', '', '', '', '', '', '', '', '']);
     colPR.push(x ? [x.P, x.Q, x.R] : ['', '', '']);
   }
-  var lock = LockService.getScriptLock(); lock.waitLock(20000);
-  try {
-    sh.getRange(CBF.FIRST, 2, n0, 1).setValues(colB);          // B  (C = công thức, giữ nguyên)
-    sh.getRange(CBF.FIRST, 4, n0, 9).setValues(colDL);         // D–L (M, N, O = công thức, giữ nguyên)
-    sh.getRange(CBF.FIRST, 16, n0, 3).setValues(colPR);        // P–R
-    SpreadsheetApp.flush();
-  } finally { lock.releaseLock(); }
+  /* Không dùng ScriptLock: khoá đó do trigger quét 5 phút của file này giữ lâu, mà lệnh này chỉ ghi sang file Price calculation */
+  sh.getRange(CBF.FIRST, 2, n0, 1).setValues(colB);            // B  (C = công thức, giữ nguyên)
+  sh.getRange(CBF.FIRST, 4, n0, 9).setValues(colDL);           // D–L (M, N, O = công thức, giữ nguyên)
+  sh.getRange(CBF.FIRST, 16, n0, 3).setValues(colPR);          // P–R
+  SpreadsheetApp.flush();
   out.after = sh.getRange('B7:S17').getDisplayValues().map(function (r) { return [r[1], r[8], r[10], r[11], r[13], r[14], r[17]].join(' | '); });
   return out;
 }
