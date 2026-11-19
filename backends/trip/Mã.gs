@@ -393,7 +393,7 @@ function getHODApprovalData(sheet, hodEmail) {
   
   const hodToPICs = {
     'tt.tuyen': ['Dao', 'Yong', 'Man', 'Sui', 'Thuong', 'Trang', 'Duc Anh', 'Giang', 'Vinh', 'Minh Viet', 'Phuong', 'Khang', 'Viet Ha', 'Ngoc'],
-    'vtt.hoa': ['Quynh Anh', 'Hau', 'Dam Viet', 'Dam Ha', 'Tuyen'],
+    'vtt.hoa': ['Quynh Anh', 'Hau', 'Dam Viet', 'Dam Ha', 'Mai', 'Tuyen'],   // 19/11/2026: thêm Mai (Accounting)
     'nt.ha': []
   };
   
@@ -4935,6 +4935,7 @@ function getDefaultEmailsForPIC(picName) {
     'Hau':      { hod: 'vtt.hoa@mani.inc', director: 'nt.ha@mani.inc' },
     'Dam Viet': { hod: 'vtt.hoa@mani.inc', director: 'nt.ha@mani.inc' },
     'Dam Ha':   { hod: 'vtt.hoa@mani.inc', director: 'nt.ha@mani.inc' },
+    'Mai':      { hod: 'vtt.hoa@mani.inc', director: 'nt.ha@mani.inc' },   // 19/11/2026
     'Hoa':      { hod: 'vtt.hoa@mani.inc', director: 'nt.ha@mani.inc' },
     'Tuyen':    { hod: 'nt.ha@mani.inc',   director: 'nt.ha@mani.inc' },
     'Nguyen Ha':{ hod: 'nt.ha@mani.inc',   director: 'nt.ha@mani.inc' }
@@ -5670,6 +5671,7 @@ function getPICNameFromEmail(email) {
     'mmh.backoffice1@mani.inc': 'Hau',
     'mmh.order@mani.inc': 'Dam Viet',
     'mmh.backoffice@mani.inc': 'Dam Ha',
+    'mmh.account@mani.inc': 'Mai',                       // 19/11/2026: Mai (Accounting)
     
     // --- @manimedicalhanoi.com domain (same mapping) ---
     'manithailand@manimedicalhanoi.com': 'Dao',
@@ -5693,6 +5695,7 @@ function getPICNameFromEmail(email) {
     'mmh.backoffice1@manimedicalhanoi.com': 'Hau',
     'mmh.order@manimedicalhanoi.com': 'Dam Viet',
     'mmh.backoffice@manimedicalhanoi.com': 'Dam Ha',
+    'mmh.account@manimedicalhanoi.com': 'Mai',           // 19/11/2026: Mai (Accounting)
     
     // --- Test account ---
     'ruby180924@gmail.com': 'Test'
