@@ -743,3 +743,6 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   `trip/Mã.gs`: `getPICNameFromEmail` (2 miền), `getDefaultEmailsForPIC`, HOD Menu `hodToPICs['vtt.hoa']`. `ReportHub_Trip_Mail.gs` (backoffice / management / marketing): `rhxDefaultEmails` có Mai;
   `rhxTripRecipients` bỏ qua email lỗi công thức (#N/A / #REF!) ⇒ người duyệt mặc định. `MMH_TripPeople.gs` (GIỐNG HỆT 3 nơi) ▸ `rhxEnsurePeople_` thêm người trong `RHX_PEOPLE` còn thiếu vào sheet Master
   của file Business Trip (cột E danh sách chọn + I:M email PIC / Director / HOD / CC; chỉ ghi ô trống) — chạy ở tripMaster / tripPropose / tripSync (≤ 1 lần / 6 giờ). Người mới ⇒ thêm vào `RHX_PEOPLE` + các map ở trip/Mã.gs.
+- **19/11/2026 — Dental Thái: thêm task báo "Thao tác này không được hỗ trợ trên dải ô có một hàng đã bị lọc bỏ" (Yong)**: sheet CUSTOMER TASK bật bộ lọc ẩn dòng ⇒ `Range.copyTo` (chép công thức cho dòng mới, `fmlPut_` /
+  khối OTHERS TASK) lỗi ⇒ cả lệnh lưu thất bại. crm-thai-dental + crm-thai: `fmlCopy_` (copyTo, lỗi ⇒ `setFormulaR1C1` theo công thức R1C1 của dòng nguồn), `writeRow_` bọc `fixFormulas_` trong try (lỗi chỉ ghi nhật ký);
+  `deleteRow_` dùng `delRowsSafe_` (`MMH_RowDelete.gs` nay GIỐNG HỆT ở 5 backend CRM). Chép công thức mới trên sheet người dùng hay lọc ⇒ dùng `fmlCopy_`, không gọi thẳng copyTo.

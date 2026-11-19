@@ -576,7 +576,7 @@ function writeRow_(k, row, data, isNew){
     seg.v.push(v);
   }
   segs.forEach(function(g){ s.getRange(row, 2 + g.c, 1, g.v.length).setValues([g.v]); });
-  if(isNew) fixFormulas_(k, row);
+  if(isNew){ try{ fixFormulas_(k, row); }catch(eF){ try{ log_('System', 'formula', k, 'row ' + row, String(eF && eF.message || eF).slice(0, 200), row); }catch(e2){} } }   /* ⭐ 19/11/2026: lỗi chép công thức không làm hỏng lần lưu */
   delete _TAB[k];
 }
 function nextNo_(k){ var mx = 0; readTab_(k).forEach(function(r){ var v = parseInt(r.no, 10); if(v > mx) mx = v; }); return mx + 1; }
@@ -756,7 +756,7 @@ function deleteRow_(user, p){
   try{
     hit = checkRow_(tab, row);
     if(!canEdit_(user, hit.pic)) throw new Error('Only ' + hit.pic + ' (or a manager) can delete this row.');
-    sh_(TABS[tab].sh).deleteRow(row); delete _TAB[tab];
+    delRowsSafe_(sh_(TABS[tab].sh), [row]); delete _TAB[tab];   /* ⭐ 19/11/2026: dòng bị bộ lọc ẩn vẫn xoá được */
     if(tab === 'customer' || tab === 'cbc') custLog_(user.pic, 'delete', tab, hit, [], row, str_(p.reason));   /* v1.5 */
     SpreadsheetApp.flush();
   } finally { L.releaseLock(); }
@@ -1117,7 +1117,7 @@ function vsWriteBlock_(s, at, rows){
     for(var i = 0; i < n; i++) if(!F0[i][0] || fmlBadTxt_(D0[i][0])){ need = true; break; }
     if(need) atFormulas_(at).forEach(function(x, k){
       var col = colNum_(x[0]), src = fmlHealthy_(s, col, at, CFG.AT_DATA);
-      if(src && (src < at || src >= at + n)) s.getRange(src, col).copyTo(s.getRange(at, col, n, 1), SpreadsheetApp.CopyPasteType.PASTE_FORMULA, false);
+      if(src && (src < at || src >= at + n)) fmlCopy_(s.getRange(src, col), s.getRange(at, col, n, 1));
       else atFillCol_(s, at, n, k);
     });
   }
@@ -1520,9 +1520,20 @@ function fmlHealthy_(s, col, row, first){
   }
   return 0;
 }
+/* ⭐ 19/11/2026 (Yong: "Thao tác này không được hỗ trợ trên dải ô có một hàng đã bị lọc bỏ" khi thêm task):
+   sheet đang bật BỘ LỌC ẩn bớt dòng ⇒ Range.copyTo vào / từ dòng bị lọc ẩn báo lỗi và cả lệnh lưu thất bại.
+   fmlCopy_: thử copyTo như cũ; lỗi ⇒ chép công thức dạng R1C1 (tương đối, không phụ thuộc bộ lọc / locale). */
+function fmlCopy_(src, dst){
+  try{ src.copyTo(dst, SpreadsheetApp.CopyPasteType.PASTE_FORMULA, false); return true; }
+  catch(e){
+    var f = ''; try{ f = src.getFormulaR1C1(); }catch(e2){}
+    if(!f) throw e;
+    dst.setFormulaR1C1(f); return true;
+  }
+}
 function fmlPut_(s, col, row, first, f){
   var src = fmlHealthy_(s, col, row, first), cell = s.getRange(row, col);
-  if(src){ s.getRange(src, col).copyTo(cell, SpreadsheetApp.CopyPasteType.PASTE_FORMULA, false); return true; }
+  if(src){ fmlCopy_(s.getRange(src, col), cell); return true; }
   if(f) cell.setFormula(fmlLoc_(f, fmlSemi_(s)));
   return false;
 }
