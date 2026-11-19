@@ -19,6 +19,7 @@ function doGet(e) {
     if (!p.key || p.key !== ss.getId().slice(-8)) out = { ok: false, code: 'KEY' };
     else if (p.action === 'cbDiag') out = cbDiag_(ss, p);
     else if (p.action === 'cbDump') out = cbZip_(function () { return cbDump_(ss); }, p);
+    else if (p.action === 'cbRows') out = cbRows_(ss, p);
     else out = { ok: false, code: 'ACTION' };
   } catch (err) {
     out = { ok: false, error: String(err && err.message || err) };
@@ -105,4 +106,38 @@ function cbDump_(ss) {
     })(r);
   }
   return { cols: C, hdr: hdr.slice(0, 80), price: price, agg: agg };
+}
+
+/* Bảng gọn: mỗi dòng Giá bán lẻ ⇒ "STT|Hãng|Nhãn hiệu|Phân loại|Xuất xứ|Giá|Quy cách hay gặp|PCS 2024|PCS 2025|PCS 2026|Lần nhập cuối|tầng khớp"
+ * Số lượng = Total data cùng hãng + nhãn hiệu + phân loại (tầng 1), không có ⇒ nhãn hiệu + phân loại (2) ⇒ chỉ nhãn hiệu (3). */
+function cbData_(ss) {
+  var z = cbZip_(function () { return cbDump_(ss); }, { z: '1', off: 0, n: 1e9 });
+  return JSON.parse(Utilities.ungzip(Utilities.newBlob(Utilities.base64Decode(z.part), 'application/x-gzip')).getDataAsString());
+}
+
+function cbMatch_(D) {
+  var A = {}, keys = Object.keys(D.agg);
+  keys.forEach(function (k) {
+    var f = k.split('|'), h = cbNorm_(f[0]), nh = cbNorm_(f[1]), l = cbNorm_(f[2]);
+    [['1', h + '|' + nh + '|' + l], ['2', nh + '|' + l], ['3', nh]].forEach(function (t) { (A[t[0] + t[1]] = A[t[0] + t[1]] || []).push(k); });
+  });
+  return D.price.map(function (r) {
+    var h = cbNorm_(r[1]), nh = cbNorm_(r[2]), l = cbNorm_(r[3]), hit = null, tier = 0;
+    [['1', h + '|' + nh + '|' + l], ['2', nh + '|' + l], ['3', nh]].some(function (t) { if (A[t[0] + t[1]]) { hit = A[t[0] + t[1]]; tier = Number(t[0]); return true; } return false; });
+    var y = {}, w = {}, last = '';
+    (hit || []).forEach(function (k) { var a = D.agg[k];
+      Object.keys(a.y).forEach(function (yy) { y[yy] = (y[yy] || 0) + a.y[yy]; });
+      Object.keys(a.w).forEach(function (ww) { w[ww] = (w[ww] || 0) + a.w[ww]; });
+      if (a.last > last) last = a.last; });
+    var wTop = Object.keys(w).sort(function (a, b) { return w[b] - w[a]; })[0] || '';
+    return { r: r, y: y, w: wTop, last: last, tier: tier };
+  });
+}
+
+function cbRows_(ss, p) {
+  var M = cbMatch_(cbData_(ss));
+  var lines = M.map(function (m) { var r = m.r;
+    return [r[0], r[1], r[2], r[3], r[4], r[5], m.w, Math.round(m.y[2024] || 0), Math.round(m.y[2025] || 0), Math.round(m.y[2026] || 0), m.last, m.tier].join('|'); });
+  var off = Number(p.off || 0), n = Number(p.n || 70);
+  return { total: lines.length, rows: lines.slice(off, off + n).join('\n') };
 }
