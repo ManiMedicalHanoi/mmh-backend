@@ -25,7 +25,7 @@
  *       người phụ trách tự ghi) — không bắt buộc tải file khi chỉ cần chữ. Việc app KHÔNG còn đẩy sang Report Hub (Event_Sync.gs v2.3).
  *************************************************************************************************/
 var EH = {
-  VER: '2.3',
+  VER: '2.4',
   ROOT: '1maHn2DD34aJBaNnH4q9Di0YH2wMurYuZ',     /* thư mục Drive "Event FY68" */
   BOOK_NAME: 'MMH · Event Hub FY68 (dữ liệu app Sự kiện MKT)',
   FILES_NAME: 'Event Hub · Tệp tải lên',
@@ -62,10 +62,9 @@ var EH_SRC_TAB = 'NGUỒN FILE';
 var EH_TPL = [
   ['Task lớn', '1. Kế hoạch & phê duyệt', 'Kế hoạch & phê duyệt', 'Owner', '', '', '', 'Tất cả', ''],
   ['Task phụ', '1. Kế hoạch & phê duyệt', 'File kế hoạch tổng quan (Overview, nhân sự, checklist)', 'Owner', 'link', -30, 'Lịch', 'Tất cả', 'Dán link Google Sheet kế hoạch'],
-  ['Task phụ', '1. Kế hoạch & phê duyệt', 'Giám đốc duyệt kế hoạch + ngân sách', 'Owner', '', -28, 'Lịch', 'Tất cả', ''],
   ['Task lớn', '2. KOL & đối tác', 'KOL & đối tác', 'Owner', '', '', '', 'Tất cả', ''],
   ['Task phụ', '2. KOL & đối tác', 'Hợp đồng KOL + lịch di chuyển', 'Owner', 'file', -30, 'Lịch', 'Tất cả', 'PDF hợp đồng / lịch trình'],
-  ['Task phụ', '2. KOL & đối tác', 'Chia việc với NPP, Trường / Viện', 'Owner', '', -30, 'Lịch', 'Tất cả', ''],
+  ['Task phụ', '2. KOL & đối tác', 'Phân công công việc', 'Owner', '', -30, 'Lịch', 'Tất cả', ''],
   ['Task phụ', '2. KOL & đối tác', 'Họp với NPP (agenda, nhân sự, bán hàng)', 'Owner', 'file', -3, 'Lịch', 'Tất cả', 'Biên bản họp'],
   ['Task lớn', '3. Tuyển sinh', 'Tuyển sinh', 'Digital', '', '', '', 'Tất cả', ''],
   ['Task phụ', '3. Tuyển sinh', 'Form đăng ký (khảo sát trước, đồng ý dữ liệu)', 'Digital', 'link', -30, 'Lịch', 'Tất cả', 'Link Google Form'],
@@ -405,6 +404,7 @@ function ehSync_(opt){
         if (cand.length > 1){ var w = ehWords_(f.name); cand.sort(function(a, b){ return ehOverlap_(w, b) - ehOverlap_(w, a); }); }
         ev = cand[0];
       }
+      if (!ev && ehIsJunkFile_(f.name)){ sr.issue = 'Không phải file kế hoạch sự kiện (danh sách khách / khảo sát / đăng ký) — bỏ qua'; return; }   /* v2.4 */
       if (!ev){ ev = { id: 'EV' + meta.start.replace(/-/g, '').slice(2) + '-' + evsHash_(f.id).slice(0, 4).toUpperCase(), follow: meta.start >= today ? 'Có' : 'Không',
                        src: 'FILE', state: '' }; EH.ROLES.forEach(function(r){ ev[r] = ehTeamDefault_(ss, r); }); events.push(ev); byId[ev.id] = ev; rep.evNew++; }
       ev.planFileId = f.id; ev.planUrl = f.url; ev.start = meta.start; ev.end = meta.end;
@@ -594,6 +594,7 @@ function ehRoute_(action, user, p){
     if (action === 'ehUnlink') return ehUnlinkApi_(p);   /* 18/11/2026 — ngắt app ⇄ Report Hub, rà / dọn sub-task (MKT_EventHubUnlink.gs) */
     if (action === 'ehDriveDiag') return ehDriveDiag_(p);
     if (action === 'ehForm') return ehFormApi_(p);
+    if (action === 'ehEvDiag') return ehEvDiagApi_(p);   /* v2.4 — chẩn đoán sự kiện + nguồn (MKT_EventHubFY.gs) */
     if (action === 'ehFolders') return ehFoldersApi_(p);   /* v2.0 — folder sự kiện / báo cáo viên / file mẫu (MKT_EventHubFolder.gs) */   /* v1.9 — mẫu việc Event form_Task + số đăng ký file tổng (MKT_EventHubForm.gs) */
     if (action === 'ehPartner') return ehPartner_(p);   /* v1.8 — trang đối tác (không đăng nhập, chỉ số đếm) */
     if (action === 'ehGate') return ehGateApi_(p);   /* 17/11/2026 — rà Drive (chỉ đọc), MKT_EventHubDiag.gs */
@@ -622,7 +623,8 @@ function ehClean2_(o){ var x = {}; for (var k in o) if (k !== '_r') x[k] = o[k];
 function ehBoot_(p){   /* v1.6: trúng đệm ⇒ không mở file Sheet (MKT_EventHubFast.gs) */
   var who = tfWho_(p); if (who.err) return { ok:false, code:'AUTH', error:who.err };
   var ss = null, book = function(){ return ss || (ss = ehBook_()); };
-  var base = ehBigGet_('eh_boot'), hit = !!base;
+  var base = ehBigGet_('eh_boot'); if (base && !base.fyFrom) base = null;   /* v2.4: đệm cũ (chưa lọc FY68) ⇒ dựng lại */
+  var hit = !!base;
   if (!base){ base = ehBootBuild_(book()); ehBigPut_('eh_boot', base, EH_BC.TTL); }
   var mgr = !!who.admin || /^(director|hod|manager|leader)$/.test(who.level) || (base.mgrs || []).indexOf(who.pic) >= 0;
   var last = {}; try { last = JSON.parse(PropertiesService.getScriptProperties().getProperty('EH_LAST') || '{}'); } catch(e){}

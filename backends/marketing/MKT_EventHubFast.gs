@@ -34,17 +34,17 @@ function ehBigGet_(key){
 function ehBootBuild_(ss){
   var plan = {}; ehRead_(ss, 'PLAN_JSON').forEach(function(r){ try { plan[ehS_(r.eventId)] = JSON.parse(r.json); } catch(e){} });
   var tpl = ehRead_(ss, 'TEMPLATE').map(ehClean2_);
-  return { events: ehRead_(ss, 'EVENTS').map(ehClean2_), tasks: ehRead_(ss, 'TASKS').map(ehClean2_), files: ehRead_(ss, 'FILES').map(ehClean2_),
+  return ehFyTrim_({ events: ehRead_(ss, 'EVENTS').map(ehClean2_), tasks: ehRead_(ss, 'TASKS').map(ehClean2_), files: ehRead_(ss, 'FILES').map(ehClean2_),
            log: ehRead_(ss, 'LOG').slice(-400).map(ehClean2_), comments: ehRead_(ss, 'COMMENTS').slice(-800).map(ehClean2_), meetings: ehRead_(ss, 'MEETINGS').map(ehClean2_),
            checkins: ehRead_(ss, 'CHECKINS').slice(-400).map(ehClean2_),
            partners: ehRead_(ss, 'PARTNERS').map(ehClean2_), pnotice: ehRead_(ss, 'PNOTICE').slice(-500).map(ehClean2_),   /* v1.8 */ notify: ehRead_(ss, 'NOTIFY').slice(-150).map(ehClean2_), plan: plan, people: ehPeople_(),
            roles: EH.ROLES, status: EH.STATUS, groups: tpl.filter(function(t){ return /lớn/i.test(ehS_(t.kind)); }).map(function(t){ return { group: t.group, role: t.role }; }),
            book: ss.getUrl(), filesUrl: ehFilesRoot_().getUrl(), mgrs: ehMgrs_(ss), builtAt: ehNow_(),
            apv: (function(){ try { return ehApvList_(ss); } catch(e){ return []; } })(), apvSteps: ehApvSteps_(), pdCats: Object.keys(EH_APV.PD), docTypes: EH_APV.DOC,   /* v2.3 */
-           online: 'https://drive.google.com/drive/folders/' + EH_DIR.ONLINE };
+           online: 'https://drive.google.com/drive/folders/' + EH_DIR.ONLINE }, ss);   /* v2.4 — chỉ FY68, bỏ file không phải kế hoạch (MKT_EventHubFY.gs) */
 }
 function ehBootWarm_(){
-  if (ehBigGet_('eh_boot')) return 'warm';
+  var b0 = ehBigGet_('eh_boot'); if (b0 && b0.fyFrom) return 'warm';
   var lock = LockService.getScriptLock(); if (!lock.tryLock(1000)) return 'busy';
   try { var ss = ehBook_(); ehBigPut_('eh_boot', ehBootBuild_(ss), EH_BC.TTL); try { ehLinkGet_(ss); } catch(e){} return 'built'; }
   finally { try { lock.releaseLock(); } catch(e){} }

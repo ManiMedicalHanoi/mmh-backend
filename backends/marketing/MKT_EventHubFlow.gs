@@ -22,7 +22,7 @@
  * Không dùng dịch vụ mới (SpreadsheetApp / Properties / Cache / Lock / mmhMail_) ⇒ không phải cấp quyền lại.
  *************************************************************************************************/
 var EH_FLOW_VER = '2';   /* 2: trạng thái "Vướng" (bản đầu) ⇒ "Pending" */
-var EH_MS_RE = /duyet ke hoach|hop dong kol|form dang ky|key visual|set up hoan thien|bao cao su kien|chuyen doi/;
+var EH_MS_RE = /hop dong kol|form dang ky|key visual|set up hoan thien|bao cao su kien|chuyen doi/;
 var EH_AFTER_DAYS = 60;      /* sự kiện đã diễn ra ≤ 60 ngày mà chưa đóng ⇒ vẫn theo dõi */
 
 function ehMs_(t){ var m = ehS_(t.milestone); return m === 'x' || (m === '' && EH_MS_RE.test(ehNorm_(t.title))); }

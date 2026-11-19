@@ -187,8 +187,8 @@ function ehgGates_(e, tasks, R, partners, today){
   var npp = ehS_(e.npp), nP = (partners || []).filter(function(p){ return ehS_(p.eventId) === ehS_(e.id); }).length, web = /webinar|online|zoom/.test(ehNorm_(ehS_(e.type) + ' ' + ehS_(e.format)));
   var C = {
     G1: [{ t: 'Đủ đội sự kiện (Owner + ≥ 2 vai trò)', ok: !!ehS_(e.Owner) && roles >= 3 }, { t: 'Có mục tiêu số khách', ok: st.target > 0 },
-         task('File kế hoạch tổng quan', /ke hoach tong quan|file ke hoach/), task('Giám đốc duyệt kế hoạch + ngân sách', /duyet ke hoach/),
-         task('Chốt KOL (hợp đồng, lịch di chuyển)', /hop dong kol/), task('Chia việc với NPP, Trường / Viện', /chia viec/),
+         task('File kế hoạch tổng quan', /ke hoach tong quan|file ke hoach/),
+         task('Chốt KOL (hợp đồng, lịch di chuyển)', /hop dong kol/), task('Phân công công việc', /phan cong cong viec|chia viec/),
          task('Form đăng ký (khảo sát trước, đồng ý dữ liệu)', /form dang ky/), ehgExpo_(e) ? null : { t: 'Kết nối file đăng ký (ghi rõ nguồn từng khách)', ok: !!(R && R.via === 'file') },
          npp || nP ? { t: 'Khai báo đối tác / NPP nhận thông báo', ok: nP > 0 } : null],
     G2: [left(7, 'Design', 'ấn phẩm & in ấn'), web ? null : left(7, 'Trade', 'hậu cần (địa điểm, đồ MKT, gửi đồ)')],
@@ -339,6 +339,7 @@ function ehgDaily_(opt){
   if (!opt.dry && !opt.force){ if (pr0.getProperty('EHG_DAY') === today) return { ok:true, skip:'Đã chạy hôm nay' }; pr0.setProperty('EHG_DAY', today); }
   ['PARTNERS', 'PNOTICE', 'REG'].forEach(function(n){ if (!ss.getSheetByName(n)) ehEnsureTabs_(ss); });
   var events = ehRead_(ss, 'EVENTS'), P = ehRead_(ss, 'PARTNERS'), NT = ehRead_(ss, 'PNOTICE'), T = ehRead_(ss, 'TASKS'), REG = ehgRegGet_(ss);
+  T = T.filter(function(t){ return ehTaskFix_(t.title) !== null; }); events = events.filter(function(e){ var st = ehS_(e.start).slice(0, 10); return !st || st >= EH.FY_FROM; });   /* v2.4 */
   var have = {}; NT.forEach(function(n){ if (ehS_(n.key)) have[ehS_(n.key)] = 1; });
   var add = [], sent = 0, owners = {}, internal = [], U = ehUsers_(), mgrs = ehMgrs_(ss), feed = [];
   events.forEach(function(e){

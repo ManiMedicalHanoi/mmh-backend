@@ -43,6 +43,7 @@ function ehFormTpl_(force){
     for (var r2 = hr + 1; r2 < V.length; r2++){
       var no = String(V[r2][col.no] || '').trim(), title = String(V[r2][col.title] || '').trim();
       if (!title) continue;
+      if (!/^(I|II|III|IV|V)$/i.test(no)){ var fx = ehTaskFix_(title); if (fx === null) continue; title = fx; }   /* v2.4 */
       if (/^(I|II|III|IV|V)$/i.test(no)){ ph = { no: no.toUpperCase(), name: title, tasks: [] }; phases.push(ph); continue; }
       if (!ph){ ph = { no: 'I', name: 'Chuẩn bị', tasks: [] }; phases.push(ph); }
       var sT = col.s != null ? String(V[r2][col.s] || '').trim() : '', eT = col.e != null ? String(V[r2][col.e] || '').trim() : '';
