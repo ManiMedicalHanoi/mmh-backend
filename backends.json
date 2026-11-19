@@ -322,6 +322,7 @@
     "sheetId": "14vzawICf83AW6UNNBjy9pQYMSsMIOxcnz-xWn9QukG8",
     "sheetUrl": "https://docs.google.com/spreadsheets/d/14vzawICf83AW6UNNBjy9pQYMSsMIOxcnz-xWn9QukG8/edit?gid=170979659#gid=170979659",
     "note": "File đề xuất chi phí của Giang + Minh Trang (tab Expense Approval: PIC đề xuất ⇒ HOD ⇒ Giám đốc). Web app MMH_ExpenseApi.gs: Claude tạo đề xuất thay PIC (exInfo / exAdd / exPropose, key = 8 ký tự cuối ID Sheet).",
-    "newWebapp": true
+    "deploymentId": "AKfycbwjghjkKWjyNORU7u39KV6AFKKpSJOlf96rdiRmjiUVzHzrl-KyQdc7EXZvXKt-wClX",
+    "url": "https://script.google.com/macros/s/AKfycbwjghjkKWjyNORU7u39KV6AFKKpSJOlf96rdiRmjiUVzHzrl-KyQdc7EXZvXKt-wClX/exec"
   }
 }
