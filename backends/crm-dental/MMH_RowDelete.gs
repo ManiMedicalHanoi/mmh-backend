@@ -1,6 +1,6 @@
 /*************************************************************************************************
  * MMH_RowDelete.gs — XOÁ DÒNG KỂ CẢ KHI SHEET ĐANG BẬT BỘ LỌC · v1.0 (17/11/2026)
- * GIỐNG HỆT ở crm-dental / crm-surgical / crm-eyeless (sửa 1 nơi ⇒ chép sang 2 nơi kia).
+ * GIỐNG HỆT ở crm-dental / crm-surgical / crm-eyeless / crm-thai / crm-thai-dental (sửa 1 nơi ⇒ chép sang nơi khác).
  *
  * Lỗi gặp (Phuong, Dental 05–17/11/2026): tab 3. SALE ORDER có bộ lọc (filter) đang ẩn bớt dòng; Sheet.deleteRow
  * với dòng BỊ BỘ LỌC ẨN không làm gì cả (không báo lỗi) ⇒ app báo "Đã xoá đơn" nhưng đơn vẫn nằm trên sheet.
