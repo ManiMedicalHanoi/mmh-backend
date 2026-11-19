@@ -344,6 +344,8 @@ function ehDaily_(opt){
     pr.setProperty('EH_DAILY', today);
   }
   var ss = ehBook_(), events = ehRead_(ss, 'EVENTS'), evBy = {}, T = ehRead_(ss, 'TASKS'), par = {};
+  T = T.filter(function(t){ return ehTaskFix_(t.title) !== null; });   /* v2.4: không nhắc việc đã bỏ (Giám đốc duyệt kế hoạch) */
+  events = events.filter(function(e){ var st = ehS_(e.start).slice(0, 10); return !st || st >= EH.FY_FROM; });   /* v2.4: chỉ FY68 */
   events.forEach(function(e){ evBy[ehS_(e.id)] = e; });
   T.forEach(function(t){ if (ehS_(t.parentId)) par[t.parentId] = 1; });
   var lim = ehIso_(new Date(now.getTime() + (+cfg.before || 0) * 864e5)), escD = Math.max(1, +cfg.escDays || 3);

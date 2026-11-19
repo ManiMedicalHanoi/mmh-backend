@@ -688,3 +688,8 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   (GIỐNG HỆT 5 backend CRM): Dear <xưng hô `NA_HONOR`> · 1 câu · bảng Case / Account / Nhà phân phối / Sản phẩm / SL – giá trị (VND dấu chấm) / Lịch sử chăm sóc / Ghi chú · chứng từ nhúng · link · Trân trọng; tiêu đề `naSubjVi_`
   "[MMH CRM] Xin xác nhận | Đã xác nhận | Yêu cầu chỉnh sửa | Không xác nhận: Mở mới | SKU mới – <account> (<PIC>)". `naSkuView_`: SKU ≤ 160 ký tự giữ nguyên, dài hơn (dán cả phiếu) ⇒ `naSkuShort_`. Bản thư thường cũ = `naMailHtmlOld_` (không dùng).
   Người nhận KHÔNG đổi: `NA_APPROVERS` (Dental: Viet + Tuyen, case của Viet ⇒ Tuyen · Surgical: Giang + Tuyen · Eyeless: Tuyen + Giang), CC Director + HR + PIC.
+- **19/11/2026 — Event Hub v2.4 (`marketing/MKT_EventHubFY.gs`, góp ý nhóm Marketing)**: app CHỈ nhận sự kiện FY68 (ngày bắt đầu ≥ `EH.FY_FROM` 01/09/2026; chưa có ngày chỉ khi tạo trên app / mẫu) + dữ liệu của các sự kiện đó
+  (`ehFyTrim_` trong `ehBootBuild_`; đệm boot cũ không có `fyFrom` ⇒ dựng lại). File Google Sheet tên bắt đầu bằng ngày mà là danh sách khách / khảo sát / đăng ký (`EH_FY.JUNK_RE`, vd. "20261019 LIST CUSTOMER")
+  ⇒ đồng bộ KHÔNG tạo sự kiện mới; sự kiện đã lỡ tạo từ file đó (nguồn FILE, chưa có việc) ⇒ không gửi về app. Boot gắn `planName` (tên file kế hoạch, tab NGUỒN FILE) ⇒ app ghi rõ nguồn từng sự kiện.
+  Việc: "Chia việc với NPP, Trường / Viện" ⇒ **"Phân công công việc"**, BỎ "Giám đốc duyệt kế hoạch + ngân sách" (`ehTaskFix_`: mẫu Event form_Task, TEMPLATE cũ, cổng G1, mốc quan trọng, nhắc việc hằng ngày, dữ liệu gửi app).
+  KHÔNG xoá / sửa dòng nào trong sheet. Chẩn đoán (chỉ đọc): ping `marketing?action=ehEvDiag&key=<8 ký tự cuối EH.ROOT>&full=1` (`&only=hide|show`).
