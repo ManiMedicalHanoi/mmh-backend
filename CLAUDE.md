@@ -707,6 +707,13 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   `s/` = khảo sát bác sĩ (`?s=<mã>`, `gui.html` gửi email Marketing, `tao.html`) · `customer-survey/` = app kết quả (đổi tên từ "MMH Survey") · `training-quiz/` = bài kiểm tra sau đào tạo (`?q=`, `tao.html`)
   · `training-quiz/doi-tac/` = bài kiểm tra đối tác kiểu Kahoot · `lib/qrcode-generator.js`. `NS.PAGE / SEND / APP`, `RS.APP`, `SV.PAGE`, `PQ.PAGE`, `survey-push.mjs` trỏ link mới (NS v1.3, API v3.7).
   Chỗ cũ (`Training-Hub/khao-sat/`, `Training-Hub/quiz/`, `mmh-library/survey/`) = trang tự chuyển (giữ `?…` + `#…`) ⇒ QR / link đã gửi vẫn mở được; `mmh-library/survey/sw.js` cũ giữ nguyên để máy đã bật thông báo ở app cũ vẫn nhận (bấm ⇒ mở app mới).
+- **19/11/2026 — Giá bán lẻ composite / bond ⇒ Competitor Benchmark (`composite-data/MMH_Benchmark.gs`, người dùng yêu cầu)**: `composite-data` = script gắn file
+  "HS 30064010 Nha khoa (Composite Bond) 2020-062026" (`1szwMAzy…`, web app tạo 19/11/2026, chỉ thêm `doGet` — menu / trigger cũ không đổi); `mmg-price` = script gắn file
+  "Price calculationMMG 20261030" (`1xYjl3OV…`, chưa có code). `?action=cbFill&key=<8 ký tự cuối ID Sheet composite>&op=dry|run` (hoặc chạy tay `capNhatCompetitorBenchmark()`):
+  sheet **Giá bán lẻ** + số lượng nhập khẩu (Total data) ⇒ bảng B "COMPETITOR PRICE COLLECTION" (dòng 22–121) của tab **Competitor Benchmark** — chỉ ghi cột INPUT B · D–L · P–R
+  (không đụng công thức A / C / M / N / O, không đụng bảng A). Bỏ hàng MANI / Schütz, dạng nhộng, vật liệu che màu / nướu / labo; ghép sản phẩm MANI theo `CBF` (Flow V = flow độ nhớt cao,
+  Hybrid Ease = composite đặc thường quy, Micro Hybrid = thẩm mỹ, Nano = chịu lực, Bulk, Bond); mỗi nhóm lấy hãng nhập khẩu nhiều nhất (giới hạn `CBF.CAP`, tổng 100 dòng);
+  thị phần = PCS nhập khẩu 2025 ÷ tổng cùng nhóm (kể cả MANI). Ngày lấy data đọc chữ hiển thị (ô ngày nguồn có ô lưu đảo ngày ↔ tháng). Xem dữ liệu: `cbRows` (giá + PCS từng dòng), `cbDiag`.
 - **19/11/2026 — Máy tải Agent v2.0: bấm tải trên app là tải CẢ GÓI qua máy có VNeGP Agent (tender-info `MMH_WatchAgent.gs` v1.1, MMH_Watch v1.8, người dùng yêu cầu: không mở muasamcong, tải ẩn, không chiếm Chrome)**:
   app `wAgentReq {keys, want}` ⇒ `info.agentReq` (giữ trong `WT_INFO_KEEP`) ⇒ `botAgentList` trả thêm `pkgs` ⇒ máy tải (`Tender-Result/theo-doi/agent/agent_worker.py` v2.0, hỏi 45 giây / lần)
   `botPkgStart` (gói "Đang tải") ⇒ chạy `tai_nhanh.py` bằng Chromium RIÊNG của playwright, headless (`browser:'auto'` = chromium ⇒ msedge ⇒ chrome, không đụng trình duyệt người dùng đang mở) ⇒ `botPkgPut` từng file
