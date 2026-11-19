@@ -630,7 +630,9 @@ function wtBotNext_(p) {
     const sh = wtSheet_(ss, WT.SH_H, WT.HH), H = wtHits_(ss), jobs = [], E = wtBotEligible_(H), taken = {};
     // cùng 1 số gói có thể có 2 dòng (TBMT + Kết quả) ⇒ chỉ 1 lượt tải; số đang có dòng "Đang tải" (chưa hết hạn) ⇒ bỏ qua
     H.forEach(function (h) { if (h.status === WT.ST.WORK && E.indexOf(h) < 0) taken[wtBare_(h.no)] = 1; });
-    E.sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); }).forEach(function (h) {
+    // 19/11/2026 (người dùng: "ưu tiên cho bot tải các gói ở các bv mắt trước"): chủ đầu tư có chữ "mắt" (có dấu) hoặc gói tải hàng loạt đi trước, rồi ngày mới trước
+    const pri = function (h) { return (/mắt/i.test(String(h.investor || '').normalize('NFC')) || (h.info || {}).bulk) ? 0 : 1; };
+    E.sort(function (a, b) { return pri(a) - pri(b) || (b.date || '').localeCompare(a.date || ''); }).forEach(function (h) {
       const b = wtBare_(h.no);
       if (jobs.length >= n || taken[b]) return;
       taken[b] = 1;

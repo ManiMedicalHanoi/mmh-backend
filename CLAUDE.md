@@ -756,3 +756,5 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   (`tools/msc/bulk.mjs`, mode dry | run | goods; từ khoá + mã đối thủ ở `tools/msc/kw-forceps-hook.json`; artifact `bulk-report` có goods-report.csv). run ⇒ tự gọi tender-dl.
   goods (cũng tự chạy 06:37 mỗi sáng): `botGoodsScan` thêm `brands` (so cột Hãng sản xuất: Alcon, FCI, Geuder, Vortex, DORC, B&L, BVI, Oertli…) ⇒ bulk.mjs phân 8 nhóm (có dấu) + độ giống (Dice) với 29 dòng kìm / panh
   bóc màng đã trúng 2019 đến 2025 (`history` trong kw json) ⇒ `botGoodsWrite` ghi đè tab **"LỌC · KÌM VI PHẪU & MÓC"** trong file tổng "Kết quả trúng thầu - Tổng hợp danh mục hàng hóa" (có bộ lọc).
+  **Mặc định chỉ KQ + 2 Excel (19/11/2026, người dùng: "cần KQTT với 2 file Excel thôi, bot thì để tải qua Agent")**: `types` mặc định `kqdt`, `want` `kq,nt,hh,qd` (qd chỉ ghi tên cho Agent tải).
+  `op=narrow` (mode narrow / narrow-dry): gói `info.bulk` còn Chờ tải ⇒ `tbmt:` = Không tải, `kqdt:` = ghi đè want. Excel "Xuất Excel" vẫn cần bot trình duyệt (không cần Agent). `wtBotNext_` (bot GitHub + tiện ích) lấy việc theo thứ tự: chủ đầu tư có chữ "mắt" / gói `info.bulk` trước, rồi ngày mới trước.

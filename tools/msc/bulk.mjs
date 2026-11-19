@@ -20,8 +20,13 @@ const post = async (b) => {
 };
 if (!KEY) { console.log('Thiếu secret WT_BOT_KEY.'); process.exit(1); }
 
+if (MODE === 'narrow' || MODE === 'narrow-dry') {
+  const r = await post({ action: 'botGrabInv', op: 'narrow', want: process.env.BULK_WANT || 'kq,nt,hh,qd', dry: MODE === 'narrow-dry' ? 1 : 0 });
+  console.log('THU HẸP HÀNG ĐỢI:', JSON.stringify(r));
+  process.exit(r.ok ? 0 : 1);
+}
 if (MODE === 'dry' || MODE === 'run') {
-  const r = await post({ action: 'botGrabInv', op: MODE, re: RE, from: FROM, want: WANT, mail: MAIL, max: 5000 });
+  const r = await post({ action: 'botGrabInv', op: MODE, re: RE, from: FROM, want: WANT, mail: MAIL, max: 5000, types: process.env.BULK_TYPES || 'kqdt' });
   if (!r.ok) { console.log('Lỗi:', JSON.stringify(r).slice(0, 500)); process.exit(1); }
   console.log(`Chủ đầu tư khớp "${RE}" · từ ${FROM} · ${r.total} gói (có kết quả ${r.byType.kqdt} · mới mời thầu ${r.byType.tbmt}) · tài liệu: ${r.want.join(', ')}`);
   console.log('Theo tháng:', JSON.stringify(r.byMonth));
