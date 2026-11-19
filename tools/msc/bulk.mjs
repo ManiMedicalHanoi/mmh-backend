@@ -55,7 +55,10 @@ if (MODE === 'knife' || MODE === 'knife-dry') {
   console.log('Đối chiếu tên:', JSON.stringify(how), '⇒', pick.size, 'tên chủ đầu tư Báo Đấu Thầu');
   if (ask.length) { console.log('\nChưa chắc (KHÔNG đưa vào, ' + ask.length + '):'); ask.forEach(x => console.log('  ' + x)); }
   if (none.length) { console.log('\nKhông thấy trên Báo Đấu Thầu (' + none.length + '):'); none.forEach(x => console.log('  ' + x)); }
-  const r = await post({ action: 'botGrabInv', op: MODE === 'knife' ? 'run' : 'dry', invs: [...pick], from: FROM, want: process.env.BULK_WANT || 'kq,nt,hh,qd', mail: MAIL, max: 5000, types: process.env.BULK_TYPES || 'kqdt' });
+  const X = JSON.parse(fs.readFileSync('tools/msc/knife-extra.json', 'utf8'));
+  let nAdd = 0; (X.add || []).forEach(n => { if (exact[n.normalize('NFC').replace(/\s+/g, ' ').trim()] && !pick.has(n)) { pick.add(n); nAdd++; } else if (!exact[n.normalize('NFC').replace(/\s+/g, ' ').trim()]) console.log('  (tên lọc tay không có trên Báo Đấu Thầu:', n + ')'); });
+  console.log('Thêm từ danh sách lọc tay:', nAdd, '⇒ tổng', pick.size, 'tên chủ đầu tư');
+  const r = await post({ action: 'botGrabInv', op: MODE === 'knife' ? 'run' : 'dry', invs: [...pick], nameInc: X.nameInc, nameExc: X.nameExc, nameStrong: X.nameStrong, from: FROM, want: process.env.BULK_WANT || 'kq,nt,hh,qd', mail: MAIL, max: 5000, types: process.env.BULK_TYPES || 'kqdt' });
   if (!r.ok) { console.log('Lỗi:', JSON.stringify(r).slice(0, 500)); process.exit(1); }
   console.log(`\nGói từ ${FROM}: ${r.total} (có kết quả ${r.byType.kqdt} · mới mời thầu ${r.byType.tbmt}) · tài liệu: ${r.want.join(', ')}`);
   console.log('Theo tháng:', JSON.stringify(r.byMonth));
