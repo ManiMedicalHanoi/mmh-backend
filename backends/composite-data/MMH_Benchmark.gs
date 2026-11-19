@@ -154,9 +154,9 @@ var CBF = {
   /* Quy tắc ghép với sản phẩm MANI (theo tài liệu MMG: Flow V = flow độ nhớt cao; Hybrid Ease = composite đặc phục hồi thường quy,
    * dễ thao tác; Micro Hybrid = thẩm mỹ, Smart Shade; Nano = chịu lực cao). Sửa danh sách từ khoá để ghép khác rồi chạy lại. */
   BULK: /bulk|\bsdr\b|everx|powerflow/i,
-  FLOW_V: /injectable|universal flow|majesty es flow|omnichroma/i,
+  FLOW_V: /injectable|universal flow|majes\w* es flow|omnichroma/i,
   MICRO: /omnichroma|easy match|simplishade|estelite(?! posterior)|palfique (lx5|asteria)|beautifil ii|everglow|empress direct|amaris|vittra|harmonize|forma\b|reflectys|zenchrm|\bluna\b|twiny|a\.uno|a\.nuo|opallis|nt premium|cirus/i,
-  NANO: /z350|supreme|nano|p60|posterior|n-ceram|ceram\.x|ap-x|herculite|polofil nht|nanofil|charmfil|sculpt/i,
+  NANO: /z350|filtek supreme|nano|p60|posterior|n-ceram|ceram\.x|ap-x|herculite|polofil nht|nanofil|charmfil|sculpt/i,
   CAP: { 'MANIBond 7th Gen': 18, 'MANIFill Bulk': 12, 'MANIFill Hybrid Ease': 15, 'MANIFill Flow': 14, 'MANIFill Flow V': 10,
          'MANIFill Micro Hybrid': 15, 'MANIFill Nano': 16 },
   ORDER: ['MANIBond 7th Gen', 'MANIFill Bulk', 'MANIFill Hybrid Ease', 'MANIFill Flow', 'MANIFill Flow V', 'MANIFill Micro Hybrid', 'MANIFill Nano'],
@@ -196,16 +196,18 @@ function cbIso_(s) {
 
 function cbPlan_(ss) {
   var D = cbData_(ss), M = cbMatch_(D);
-  /* mẫu số thị phần 2025: tổng PCS nhập khẩu cùng nhóm (mọi hãng, kể cả MANI và hãng không có giá) */
-  var den = { paste: 0, flow: 0, bulk: 0, bond: 0 };
-  Object.keys(D.agg).forEach(function (k) {
-    var f = k.split('|'), lv2 = f[2], lv1 = f[3], q = D.agg[k].y[2025] || 0;
-    if (/^gen\b/i.test(lv2) || /bond/i.test(lv1)) den.bond += q;
-    else if (/bulk/i.test(lv2)) den.bulk += q;
-    else if (/^flow$/i.test(lv2)) den.flow += q;
-    else if (/^paste$/i.test(lv2)) den.paste += q;
+  /* Ngày lấy data: đọc chữ hiển thị (ô ngày trong sheet nguồn có ô bị lưu đảo ngày ↔ tháng, chữ hiển thị mới đúng ý người nhập) */
+  var shP = ss.getSheetByName(CB.SRC_SHEET), dv = shP.getRange(4, 2, shP.getLastRow() - 3, 9).getDisplayValues(), dmap = {};
+  dv.forEach(function (x) { dmap[[cbNorm_(x[1]), cbNorm_(x[2]), cbNorm_(x[4])].join('|')] = x[8]; });
+  /* Thị phần = số lượng nhập khẩu 2025 của dòng ÷ tổng của mọi dòng (có giá bán lẻ) cùng nhóm sản phẩm MANI, kể cả MANI */
+  var den = {}, dseen = {};
+  M.forEach(function (m) {
+    var G = Number(m.r[5]) > 0 ? cbGroup_(m.r) : null; if (!G) return;
+    var k = cbNorm_(m.r[1]) + '|' + cbNorm_(m.r[2]) + '|' + G.g, v = m.y[2025] || 0;
+    if (dseen[k] != null) { if (v > dseen[k]) { den[G.g] += v - dseen[k]; dseen[k] = v; } return; }
+    dseen[k] = v; den[G.g] = (den[G.g] || 0) + v;
   });
-  function denOf(g) { return g === 'MANIBond 7th Gen' ? den.bond : g === 'MANIFill Bulk' ? den.bulk : /Flow/.test(g) ? den.flow : den.paste; }
+  function denOf(g) { return den[g] || 0; }
 
   var seen = {}, cand = [], skipped = 0;
   M.forEach(function (m) {
@@ -230,13 +232,13 @@ function cbPlan_(ss) {
   var rows = take.map(function (c) {
     var r = c.r, w = String(c.w || '').trim(), wm = w.match(/^([\d.]+)\s*(g|ml)$/i);
     var qty = wm ? Number(wm[1]) : '', unit = wm ? wm[2].toLowerCase() : '';
-    var dn = denOf(c.g), share = dn > 0 && c.v25 > 0 ? Math.round(c.v25 / dn * 10000) / 10000 : '';
-    var note = 'Ghép ' + c.g.replace(/^MANI(Fill|Bond) ?/, '') + ': ' + c.why + ' · nhập khẩu 2025: ' + Math.round(c.v25).toLocaleString('en-US') +
+    var dn = denOf(c.g), share = dn > 0 && c.v25 > 0 ? Math.round(c.v25 / dn * 1e6) / 1e6 : '';
+    var note = 'So với ' + c.g + ': ' + c.why + ' · nhập khẩu 2025: ' + Math.round(c.v25).toLocaleString('en-US') +
                ' PCS · 2026 (đến 05/2026): ' + Math.round(c.v26).toLocaleString('en-US') + ' PCS';
     return {
       B: c.g, D: cbBrand_(r[1]), E: String(r[2]).trim(), F: CBF.COUNTRY[r[4]] || r[4],
       G: wm ? String(qty).replace('.', ',') + ' ' + unit : '', H: qty, I: unit, J: Number(r[5]), K: '', L: share,
-      P: 'Data composite · Giá bán lẻ', Q: cbIso_(r[7]), R: note
+      P: 'Data composite · Giá bán lẻ', Q: cbIso_(dmap[[cbNorm_(r[1]), cbNorm_(r[2]), cbNorm_(r[3])].join('|')] || r[7]), R: note
     };
   });
   return { rows: rows, cnt: cnt, cand: cand.length, skipped: skipped, notIn: left, den: den };
