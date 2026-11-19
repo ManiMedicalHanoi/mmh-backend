@@ -27,7 +27,7 @@ var RS = {
   VER: '1.2', TAB: 'KẾT QUẢ KHẢO SÁT', PUSH_TAB: 'THÔNG BÁO ĐẨY',
   PUSH_HEAD: ['PIC', 'Endpoint', 'p256dh', 'auth', 'Thiết bị', 'Đăng ký lúc'],
   HEAD: ['Id', 'Form ID', 'Sheet ID', 'Tiêu đề', 'Thêm bởi', 'Thêm lúc', 'Theo dõi', 'Đã báo (số câu trả lời)', 'Ẩn', 'Nhóm', 'Sản phẩm', 'Nguồn', 'Số liệu (tự động)'],
-  APP: 'https://manimedicalhanoi.github.io/mmh-library/survey/',
+  APP: 'https://manimedicalhanoi.github.io/MMH-Survey/customer-survey/',
   SEED: ['1r5CwavKqJMGtPN78QC2Ig92-ByOn7zNZ_2ugq-ZOAZQ', '1c7jwBaP96NVMIQCdpRZ4cZNn9BWjLDatCdCQ0G2p1x8'],
   OWNER: 'mmh.product@manimedicalhanoi.com',
   PII: /h[ọo]\s*(v[àa]\s*)?t[êe]n|s[ốo]\s*đi[ệe]n\s*tho[ạa]i|đi[ệe]n\s*tho[ạa]i|\bsđt\b|e-?mail/i,

@@ -2,7 +2,7 @@
  * MMH_SurveyNative.gs v1.1 (18/11/2026; v1.1: mục tiêu khảo sát · thêm loại câu rating (sao) / date / number · mã QR PNG + SVG (MMH_QR.gs) ·
  *   task Report Hub Marketing tự tạo khi tạo khảo sát (dưới Key task sự kiện) · trang gửi email Marketing khao-sat/gui.html: nsInfo / nsMailSend ⇒ email trang trọng
  *   (To Thuong + Trang, CC Tuyen + Nguyen Ha — tra email theo RH_Users) kèm QR, link khảo sát, link kết quả ⇒ task Report Hub Completed) — HỆ THỐNG KHẢO SÁT RIÊNG CỦA MMH (không dùng Google Form), người dùng yêu cầu 18/11/2026:
- *   - Trang trả lời theo phong cách MANI (trang tĩnh GitHub Pages `Training-Hub/khao-sat/?s=<mã>`), kết quả vẫn ghi vào GOOGLE SHEET.
+ *   - Trang trả lời theo phong cách MANI (trang tĩnh GitHub Pages `MMH-Survey/s/?s=<mã>`), kết quả vẫn ghi vào GOOGLE SHEET.
  *   - Bắt buộc trước câu hỏi: ① đồng ý xử lý dữ liệu cá nhân ② họ tên + số điện thoại (+ nơi công tác) ③ theo dõi page Facebook
  *     MANI Dental (khảo sát nha khoa) / MANI Ophthalmic (khảo sát nhãn khoa) — bấm nút ⇒ mở app Facebook ⇒ quay lại trang tự sang phần câu hỏi.
  *     Facebook KHÔNG cho trang web kiểm tra một người đã theo dõi page hay chưa ⇒ ghi lại "đã bấm mở page lúc …" + bác sĩ tự xác nhận.
@@ -41,8 +41,8 @@
  *       low, high, lowLabel, highLabel, rows, cols, max (rating: số sao 3–10, mặc định 5), min / max (number) }
  */
 var NS = {
-  VER: '1.1',
-  PAGE: 'https://manimedicalhanoi.github.io/Training-Hub/khao-sat/',
+  VER: '1.3',   // v1.3 (19/11/2026): trang khảo sát / gửi email / app kết quả chuyển sang kho MMH-Survey
+  PAGE: 'https://manimedicalhanoi.github.io/MMH-Survey/s/',
   TAB: 'Câu trả lời', SPEC_TAB: '_SPEC', PEOPLE_TAB: 'NGƯỜI THAM GIA KHẢO SÁT',
   PEOPLE_HEAD: ['Thời gian', 'Họ và tên', 'Số điện thoại', 'Nơi công tác', 'Khảo sát', 'Sự kiện', 'Nhóm', 'Đồng ý xử lý dữ liệu', 'Nhận thông tin từ MMH', 'Theo dõi page', 'Mã khảo sát', 'Mã lượt'],
   FB: {
@@ -50,8 +50,8 @@ var NS = {
     ophthalmic: { name: 'MANI Ophthalmic', url: 'https://www.facebook.com/share/1KCCXDVW8x/', line: 'Cập nhật thông tin sản phẩm, hội thảo và kỹ thuật phẫu thuật nhãn khoa' }
   },
   TYPES: ['radio', 'checkbox', 'list', 'text', 'phone', 'paragraph', 'scale', 'grid', 'checkgrid', 'rating', 'date', 'number', 'header'],
-  SEND: 'https://manimedicalhanoi.github.io/Training-Hub/khao-sat/gui.html',
-  APP: 'https://manimedicalhanoi.github.io/mmh-library/survey/',
+  SEND: 'https://manimedicalhanoi.github.io/MMH-Survey/s/gui.html',
+  APP: 'https://manimedicalhanoi.github.io/MMH-Survey/customer-survey/',
   HUB_URL: 'https://script.google.com/macros/s/AKfycbzn-5chMgO7lQPKmot8P7UkP9C40MdCPtiTTa4H1gcKepVsnr1IYfcB7sSdK1_jrZYY/exec',   // Report Hub ▸ marketing
   MAIL: { to: ['Thuong', 'Trang'], cc: ['Tuyen', 'Nguyen Ha'] },   // người dùng chọn 18/11/2026 (Trang ≠ Minh Trang)
   TZ: 'Asia/Ho_Chi_Minh', CHUNK: 45000

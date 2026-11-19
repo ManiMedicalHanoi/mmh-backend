@@ -1,5 +1,5 @@
 name: Khảo sát — quét câu trả lời mới
-# App MMH Survey (MMH Wiki ▸ /mmh-library/survey/): 20 phút / lần từ 7h đến 21h (giờ Việt Nam), thứ Hai – thứ Bảy.
+# App MMH Survey (MMH Wiki ▸ /MMH-Survey/customer-survey/): 20 phút / lần từ 7h đến 21h (giờ Việt Nam), thứ Hai – thứ Bảy.
 # Gọi survey ?action=rsTick ⇒ máy chủ đếm câu trả lời từng khảo sát; có câu trả lời mới ⇒ ghi RH_Notify (nút "Nhắc tôi" của Report Hub / CRM)
 # và trả danh sách máy đã bật thông báo ⇒ gửi thông báo đẩy (tools/push/survey-push.mjs). Máy chủ Apps Script không tạo được trigger / không gửi được
 # Web Push nên lịch + bước gửi chạy ở đây. Chạy tay: Actions ▸ Run workflow.

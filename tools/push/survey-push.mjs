@@ -1,14 +1,14 @@
 // MMH Survey — gửi thông báo đẩy (Web Push) khi có câu trả lời khảo sát mới.
 // Workflow "Khảo sát — quét câu trả lời mới" chạy file này: gọi survey ?action=rsTick (khoá) ⇒ máy chủ trả `jobs` (máy đã bật thông báo của người Theo dõi)
 // ⇒ gửi bằng khoá VAPID trong vapid.json (kho riêng tư; khoá chỉ dùng để gửi thông báo của MMH Survey, đổi khoá ⇒ mọi máy phải bật lại thông báo,
-// khoá công khai đi kèm nằm trong mmh-library ▸ wiki/public/survey/app.js) ⇒ máy hết hạn (404 / 410) ⇒ rsPushGone gỡ khỏi danh sách.
+// khoá công khai đi kèm nằm trong MMH-Survey ▸ customer-survey/app.js) ⇒ máy hết hạn (404 / 410) ⇒ rsPushGone gỡ khỏi danh sách.
 import webpush from 'web-push';
 import fs from 'node:fs';
 const cfg = JSON.parse(fs.readFileSync('backends.json', 'utf8'));
 const url = cfg.survey.url;
 const key = (fs.readFileSync('backends/survey/MMH_SurveyAPI.gs', 'utf8').match(/KEY: '([^']+)'/) || [])[1];
 const v = JSON.parse(fs.readFileSync(new URL('./vapid.json', import.meta.url), 'utf8'));
-webpush.setVapidDetails('https://manimedicalhanoi.github.io/mmh-library/survey/', v.publicKey, v.privateKey);
+webpush.setVapidDetails('https://manimedicalhanoi.github.io/MMH-Survey/customer-survey/', v.publicKey, v.privateKey);
 const r = await fetch(`${url}?action=rsTick&key=${encodeURIComponent(key)}`, { redirect: 'follow' });
 const d = await r.json().catch(() => ({ ok: false, error: 'HTTP ' + r.status }));
 console.log(JSON.stringify({ ok: d.ok, error: d.error, surveys: d.surveys, changed: d.changed, notified: d.notified, jobs: (d.jobs || []).length }));

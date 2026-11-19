@@ -5,7 +5,7 @@
  *    có sự kiện ⇒ sub-task "Khảo sát bác sĩ · <tiêu đề>" dưới Key task trùng tên sự kiện (nsKeyMatch_: ngày yyyymmdd + từ trong tên),
  *    không thấy key / không có sự kiện ⇒ Key task mới "Khảo sát bác sĩ · <sự kiện | tiêu đề>". Trạng thái In Progress, kết quả = link khảo sát + link trang gửi email.
  *    Gọi web app Report Hub Marketing (NS.HUB_URL, action addKey / addSub / updateResult / updateStatus — như app Report Hub, actor = owner).
- * ② Trang Training-Hub/khao-sat/gui.html?s=<mã> (phiên email tk): nsInfo = tóm tắt + bản xem trước email; bấm "Xác nhận hoàn thành & gửi email" ⇒ nsMailSend:
+ * ② Trang MMH-Survey/s/gui.html?s=<mã> (phiên email tk): nsInfo = tóm tắt + bản xem trước email; bấm "Xác nhận hoàn thành & gửi email" ⇒ nsMailSend:
  *    email trang trọng To NS.MAIL.to · CC NS.MAIL.cc (tra email theo tên PIC ở RH_Users của Training Master — không ghi email trong code),
  *    mục tiêu · đối tượng · số câu · nhóm câu hỏi · link khảo sát · QR (ảnh trong thư + đính kèm PNG + SVG) · link kết quả (app MMH Survey + Google Sheet);
  *    chia sẻ quyền xem Sheet kết quả cho người nhận, thêm người nhận vào danh sách theo dõi của app MMH Survey; task Report Hub ⇒ Completed.
