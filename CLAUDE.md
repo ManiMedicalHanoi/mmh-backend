@@ -696,3 +696,10 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   **v2.4.1**: sự kiện nguồn FILE không đọc ra kế hoạch (không TÊN SỰ KIỆN / nhiệm vụ / agenda), không có dòng MKT Offline, chưa có việc ⇒ cũng ẩn (`ehNoPlan_`). Ghép dòng MKT Offline: tính điểm trùng từ có cả TÊN FILE kế hoạch (`ev._fn`),
   nhiều sự kiện cùng ngày hoà điểm ⇒ KHÔNG ghép (lỗi 09/10/2026: triển lãm Văn Lang ↔ HUBT bị ghép chéo — 2 dòng đó CHƯA sửa trong sheet, chờ người dùng). File "…_EN" cùng ngày với file tiếng Việt (`ehIsEnCopy_`)
   ⇒ không tạo sự kiện mới (đã có 1 sự kiện trùng "20261113-15 … VOS Da Nang_EN" 43 việc — chưa xoá, chờ người dùng).
+- **17/11/2026 — IPR-01EF Launch Tracker v3 (`ipr-launch`, script GẮN Sheet "2025 Launching IPR Dia-Burs" `11xBjne7…`, không có web app)**: bố cục theo prototype v4 (canvas "IPR-01EF Launch Tracker — Prototype v4"):
+  tab đặt tên theo việc — Start here · VIEW · Overview / Timeline · UPDATE · Tasks / Samples / Surveys / Sales · APPROVE · Phases · SETUP · Team & plan · FILES · Documents + `_calc` ẩn. Không mã P1 / S1 (người dùng yêu cầu), dải màu trên cột = ai điền.
+  Dựng qua menu **IPR Launch ▸ Update / rebuild tracker** (`iprBuild_`, giữ dữ liệu đã nhập khi dựng lại v3 → v3 bằng `snapAll_`; lần đầu từ v2 nạp dữ liệu IPR-01EF, xoá tab app v2, ẩn tab dữ liệu gốc; locale ⇒ en_GB).
+  Chặn bằng data validation (từ chối): Actual end khi việc phụ thuộc chưa Done / phase trước chưa duyệt · Decision Approved khi thiếu tiêu chí bắt buộc · Sent date mẫu khi Sampling CLOSED / chưa duyệt · Open date khảo sát.
+  Menu (`IPR_Flow.gs`): giao việc · xin duyệt / duyệt việc (chỉ email của vai trò Approval by) · xin duyệt phase · Review & decide (thanh bên, chỉ email Phase approver ở SETUP) · nhắc việc thứ Hai 08:30 (bật / tắt ở menu, mặc định tắt).
+  Email tiếng Anh, thư thường, không ghi chức danh, qua `mmhMail_`; nhật ký ở APPROVE ▸ History. Thanh tiến độ Overview = ô 16 px chứa mã `#d #p #o #c #n` tô màu bằng CF.
+  Thử: harness Node giả lập SpreadsheetApp ⇒ xuất xlsx ⇒ LibreOffice tính lại (không có trong repo).

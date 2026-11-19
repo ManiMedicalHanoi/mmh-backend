@@ -1,998 +1,679 @@
 /* ══════════════════════════════════════════════════════════════════════════════════════════
- * IPR_SOP.gs v2 — "mini app" theo dõi launch IPR-01EF theo MMH SOP ra mắt sản phẩm mới
+ * IPR_SOP.gs v3 — IPR-01EF Launch Tracker (MMH SOP · ra mắt sản phẩm mới) — bố cục theo prototype v4
  *
- *   Launch Flow  : lưu đồ trực quan (không viền, to, full màn hình) — tự đổi màu theo dữ liệu
- *   Tasks        : PIC cập nhật trạng thái / ngày / tài liệu từng việc  ─┐
- *   Gates        : tiêu chí qua cổng (Auto = công thức, Manual = tick)    ├─▶ Engine ─▶ Launch Flow
- *   Samples      : danh sách mẫu dùng thử, tick đã phản hồi              │
- *   Results      : doanh số theo tháng, KPI, khảo sát, việc cải tiến     ─┘
- *   Feasibility · Launch Plan · Documents : nội dung tham khảo (PIC sửa trực tiếp)
- *   Engine       : bảng tính trung gian (không sửa tay)
+ *   Tab đặt tên theo việc:  Start here · VIEW (xem) · UPDATE (ghi nhận) · APPROVE (duyệt) · SETUP · FILES
+ *   Start here            : ai làm gì, vào tab nào, điền cột nào; quy tắc chặn; nghĩa các trạng thái
+ *   VIEW · Overview       : tiến độ chung, 4 phase + 11 bước (thanh tiến độ tô theo ô), việc tồn đọng, ai đang làm gì, hạn sắp tới
+ *   VIEW · Timeline       : kế hoạch vs thực tế, xem theo Week / Month / Quarter / Year
+ *   UPDATE · Tasks        : owner giao việc, PIC cập nhật, người duyệt ghi ngày duyệt — dải màu trên cột cho biết ai điền
+ *   UPDATE · Samples / Surveys / Sales : nhật ký mẫu, khảo sát, doanh số (nhiều dòng, công thức tự chạy)
+ *   APPROVE · Phases      : tiêu chí tự kiểm, General Director quyết định, lịch sử duyệt + email
+ *   SETUP · Team & plan   : người + email, mốc kế hoạch, danh sách chọn · FILES · Documents : bản đồ tài liệu
+ *   _calc (ẩn)            : bảng tính trung gian
  *
- * - Tab cũ (dữ liệu gốc) chỉ bị ẨN, không xoá. Tab bản v1 (00_… → 06_…) được thay bằng bản v2.
- * - Khi code có phiên bản mới, lần mở file đầu tiên tự dựng lại và GIỮ dữ liệu PIC đã nhập
- *   (trạng thái, ngày, ghi chú, link ở Tasks; tick + ghi chú ở Gates; Samples; doanh số & việc cải tiến ở Results).
- * - Màu theo bảng màu file PPT MMH Management Practices (navy 2C4A5E, xanh 5A84A6, nhạt D6E2E9, vàng FBE9B7).
+ * - Dựng qua menu "IPR Launch ▸ Update / rebuild tracker" (không dựng trong onOpen vì giới hạn 30 giây).
+ * - Dựng lại GIỮ dữ liệu đã nhập ở các tab UPDATE / APPROVE / SETUP / FILES (lần đầu từ v2 ⇒ nạp dữ liệu IPR-01EF).
+ * - Email: luôn qua mmhMail_ (MMH_MailDomain.gs); chỉ gửi khi người dùng bấm menu (hoặc bật nhắc việc hằng tuần).
+ * - Màu theo prototype v4 (navy 2C4A5E · xanh 5A84A6 · xám D8DEE4 · trạng thái xanh lá / xanh / vàng / đỏ nâu / xám).
  * ══════════════════════════════════════════════════════════════════════════════════════════ */
 
-var IPR_BUILD = 'v2.1';
+var IPR_BUILD = 'v3.0';
 var IPR_META = 'mmh_ipr_sop_build';
-var TB = { flow: 'Launch Flow', tasks: 'Tasks', gates: 'Gates', feas: 'Feasibility', plan: 'Launch Plan',
-  smp: 'Samples', res: 'Results', docs: 'Documents', eng: 'Engine' };
-var IPR_TABS = [TB.flow, TB.tasks, TB.gates, TB.feas, TB.plan, TB.smp, TB.res, TB.docs, TB.eng];
-var LEGACY_V1 = ['00_Tổng quan', '01_Tiến độ', '02_Khả thi', '03_Kế hoạch', '04_Mẫu & phản hồi', '05_Đánh giá', '06_Tài liệu'];
-var C_ = { navy: '#2C4A5E', acc: '#5A84A6', acc2: '#6B95B8', light: '#99C1DE', pale: '#D6E2E9', line: '#BCD4E6',
-  yel: '#FBE9B7', yelb: '#EDD9A3', teal: '#5B9A91', tealL: '#DBE7E4', red: '#B4735F', redL: '#F2DFD8',
-  ink: '#232C36', mut: '#4F5B68', alt: '#F4F8FB', tile: '#EEF4F8', white: '#FFFFFF', link: '#3A72A6' };
-var FONT = 'Inter';
-var STATUSES = ['Done', 'In progress', 'Not started', 'Not recorded', 'Cancelled'];
+var T = {
+  start: 'Start here', ov: 'VIEW · Overview', tl: 'VIEW · Timeline', tasks: 'UPDATE · Tasks', smp: 'UPDATE · Samples',
+  sv: 'UPDATE · Surveys', sales: 'UPDATE · Sales', appr: 'APPROVE · Phases', setup: 'SETUP · Team & plan', files: 'FILES · Documents', calc: '_calc'
+};
+var IPR_TABS = [T.start, T.ov, T.tl, T.tasks, T.smp, T.sv, T.sales, T.appr, T.setup, T.files, T.calc];
+var LEGACY = ['Launch Flow', 'Tasks', 'Gates', 'Feasibility', 'Launch Plan', 'Samples', 'Results', 'Documents', 'Engine',
+  '00_Tổng quan', '01_Tiến độ', '02_Khả thi', '03_Kế hoạch', '04_Mẫu & phản hồi', '05_Đánh giá', '06_Tài liệu'];
+var FONT = 'Arial';
+var K = {
+  navy: '#2C4A5E', acc: '#5A84A6', ink: '#1F2933', mut: '#5F6B76', line: '#D8DEE4', grid: '#E3E8EC', head: '#EEF2F5', headAuto: '#E6EAEE',
+  auto: '#F7F9FA', band: '#DCE6EE', white: '#FFFFFF', link: '#3A6A92', gold: '#C9A24A', setG: '#8C98A4', filesG: '#9FB4C4',
+  doneBg: '#E3EFEC', doneFg: '#2F6F66', progBg: '#E3ECF5', progFg: '#2C4A5E', waitBg: '#FBF1D9', waitFg: '#7A5B12',
+  badBg: '#F5E3DE', badFg: '#8A4A3A', noneBg: '#F0F2F4', noneFg: '#5F6B76',
+  bD: '#2F6F66', bP: '#5A84A6', bO: '#A0523F', bB: '#E5B5A8', bC: '#E2CF97', bN: '#C3CCD4', bT: '#9FB4C4', bE: '#E6EBEF', today: '#FBF1D9'
+};
+var WHO = { owner: ['OWNER FILLS', '#E3ECF5', '#2C4A5E'], pic: ['PIC FILLS', '#E3EFEC', '#2F6F66'], appr: ['APPROVER FILLS', '#FBF1D9', '#7A5B12'], auto: ['AUTO', '#F0F2F4', '#5F6B76'] };
+var ST = {
+  'Done': [K.doneBg, K.doneFg], 'In progress': [K.progBg, K.progFg], 'Waiting approval': [K.waitBg, K.waitFg], 'To confirm': [K.waitBg, K.waitFg],
+  'Not started': [K.noneBg, K.noneFg], 'On hold': [K.noneBg, K.noneFg], 'Cancelled': [K.noneBg, K.noneFg],
+  'Overdue': [K.badBg, K.badFg], 'Blocked': [K.badBg, K.badFg], 'Phase locked': [K.badBg, K.badFg], 'No PIC': [K.waitBg, K.waitFg], 'Missing file': [K.waitBg, K.waitFg],
+  'Approved': [K.doneBg, K.doneFg], 'Returned': [K.badBg, K.badFg], 'Ready to submit': [K.progBg, K.progFg], 'Not submitted': [K.noneBg, K.noneFg],
+  'Submitted · criteria missing': [K.badBg, K.badFg], 'Met': [K.doneBg, K.doneFg], 'Not met': [K.badBg, K.badFg],
+  'OPEN': [K.doneBg, K.doneFg], 'CLOSED': [K.badBg, K.badFg], 'Open': [K.doneBg, K.doneFg], 'Closed': [K.waitBg, K.waitFg], 'Report done': [K.doneBg, K.doneFg],
+  'Draft': [K.noneBg, K.noneFg], 'Questions approved': [K.progBg, K.progFg], 'Feedback received': [K.doneBg, K.doneFg], 'Follow-up overdue': [K.badBg, K.badFg],
+  'Sent · waiting feedback': [K.progBg, K.progFg], 'Approved · to send': [K.progBg, K.progFg], 'Waiting approval ': [K.waitBg, K.waitFg]
+};
+var STATUSES = ['Not started', 'In progress', 'Waiting approval', 'Done', 'On hold', 'Cancelled', 'To confirm'];
+var PHASES = [['Feasibility', 'Go / No-go'], ['Launch planning', 'Launch plan'], ['Launch execution', 'Launch completed'], ['Measure & optimize', 'Project closure']];
+var STEPS = [['Product & market research', 1], ['Competitors, pricing & registration', 1], ['Positioning & marketing plan', 2], ['Marketing materials', 2], ['Training', 2],
+  ['Product samples', 3], ['Launch promotion', 3], ['Online & events', 3], ['Customer feedback & surveys', 4], ['Sales follow-up', 4], ['Post-launch review', 4]];
+var ROLES = { hsm: 'Head of Sales & Marketing', gd: 'General Director', ptl: 'Product Team Leader', mkt: 'Marketing', sales: 'Sales team', bo: 'Back Office', pt: 'Product team' };
 
-var PHASES = [
-  ['P1', '🔎', 'Feasibility'], ['P2', '🗺️', 'Launch planning'],
-  ['P3', '🚀', 'Launch execution'], ['P4', '📊', 'Measure & optimize']
-];
-var STEPS = [
-  ['S1', 'P1', '🔍', 'Product & market research'],
-  ['S2', 'P1', '🏷️', 'Competitors & pricing'],
-  ['S3', 'P2', '🎯', 'Positioning & marketing plan'],
-  ['S4', 'P2', '🖨️', 'Marketing materials'],
-  ['S5', 'P2', '🎓', 'Training'],
-  ['S6', 'P3', '📦', 'Product samples'],
-  ['S7', 'P3', '🎁', 'Launch promotion'],
-  ['S8', 'P3', '📣', 'Online & events'],
-  ['S9', 'P4', '💬', 'Customer feedback & surveys'],
-  ['S10', 'P4', '📈', 'Sales follow-up'],
-  ['S11', 'P4', '🧭', 'Post-launch review']
-];
-var GATES = [
-  ['G1', 'Go / No-go', 'Feasibility → Launch planning', 'General Director'],
-  ['G2', 'Launch plan approved', 'Launch planning → Launch execution', 'Head of S&M confirms · General Director approves'],
-  ['G3', 'Launch completed', 'Launch execution → Measure & optimize', 'Head of S&M'],
-  ['G4', 'Project closed', 'Measure & optimize → Close', 'General Director']
-];
-// Engine layout (fixed rows — các công thức tham chiếu theo các mốc này)
-var E_STEP = 6, E_PH = 20, E_GATE = 27, E_TOT = 34;
-var TOT = { total: 34, done: 35, overdue: 36, confirm: 37, phaseNo: 38, phaseLabel: 39, bypass: 40,
-  sent: 41, fb: 42, rate: 43, units: 44, value: 45, ratio: 46 };
+/* ── Bố cục cố định (công thức tham chiếu các vị trí này) ───────────────────────────────── */
+var TK = { r0: 8, n: 74, r1: 81 };      // UPDATE · Tasks: dữ liệu từ hàng 8 (mặc định 74 hàng, tự giãn khi có thêm)
+var TC = { no: 2, step: 3, task: 4, pic: 5, ab: 6, dep: 7, nf: 8, pe: 9, st: 10, ae: 11, ev: 12, ao: 13, flag: 14, late: 15, bs: 16, be: 17, note: 18, chk: 19, sent: 20,
+  ph: 21, open: 22, unl: 23, cat: 24, pend: 25, rank: 26, dkey: 27, bstart: 28, bend: 29, last: 29 };
+var TK_IN = [TC.no, TC.step, TC.task, TC.pic, TC.ab, TC.dep, TC.nf, TC.pe, TC.st, TC.ae, TC.ev, TC.ao, TC.bs, TC.be, TC.note, TC.sent];
+var SU = { team0: 7, teamN: 10, plan0: 7, step0: 21, list0: 21, listN: 10 };  // SETUP
+var AP = { ph0: 7, cr0: 14, hist0: 39 };   // APPROVE
+var SM = { r0: 16, n: 100 };              // Samples log
+var SV = { r0: 9, n: 30, f0: 43 };        // Surveys register + findings
+var SA = { r0: 8, n: 100 };               // Sales log
+var TL = { r0: 10, g0: 11, np: 24 };      // Timeline
 
 function fFile_(id) { return 'https://drive.google.com/file/d/' + id + '/view'; }
 function fDir_(id) { return 'https://drive.google.com/drive/folders/' + id; }
 var L = {
-  dirLaunch: fDir_('1DqQxn_4qPkhOyutfnS2pqmXxd87IhHsx'),
-  dirMkt: fDir_('14KtQ2THtDba5z5CDlIvd3CcK8RF6bWou'),
-  dirTrain: fDir_('1JdcGV8NRWw1UxPgv5BkDa0lSIrPgLzKs'),
-  dirResearch: fDir_('1DQ31H6f32RtgY0NA0a9Ugirv_Uy71kKY'),
-  dirProject: fDir_('1BMtT3givsT7UuGRVqee9_gEAAjCmKEDk'),
-  dirFlyer: fDir_('1uhHzcyUFybfBgCb0onCiZ72mKrEMDvAX'),
+  dirLaunch: fDir_('1DqQxn_4qPkhOyutfnS2pqmXxd87IhHsx'), dirMkt: fDir_('14KtQ2THtDba5z5CDlIvd3CcK8RF6bWou'), dirTrain: fDir_('1JdcGV8NRWw1UxPgv5BkDa0lSIrPgLzKs'),
+  dirResearch: fDir_('1DQ31H6f32RtgY0NA0a9Ugirv_Uy71kKY'), dirProject: fDir_('1BMtT3givsT7UuGRVqee9_gEAAjCmKEDk'), dirFlyer: fDir_('1uhHzcyUFybfBgCb0onCiZ72mKrEMDvAX'),
   meet0805: 'https://docs.google.com/document/d/1ZgrnhkulSoh0k22shAaD6giCw8dfaVs5lOG-9H1O-FU/edit',
-  overview: fFile_('1ie7k09xDd78GBnIO8HDI1fjliPFdfoEh'),
-  infoSum: fFile_('1zhtlADRYl6ycCkf6KXSb5eXhzaWnekFa'),
-  infoFinal: fFile_('1u87sAryx0id5qAV61zyu3CXl5LKMBISl'),
-  compete: fFile_('12jci5TSfk-oxqPi_cRJ5euktubg1zux8'),
-  research: fFile_('1115sZrK3x1WpPHW2zSQp9qmTUCrKjzkd'),
-  researchSum: fFile_('1E44CkEJbwwB9UOOlFh1HgjfRfOh51Q1g'),
-  catalogue: fFile_('15Md-Cy-tOCq0euP8u3kskUZIBt8LrMAV'),
-  catTrans: 'https://docs.google.com/document/d/1qxfsrhVirdVMQG4klCzybH4K5DLnb9i2RcqKe62gFII/edit',
-  clinical: fFile_('1rK1ddDa-h26e5jALPQZmOBeI6DmuuYZa'),
-  ifu: fFile_('18rgqQ0NjN1u92h3eq9O37wiBArDN4nTB'),
-  tskt: fFile_('17_0ahTag5F6RmpN1PuSrAk_xIlMguVBx'),
-  brochureVN: fFile_('1PJaqtabM8GGhA1bOSHYZci01VJ5aLSkY'),
-  img: fFile_('1pmLCp0Hj-_QRjQnyeQ-b1Pz29HrvLLXm'),
-  trainNPP: fFile_('1BWN8C4OiL7eD4y3uddzSOFjUySrptKRm'),
-  trainInt: fFile_('1h3pyRU2VFGn5Q52fiA1teGGhnbbCWHPp'),
-  promo: fFile_('1iYgIjhYeAHa4qIvCtOE7b9T1XHIrcKmY'),
+  overview: fFile_('1ie7k09xDd78GBnIO8HDI1fjliPFdfoEh'), infoSum: fFile_('1zhtlADRYl6ycCkf6KXSb5eXhzaWnekFa'), infoFinal: fFile_('1u87sAryx0id5qAV61zyu3CXl5LKMBISl'),
+  compete: fFile_('12jci5TSfk-oxqPi_cRJ5euktubg1zux8'), research: fFile_('1115sZrK3x1WpPHW2zSQp9qmTUCrKjzkd'), researchSum: fFile_('1E44CkEJbwwB9UOOlFh1HgjfRfOh51Q1g'),
+  catalogue: fFile_('15Md-Cy-tOCq0euP8u3kskUZIBt8LrMAV'), catTrans: 'https://docs.google.com/document/d/1qxfsrhVirdVMQG4klCzybH4K5DLnb9i2RcqKe62gFII/edit',
+  clinical: fFile_('1rK1ddDa-h26e5jALPQZmOBeI6DmuuYZa'), ifu: fFile_('18rgqQ0NjN1u92h3eq9O37wiBArDN4nTB'), tskt: fFile_('17_0ahTag5F6RmpN1PuSrAk_xIlMguVBx'),
+  brochureVN: fFile_('1PJaqtabM8GGhA1bOSHYZci01VJ5aLSkY'), img: fFile_('1pmLCp0Hj-_QRjQnyeQ-b1Pz29HrvLLXm'), trainNPP: fFile_('1BWN8C4OiL7eD4y3uddzSOFjUySrptKRm'),
+  trainInt: fFile_('1h3pyRU2VFGn5Q52fiA1teGGhnbbCWHPp'), promo: fFile_('1iYgIjhYeAHa4qIvCtOE7b9T1XHIrcKmY'),
   form: 'https://docs.google.com/forms/d/1WY66nK5_9J5ZdM1MUuYiLzhqThYxE1RQHduaNrSdZrI/edit',
   formResp: 'https://docs.google.com/spreadsheets/d/1bjVPE8MBM_DWsd-rARIS2_042APwSfYc3CL_BrCqlIM/edit',
-  shapeDoc: fFile_('1hfF4uX4-ln_qLKVbzylT82PgAu5gNjt-'),
-  shapeRes: fFile_('1aTBjdfCHumQsAMVgSSZKtebNJlMVnU6u'),
+  shapeDoc: fFile_('1hfF4uX4-ln_qLKVbzylT82PgAu5gNjt-'), shapeRes: fFile_('1aTBjdfCHumQsAMVgSSZKtebNJlMVnU6u'),
   survey2: 'https://docs.google.com/spreadsheets/d/1RGBSYSjaopF78oaW_XlEInaw4PqsAL5VTW2NOzJ-32c/edit',
-  maniPdf: 'https://www.mani.co.jp/en/pdf/IPR-01EF.pdf',
-  maniReport: 'https://www.mani.co.jp/en/pdf/dental_04_14_report.pdf',
-  maniIfu: 'https://www.mani.co.jp/en/pdf/6DIA-BURS.pdf'
+  maniPdf: 'https://www.mani.co.jp/en/pdf/IPR-01EF.pdf', maniReport: 'https://www.mani.co.jp/en/pdf/dental_04_14_report.pdf', maniIfu: 'https://www.mani.co.jp/en/pdf/6DIA-BURS.pdf'
 };
 
-
-/* ── Menu + tự dựng khi có phiên bản mới ────────────────────────────────────────────────── */
+/* ══ Menu ═════════════════════════════════════════════════════════════════════════════════ */
 function onOpen(e) {
   try {
-    SpreadsheetApp.getUi().createMenu('🚀 IPR Launch')
-      .addItem('🔄 Update / rebuild app (keep PIC updates)', 'iprRebuildMenu')
+    SpreadsheetApp.getUi().createMenu('IPR Launch')
+      .addItem('Go to Start here', 'iprGoStart')
       .addSeparator()
-      .addItem('👁 Show old tabs', 'iprShowOldTabs')
-      .addItem('🙈 Hide old tabs', 'iprHideOldTabs')
+      .addItem('Add a task row below the selected row', 'iprAddTaskRow')
+      .addItem('Send assignment emails (new PICs)', 'iprSendAssignments')
+      .addItem('Submit selected task for approval', 'iprSubmitTask')
+      .addItem('Approve selected task', 'iprApproveTask')
+      .addSeparator()
+      .addItem('Submit a phase for approval', 'iprSubmitPhase')
+      .addItem('Review & decide a phase (General Director)', 'iprReviewPhase')
+      .addSeparator()
+      .addItem('Send weekly reminder now', 'iprWeeklyReminder')
+      .addItem('Turn weekly reminder on (Monday 08:30)', 'iprReminderOn')
+      .addItem('Turn weekly reminder off', 'iprReminderOff')
+      .addSeparator()
+      .addItem('Update / rebuild tracker (keeps entered data)', 'iprRebuildMenu')
       .addToUi();
   } catch (_) {}
   try {
     var ss = SpreadsheetApp.getActive();
     if (iprVersion_(ss) !== IPR_BUILD)
-      ss.toast('Có bản cập nhật app (' + IPR_BUILD + '). Bấm menu 🚀 IPR Launch ▸ 🔄 Update / rebuild app để dựng (dữ liệu PIC được giữ).', 'MMH', 15);
+      ss.toast('Có bản tracker mới (' + IPR_BUILD + '). Bấm menu IPR Launch ▸ Update / rebuild tracker để dựng (dữ liệu đã nhập được giữ).', 'MMH', 15);
   } catch (_) {}
 }
+function iprGoStart() { var ss = SpreadsheetApp.getActive(), sh = ss.getSheetByName(T.start); if (sh) ss.setActiveSheet(sh); }
 
 function iprRebuildMenu() {
-  var ui = SpreadsheetApp.getUi(), ss0 = SpreadsheetApp.getActive();
-  if (iprVersion_(ss0) !== IPR_BUILD) { iprBuild_(ss0); ss0.toast('Đã cập nhật app lên bản ' + IPR_BUILD + '.', 'MMH', 6); return; }
-  var r = ui.alert('Rebuild',
-    'Dựng lại 9 tab của app (thường chỉ cần khi bố cục bị hỏng). Dữ liệu PIC đã nhập (Tasks, Gates, Samples, doanh số, việc cải tiến) được giữ lại; ' +
-    'nội dung sửa tay ở Feasibility / Launch Plan / Documents sẽ về bản gốc.\n\nTiếp tục?', ui.ButtonSet.YES_NO);
-  if (r !== ui.Button.YES) return;
-  iprBuild_(SpreadsheetApp.getActive());
-  SpreadsheetApp.getActive().toast('Đã dựng lại xong.', 'MMH', 5);
+  var ui = SpreadsheetApp.getUi(), ss = SpreadsheetApp.getActive();
+  if (iprVersion_(ss) === IPR_BUILD) {
+    var r = ui.alert('Rebuild', 'Dựng lại toàn bộ tracker (chỉ cần khi bố cục bị hỏng). Dữ liệu đã nhập ở các tab UPDATE, APPROVE, SETUP, FILES được giữ.\n\nTiếp tục?', ui.ButtonSet.YES_NO);
+    if (r !== ui.Button.YES) return;
+  }
+  var errs = iprBuild_(ss);
+  if (errs.length) ui.alert('Đã dựng xong nhưng có ' + errs.length + ' phần lỗi:\n\n' + errs.join('\n'));
+  else ss.toast('Tracker đã ở bản ' + IPR_BUILD + '.', 'MMH', 6);
 }
-function iprShowOldTabs() {
-  SpreadsheetApp.getActive().getSheets().forEach(function (sh) { if (IPR_TABS.indexOf(sh.getName()) < 0) sh.showSheet(); });
-}
-function iprHideOldTabs() { iprHideOld_(SpreadsheetApp.getActive()); }
-function iprHideOld_(ss) {
-  ss.getSheets().forEach(function (sh) { if (IPR_TABS.indexOf(sh.getName()) < 0 && !sh.isSheetHidden()) sh.hideSheet(); });
+function iprVersion_(ss) { var m = ss.createDeveloperMetadataFinder().withKey(IPR_META).find(); return m.length ? m[0].getValue() : ''; }
+
+/* ══ Build ════════════════════════════════════════════════════════════════════════════════ */
+var SNAP = null;
+function iprBuild_(ss) {
+  var lock = null, errs = [];
+  try { lock = LockService.getDocumentLock(); lock.waitLock(25000); } catch (_) { lock = null; }
+  try {
+    try { if (ss.getSpreadsheetLocale() !== 'en_GB') ss.setSpreadsheetLocale('en_GB'); } catch (_) {}
+    var v3 = /^v3/.test(iprVersion_(ss));
+    SNAP = v3 ? snapAll_(ss) : null;
+    IPR_TABS.forEach(function (n) { resetSheet_(ss, n); });
+    IPR_TABS.forEach(function (n, i) { ss.setActiveSheet(ss.getSheetByName(n)); ss.moveActiveSheet(i + 1); });
+    [['setup', buildSetup_], ['tasks', buildTasks_], ['approve', buildApprove_], ['calc', buildCalc_], ['samples', buildSamples_], ['surveys', buildSurveys_],
+      ['sales', buildSales_], ['files', buildFiles_], ['timeline', buildTimeline_], ['overview', buildOverview_], ['start', buildStart_]].forEach(function (b) {
+      try { b[1](ss); } catch (e) { errs.push(b[0] + ': ' + (e && e.message ? e.message : e)); }
+    });
+    try { ss.getSheetByName(T.calc).hideSheet(); } catch (_) {}
+    // tab v2 do app cũ tạo ⇒ xoá; tab dữ liệu gốc 2025 ⇒ ẩn
+    LEGACY.forEach(function (n) { var s = ss.getSheetByName(n); if (s && ss.getSheets().length > 1) try { ss.deleteSheet(s); } catch (_) {} });
+    ss.getSheets().forEach(function (s) { if (IPR_TABS.indexOf(s.getName()) < 0 && !s.isSheetHidden()) try { s.hideSheet(); } catch (_) {} });
+    ss.createDeveloperMetadataFinder().withKey(IPR_META).find().forEach(function (m) { m.remove(); });
+    ss.addDeveloperMetadata(IPR_META, IPR_BUILD);
+    ss.setActiveSheet(ss.getSheetByName(T.start));
+  } finally {
+    if (lock) try { lock.releaseLock(); } catch (_) {}
+  }
+  return errs;
 }
 function resetSheet_(ss, name) {
   var sh = ss.getSheetByName(name);
   if (!sh) return ss.insertSheet(name);
   sh.showSheet();
   try { sh.getProtections(SpreadsheetApp.ProtectionType.SHEET).forEach(function (p) { p.remove(); }); } catch (_) {}
+  try { sh.getProtections(SpreadsheetApp.ProtectionType.RANGE).forEach(function (p) { p.remove(); }); } catch (_) {}
   sh.setFrozenRows(0); sh.setFrozenColumns(0);
+  try { if (sh.getMaxColumns() > 1) sh.showColumns(1, sh.getMaxColumns()); sh.showRows(1, sh.getMaxRows()); } catch (_) {}
   var all = sh.getRange(1, 1, sh.getMaxRows(), sh.getMaxColumns());
   all.breakApart(); all.clearDataValidations(); all.clearNote(); all.clear();
   sh.clearConditionalFormatRules();
-  sh.setRowHeights(1, sh.getMaxRows(), 21);
+  try { sh.getRange(1, 1, sh.getMaxRows(), sh.getMaxColumns()).getBandings().forEach(function (b) { b.remove(); }); } catch (_) {}
   return sh;
 }
-function iprVersion_(ss) {
-  var m = ss.createDeveloperMetadataFinder().withKey(IPR_META).find();
-  return m.length ? m[0].getValue() : '';
-}
 
-/* ── Giữ dữ liệu PIC khi dựng lại ───────────────────────────────────────────────────────── */
-var SNAP = null;
-function snapshot_(ss) {
-  var s = { tasks: {}, extraTasks: [], gates: {}, samples: {}, extraSamples: [], sales: {}, actions: {} };
-  var sh = ss.getSheetByName(TB.tasks);
-  if (sh && String(sh.getRange(3, 2).getValue()).indexOf('ID') >= 0 && sh.getLastRow() >= 4) {
-    var v = sh.getRange(4, 2, sh.getLastRow() - 3, 13).getValues(); // B..N
-    var fm = sh.getRange(4, 13, sh.getLastRow() - 3, 1).getFormulas();
-    v.forEach(function (r, i) { if (fm[i][0]) r[11] = fm[i][0]; });
-    var seed = {}; taskSeed_().forEach(function (t) { seed[t[0]] = 1; });
-    v.forEach(function (r) {
-      var id = String(r[0]).trim(); if (!id) return;
-      if (seed[id]) s.tasks[id] = { owner: r[7], start: r[8], due: r[9], status: r[10], doc: r[11], notes: r[12] };
-      else s.extraTasks.push(r);
-    });
-  }
-  sh = ss.getSheetByName(TB.gates);
-  if (sh && sh.getLastRow() >= 4 && String(sh.getRange(3, 4).getValue()).indexOf('Criterion') >= 0) {
-    sh.getRange(4, 2, sh.getLastRow() - 3, 8).getValues().forEach(function (r) {
-      if (r[0] && r[4] === 'Manual') s.gates[r[0] + '|' + r[2]] = { met: r[5], note: r[6], doc: r[7] };
-    });
-  }
-  sh = ss.getSheetByName(TB.smp);
-  if (sh && sh.getLastRow() >= 4 && String(sh.getRange(3, 3).getValue()).indexOf('Clinic') >= 0) {
-    var names = {}; sampleSeed_().forEach(function (r) { names[r[1]] = 1; });
-    sh.getRange(4, 2, sh.getLastRow() - 3, 8).getValues().forEach(function (r) {
-      if (!r[1]) return;
-      if (names[r[1]]) s.samples[r[1]] = { fb: r[6], note: r[7] }; else s.extraSamples.push(r);
-    });
-  }
-  sh = ss.getSheetByName(TB.res);
-  if (sh && sh.getLastRow() > 4) {
-    var all = sh.getRange(1, 2, sh.getLastRow(), 7).getValues(), mode = '';
-    all.forEach(function (r) {
-      var a = String(r[0]);
-      if (a.indexOf('MONTHLY SALES') >= 0) { mode = 'sales'; return; }
-      if (a.indexOf('IMPROVEMENT ACTIONS') >= 0) { mode = 'act'; return; }
-      if (a.indexOf('LAUNCH KPIs') >= 0 || a.indexOf('TRIAL FEEDBACK') >= 0 || a.indexOf('SHAPE SURVEY') >= 0) { mode = ''; return; }
-      if (mode === 'sales' && /^\d{2}\/\d{4}$/.test(a)) s.sales[a] = [r[1], r[2], r[3], r[4]];
-      if (mode === 'act' && a && a !== 'Issue') s.actions[a] = { status: r[4], note: r[5] };
-    });
-  }
+/* ── Giữ dữ liệu đã nhập (rebuild v3 → v3) ─────────────────────────────────────────────── */
+function grab_(ss, tab, r0, c0, nCols, lastRowHint) {
+  var sh = ss.getSheetByName(tab); if (!sh) return null;
+  var last = sh.getLastRow(); if (last < r0) return [];
+  var w = Math.min(nCols, sh.getMaxColumns() - c0 + 1); if (w < 1) return [];
+  var n = last - r0 + 1, rg = sh.getRange(r0, c0, n, w), v = rg.getValues(), f = rg.getFormulas();
+  return v.map(function (row, i) { var o = row.map(function (x, j) { return f[i][j] ? f[i][j] : x; }); while (o.length < nCols) o.push(''); return o; });
+}
+function snapAll_(ss) {
+  var s = {};
+  s.tasks = grab_(ss, T.tasks, TK.r0, 1, TC.last);
+  s.appr = grab_(ss, T.appr, AP.ph0, 1, 15); if (s.appr) s.appr = s.appr.slice(0, 4);
+  s.crit = grab_(ss, T.appr, AP.cr0, 1, 10);
+  s.hist = grab_(ss, T.appr, AP.hist0, 1, 8);
+  s.smp = grab_(ss, T.smp, SM.r0, 1, 14);
+  s.sv = grab_(ss, T.sv, SV.r0, 1, 15); if (s.sv) s.sv = s.sv.slice(0, SV.n);
+  s.svf = grab_(ss, T.sv, SV.f0, 1, 5);
+  s.sales = grab_(ss, T.sales, SA.r0, 1, 8);
+  s.team = grab_(ss, T.setup, SU.team0, 1, 7); if (s.team) s.team = s.team.slice(0, SU.teamN);
+  s.plan = grab_(ss, T.setup, SU.plan0, 8, 2); if (s.plan) s.plan = s.plan.slice(0, 10);
+  s.lists = grab_(ss, T.setup, SU.list0, 1, 13); if (s.lists) s.lists = s.lists.slice(0, SU.listN);
+  s.files = grab_(ss, T.files, 7, 1, 6);
+  var tl = ss.getSheetByName(T.tl); if (tl) s.tlCtl = [tl.getRange('C5').getValue(), tl.getRange('E5').getValue()];
   return s;
 }
+function nonEmpty_(rows, keyIdx) { return (rows || []).filter(function (r) { return keyIdx.some(function (i) { return r[i] !== '' && r[i] !== null; }); }); }
 
-/* ── Dựng toàn bộ ───────────────────────────────────────────────────────────────────────── */
-function iprBuild_(ss) {
-  var lock = null;
-  try { lock = LockService.getDocumentLock(); lock.waitLock(20000); } catch (_) { lock = null; }
-  try {
-    SNAP = snapshot_(ss);
-    // Dùng lại tab sẵn có (xoá sạch nội dung + định dạng) thay vì xoá tab ⇒ không lỗi "không tìm thấy trang tính"
-    IPR_TABS.forEach(function (n, i) { resetSheet_(ss, n); });
-    LEGACY_V1.forEach(function (n) { var s = ss.getSheetByName(n); if (s && ss.getSheets().length > 1) ss.deleteSheet(s); });
-    ss.getSheets().forEach(function (s) { if (/^_tmp_/.test(s.getName())) ss.deleteSheet(s); });
-    IPR_TABS.forEach(function (n, i) { ss.setActiveSheet(ss.getSheetByName(n)); ss.moveActiveSheet(i + 1); });
-    buildEngine_(ss);
-    buildTasks_(ss);
-    buildGates_(ss);
-    buildSamples_(ss);
-    buildResults_(ss);
-    buildFeas_(ss);
-    buildPlan_(ss);
-    buildDocs_(ss);
-    buildFlow_(ss);
-    iprHideOld_(ss);
-    ss.createDeveloperMetadataFinder().withKey(IPR_META).find().forEach(function (m) { m.remove(); });
-    ss.addDeveloperMetadata(IPR_META, IPR_BUILD);
-    ss.setActiveSheet(ss.getSheetByName(TB.flow));
-  } finally {
-    if (lock) try { lock.releaseLock(); } catch (_) {}
-  }
-}
-
-/* ── Tiện ích định dạng ─────────────────────────────────────────────────────────────────── */
-function D_(s) { if (!s) return ''; var p = s.split('/'); return new Date(+p[2], +p[1] - 1, +p[0]); }
-function A1_(r, c) { var s = ''; while (c > 0) { var m = (c - 1) % 26; s = String.fromCharCode(65 + m) + s; c = Math.floor((c - 1) / 26); } return s + r; }
+/* ══ Tiện ích ═════════════════════════════════════════════════════════════════════════════ */
+function D_(s) { if (!s) return ''; var p = String(s).split('/'); var y = +p[2]; if (y < 100) y += 2000; return new Date(y, +p[1] - 1, +p[0]); }
+function CL_(c) { var s = ''; while (c > 0) { var m = (c - 1) % 26; s = String.fromCharCode(65 + m) + s; c = Math.floor((c - 1) / 26); } return s; }
+function A1_(r, c) { return CL_(c) + r; }
+function q_(tab) { return "'" + tab + "'!"; }
 function hl_(url, label) { return url ? '=HYPERLINK("' + url + '","' + String(label).replace(/"/g, '""') + '")' : (label || ''); }
+function fill2_(rows, n) { return rows.map(function (r) { r = r.slice(0, n); while (r.length < n) r.push(''); return r; }); }
 
-function sheet_(ss, name, widths, tab, rows) {
-  var sh = ss.getSheetByName(name);
-  var maxCols = widths.length + 1;
+function prep_(ss, name, widths, tab, rows) {
+  var sh = ss.getSheetByName(name), maxCols = widths.length + 1;
   if (sh.getMaxColumns() > maxCols) sh.deleteColumns(maxCols + 1, sh.getMaxColumns() - maxCols);
   else if (sh.getMaxColumns() < maxCols) sh.insertColumnsAfter(sh.getMaxColumns(), maxCols - sh.getMaxColumns());
-  if (rows && sh.getMaxRows() > rows) sh.deleteRows(rows + 1, sh.getMaxRows() - rows);
-  sh.setColumnWidth(1, 22);
+  if (rows) { if (sh.getMaxRows() > rows) sh.deleteRows(rows + 1, sh.getMaxRows() - rows); else if (sh.getMaxRows() < rows) sh.insertRowsAfter(sh.getMaxRows(), rows - sh.getMaxRows()); }
+  sh.setColumnWidth(1, 24);
   widths.forEach(function (w, i) { sh.setColumnWidth(i + 2, w); });
-  sh.getRange(1, 1, sh.getMaxRows(), maxCols).setFontFamily(FONT).setFontSize(10).setFontColor(C_.ink).setVerticalAlignment('middle');
+  sh.getRange(1, 1, sh.getMaxRows(), maxCols).setFontFamily(FONT).setFontSize(10).setFontColor(K.ink).setVerticalAlignment('middle');
+  sh.setRowHeights(1, sh.getMaxRows(), 22);
   sh.setHiddenGridlines(true);
   if (tab) sh.setTabColor(tab);
   return sh;
 }
-/* Tiêu đề kiểu slide: B1 tiêu đề navy, B2 phụ đề xanh (hướng dẫn PIC), dải kẻ mảnh */
-function head_(sh, title, sub, n) {
-  sh.getRange(1, 2).setValue(title).setFontSize(18).setFontWeight('bold').setFontColor(C_.navy);
-  sh.getRange(2, 2).setValue(sub).setFontSize(10).setFontColor(C_.acc);
-  sh.setRowHeight(1, 40); sh.setRowHeight(2, 24);
+/* Tiêu đề: B1 tên tab · B2 mục đích · hàng 3: AI CẬP NHẬT / ĐIỀN GÌ (dải xám, kẻ navy dưới) */
+function title_(sh, title, purpose, who, what, n) {
+  sh.setRowHeight(1, 36); sh.setRowHeight(2, 20); sh.setRowHeight(3, 26); sh.setRowHeight(4, 10);
+  sh.getRange(1, 2).setValue(title).setFontSize(18).setFontWeight('bold').setFontColor(K.navy);
+  sh.getRange(2, 2).setValue(purpose).setFontColor(K.mut);
+  var r = sh.getRange(3, 2, 1, n).merge();
+  r.setValue('WHO UPDATES THIS TAB:  ' + who + '          WHAT TO FILL:  ' + what)
+    .setBackground(K.auto).setFontSize(9.5).setFontWeight('bold').setFontColor(K.ink)
+    .setBorder(null, null, true, null, null, null, K.navy, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
 }
-/* Bảng: header nền D6E2E9 chữ navy; dòng xen kẽ; viền mảnh BCD4E6. links: {col: true} ⇒ ô dạng [label,url] */
-function table_(sh, r0, c0, headers, rows, o) {
-  o = o || {};
-  var nc = headers.length;
-  sh.getRange(r0, c0, 1, nc).setValues([headers]).setBackground(C_.pale).setFontColor(C_.navy).setFontWeight('bold')
-    .setWrap(true).setHorizontalAlignment('center');
-  sh.setRowHeight(r0, 34);
-  var n = Math.max(rows.length, o.blank || 0);
-  if (n) {
-    var vals = [];
-    for (var i = 0; i < n; i++) {
-      var row = rows[i] || headers.map(function () { return ''; });
-      vals.push(row.map(function (c) {
-        if (Array.isArray(c)) return hl_(c[1], c[0]);
-        return c === null || c === undefined ? '' : c;
-      }));
-    }
-    var body = sh.getRange(r0 + 1, c0, n, nc);
-    (o.text || []).forEach(function (j) { sh.getRange(r0 + 1, c0 + j, n, 1).setNumberFormat('@'); });
-    body.setValues(vals);   // chuỗi bắt đầu bằng "=" được ghi thành công thức
-    body.setWrap(true).setVerticalAlignment('middle');
-    body.setBackgrounds(vals.map(function (_, i) { var c = i % 2 ? C_.alt : C_.white; return headers.map(function () { return c; }); }));
-    (o.dates || []).forEach(function (j) { sh.getRange(r0 + 1, c0 + j, n, 1).setNumberFormat('dd/MM/yyyy').setHorizontalAlignment('center'); });
-    (o.center || []).forEach(function (j) { sh.getRange(r0 + 1, c0 + j, n, 1).setHorizontalAlignment('center'); });
-    (o.bold || []).forEach(function (j) { sh.getRange(r0 + 1, c0 + j, n, 1).setFontWeight('bold').setFontColor(C_.navy); });
-    (o.calc || []).forEach(function (j) { sh.getRange(r0 + 1, c0 + j, n, 1).setFontColor(C_.mut).setFontStyle('italic'); });
-    (o.links || []).forEach(function (j) { sh.getRange(r0 + 1, c0 + j, n, 1).setFontColor(C_.link); });
-  }
-  sh.getRange(r0, c0, n + 1, nc).setBorder(true, true, true, true, true, true, C_.line, SpreadsheetApp.BorderStyle.SOLID);
-  return { r0: r0, r1: r0 + n, nc: nc, n: n };
+function section_(sh, r, c, n, text, right) {
+  sh.getRange(r, c, 1, n).setBorder(null, null, true, null, null, null, K.line, SpreadsheetApp.BorderStyle.SOLID);
+  sh.getRange(r, c).setValue(String(text).toUpperCase()).setFontSize(10.5).setFontWeight('bold').setFontColor(K.navy);
+  if (right) sh.getRange(r, c + n - 1).setValue(right).setFontSize(9).setFontColor(K.mut).setHorizontalAlignment('right');
+  sh.setRowHeight(r, 26);
 }
-function section_(sh, r, c, n, text) {
-  sh.getRange(r, c, 1, n).setBackground(C_.navy).setFontColor(C_.white).setFontWeight('bold').setFontSize(11);
-  sh.getRange(r, c).setValue(text);
-  sh.setRowHeight(r, 28);
+/* dải "ai điền" trên đầu cột: groups = [[colStart, span, kind]] */
+function ribbon_(sh, r, groups) {
+  groups.forEach(function (g) {
+    var w = WHO[g[2]], rg = sh.getRange(r, g[0], 1, g[1]);
+    if (g[1] > 1) rg.merge();
+    rg.setValue(g[3] || w[0]).setBackground(w[1]).setFontColor(w[2]).setFontSize(8.5).setFontWeight('bold').setHorizontalAlignment('center')
+      .setBorder(true, true, true, true, null, null, K.white, SpreadsheetApp.BorderStyle.SOLID);
+  });
+  sh.setRowHeight(r, 20);
 }
-/* Khối nội dung 2 cột: nhãn (B) + nội dung ghép C → cuối */
-function kv_(sh, r, pairs, n) {
-  sh.getRange(r, 2, pairs.length, 2).setValues(pairs);
-  if (n > 2) sh.getRange(r, 3, pairs.length, n - 1).mergeAcross();
-  sh.getRange(r, 2, pairs.length, 1).setFontWeight('bold').setFontColor(C_.navy).setBackground(C_.alt).setVerticalAlignment('top');
-  sh.getRange(r, 3, pairs.length, n - 1).setWrap(true).setVerticalAlignment('top');
-  sh.getRange(r, 2, pairs.length, n).setBorder(true, true, true, true, true, true, C_.line, SpreadsheetApp.BorderStyle.SOLID);
-  pairs.forEach(function (p, i) { sh.setRowHeight(r + i, Math.max(26, 17 * Math.ceil(String(p[1]).length / 120) + 8)); });
-  return r + pairs.length + 1;
+/* tiêu đề bảng: cột auto nền xám đậm hơn */
+function header_(sh, r, c0, names, autoCols) {
+  var rg = sh.getRange(r, c0, 1, names.length);
+  rg.setValues([names]).setFontWeight('bold').setFontColor(K.navy).setBackground(K.head).setWrap(true).setVerticalAlignment('middle')
+    .setBorder(true, true, true, true, true, true, K.grid, SpreadsheetApp.BorderStyle.SOLID);
+  (autoCols || []).forEach(function (c) { sh.getRange(r, c).setBackground(K.headAuto).setFontColor(K.mut); });
+  sh.setRowHeight(r, 34);
 }
-function cf_(range, formula, bg, fg, bold) {
-  var b = SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied(formula).setRanges([range]);
+function grid_(sh, r, c, nr, nc) { sh.getRange(r, c, nr, nc).setBorder(true, true, true, true, true, true, K.grid, SpreadsheetApp.BorderStyle.SOLID); }
+function autoCols_(sh, r, nr, cols) { cols.forEach(function (c) { sh.getRange(r, c, nr, 1).setBackground(K.auto).setFontColor(K.mut); }); }
+function band_(sh, r, c, n, text) {
+  var rg = sh.getRange(r, c, 1, n);
+  rg.setBackground(K.band).setFontWeight('bold').setFontColor(K.navy);
+  return rg;
+}
+/* CF: ô có chữ đúng bằng trạng thái ⇒ tô màu pill */
+function statusCF_(sh, a1s, keys) {
+  var rules = sh.getConditionalFormatRules(), rgs = a1s.map(function (a) { return sh.getRange(a); });
+  (keys || Object.keys(ST)).forEach(function (k) {
+    if (!ST[k]) return;
+    rules.push(SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo(k).setBackground(ST[k][0]).setFontColor(ST[k][1]).setBold(true).setRanges(rgs).build());
+  });
+  sh.setConditionalFormatRules(rules);
+}
+function cfFormula_(sh, a1s, formula, bg, fg, bold) {
+  var rules = sh.getConditionalFormatRules();
+  var b = SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied(formula).setRanges(a1s.map(function (a) { return sh.getRange(a); }));
   if (bg) b.setBackground(bg); if (fg) b.setFontColor(fg); if (bold) b.setBold(true);
-  return b.build();
+  rules.push(b.build()); sh.setConditionalFormatRules(rules);
 }
-var STEP_COLORS = [['DONE', C_.teal, C_.white], ['IN PROGRESS', C_.acc2, C_.white], ['TO CONFIRM', C_.yelb, C_.navy],
-  ['OVERDUE', C_.red, C_.white], ['NOT STARTED', C_.pale, C_.acc]];
-var GATE_COLORS = [['PASSED', C_.teal, C_.white], ['BYPASSED', C_.yelb, C_.navy], ['READY', C_.light, C_.navy], ['OPEN', C_.pale, C_.acc]];
-function statusRules_(range, cellA1, set) {
-  return set.map(function (c) { return cf_(range, '=REGEXMATCH(' + cellA1 + ',"' + c[0] + '")', c[1], c[2]); });
+function protectWarn_(sh, rangeOrNull) {
+  try {
+    var p = rangeOrNull ? rangeOrNull.protect() : sh.protect();
+    p.setDescription('Calculated by the tracker — do not edit').setWarningOnly(true);
+    return p;
+  } catch (_) { return null; }
 }
-function absA1_(r, c) { return '$' + A1_(r, c).replace(/(\d+)$/, function (m) { return '$' + m; }); }
+function dvList_(vals, strict) { return SpreadsheetApp.newDataValidation().requireValueInList(vals, true).setAllowInvalid(!strict).build(); }
+function dvRange_(rg, strict) { return SpreadsheetApp.newDataValidation().requireValueInRange(rg, true).setAllowInvalid(!strict).build(); }
+function dvCustom_(f, help) { return SpreadsheetApp.newDataValidation().requireFormulaSatisfied(f).setAllowInvalid(false).setHelpText(help).build(); }
+function dvDate_() { return SpreadsheetApp.newDataValidation().requireDate().setAllowInvalid(false).setHelpText('Enter a date (dd/mm/yyyy).').build(); }
 
-/* ═══ Engine · bảng tính trung gian ═════════════════════════════════════════════════════════
- * Steps  (B Step · C Phase · D Step name · E Total · F Done · G In progress · H Not recorded · I Overdue · J Status · K Progress · L Display)
- * Phases (B Phase · C Name · D Total · E Done · F Active · G Status · H Progress · I No. · J Display)
- * Gates  (B Gate · C Name · D From→To · E Decided by · F Req · G Req met · H Auto req · I Auto met · J Rec · K Rec met · L Next active · M Status · N Display · O Why · P To add)
- * Totals (B Metric · C Value · D Meaning) */
-function buildEngine_(ss) {
-  var sh = sheet_(ss, TB.eng, [70, 70, 220, 60, 60, 80, 90, 70, 110, 70, 90, 110, 200, 260, 260, 40, 110, 110], '#999999');
-  head_(sh, '⚙️  ENGINE · HOW THE FLOW IS CALCULATED',
-    'Không sửa tay. Tab này đọc Tasks, Gates, Samples, Results rồi tính trạng thái từng bước / giai đoạn / cổng — Launch Flow chỉ hiển thị kết quả ở đây. Rê chuột lên tiêu đề cột để xem giải thích.');
-  var T = 'Tasks!', S0 = E_STEP, S1 = E_STEP + 10;
-  function note(r, txt) { sh.getRange(r, 2).setValue(txt).setFontStyle('italic').setFontColor(C_.mut).setWrap(false); }
-  function notes(r, arr) { sh.getRange(r, 2, 1, arr.length).setNotes([arr]); }
-  // ① Steps
-  note(E_STEP - 2, '① STEPS — đếm việc của từng bước trong Tasks. Status: DONE khi mọi việc Done · OVERDUE khi có việc quá hạn · TO CONFIRM khi phần còn lại đều "Not recorded" · IN PROGRESS khi đã có việc Done/In progress · còn lại NOT STARTED. Việc Cancelled không tính.');
-  table_(sh, E_STEP - 1, 2, ['Step', 'Phase', 'Step name', 'Total', 'Done', 'In progress', 'Not recorded', 'Overdue', 'Status', 'Progress', 'Display'],
-    STEPS.map(function (s, i) {
-      var r = E_STEP + i;
-      return [s[0], s[1], s[3],
-        '=COUNTIFS(' + T + '$D$4:$D,$B' + r + ',' + T + '$L$4:$L,"<>Cancelled")',
-        '=COUNTIFS(' + T + '$D$4:$D,$B' + r + ',' + T + '$L$4:$L,"Done")',
-        '=COUNTIFS(' + T + '$D$4:$D,$B' + r + ',' + T + '$L$4:$L,"In progress")',
-        '=COUNTIFS(' + T + '$D$4:$D,$B' + r + ',' + T + '$L$4:$L,"Not recorded")',
-        '=COUNTIFS(' + T + '$D$4:$D,$B' + r + ',' + T + '$O$4:$O,"*OVERDUE*")',
-        '=IF(E' + r + '=0,"NO TASKS",IF(F' + r + '=E' + r + ',"DONE",IF(I' + r + '>0,"OVERDUE",IF(F' + r + '+H' + r + '=E' + r + ',"TO CONFIRM",IF(F' + r + '+G' + r + '>0,"IN PROGRESS","NOT STARTED")))))',
-        '=IF(E' + r + '=0,0,F' + r + '/E' + r + ')',
-        '=' + disp_('J' + r) + '&"     "&F' + r + '&" / "&E' + r + '&" tasks"'];
-    }), { center: [0, 1, 3, 4, 5, 6, 7, 9] });
-  sh.getRange(S0, 11, 11, 1).setNumberFormat('0%');
-  notes(E_STEP - 1, ['Mã bước (Tasks cột Step)', 'Giai đoạn của bước', 'Tên bước (hiện trên Launch Flow)', 'Số việc của bước (trừ Cancelled)',
-    'Số việc Done', 'Số việc In progress', 'Số việc Not recorded (chưa có thông tin, cần xác nhận)', 'Số việc quá hạn (Due < hôm nay, chưa Done)',
-    'Trạng thái bước ⇒ màu ô trên Launch Flow', 'Done / Total', 'Chữ hiển thị trên Launch Flow']);
-  // ② Phases
-  var sc = '$C$' + S0 + ':$C$' + S1, sj = '$J$' + S0 + ':$J$' + S1;
-  note(E_PH - 2, '② PHASES — gộp các bước của giai đoạn. Active = giai đoạn đã có việc Done hoặc In progress; giai đoạn hiện tại (📍) = giai đoạn Active lớn nhất.');
-  table_(sh, E_PH - 1, 2, ['Phase', 'Phase name', 'Total', 'Done', 'Active', 'Status', 'Progress', 'No.', 'Display'],
-    PHASES.map(function (p, i) {
-      var r = E_PH + i, cnt = 'COUNTIF(' + sc + ',$B' + r + ')';
-      function c(st) { return 'COUNTIFS(' + sc + ',$B' + r + ',' + sj + ',"' + st + '")'; }
-      return [p[0], p[2],
-        '=SUMIF(' + sc + ',$B' + r + ',$E$' + S0 + ':$E$' + S1 + ')',
-        '=SUMIF(' + sc + ',$B' + r + ',$F$' + S0 + ':$F$' + S1 + ')',
-        '=(SUMIF(' + sc + ',$B' + r + ',$F$' + S0 + ':$F$' + S1 + ')+SUMIF(' + sc + ',$B' + r + ',$G$' + S0 + ':$G$' + S1 + '))>0',
-        '=IF(' + c('DONE') + '=' + cnt + ',"DONE",IF(' + c('OVERDUE') + '>0,"OVERDUE",IF(' + c('NOT STARTED') + '=' + cnt + ',"NOT STARTED",IF(' + c('TO CONFIRM') + '+' + c('DONE') + '=' + cnt + ',"TO CONFIRM","IN PROGRESS"))))',
-        '=IF(D' + r + '=0,0,E' + r + '/D' + r + ')', i + 1,
-        '=' + disp_('G' + r) + '&"     "&E' + r + '&" / "&D' + r + '&" tasks"'];
-    }), { center: [0, 2, 3, 4, 6, 7] });
-  sh.getRange(E_PH, 8, 4, 1).setNumberFormat('0%');
-  notes(E_PH - 1, ['Mã giai đoạn', 'Tên giai đoạn', 'Tổng số việc', 'Số việc Done', 'TRUE nếu đã có việc Done / In progress',
-    'Trạng thái giai đoạn (theo các bước)', 'Done / Total', 'Số thứ tự', 'Chữ hiển thị trên Launch Flow']);
-  // ③ Gates
-  var G = 'Gates!', gb = G + '$B$4:$B', ge = G + '$E$4:$E', gf = G + '$F$4:$F', gg = G + '$G$4:$G', gd = G + '$D$4:$D';
-  note(E_GATE - 2, '③ GATES — đọc tab Gates. PASSED: mọi tiêu chí Required đạt · BYPASSED: giai đoạn sau đã chạy dù cổng chưa đạt · READY: tiêu chí Auto đã đạt, chờ người quyết định tick · OPEN: chưa đủ.');
-  table_(sh, E_GATE - 1, 2, ['Gate', 'Gate name', 'From → To', 'Decided by', 'Required', 'Req. met', 'Auto req.', 'Auto met',
-    'Recom.', 'Rec. met', 'Next phase active', 'Status', 'Display', 'Why', 'To add'],
-    GATES.map(function (g, i) {
-      var r = E_GATE + i, key = '$B' + r;
-      return [g[0], g[1], g[2], g[3],
-        '=COUNTIFS(' + gb + ',' + key + ',' + ge + ',"Required")',
-        '=COUNTIFS(' + gb + ',' + key + ',' + ge + ',"Required",' + gg + ',TRUE)',
-        '=COUNTIFS(' + gb + ',' + key + ',' + ge + ',"Required",' + gf + ',"Auto")',
-        '=COUNTIFS(' + gb + ',' + key + ',' + ge + ',"Required",' + gf + ',"Auto",' + gg + ',TRUE)',
-        '=COUNTIFS(' + gb + ',' + key + ',' + ge + ',"Recommended")',
-        '=COUNTIFS(' + gb + ',' + key + ',' + ge + ',"Recommended",' + gg + ',TRUE)',
-        i < 3 ? '=$F$' + (E_PH + i + 1) : false,
-        '=IF(G' + r + '=F' + r + ',"PASSED",IF(L' + r + '=TRUE,"BYPASSED",IF(I' + r + '=H' + r + ',"READY","OPEN")))',
-        '=SWITCH(M' + r + ',"PASSED","✅ PASSED","BYPASSED","⚠️ BYPASSED","READY","🟦 READY TO DECIDE","🔒 OPEN")&"     "&G' + r + '&" / "&F' + r + '&" required"',
-        '=IF(M' + r + '="PASSED","✔ Moved on: "&IFERROR(TEXTJOIN("  ·  ",TRUE,FILTER(' + gd + ',' + gb + '=' + key + ',' + ge + '="Required")),""),' +
-          'IF(M' + r + '="BYPASSED","⚠ Next phase started before this gate passed. Missing: ","✖ Missing: ")&IFERROR(TEXTJOIN("  ·  ",TRUE,FILTER(' + gd + ',' + gb + '=' + key + ',' + ge + '="Required",' + gg + '<>TRUE)),"—"))',
-        '=IFERROR("➕ "&TEXTJOIN("  ·  ",TRUE,FILTER(' + gd + ',' + gb + '=' + key + ',' + ge + '="Recommended",' + gg + '<>TRUE)),"✔ Nothing to add")'];
-    }), { center: [0, 4, 5, 6, 7, 8, 9, 10] });
-  notes(E_GATE - 1, ['Mã cổng', 'Tên cổng', 'Từ giai đoạn → sang giai đoạn', 'Người quyết định', 'Số tiêu chí bắt buộc', 'Số tiêu chí bắt buộc đã đạt',
-    'Số tiêu chí bắt buộc tự tính', 'Số tiêu chí tự tính đã đạt', 'Số tiêu chí khuyến nghị', 'Số tiêu chí khuyến nghị đã đạt',
-    'TRUE nếu giai đoạn sau đã có hoạt động', 'Trạng thái cổng ⇒ màu trên Launch Flow', 'Chữ hiển thị', 'Lý do qua cổng / còn thiếu gì', 'Tiêu chí khuyến nghị còn thiếu']);
-  // ④ Totals
-  note(E_TOT - 2, '④ TOTALS — số liệu cho các thẻ KPI trên Launch Flow và bảng KPI ở Results.');
-  var rows = [
-    ['Tasks (excl. cancelled)', '=COUNTIFS(Tasks!$B$4:$B,"<>",Tasks!$L$4:$L,"<>Cancelled")', 'Tổng số việc'],
-    ['Done', '=COUNTIF(Tasks!$L$4:$L,"Done")', 'Số việc đã xong'],
-    ['Overdue', '=COUNTIF(Tasks!$O$4:$O,"*OVERDUE*")', 'Due < hôm nay và chưa Done'],
-    ['To confirm', '=COUNTIF(Tasks!$L$4:$L,"Not recorded")', 'Việc chưa có thông tin'],
-    ['Current phase No.', '=IFERROR(MAX(FILTER($I$' + E_PH + ':$I$' + (E_PH + 3) + ',$F$' + E_PH + ':$F$' + (E_PH + 3) + '=TRUE)),1)', 'Giai đoạn Active lớn nhất'],
-    ['Current phase', '="Phase "&C' + TOT.phaseNo + '&" · "&INDEX($C$' + E_PH + ':$C$' + (E_PH + 3) + ',C' + TOT.phaseNo + ')', ''],
-    ['Gates bypassed', '=COUNTIF($M$' + E_GATE + ':$M$' + (E_GATE + 3) + ',"BYPASSED")', 'Số cổng bị vượt'],
-    ['Samples sent', '=COUNTA(Samples!$C$4:$C)', 'Số dòng có tên ở Samples'],
-    ['Feedback received', '=COUNTIF(Samples!$H$4:$H,TRUE)', 'Số ô "Feedback received" được tick'],
-    ['Feedback rate', '=IF(C' + TOT.sent + '=0,0,C' + TOT.fb + '/C' + TOT.sent + ')', ''],
-    ['Sales units (boxes)', '=SUM(Results!$D$5:$D$16)', 'Tổng cột Units ở Results'],
-    ['Sales value (VND)', '=SUM(Results!$E$5:$E$16)', 'Tổng cột Value ở Results'],
-    ['Progress', '=IF(C' + TOT.total + '=0,0,C' + TOT.done + '/C' + TOT.total + ')', 'Done / Total']
-  ];
-  table_(sh, E_TOT - 1, 2, ['Metric', 'Value', 'Meaning'], rows, { bold: [0] });
-  // Lists for dropdowns
-  table_(sh, E_STEP - 1, 18, ['Status list'], STATUSES.map(function (s) { return [s]; }), {});
-  table_(sh, E_STEP - 1, 19, ['Gate type'], [['Required'], ['Recommended']], {});
-  try { sh.protect().setWarningOnly(true); } catch (_) {}
-}
-function disp_(ref) {
-  return 'SWITCH(' + ref + ',"DONE","✅ DONE","IN PROGRESS","🔄 IN PROGRESS","TO CONFIRM","❓ TO CONFIRM","OVERDUE","⏰ OVERDUE","NOT STARTED","⏸ NOT STARTED","— NO TASKS")';
-}
-
-/* ═══ Dữ liệu gốc (tổng hợp từ tab cũ + tài liệu IPR trên Drive) ═══════════════════════════ */
-var R_ = { prod: 'Nhóm Sản phẩm', mkt: 'Nhóm Marketing', sales: 'Nhóm Kinh doanh', hsm: 'Head of S&M', gd: 'General Director' };
+/* ══ Dữ liệu IPR-01EF (lần dựng đầu) ═════════════════════════════════════════════════════ */
 function taskSeed_() {
-  // ID, Step, Workstream, Task, Output / evidence, Role, Owner, Start, Due, Status, [doc label, url], Notes
+  var H = ROLES, A = 'Approval recorded when the tracker was set up (2025 data). ';
+  // No, Step, Task, PIC, Approval by, Depends on, Needs file, Plan end, Status, Actual end, [evidence label, key], Approved on, Start, Baseline end, Notes
   return [
-    ['1.1', 'S1', 'Thông tin sản phẩm', 'Tổng quan về kỹ thuật IPR', 'Tổng quan về IPR.pdf', R_.prod, 'Giang', '10/05/2025', '14/05/2025', 'Done', ['Tổng quan IPR', L.overview], ''],
-    ['1.2', 'S1', 'Thông tin sản phẩm', 'Tổng hợp thông tin sản phẩm IPR-01EF (thông số, chỉ định, IFU)', 'Thông tin IPR 01 EF _Final.pdf', R_.prod, 'Giang', '09/05/2025', '16/05/2025', 'Done', ['Thông tin IPR-01EF', L.infoFinal], ''],
-    ['1.3', 'S1', 'Khảo sát thị trường', 'Khảo sát 11 phòng khám về thói quen IPR', 'IPR _ Nghiên cứu thị trường.pdf', R_.prod, 'Giang', '05/05/2025', '23/05/2025', 'Done', ['Nghiên cứu thị trường', L.research], ''],
-    ['1.4', 'S1', 'Khảo sát thị trường', 'Tổng hợp nghiên cứu thị trường & kết luận định vị', 'IPR_Tổng hợp nghiên cứu.pdf', R_.prod, 'Giang', '09/05/2025', '03/07/2025', 'Done', ['Tổng hợp nghiên cứu', L.researchSum], ''],
-    ['1.5', 'S2', 'Đối thủ', 'Phân tích đối thủ & phân khúc giá', 'IPR_Sản phẩm Vs định vị cạnh tranh.pdf', R_.prod, 'Giang', '05/05/2025', '23/05/2025', 'Done', ['Định vị cạnh tranh', L.compete], ''],
-    ['1.6', 'S2', 'Kênh phân phối', 'Thu thập thông tin từ đại lý', 'Thông tin đại lý', R_.sales, '', '', '27/06/2025', 'Done', null, 'Chưa có file trong thư mục.'],
-    ['1.7', 'S2', 'Giá', 'Chốt giá kênh phân phối', 'Giá lẻ 250.000 đ / vỉ 5 mũi', R_.prod + ' đề xuất · ' + R_.gd + ' duyệt', 'Ha', '23/05/2025', '31/07/2025', 'Done', null, 'Dùng cho cổng G1.'],
-    ['2.1', 'S3', 'Kế hoạch', 'Kế hoạch marketing: định vị, thông điệp, giá, kênh', 'Kế hoạch được duyệt', R_.prod + ' + ' + R_.mkt, '', '', '', 'Not recorded', null, 'Có STP / 4P; chưa có bản kế hoạch được phê duyệt trong thư mục.'],
-    ['2.2', 'S3', 'Khảo sát', 'Khảo sát customer insight trước ra mắt', '', R_.prod, 'Giang', '03/07/2025', '10/07/2025', 'Not started', null, 'Tiến độ cũ ghi 0%.'],
-    ['2.3', 'S3', 'Nội dung online', 'Kế hoạch nội dung: mini game', 'Content plan', R_.mkt, 'Long', '', '24/06/2025', 'Done', null, ''],
-    ['2.4', 'S4', 'Flyer A4', 'Dịch nội dung flyer', 'Bản dịch flyer', R_.prod, 'Giang', '09/05/2025', '10/05/2025', 'Done', ['Thư mục bản dịch', L.dirFlyer], ''],
-    ['2.5', 'S4', 'Flyer A4', 'Thiết kế flyer', 'IPR-01EF Brochure VN.pdf', R_.mkt, 'Long', '10/05/2025', '19/05/2025', 'Done', ['Brochure VN', L.brochureVN], ''],
-    ['2.6', 'S4', 'Flyer A4', 'In flyer — 1.000 bản', 'Flyer bản in', R_.mkt, 'Long', '', '26/06/2025', 'Done', null, 'Dùng cho cổng G2.'],
-    ['2.7', 'S4', 'Standee', 'Thiết kế standee', 'File thiết kế', R_.mkt, 'Long', '16/06/2025', '04/07/2025', 'Done', null, 'Chưa thấy file thiết kế trong MKT Material.'],
-    ['2.8', 'S4', 'Standee', 'In standee', 'Standee bản in', R_.mkt, 'Long', '', '09/07/2025', 'Not started', null, 'Tiến độ cũ ghi 0% — in hay huỷ?'],
-    ['2.9', 'S4', 'Trưng bày', 'Giá cắm mũi khoan in laser logo MANI, DIA-BURS', 'Giá cắm', R_.mkt, 'Long', '', '27/06/2025', 'Done', null, 'Dùng cho cổng G2.'],
-    ['2.10', 'S5', 'Đào tạo', 'Đào tạo nội bộ', 'Buổi đào tạo', R_.prod, 'Giang', '', '18/06/2025', 'Done', null, ''],
-    ['2.11', 'S5', 'Đào tạo', 'Đào tạo nhà phân phối', 'Training _ IPR 01 EF _ 25.07.25.pptx', R_.prod, 'Giang', '', '25/07/2025', 'Done', ['Bài đào tạo NPP', L.trainNPP], ''],
-    ['3.1', 'S6', 'Dùng thử', 'Gửi mẫu dùng thử cho 21 phòng khám / bác sĩ', 'Danh sách ở tab Samples', R_.hsm, 'Tuyen', '30/06/2025', '07/07/2025', 'Done', null, ''],
-    ['3.2', 'S7', 'Khuyến mại', 'Khuyến mại ra mắt: mua 3 hộp IPR tặng 1 hộp Glide Finder', 'Thông báo đại lý 01/08/2025', R_.hsm + ' · ' + R_.gd + ' duyệt', 'Tuyen', '01/08/2025', '10/08/2025', 'Done', ['Thông báo khuyến mại', L.promo], 'Thông báo ghi 01–10/08/2025; tiến độ cũ ghi 04–25/08/2025.'],
-    ['3.3', 'S8', 'Online', 'Mở bán online', '', R_.mkt, 'Long', '', '04/08/2025', 'Not recorded', null, 'Tiến độ cũ ghi 0%.'],
-    ['3.4', 'S8', 'Online', 'Khuyến mại online', '', R_.mkt, 'Long', '', '04/08/2025', 'Not recorded', null, 'Tiến độ cũ ghi 0%.'],
-    ['3.5', 'S8', 'Online', 'Bài đăng sau ra mắt — 4 bài', '', R_.mkt, 'Long', '', '', 'Not recorded', null, ''],
-    ['3.6', 'S8', 'Sự kiện', 'Giới thiệu sản phẩm kết hợp workshop chỉnh nha', '', R_.hsm, '', '', '', 'Not recorded', null, 'Chưa có ngày / kết quả.'],
-    ['4.1', 'S9', 'Phản hồi', 'Google Form lấy phản hồi dùng thử & thu phản hồi', 'IPR Surveys _MMH — 3 phiếu', R_.prod, 'Giang', '30/06/2025', '25/08/2025', 'Done', ['Kết quả form', L.formResp], 'Tóm tắt ở tab Results.'],
-    ['4.2', 'S9', 'Khảo sát cho MANI', 'Khảo sát hình dạng mũi IPR mới (umbrella) — 8 phòng khám', '202609_IPR Survey_Results.xlsx', R_.prod, '', '22/09/2026', '23/09/2026', 'Done', ['Kết quả khảo sát', L.shapeRes], 'Tóm tắt ở tab Results.'],
-    ['4.3', 'S9', 'Khảo sát', 'Khảo sát khách hàng lần 2', 'File khảo sát lần 2 (đang trống)', R_.prod, '', '', '', 'Not started', ['File khảo sát lần 2', L.survey2], ''],
-    ['4.4', 'S10', 'Đào tạo', 'Đào tạo nội bộ bổ sung về IPR-01EF', 'InternalTraining _ IPR 01 EF _ 31.12.25.pptx', R_.prod, 'Phuong', '', '31/12/2025', 'Done', ['Bài đào tạo nội bộ', L.trainInt], ''],
-    ['4.5', 'S10', 'Doanh số', 'Theo dõi doanh số IPR-01EF theo tháng, theo NPP', 'Bảng doanh số ở tab Results', R_.prod + ' · ' + R_.hsm + ' xác nhận', '', '', '', 'Not started', null, 'File chưa có số liệu bán hàng.'],
-    ['4.6', 'S11', 'Đánh giá', 'Họp đánh giá sau ra mắt: kết quả, bài học, cải tiến', 'Biên bản đánh giá', R_.hsm + ' · ' + R_.gd + ' duyệt', '', '', '', 'Not started', null, 'Mục "Review" của tiến độ cũ đang trống.']
+    ['1.1', 'Product & market research', 'Tổng quan về kỹ thuật IPR', H.ptl, '', '', 'No', '14/05/2025', 'Done', '14/05/2025', ['Tổng quan về IPR.pdf', 'overview'], '', '10/05/2025', '14/05/2025', ''],
+    ['1.2', 'Product & market research', 'Tổng hợp thông tin sản phẩm IPR-01EF (thông số, chỉ định, IFU)', H.ptl, '', '1.1', 'Yes', '16/05/2025', 'Done', '16/05/2025', ['Thông tin IPR 01 EF _Final.pdf', 'infoFinal'], '', '09/05/2025', '16/05/2025', ''],
+    ['1.3', 'Product & market research', 'Khảo sát 11 phòng khám về thói quen IPR', H.ptl, '', '', 'Yes', '23/05/2025', 'Done', '23/05/2025', ['IPR _ Nghiên cứu thị trường.pdf', 'research'], '', '05/05/2025', '23/05/2025', ''],
+    ['1.4', 'Product & market research', 'Tổng hợp nghiên cứu thị trường & kết luận định vị', H.ptl, '', '1.3', 'Yes', '03/07/2025', 'Done', '03/07/2025', ['IPR_Tổng hợp nghiên cứu.pdf', 'researchSum'], '', '09/05/2025', '03/07/2025', ''],
+    ['1.5', 'Competitors, pricing & registration', 'Phân tích đối thủ & phân khúc giá', H.ptl, '', '', 'Yes', '23/05/2025', 'Done', '23/05/2025', ['IPR_Sản phẩm Vs định vị cạnh tranh.pdf', 'compete'], '', '05/05/2025', '23/05/2025', ''],
+    ['1.6', 'Competitors, pricing & registration', 'Thu thập thông tin từ đại lý', H.sales, '', '', 'No', '27/06/2025', 'Done', '27/06/2025', null, '', '', '27/06/2025', ''],
+    ['1.7', 'Competitors, pricing & registration', 'Chốt giá kênh phân phối: giá lẻ 250.000 đ / vỉ 5 mũi', H.ptl, H.gd, '1.5', 'Yes', '31/07/2025', 'Done', '31/07/2025', ['[link: price approval]', ''], '31/07/2025', '23/05/2025', '31/07/2025', A + 'Replace [link] with the approval file.'],
+    ['1.8', 'Competitors, pricing & registration', 'Xác nhận đăng ký sản phẩm / giấy phép nhập khẩu', H.bo, '', '', 'Yes', '27/06/2025', 'Done', '27/06/2025', ['[link: registration document]', ''], '', '05/05/2025', '27/06/2025', 'Added at setup — confirm which document applies to IPR-01EF.'],
+    ['2.1', 'Positioning & marketing plan', 'Kế hoạch marketing: định vị, thông điệp, giá, kênh', H.ptl, H.gd, '1.4', 'Yes', '30/06/2025', 'Done', '30/06/2025', ['[link: marketing plan]', ''], '30/06/2025', '20/05/2025', '30/06/2025', A + 'Old plan had STP / 4P only.'],
+    ['2.2', 'Positioning & marketing plan', 'Khảo sát customer insight trước ra mắt', H.ptl, '', '', 'No', '10/07/2025', 'Not started', '', null, '', '03/07/2025', '10/07/2025', 'Old plan: 0%.'],
+    ['2.3', 'Positioning & marketing plan', 'Kế hoạch nội dung online: mini game', H.mkt, '', '', 'No', '24/06/2025', 'Done', '24/06/2025', null, '', '', '24/06/2025', ''],
+    ['2.4', 'Marketing materials', 'Dịch nội dung flyer', H.ptl, '', '1.2', 'No', '10/05/2025', 'Done', '10/05/2025', ['Thư mục bản dịch flyer', 'dirFlyer'], '', '09/05/2025', '10/05/2025', ''],
+    ['2.5', 'Marketing materials', 'Thiết kế flyer', H.mkt, '', '2.4', 'Yes', '19/05/2025', 'Done', '19/05/2025', ['IPR-01EF Brochure VN.pdf', 'brochureVN'], '', '10/05/2025', '19/05/2025', ''],
+    ['2.6', 'Marketing materials', 'In flyer — 1.000 bản', H.mkt, '', '2.5', 'No', '26/06/2025', 'Done', '26/06/2025', null, '', '', '26/06/2025', ''],
+    ['2.7', 'Marketing materials', 'Thiết kế standee', H.mkt, '', '', 'No', '04/07/2025', 'Done', '04/07/2025', null, '', '16/06/2025', '04/07/2025', 'Design file not found in MKT Material.'],
+    ['2.8', 'Marketing materials', 'In standee', H.mkt, '', '2.7', 'No', '09/07/2025', 'Not started', '', null, '', '', '09/07/2025', 'Old plan: 0%. Print or cancel?'],
+    ['2.9', 'Marketing materials', 'Giá cắm mũi khoan in laser logo MANI, DIA-BURS', H.mkt, '', '', 'No', '27/06/2025', 'Done', '27/06/2025', null, '', '', '27/06/2025', ''],
+    ['2.10', 'Training', 'Đào tạo nội bộ', H.ptl, '', '1.2', 'No', '18/06/2025', 'Done', '18/06/2025', null, '', '', '18/06/2025', ''],
+    ['2.11', 'Training', 'Đào tạo nhà phân phối', H.ptl, '', '2.10', 'Yes', '25/07/2025', 'Done', '25/07/2025', ['Training _ IPR 01 EF _ 25.07.25.pptx', 'trainNPP'], '', '', '25/07/2025', ''],
+    ['3.1', 'Product samples', 'Gửi mẫu dùng thử cho 21 phòng khám', H.hsm, '', '1.8', 'No', '07/07/2025', 'Done', '07/07/2025', null, '', '30/06/2025', '07/07/2025', 'Shipments in UPDATE · Samples.'],
+    ['3.2', 'Launch promotion', 'Khuyến mại ra mắt: mua 3 hộp IPR tặng 1 hộp Glide Finder', H.hsm, H.gd, '2.11', 'Yes', '10/08/2025', 'Done', '10/08/2025', ['Thông báo khuyến mại 01/08/2025', 'promo'], '31/07/2025', '01/08/2025', '10/08/2025', A + 'Notice 01/08/2025; old plan said 04–25/08/2025.'],
+    ['3.3', 'Online & events', 'Mở bán online', H.mkt, '', '3.2', 'No', '04/08/2025', 'To confirm', '', null, '', '', '04/08/2025', 'Old plan: 0%.'],
+    ['3.4', 'Online & events', 'Khuyến mại online', H.mkt, '', '3.2', 'No', '04/08/2025', 'To confirm', '', null, '', '', '04/08/2025', 'Old plan: 0%.'],
+    ['3.5', 'Online & events', 'Bài đăng sau ra mắt — 4 bài', H.mkt, '', '', 'No', '', 'To confirm', '', null, '', '', '', ''],
+    ['3.6', 'Online & events', 'Giới thiệu sản phẩm tại workshop chỉnh nha', H.hsm, '', '', 'No', '', 'To confirm', '', null, '', '', '', 'No date or result recorded.'],
+    ['4.1', 'Customer feedback & surveys', 'Khảo sát sau dùng thử (Google Form)', H.ptl, '', '3.1', 'No', '25/08/2025', 'Done', '25/08/2025', ['IPR Surveys _MMH', 'formResp'], '', '30/06/2025', '25/08/2025', '3 responses.'],
+    ['4.2', 'Customer feedback & surveys', 'Khảo sát hình dạng mũi IPR mới cho MANI', H.ptl, '', '', 'Yes', '23/09/2026', 'Done', '23/09/2026', ['202609_IPR Survey_Results.xlsx', 'shapeRes'], '', '22/09/2026', '23/09/2026', '8 clinics.'],
+    ['4.3', 'Customer feedback & surveys', 'Khảo sát khách hàng lần 2', '', '', '4.1', 'No', '', 'Not started', '', null, '', '', '', 'No PIC yet.'],
+    ['4.4', 'Sales follow-up', 'Đào tạo nội bộ bổ sung về IPR-01EF', H.pt, '', '', 'No', '31/12/2025', 'Done', '31/12/2025', ['InternalTraining _ IPR 01 EF _ 31.12.25.pptx', 'trainInt'], '', '', '31/12/2025', ''],
+    ['4.5', 'Sales follow-up', 'Theo dõi doanh số theo tháng, theo nhà phân phối', H.ptl, H.hsm, '3.2', 'Yes', '30/11/2026', 'In progress', '', null, '', '01/08/2025', '30/11/2026', 'UPDATE · Sales is still empty.'],
+    ['4.6', 'Post-launch review', 'Họp đánh giá sau ra mắt: kết quả, bài học, cải tiến', H.hsm, H.gd, '4.3, 4.5', 'Yes', '15/12/2026', 'Not started', '', null, '', '01/12/2026', '15/12/2026', '']
   ];
 }
-function gateSeed_() {
-  function st(code) { return '=IFERROR(VLOOKUP("' + code + '",Engine!$B$' + E_STEP + ':$J$' + (E_STEP + 10) + ',9,FALSE)="DONE",FALSE)'; }
-  function tk(ids) { return '=' + ids.map(function (id) { return 'SUMPRODUCT((Tasks!$B$4:$B="' + id + '")*(Tasks!$L$4:$L="Done"))'; }).join('+') + '>=' + ids.length; }
-  // Gate, #, Criterion, Type, Check, Met, Evidence / note, [doc]
+function docSeed_() {
+  // phase (0 = folders), type, document, purpose, link key
   return [
-    ['G1', 1, 'Product & market research complete (S1)', 'Required', 'Auto', st('S1'), '', null],
-    ['G1', 2, 'Competitor & price analysis complete (S2)', 'Required', 'Auto', st('S2'), '', null],
-    ['G1', 3, 'Distributor retail price approved (task 1.7)', 'Required', 'Auto', tk(['1.7']), '', null],
-    ['G1', 4, 'General Director confirms the go decision', 'Required', 'Manual', true, 'Xác nhận theo thực tế: sản phẩm đã ra mắt 08/2025.', null],
-    ['G1', 5, 'Kick-off minutes stored (08/05/2025)', 'Recommended', 'Manual', false, 'File biên bản trên Drive đang trống.', ['Biên bản 08/05', L.meet0805]],
-    ['G1', 6, 'Feasibility approval record stored', 'Recommended', 'Manual', false, '', null],
-    ['G2', 1, 'Positioning & marketing plan complete (S3)', 'Required', 'Auto', st('S3'), '', null],
-    ['G2', 2, 'Core materials ready: flyer printed, display holder (tasks 2.6, 2.9)', 'Required', 'Auto', tk(['2.6', '2.9']), '', null],
-    ['G2', 3, 'Internal and distributor training done (S5)', 'Required', 'Auto', st('S5'), '', null],
-    ['G2', 4, 'Launch plan approved: price, promotion, materials', 'Required', 'Manual', false, 'Chưa có bản kế hoạch được phê duyệt trong thư mục.', null],
-    ['G2', 5, 'All materials ready, incl. standee (S4)', 'Recommended', 'Auto', st('S4'), '', null],
-    ['G3', 1, 'Samples sent to target clinics (S6)', 'Required', 'Auto', st('S6'), '', null],
-    ['G3', 2, 'Launch promotion completed (S7)', 'Required', 'Auto', st('S7'), '', null],
-    ['G3', 3, 'Online launch & events completed (S8)', 'Required', 'Auto', st('S8'), '', null],
-    ['G3', 4, 'Head of S&M confirms the launch is completed', 'Required', 'Manual', false, '', null],
-    ['G4', 1, 'Customer feedback & surveys complete (S9)', 'Required', 'Auto', st('S9'), '', null],
-    ['G4', 2, 'Sales tracked against targets (S10)', 'Required', 'Auto', st('S10'), '', null],
-    ['G4', 3, 'Post-launch review held (S11)', 'Required', 'Auto', st('S11'), '', null],
-    ['G4', 4, 'General Director approves project closure', 'Required', 'Manual', false, '', null],
-    ['G4', 5, 'Lessons learned stored in the project folder', 'Recommended', 'Manual', false, '', null]
+    [0, 'Folder', 'Thư mục 2025 Launching IPR Dia-Burs', 'Thư mục gốc của dự án', 'dirLaunch'], [0, 'Folder', 'MKT Material', 'Ấn phẩm, catalogue, ảnh, IFU, TSKT', 'dirMkt'],
+    [0, 'Folder', 'Training', 'Bài đào tạo nhà phân phối', 'dirTrain'], [0, 'Minutes', 'IPR Lauching Họp 08/05', 'Họp khởi động — file đang trống', 'meet0805'],
+    [1, 'Research', 'Thư mục 202507 Market Research - IPR final Report', 'Báo cáo nghiên cứu thị trường IPR', 'dirResearch'],
+    [1, 'Research', 'Thư mục Dự án IPR', 'Bản tổng hợp nghiên cứu, thông tin sản phẩm', 'dirProject'],
+    [1, 'Research', 'Tổng quan về IPR.pdf', 'Tổng quan kỹ thuật mài kẽ', 'overview'], [1, 'Research', 'IPR _ Nghiên cứu thị trường.pdf', 'Khảo sát 11 phòng khám, thói quen IPR', 'research'],
+    [1, 'Research', 'IPR_Tổng hợp nghiên cứu.pdf', 'Bối cảnh, định vị, đối thủ, kết luận', 'researchSum'],
+    [1, 'Research', 'IPR_Sản phẩm Vs định vị cạnh tranh.pdf', 'So sánh sản phẩm & định vị', 'compete'],
+    [1, 'Product', 'Thông tin IPR 01 EF _Final.pdf', 'Thông số, chỉ định, chống chỉ định, tiệt khuẩn', 'infoFinal'],
+    [1, 'Product', 'IPR 01EF_Thông tin tổng hợp.pdf', 'Thông tin tổng hợp sản phẩm', 'infoSum'], [1, 'Product', 'Mani IPR 01 EF_04_14_report.pdf', 'Báo cáo lâm sàng của MANI', 'clinical'],
+    [1, 'Product', 'IPR IFU.pdf', 'Hướng dẫn sử dụng', 'ifu'], [1, 'Product', 'MANI — IPR-01EF.pdf (web)', 'Brochure gốc của MANI', 'maniPdf'],
+    [1, 'Product', 'MANI — dental_04_14_report.pdf (web)', 'Báo cáo lâm sàng (bản web)', 'maniReport'], [1, 'Product', 'MANI — 6DIA-BURS.pdf (web)', 'IFU DIA-BURS (bản web)', 'maniIfu'],
+    [2, 'Material', 'IPR-01EF Brochure VN.pdf', 'Flyer tiếng Việt', 'brochureVN'], [2, 'Material', 'Thư mục bản dịch flyer', 'Bản dịch flyer', 'dirFlyer'],
+    [2, 'Material', 'IPR-01EF _ Catalogue.pdf', 'Catalogue', 'catalogue'], [2, 'Material', 'Bản dịch Catalog mũi khoan IPR', 'Bản dịch catalogue', 'catTrans'],
+    [2, 'Material', 'IPR-01EF.png', 'Ảnh sản phẩm', 'img'], [2, 'Tender', 'TSKT _ Mũi khoan IPR.xlsx', 'Thông số kỹ thuật cho hồ sơ thầu', 'tskt'],
+    [2, 'Training', 'Training _ IPR 01 EF _ 25.07.25.pptx', 'Đào tạo nhà phân phối 25/07/2025', 'trainNPP'],
+    [2, 'Survey', 'Google Form "KHẢO SÁT SỬ DỤNG MŨI KHOAN IPR"', 'Form lấy phản hồi dùng thử', 'form'],
+    [3, 'Promotion', 'Thông báo khuyến mại ra mắt 01/08/2025', 'Mua 3 hộp IPR tặng 1 hộp Glide Finder', 'promo'],
+    [4, 'Survey', 'IPR Surveys _MMH', 'Kết quả form dùng thử (3 phiếu)', 'formResp'], [4, 'Training', 'InternalTraining _ IPR 01 EF _ 31.12.25.pptx', 'Đào tạo nội bộ bổ sung', 'trainInt'],
+    [4, 'Survey', 'IPR Survey_For New Umbrella shape.docx', 'Bộ câu hỏi khảo sát hình dạng mũi mới (MANI)', 'shapeDoc'],
+    [4, 'Survey', '202609_IPR Survey_Results.xlsx', 'Kết quả khảo sát hình dạng mũi, 8 phòng khám', 'shapeRes'],
+    [4, 'Survey', 'IPR _ Khảo sát khách hàng lần 2', 'File đang trống', 'survey2']
   ];
 }
 function sampleSeed_() {
-  return [
-    [1, 'Nikkori Clinic', '', '52 Đ. số 5, Tân Hưng, Quận 7, TP Hồ Chí Minh', 'Hộp', 2, true, 'Có phiếu khảo sát 25/08/2025'],
-    [2, 'BS Hạnh — ĐHQG Hà Nội', '', 'Hà Nội', 'Hộp', 1, false, ''],
-    [3, 'Minh Thu', '', 'Hà Nội', 'Hộp', '', false, ''],
-    [4, 'Trí Đức', '', 'Hà Nội', 'Hộp', '', false, ''],
-    [5, 'Parkway', '', 'Hà Nội', 'Hộp', '', false, ''],
-    [6, 'Lạc Việt Intech', '', 'Hà Nội', 'Hộp', '', false, ''],
-    [7, 'Thùy Anh', '', 'Hà Nội', 'Hộp', '', false, ''],
-    [8, 'Global Dental', '', 'Hà Nội', 'Hộp', '', false, ''],
-    [9, 'Home Dental', '', 'Hà Nội', 'Hộp', '', false, ''],
-    [10, 'Sea Dental', '', 'Hà Nội', 'Hộp', '', false, ''],
-    [11, 'Lux Smile Studio (KOL Dũng)', '0866868347', 'Số 19 Đường 34A, P. An Phú, Quận 2, TP Thủ Đức, TP Hồ Chí Minh', 'Hộp', 2, true, 'Có phiếu khảo sát 23/08/2025'],
-    [12, 'Nha khoa Thùy (KOL Thùy)', '', 'Bắc Giang', 'Hộp', 3, true, 'Có phiếu khảo sát 20/08/2025'],
-    [13, 'Jet Dentist', '', 'Hà Nội', 'Hộp', '', false, ''],
-    [14, 'BS Lê Văn Tiên', '0983110024', '170 Nguyễn Hữu Thọ, Hải Châu, Đà Nẵng', 'Hộp', '', false, ''],
-    [15, 'Nha khoa Dr Hùng (BS Lan)', '0982136718', '275 Tiểu La, Hải Châu, Đà Nẵng', 'Hộp', '', false, ''],
-    [16, 'Nha khoa Việt Anh (BS Việt Anh)', '0901130202', '12 Triệu Nữ Vương, Hải Châu, Đà Nẵng', 'Hộp', '', false, ''],
-    [17, 'Nha khoa V-Care (BS Hiếu)', '0387579865', '190 Kinh Dương Vương, Liên Chiểu, Đà Nẵng', 'Hộp', '', false, ''],
-    [18, 'Nha khoa Aki (A Phong)', '', 'TP Hồ Chí Minh', 'Hộp', '', false, 'Phản hồi miệng: chất lượng ok'],
-    [19, 'Nha khoa Hoa Sứ (Dr Hiếu)', '', 'TP Hồ Chí Minh', 'Hộp', '', false, ''],
-    [20, 'Chỉnh nha Huy', '', 'Hải Phòng', 'Hộp', '', false, ''],
-    [21, 'RHM Trung ương (BS Hà)', '', 'Hà Nội', 'Hộp', '', false, '']
-  ];
-}
-function actionSeed_() {
-  // Issue, Evidence, Action, Role, Status, Notes
-  return [
-    ['Độ bền mũi', '2/3 phiếu dùng thử góp ý độ bền; 1 ý kiến 2026: mũi dễ hỏng', 'Hướng dẫn "một mũi cho một ca, thay khi giảm cắt"; chuyển ý kiến cho MANI', R_.prod, 'Not started', ''],
-    ['Thiếu hình dạng bo góc', '6/8 phòng khám ưa mũi ô có đầu nhọn (09/2026)', 'Gửi kết quả khảo sát cho MANI (dòng IPR-04 / IPR-05)', R_.prod, 'Not recorded', ''],
-    ['Chưa có số liệu bán hàng', 'Bảng doanh số trống', 'Điền doanh số theo tháng từ báo cáo doanh số NPP', R_.prod, 'Not started', ''],
-    ['Hoạt động online chưa ghi nhận', 'Mở bán / khuyến mại online, 4 bài đăng chưa có trạng thái', 'Nhóm Marketing xác nhận đã làm / chưa làm', R_.mkt, 'Not recorded', ''],
-    ['Standee chưa in', 'Tiến độ cũ 0%', 'Quyết định in hay huỷ', R_.mkt, 'Not started', ''],
-    ['Thiếu biên bản họp & đánh giá', 'Biên bản 08/05 trống; mục Review trống', 'Họp đánh giá sau ra mắt, lưu biên bản vào thư mục launch', R_.hsm + ' · ' + R_.gd + ' duyệt', 'Not started', ''],
-    ['Ngày khuyến mại chưa thống nhất', 'Thông báo 01–10/08/2025 · tiến độ cũ 04–25/08/2025', 'Xác nhận mốc thực tế', R_.hsm, 'Not recorded', '']
-  ];
+  // Clinic, Segment, City, Qty, Survey, Feedback date, Notes
+  var x = [['Nikkori Clinic', 'General dentist', 'TP Hồ Chí Minh', 2, 1, '25/08/2025', '52 Đ. số 5, Tân Hưng, Quận 7'],
+    ['BS Hạnh — ĐHQG Hà Nội', '', 'Hà Nội', 1, 0, '', ''], ['Minh Thu', '', 'Hà Nội', '', 0, '', ''], ['Trí Đức', '', 'Hà Nội', '', 0, '', ''],
+    ['Parkway', '', 'Hà Nội', '', 0, '', ''], ['Lạc Việt Intech', '', 'Hà Nội', '', 0, '', ''], ['Thùy Anh', '', 'Hà Nội', '', 0, '', ''],
+    ['Global Dental', '', 'Hà Nội', '', 0, '', ''], ['Home Dental', '', 'Hà Nội', '', 0, '', ''], ['Sea Dental', '', 'Hà Nội', '', 0, '', ''],
+    ['Lux Smile Studio (KOL Dũng)', 'General dentist', 'TP Hồ Chí Minh', 2, 1, '23/08/2025', 'Số 19 Đường 34A, An Phú, TP Thủ Đức'],
+    ['Nha khoa Thùy (KOL Thùy)', 'General dentist', 'Bắc Giang', 3, 1, '20/08/2025', ''], ['Jet Dentist', '', 'Hà Nội', '', 0, '', ''],
+    ['BS Lê Văn Tiên', '', 'Đà Nẵng', '', 0, '', '170 Nguyễn Hữu Thọ, Hải Châu'], ['Nha khoa Dr Hùng (BS Lan)', '', 'Đà Nẵng', '', 0, '', '275 Tiểu La, Hải Châu'],
+    ['Nha khoa Việt Anh (BS Việt Anh)', '', 'Đà Nẵng', '', 0, '', '12 Triệu Nữ Vương, Hải Châu'], ['Nha khoa V-Care (BS Hiếu)', '', 'Đà Nẵng', '', 0, '', '190 Kinh Dương Vương, Liên Chiểu'],
+    ['Nha khoa Aki (A Phong)', '', 'TP Hồ Chí Minh', '', 0, '', 'Phản hồi miệng: chất lượng ok'], ['Nha khoa Hoa Sứ (Dr Hiếu)', '', 'TP Hồ Chí Minh', '', 0, '', ''],
+    ['Chỉnh nha Huy', '', 'Hải Phòng', '', 0, '', ''], ['RHM Trung ương (BS Hà)', '', 'Hà Nội', '', 0, '', '']];
+  return x;
 }
 
-/* ═══ Tasks ═════════════════════════════════════════════════════════════════════════════ */
-var SPAN0 = 'DATE(2025,5,1)', SPANN = 'DATE(2026,12,31)-DATE(2025,5,1)';
-function buildTasks_(ss) {
-  var sh = sheet_(ss, TB.tasks, [52, 110, 62, 190, 300, 230, 190, 80, 92, 92, 120, 160, 260, 120, 170], '#5A84A6');
-  head_(sh, '✅  TASKS · PIC UPDATE HERE',
-    '✏️ PIC cập nhật: Step, Owner, Start, Due, Status (chọn từ danh sách), Document, Notes · ⚙️ Phase, Step name, Flag, Timeline tự tính · Thêm việc mới ở cuối bảng, chọn Step → Launch Flow tự cập nhật.');
-  var seed = taskSeed_(), S = SNAP || { tasks: {}, extraTasks: [] };
-  var rows = seed.map(function (t) {
-    var p = S.tasks[t[0]] || {};
-    var doc = t[10];
-    return [t[0], '', t[1], '', t[3], t[4], t[5],
-      p.owner !== undefined ? p.owner : t[6],
-      p.start !== undefined ? p.start : D_(t[7]),
-      p.due !== undefined ? p.due : D_(t[8]),
-      p.status || t[9],
-      p.doc !== undefined && p.doc !== '' ? p.doc : (doc ? doc : ''),
-      p.notes !== undefined ? p.notes : t[11], '', ''];
+/* ══ SETUP · Team & plan ══════════════════════════════════════════════════════════════════ */
+function padRows_(rows, n, w) { rows = fill2_(rows || [], w); while (rows.length < n) { var e = []; for (var i = 0; i < w; i++) e.push(''); rows.push(e); } return rows.slice(0, n); }
+function R_ROLE_() { return q_(T.setup) + '$B$' + SU.team0 + ':$B$' + (SU.team0 + SU.teamN - 1); }
+function R_STEPS_() { return q_(T.setup) + '$B$' + SU.step0 + ':$C$' + (SU.step0 + 10); }
+function buildSetup_(ss) {
+  var sh = prep_(ss, T.setup, [210, 130, 240, 190, 70, 24, 230, 190, 24, 150, 24, 150], K.setG, 40);
+  title_(sh, 'SETUP · TEAM & PLAN', 'Filled once by the project owner. Names here feed every PIC and approver dropdown and the email list.',
+    'Head of Sales & Marketing', 'Names, emails, plan dates, baseline lock, lists', 12);
+  section_(sh, 5, 2, 5, 'Team', 'Role names are used in every dropdown');
+  header_(sh, 6, 2, ['Role in this file', 'Name', 'Company email', 'Does what', 'Gets emails']);
+  var team = [[ROLES.hsm, 'Tuyen', 'tt.tuyen@manimedicalhanoi.com', 'Project owner · task approver', 'Yes'],
+    [ROLES.gd, 'Nguyen Ha', 'nt.ha@manimedicalhanoi.com', 'Phase approver', 'Yes'], [ROLES.ptl, 'Giang', 'mmh.product@manimedicalhanoi.com', 'PIC', 'Yes'],
+    [ROLES.mkt, 'Thuong', 'marketing.mmh@manimedicalhanoi.com', 'PIC', 'Yes'], [ROLES.sales, 'Minh Viet', 'mmh.hanoi@manimedicalhanoi.com', 'PIC', 'Yes'],
+    [ROLES.bo, 'Hoa', 'vtt.hoa@manimedicalhanoi.com', 'PIC · registration', 'Yes'], [ROLES.pt, '', '', 'PIC', 'Yes']];
+  if (SNAP && nonEmpty_(SNAP.team, [1]).length) team = SNAP.team.map(function (r) { return r.slice(1, 6); });
+  sh.getRange(SU.team0, 2, SU.teamN, 5).setValues(padRows_(team, SU.teamN, 5));
+  sh.getRange(SU.team0, 2, SU.teamN, 1).setFontWeight('bold');
+  grid_(sh, SU.team0, 2, SU.teamN, 5);
+  sh.getRange(SU.team0, 6, SU.teamN, 1).setDataValidation(dvList_(['Yes', 'No'])).setHorizontalAlignment('center');
+  section_(sh, 5, 8, 2, 'Plan');
+  header_(sh, 6, 8, ['Setting', 'Value']);
+  var plan = [['Project start', D_('05/05/2025')], ['Planned finish', D_('31/12/2026')], ['Project owner', ROLES.hsm], ['Phase approver', ROLES.gd],
+    ['Baseline set by', ROLES.hsm], ['Baseline locked on', D_('05/05/2025')], ['Feedback due after (days)', 14], ['Sample budget (packs, blank = no limit)', ''],
+    ['Deadline window (days)', 45], ['Weekly reminder', 'Off']];
+  if (SNAP && SNAP.plan && SNAP.plan.length === 10) plan = plan.map(function (p, i) { return [p[0], i === 9 ? p[1] : SNAP.plan[i][1]]; });
+  sh.getRange(SU.plan0, 8, 10, 2).setValues(plan);
+  sh.getRange(SU.plan0, 8, 10, 1).setFontWeight('bold').setFontColor(K.navy);
+  grid_(sh, SU.plan0, 8, 10, 2);
+  [0, 1, 5].forEach(function (i) { sh.getRange(SU.plan0 + i, 9).setNumberFormat('dd/mm/yyyy'); });
+  var roleRg = sh.getRange(SU.team0, 2, SU.teamN, 1);
+  [2, 3, 4].forEach(function (i) { sh.getRange(SU.plan0 + i, 9).setDataValidation(dvRange_(roleRg)); });
+  sh.getRange(SU.plan0 + 9, 9).setValue(iprReminderIsOn_() ? 'On · Monday 08:30' : 'Off').setBackground(K.auto).setFontColor(K.mut);
+  sh.getRange(SU.plan0 + 9, 8).setNote('Use menu IPR Launch ▸ Turn weekly reminder on / off.');
+  section_(sh, 19, 2, 12, 'Dropdown lists', 'Add items at the end of a list');
+  header_(sh, 20, 2, ['Step', 'Phase']); header_(sh, 20, 4, ['Phase name', 'Approval']);
+  header_(sh, 20, 8, ['Distributors']); header_(sh, 20, 10, ['Segments']); header_(sh, 20, 12, ['Survey types']);
+  sh.getRange(SU.step0, 2, 11, 2).setValues(STEPS.map(function (s) { return [s[0], s[1]]; }));
+  sh.getRange(SU.step0, 3, 11, 1).setNumberFormat('"Phase "0').setHorizontalAlignment('left');
+  sh.getRange(SU.step0, 4, 4, 2).setValues(PHASES.map(function (p) { return [p[0], p[1]]; }));
+  var lists = { 8: ['Nam Dung', 'MECI', '[other distributor]'], 10: ['Orthodontist', 'General dentist', 'University', 'Hospital'], 12: ['Trial feedback', 'Market research', 'Product idea', 'Satisfaction'] };
+  Object.keys(lists).forEach(function (c) {
+    var v = lists[c];
+    if (SNAP && SNAP.lists && SNAP.lists.length) { var sv = SNAP.lists.map(function (r) { return r[c - 1]; }).filter(function (x) { return x !== ''; }); if (sv.length) v = sv; }
+    sh.getRange(SU.list0, +c, SU.listN, 1).setValues(padRows_(v.map(function (x) { return [x]; }), SU.listN, 1));
+    grid_(sh, SU.list0, +c, SU.listN, 1);
   });
-  S.extraTasks.forEach(function (r) { rows.push([r[0], '', r[2], '', r[4], r[5], r[6], r[7], r[8], r[9], r[10], r[11], r[12], '', '']); });
-  var BLANK = 20, n = rows.length + BLANK;
-  var t = table_(sh, 3, 2, ['ID', '⚙️ Phase', '✏️ Step', '⚙️ Step name', 'Task', 'Output / evidence', 'Role (SOP)', '✏️ Owner',
-    '✏️ Start', '✏️ Due', '✏️ Status', '✏️ Document', '✏️ Notes', '⚙️ Flag', '⚙️ Timeline 05/2025 → 12/2026'],
-    rows, { blank: n, text: [0], dates: [8, 9], center: [0, 1, 2, 10, 13], calc: [1, 3, 13], links: [11] });
-  // công thức mảng ở dòng đầu (ghi đè ô trống cột C, E, O)
-  sh.getRange(4, 3, n, 1).clearContent(); sh.getRange(4, 5, n, 1).clearContent(); sh.getRange(4, 15, n, 1).clearContent();
-  sh.getRange(4, 3).setFormula('=ARRAYFORMULA(IF(D4:D="","",IFERROR(VLOOKUP(D4:D,Engine!$B$' + E_STEP + ':$C$' + (E_STEP + 10) + ',2,FALSE),"")))');
-  sh.getRange(4, 5).setFormula('=ARRAYFORMULA(IF(D4:D="","",IFERROR(VLOOKUP(D4:D,Engine!$B$' + E_STEP + ':$D$' + (E_STEP + 10) + ',3,FALSE),"")))');
-  sh.getRange(4, 15).setFormula('=ARRAYFORMULA(IF(B4:B="","",IF((K4:K<>"")*(K4:K<TODAY())*((L4:L="In progress")+(L4:L="Not started")),"⏰ OVERDUE",IF(L4:L="Not recorded","❓ TO CONFIRM",IF(L4:L="Done","✅","")))))');
-  // timeline (sparkline) từng dòng
-  var f = [];
-  for (var i = 0; i < n; i++) {
-    var r = 4 + i;
-    f.push(['=IF(K' + r + '="","",SPARKLINE({MAX(0,IF(J' + r + '="",K' + r + '-7,J' + r + ')-' + SPAN0 + '),MAX(3,K' + r + '-IF(J' + r + '="",K' + r + '-7,J' + r + '))},' +
-      '{"charttype","bar";"max",' + SPANN + ';"color1","white";"color2",IF(L' + r + '="Done","' + C_.teal + '",IF(O' + r + '="⏰ OVERDUE","' + C_.red + '","' + C_.acc2 + '"))}))']);
-  }
-  sh.getRange(4, 16, n, 1).setFormulas(f);
-  // nhập liệu
-  sh.getRange(4, 4, n, 1).setDataValidation(SpreadsheetApp.newDataValidation()
-    .requireValueInRange(ss.getSheetByName(TB.eng).getRange('B' + E_STEP + ':B' + (E_STEP + 10)), true).setAllowInvalid(false).build());
-  var st = sh.getRange(4, 12, n, 1);
-  st.setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(STATUSES, true).setAllowInvalid(false).build());
-  sh.getRange(4, 10, n, 2).setDataValidation(SpreadsheetApp.newDataValidation().requireDate().setAllowInvalid(true).build());
-  sh.setFrozenRows(3); sh.setFrozenColumns(2);
-  sh.getRange(3, 2, 1, 15).setVerticalAlignment('middle');
-  var all = sh.getRange(4, 2, n, 15), fl = sh.getRange(4, 15, n, 1);
-  sh.setConditionalFormatRules([
-    cf_(st, '=$L4="Done"', C_.tealL, '#2F6F66', true),
-    cf_(st, '=$L4="In progress"', '#E1EBF4', C_.navy, true),
-    cf_(st, '=$L4="Not recorded"', C_.yel, '#7A5B12', true),
-    cf_(st, '=$L4="Not started"', C_.pale, C_.acc, true),
-    cf_(st, '=$L4="Cancelled"', '#EEEEEE', '#999999', false),
-    cf_(fl, '=REGEXMATCH($O4,"OVERDUE")', C_.redL, '#8A4A3A', true),
-    cf_(fl, '=REGEXMATCH($O4,"CONFIRM")', C_.yel, '#7A5B12', true),
-    cf_(all, '=$L4="Cancelled"', null, '#AAAAAA', false)
-  ]);
-  sh.setRowHeights(4, n, 30);
+  grid_(sh, SU.step0, 2, 11, 2); grid_(sh, SU.step0, 4, 4, 2);
+  protectWarn_(sh, sh.getRange(SU.step0, 2, 11, 4));
+  sh.setFrozenRows(4);
 }
 
-/* ═══ Gates ═════════════════════════════════════════════════════════════════════════════ */
-function buildGates_(ss) {
-  var sh = sheet_(ss, TB.gates, [60, 36, 380, 110, 80, 90, 360, 170], '#5A84A6');
-  head_(sh, '🚦  GATES · WHY THE PROJECT MOVES ON',
-    '⚙️ Auto = tính từ Tasks · ✏️ Manual = người quyết định tick ô và ghi bằng chứng · Cổng PASSED khi mọi tiêu chí Required đạt; nếu giai đoạn sau đã chạy mà cổng chưa đạt ⇒ BYPASSED.');
-  var g = gateSeed_(), S = SNAP || { gates: {} };
-  var rows = g.map(function (r) {
-    var k = r[0] + '|' + r[2], p = S.gates[k];
-    var met = r[5], note = r[6], doc = r[7];
-    if (p && r[4] === 'Manual') { met = p.met === true; note = p.note; doc = p.doc || doc; }
-    return [r[0], r[1], r[2], r[3], r[4], met, note, doc || ''];
-  });
-  var t = table_(sh, 3, 2, ['Gate', '#', 'Criterion', 'Type', 'Check', '✏️ Met?', '✏️ Evidence / note', '✏️ Document'], rows,
-    { center: [0, 1, 3, 4, 5], bold: [0], links: [7] });
-  rows.forEach(function (r, i) {
-    var c = sh.getRange(4 + i, 7);
-    if (r[4] === 'Manual') { c.insertCheckboxes(); c.setValue(r[5] === true); }
-    else c.setFontStyle('italic');
-    if (i > 0 && r[0] !== rows[i - 1][0]) sh.getRange(4 + i, 2, 1, 8).setBorder(true, null, null, null, null, null, C_.acc, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
-  });
-  var met = sh.getRange(4, 7, rows.length, 1);
-  sh.setConditionalFormatRules([
-    cf_(met, '=$G4=TRUE', C_.tealL, '#2F6F66', true),
-    cf_(met, '=AND($G4<>TRUE,$E4="Required")', C_.redL, '#8A4A3A', true),
-    cf_(met, '=AND($G4<>TRUE,$E4="Recommended")', C_.yel, '#7A5B12', true),
-    cf_(sh.getRange(4, 5, rows.length, 1), '=$E4="Recommended"', null, C_.acc, false)
-  ]);
-  sh.setFrozenRows(3);
-  sh.setRowHeights(4, rows.length, 30);
-  // bảng tổng hợp cổng (đọc Engine) bên dưới
-  var r0 = t.r1 + 2;
-  section_(sh, r0, 2, 8, '📋  GATE SUMMARY (calculated)');
-  var sum = GATES.map(function (gg, i) {
-    var er = E_GATE + i;
-    return [gg[0], '', gg[1], '=Engine!N' + er, '', '', '=Engine!O' + er, '=Engine!P' + er];
-  });
-  table_(sh, r0 + 1, 2, ['Gate', '', 'Name', 'Status', '', '', 'Why', 'To add'], sum, { bold: [0, 2] });
-  sh.getRange(r0 + 2, 5, 4, 3).mergeAcross();
-  sh.setRowHeights(r0 + 2, 4, 48);
-  var stc = sh.getRange(r0 + 2, 5, 4, 3);
-  var rules = sh.getConditionalFormatRules();
-  GATE_COLORS.forEach(function (c) { rules.push(cf_(stc, '=REGEXMATCH($E' + (r0 + 2) + ',"' + c[0] + '")', c[1], c[2], true)); });
-  sh.setConditionalFormatRules(rules);
+/* ══ UPDATE · Tasks ═══════════════════════════════════════════════════════════════════════ */
+function bandFormula_(p) {
+  var ar = AP.ph0 + p - 1;
+  return '="Phase ' + p + ' · "&' + q_(T.setup) + '$D$' + (SU.step0 + p - 1) + '&"     —   phase approval: "&LOWER(' + q_(T.appr) + '$J$' + ar + ')&IF(' + q_(T.appr) + '$H$' + ar + '="",""," "&TEXT(' + q_(T.appr) + '$H$' + ar + ',"dd/mm/yyyy"))';
 }
-
-/* ═══ Samples ═══════════════════════════════════════════════════════════════════════════ */
-function buildSamples_(ss) {
-  var sh = sheet_(ss, TB.smp, [44, 240, 110, 340, 60, 50, 110, 280], '#5A84A6');
-  head_(sh, '📦  SAMPLES · TRIAL & FEEDBACK',
-    '✏️ PIC tick "Feedback received" khi bác sĩ đã gửi phản hồi và ghi tóm tắt ở Notes · Thêm nơi nhận mẫu mới ở cuối bảng · Tỷ lệ phản hồi tự tính trên Launch Flow.');
-  var S = SNAP || { samples: {}, extraSamples: [] };
-  var rows = sampleSeed_().map(function (r) {
-    var p = S.samples[r[1]]; var x = r.slice();
-    if (p) { x[6] = p.fb === true; x[7] = p.note; }
-    return x;
-  });
-  S.extraSamples.forEach(function (r) { rows.push([r[0], r[1], r[2], r[3], r[4], r[5], r[6] === true, r[7]]); });
-  var t = table_(sh, 3, 2, ['No', 'Clinic / dentist', 'Phone', 'Address', 'Unit', 'Qty', '✏️ Feedback received', '✏️ Feedback / notes'],
-    rows, { blank: rows.length + 10, text: [2], center: [0, 4, 5, 6] });
-  sh.getRange(4, 4, rows.length, 1).setValues(rows.map(function (r) { return [String(r[2])]; }));
-  sh.getRange(4, 8, t.n, 1).insertCheckboxes();
-  sh.getRange(4, 8, rows.length, 1).setValues(rows.map(function (r) { return [r[6] === true]; }));
-  sh.setConditionalFormatRules([cf_(sh.getRange(4, 2, t.n, 8), '=$H4=TRUE', C_.tealL, null, false)]);
-  sh.setFrozenRows(3);
-  sh.setRowHeights(4, t.n, 28);
-}
-
-/* ═══ Results ═══════════════════════════════════════════════════════════════════════════ */
-function buildResults_(ss) {
-  var sh = sheet_(ss, TB.res, [230, 170, 150, 170, 240, 130, 220], '#5A84A6');
-  head_(sh, '📈  RESULTS · MEASURE & OPTIMIZE',
-    '✏️ PIC điền doanh số mỗi tháng và cập nhật trạng thái việc cải tiến · KPI có ⚙️ tự tính từ Tasks / Samples.');
-  var S = SNAP || { sales: {}, actions: {} };
-  // A — sales (row 3 section, header 4, rows 5–16, total 17) — Engine đọc D5:D16, E5:E16
-  section_(sh, 3, 2, 7, '📈  MONTHLY SALES · IPR-01EF (fill each month)');
-  var months = [];
-  for (var m = 0; m < 12; m++) { var d = new Date(2025, 7 + m, 1); months.push(Utilities.formatDate(d, 'Asia/Bangkok', 'MM/yyyy')); }
-  var srows = months.map(function (mm) { var p = S.sales[mm] || ['', '', '', '']; return [mm, p[0], p[1], p[2], p[3]]; });
-  table_(sh, 4, 2, ['Month', '✏️ Distributor', '✏️ Units (boxes)', '✏️ Value (VND)', '✏️ Note'], srows, { text: [0], center: [0, 2] });
-  sh.getRange(17, 2, 1, 5).setValues([['TOTAL', '', '', '', '']]).setFontWeight('bold').setBackground(C_.pale).setFontColor(C_.navy);
-  sh.getRange(17, 4).setFormula('=SUM(D5:D16)'); sh.getRange(17, 5).setFormula('=SUM(E5:E16)');
-  sh.getRange(5, 4, 13, 1).setNumberFormat('#,##0').setHorizontalAlignment('center');
-  sh.getRange(5, 5, 13, 1).setNumberFormat('#,##0');
-  var r = 19;
-  section_(sh, r, 2, 7, '🎯  LAUNCH KPIs');
-  var tk = function (id) { return 'SUMPRODUCT((Tasks!$B$4:$B="' + id + '")*(Tasks!$L$4:$L="Done"))>0'; };
-  table_(sh, r + 1, 2, ['Metric', '✏️ Target', '⚙️ Actual', 'Source', 'Note'], [
-    ['Samples sent (clinics)', '', '=Engine!C' + TOT.sent, 'Samples', ''],
-    ['Feedback received', '', '=Engine!C' + TOT.fb + '&" / "&Engine!C' + TOT.sent + '&"  ("&TEXT(Engine!C' + TOT.rate + ',"0%")&")"', 'Samples', ''],
-    ['Precision rated good or better', '', '3 / 3', 'Trial form 08/2025', ''],
-    ['Distributor training before launch', 'Trước ngày ra mắt', '=IF(' + tk('2.11') + ',"✅ Done","Not yet")', 'Tasks 2.11', ''],
-    ['Core materials ready', 'Trước ngày ra mắt', '=IF(' + tk('2.6') + ',"✅ Flyer","— Flyer")&"  ·  "&IF(' + tk('2.9') + ',"✅ Holder","— Holder")&"  ·  "&IF(' + tk('2.8') + ',"✅ Standee","— Standee")', 'Tasks', ''],
-    ['Sales units (boxes)', '', '=IF(Engine!C' + TOT.units + '=0,"No data yet",TEXT(Engine!C' + TOT.units + ',"#,##0"))', 'Monthly sales', ''],
-    ['Sales value (VND)', '', '=IF(Engine!C' + TOT.value + '=0,"No data yet",TEXT(Engine!C' + TOT.value + ',"#,##0"))', 'Monthly sales', ''],
-    ['Overall task progress', '', '=TEXT(Engine!C' + TOT.ratio + ',"0%")&"  ("&Engine!C' + TOT.done + '&" / "&Engine!C' + TOT.total + '&")"', 'Tasks', '']
-  ], { bold: [0], calc: [2] });
-  r = 30;
-  section_(sh, r, 2, 7, '💬  TRIAL FEEDBACK · Google Form, 3 responses (20–25/08/2025)');
-  table_(sh, r + 1, 2, ['Question', 'Nha khoa Thùy', 'Lux Smile Studio', 'Nikkori Dental Clinic', 'Summary'], [
-    ['Profile', 'General dentist · 6–10 years', 'General dentist · 6–10 years', 'General dentist · 6–10 years', '3/3 general dentists'],
-    ['IPR cases / month', '1–5', '1–5', '6–15', ''],
-    ['Precision', 'Xuất sắc', 'Tốt', 'Tốt', '3/3 tốt trở lên'],
-    ['Vibration vs usual IPR bur', 'Giảm rõ rệt', 'Giảm vừa', 'Giảm vừa', '3/3 giảm rung'],
-    ['Surface after IPR', 'Mịn, đánh bóng ít', 'Mịn, đánh bóng ít', 'Rất mịn, không cần đánh bóng', '3/3 mịn'],
-    ['Best for', 'Mài kẽ vừa 0,2–0,5 mm', 'Mài kẽ tối thiểu < 0,2 mm', 'Mài kẽ tối thiểu < 0,2 mm', ''],
-    ['Ease of use', 'Dễ', 'Dễ', 'Rất dễ', '3/3 dễ hoặc rất dễ'],
-    ['Most effective on', 'Cửa giữa, cửa bên, nanh', 'Cửa giữa', 'Cửa giữa, cửa bên', 'Cửa giữa: 3/3'],
-    ['Main advantages', 'Giảm rung · tiết kiệm thời gian · bệnh nhân dễ chịu', 'Chính xác hơn · giảm rung · dễ kiểm soát', 'Chính xác hơn · giảm rung · bề mặt tốt', 'Giảm rung 3/3 · chính xác 2/3'],
-    ['To improve', 'Độ bền', 'Độ bền', 'Không cần', 'Độ bền 2/3']
-  ], { bold: [0] });
-  r = 43;
-  section_(sh, r, 2, 7, '🔬  SHAPE SURVEY FOR MANI · 8 clinics (22–23/09/2026)');
-  table_(sh, r + 1, 2, ['Question', 'Result', 'Comment'], [
-    ['Orthodontic specialists', '6 / 8', ''],
-    ['Main brand used', 'MANI 4 / 8', 'Khác: CNM, Komet, nhiều hãng'],
-    ['Preferred shape', 'Umbrella with pointed tip 6 / 8', 'Không chọn dạng ô: 2 / 8'],
-    ['IPR-05EF vs IPR-05EF-02', 'Both 2 · IPR-05EF-02 2 · Neither 3', 'Không trả lời: 1'],
-    ['Would buy / switch on release', 'Yes 8 / 8', ''],
-    ['Most repeated comment', 'Mở điểm tiếp xúc bằng đầu nhọn rồi bo góc bằng cùng một mũi', '1 ý kiến: mũi dễ hỏng (gãy, cháy) nên cần giá thấp hơn']
-  ], { bold: [0] });
-  r = 52;
-  section_(sh, r, 2, 7, '🛠️  IMPROVEMENT ACTIONS');
-  var acts = actionSeed_().map(function (a) { var p = S.actions[a[0]]; var x = a.slice(); if (p) { x[4] = p.status || x[4]; x[5] = p.note; } return x; });
-  var t = table_(sh, r + 1, 2, ['Issue', 'Evidence', 'Action', 'Role (SOP)', '✏️ Status', '✏️ Notes'], acts, { bold: [0], center: [4] });
-  var st = sh.getRange(r + 2, 6, acts.length, 1);
-  st.setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(STATUSES, true).build());
-  sh.setConditionalFormatRules([
-    cf_(st, '=$F' + (r + 2) + '="Done"', C_.tealL, '#2F6F66', true),
-    cf_(st, '=$F' + (r + 2) + '="In progress"', '#E1EBF4', C_.navy, true),
-    cf_(st, '=$F' + (r + 2) + '="Not recorded"', C_.yel, '#7A5B12', true),
-    cf_(st, '=$F' + (r + 2) + '="Not started"', C_.pale, C_.acc, true)
-  ]);
-}
-
-/* ═══ Feasibility · Launch Plan · Documents ═══ */
-function buildFeas_(ss) {
-  var w = W2_(ss, TB.feas, [190, 190, 190, 190, 190, 200], '#99C1DE');
-  wTitle_(w, '🔎  FEASIBILITY · PHASE 1', '✏️ Nhóm Sản phẩm cập nhật khi có thông tin mới · Cơ sở cho cổng G1 (Go / No-go).');
-
-  wSection_(w, '🦷  A. PRODUCT INFORMATION');
-  wKV_(w, [
-    ['Product', 'MANI DIA-BURS® IPR-01EF — mũi khoan kim cương siêu mịn chuyên cho mài kẽ (IPR) trong chỉnh nha'],
-    ['Pack · retail price', '5 mũi / vỉ · 250.000 đ / vỉ'],
-    ['Manufacturer', 'MANI HANOI CO.,LTD. — nhà máy Phổ Yên · Xuất xứ: Việt Nam'],
-    ['Materials', 'Thân & cán: thép không gỉ (chứa nickel, chromium) · Lớp phủ: hạt kim cương siêu mịn (ultra-fine)'],
-    ['Dimensions', 'Đầu mũi Ø 0,19 mm (mũi kim cương mỏng nhất của MANI) · Ø lớn nhất phần làm việc 0,44 mm · Dài phần làm việc 5,6 mm · Dài tổng 21,0 mm · Độ thuôn ≈ 1,28°'],
-    ['Handpiece · speed', 'Tay khoan nhanh · tối đa 160.000 vòng/phút'],
-    ['Indications', 'Chỉnh nha khay trong suốt (aligner): mài kẽ tiêu chuẩn 0,2–0,5 mm, tạo khoảng tối thiểu cho dịch chuyển răng · Chen chúc vừa · Cân bằng tỷ lệ răng hai hàm · Điều chỉnh hô nhẹ · Cải thiện khớp cắn · Điều chỉnh trong niềng mắc cài'],
-    ['Contraindications', 'Răng vĩnh viễn trẻ em · Thiểu sản men · Quá mẫn ngà · Sâu răng kẽ · Chân răng sát nhau'],
-    ['Clinical benefit', 'Thời gian thao tác bằng 1/5 so với đầu khuỷu thông thường, 1/10 so với dải mài tay · Một mũi dùng cho toàn bộ quy trình mài kẽ hai hàm · Bề mặt mịn, trượt êm'],
-    ['How to use', 'Đặt ở cổ răng → di chuyển về rìa cắn · Tiếp cận mặt má hoặc mặt lưỡi · Lực nhẹ ("feather touch") · Bắt buộc đặt đê cao su và làm mát bằng nước'],
-    ['Sterilization · storage', 'Không vô trùng — tiệt trùng trước khi dùng: autoclave 121 °C / 20 phút hoặc 126 °C / 15 phút · Tránh nhiệt độ cao, ẩm, ánh sáng trực tiếp · Thay khi giảm khả năng cắt'],
-    ['Sources', 'Thông tin IPR 01 EF _Final.pdf · IPR-01EF brochure · Clinical report · DIA-BURS IFU (tab Documents)']
-  ]);
-
-  wSection_(w, '🌏  B. MARKET CONTEXT');
-  wKV_(w, [
-    ['Demand', 'Chỉnh nha hiện đại, đặc biệt khay trong suốt (CAGR phân khúc ≈ 7,6%), tăng nhanh tại Việt Nam ⇒ nhu cầu mài kẽ (IPR) tăng: tạo khoảng, giải quyết chen chúc nhẹ–vừa, cân chỉnh tỷ lệ Bolton, giảm tam giác đen, hỗ trợ ổn định sau niềng'],
-    ['Trends', 'Nha khoa bảo tồn, thẩm mỹ và kỹ thuật số thuận lợi cho IPR-01EF'],
-    ['Data gaps', 'Chưa có số liệu chính thức về lượng dùng IPR mỗi năm; chưa có quy chuẩn số dụng cụ / ca và thời điểm thay dụng cụ ⇒ cần khảo sát thêm'],
-    ['Current tools', 'Dải mài tay: kiểm soát tốt nhưng chậm, kém hiệu quả khi chen chúc · Dải mài gắn tay khoan: rung mạnh, khó kiểm soát · Đĩa mài: nguy cơ tổn thương mô mềm · Mũi khoan đang bán: đa số đầu to, độ thuôn lớn (> 2%), khó đạt độ chính xác 0,2–0,5 mm của aligner'],
-    ['IPR by treatment type', 'Niềng mắc cài: IPR là công cụ hỗ trợ, yêu cầu chính xác tương đối, mài sai có thể khắc phục (⭐⭐⭐) · Niềng trong suốt: IPR là phần bắt buộc của kế hoạch, cần chính xác đến 0,1 mm theo phần mềm, sai số ảnh hưởng trực tiếp (⭐⭐⭐⭐) · Nội nha, phục hồi, phục hình, ngoại khoa, nhi, implant, nha chu: không dùng']
-  ]);
-
-  wSection_(w, '🔍  C. MARKET SURVEY 2025 · 11 CLINICS');
-  wKV_(w, [
-    ['Sample', '8/11 bác sĩ chỉnh nha chuyên sâu, 3/11 nha sĩ tổng quát · Tổng ≈ 870 ca chỉnh nha / tháng'],
-    ['IPR habits', '10/11 dùng IPR thường xuyên · 8/10 phối hợp nhiều dụng cụ (dải mài – mũi khoan – đĩa) · 4 phòng khám dùng cả 3 loại'],
-    ['How tools are combined', 'Dải mài: vùng chen chúc, dễ kiểm soát · Mũi khoan: nhanh, dễ tạo gờ tiếp xúc · Đĩa: hoàn thiện thẩm mỹ'],
-    ['Rounding after IPR', '100% bác sĩ bo tròn sau mài · 7/11 dùng mũi hình ô (umbrella) hoặc đầu tròn · Một số bác sĩ khó thao tác góc cạnh vì hình dạng mũi chưa phù hợp'],
-    ['Technique', '6/11 thay đổi góc thao tác linh hoạt; thao tác theo trục răng giúp kiểm soát và quan sát tốt hơn'],
-    ['Use of IPR burs', 'Bác sĩ chỉnh nha: 66% có dùng mũi IPR khi mài kẽ · Nha sĩ tổng quát làm chỉnh nha: 46%']
-  ]);
-
-  wSection_(w, '🎯  D. SEGMENTS & TARGET CUSTOMERS');
-  wTable_(w, ['Criterion', 'Orthodontist', 'General dentist doing ortho', 'Student'], [
-    ['Profile', 'Chuyên sâu, điều trị ca khó (≈ 80 ca chỉnh nha / tháng)', 'Điều trị tiêu chuẩn tại phòng khám tư, đa dạng bệnh nhân', 'Đang học & thực hành, chi phí thấp'],
-    ['Buying preference', 'Ưu tiên chất lượng, độ chính xác, hiệu suất', 'An toàn, dễ dùng, hướng dẫn rõ, giá hợp lý, đa dụng', 'Giá rẻ, quan tâm concept sản phẩm / điều trị'],
-    ['What attracts them', 'Chất lượng, độ bền, hiệu suất, độ chính xác cao', 'Giá hợp lý, dễ thao tác, sẵn hàng, độ bền chấp nhận được', 'Giá thấp, dễ thao tác, có ở trường / kênh giáo dục'],
-    ['MANI fit', '4/5 — đạt chất lượng, độ chính xác, nhanh hơn 5–10 lần dải mài; chưa có trọn bộ concept', '3/5 — đạt chất lượng; hình dạng chuyên cho aligner nên ít tương thích chỉ định mài kẽ khác', '2/5 — chất lượng tốt nhưng thiếu thông tin concept, giá cao'],
-    ['MANI target share', '35%', '60%', '5%']
-  ], { bold: [0] });
-  wTable_(w, ['Customer group', 'Hospitals', 'Universities', 'Clinics'], [
-    ['Share of demand', '5%', '3%', '92%'],
-    ['Number', '150–200 bệnh viện', '23 trường', '≈ 12.000 phòng khám'],
-    ['How they buy', 'Thầu / ngoài thầu; nhiều cấp duyệt (khoa đề xuất → vật tư thẩm định → giám đốc duyệt)', 'Thầu / ngoài thầu; quyết định từ trưởng bộ môn / giảng viên', 'Ngoài thầu; chủ phòng khám chốt nhanh'],
-    ['Price expectation', 'Trung bình – cao', 'Thấp – trung bình', 'Dao động lớn theo quy mô']
-  ], { bold: [0] });
-
-  wSection_(w, '🏷️  E. COMPETITORS & PRICE');
-  wTable_(w, ['Brand', 'Product', 'Price', 'Price / bur', 'Distributor', 'Note'], [
-    ['MANI (Nhật)', 'IPR-01EF — mũi đơn, chuyên cho mài kẽ khay trong suốt', '250.000 đ / vỉ 5 mũi', '≈ 50.000 đ', 'MMH → nhà phân phối → đại lý', 'Đầu Ø 0,19 mm, độ thuôn ≈ 1,28°, hạt siêu mịn'],
-    ['Strauss & Co (Israel)', 'IPR kit 7 mũi; mũi lẻ J316, E11S', '1.690.000 đ / bộ 7 mũi', '180.000–187.000 đ', 'Nha khoa Thái Bình Dương (1 NPP)', 'Hãng duy nhất có trọn bộ IPR · E11S Ø 0,11 mm · J316 hình ô bo cạnh'],
-    ['NTI (Đức)', '859L-010UF — mũi cắt kẽ chỉnh nha / phục hình', '79.000 đ / mũi', '79.000 đ', 'DOE (> 20 đại lý)', 'Mũi hình trụ, thông dụng'],
-    ['MDT (Israel)', '465-392 016F — mũi cắt kẽ', '30.000–35.000 đ / mũi', '30.000–35.000 đ', 'Đại Tấn', 'Giá rẻ, đầu nhọn – thon']
-  ], { bold: [0] });
-  wTable_(w, ['Price segment (diamond burs)', 'High', 'Medium', 'Low'], [
-    ['Reference price', '51.000–68.000 đ / mũi', '32.000–44.000 đ / mũi', '6.000–26.000 đ / mũi'],
-    ['Market share', '6%', '93%', '1%'],
-    ['Brands', 'Dian Fong, DFS, Edenta, NTI, Okodent, Brasseler, Rotatec, Shofu, MDT', 'Drendel + Zweiling, Osstem, MANI', 'Verdent, Reco-Dental, Muller India'],
-    ['Pros / cons', 'Cao cấp, hiệu suất tối ưu / giá cao, kén khách', 'Cân bằng giá – chất lượng / cạnh tranh mạnh từ hàng Trung Quốc', 'Rẻ, dễ tiếp cận / chất lượng, độ bền kém']
-  ], { bold: [0] });
-
-  wSection_(w, '✅  F. FEASIBILITY CONCLUSION');
-  wKV_(w, [
-    ['Conclusion', 'IPR-01EF có định vị rõ: mũi siêu mảnh, mài chính xác – nhanh – êm cho vùng chen chúc, phù hợp xu hướng chỉnh nha khay trong suốt tại Việt Nam'],
-    ['To clarify', '(1) Số dụng cụ IPR thực tế cần cho mỗi ca · (2) Quy trình / thời điểm thay dụng cụ'],
-    ['Gate G1', 'Đã chốt giá lẻ 250.000 đ / vỉ (31/07/2025) và triển khai ra mắt 08/2025. Chưa có biên bản phê duyệt khả thi trong thư mục.']
-  ]);
-}
-
-function buildPlan_(ss) {
-  var w = W2_(ss, TB.plan, [200, 230, 230, 230, 230], '#99C1DE');
-  wTitle_(w, '🗺️  LAUNCH PLAN · PHASE 2', '✏️ Nhóm Sản phẩm + Nhóm Marketing cập nhật · Head of S&M xác nhận, General Director duyệt (cổng G2).');
-
-  wSection_(w, '🎯  A. POSITIONING & KEY MESSAGES');
-  wKV_(w, [
-    ['Positioning', 'Giải pháp mài kẽ chính xác, nhanh và an toàn — tối ưu cho chỉnh nha khay trong suốt (aligner)'],
-    ['Message 1 · Precise', 'Đầu mũi Ø 0,19 mm, độ thuôn ≈ 1,28° — kiểm soát lượng mài 0,2–0,5 mm, xâm lấn tối thiểu'],
-    ['Message 2 · Fast', 'Thời gian thao tác bằng 1/5 đầu khuỷu thông thường, 1/10 dải mài tay; một mũi cho cả hai hàm'],
-    ['Message 3 · Smooth', 'Hạt kim cương siêu mịn — giảm rung, bề mặt mịn, bệnh nhân dễ chịu hơn'],
-    ['Target customers', 'Phòng khám chỉnh nha (đặc biệt khay trong suốt) và nha sĩ tổng quát có làm chỉnh nha — tỷ trọng mục tiêu 35% bác sĩ chỉnh nha · 60% nha sĩ tổng quát · 5% sinh viên']
-  ]);
-
-  wSection_(w, '🧩  B. MARKETING MIX (4P)');
-  wTable_(w, ['4P', 'Content', 'Note'], [
-    ['Product', 'IPR-01EF — mũi khoan kim cương đơn, chuyên cho mài kẽ trong niềng khay trong suốt; chỉ định: cân bằng tỷ lệ răng, giải quyết chen chúc, tăng ổn định sau niềng, thay thế nhổ răng', 'Đối thủ Strauss & Co có trọn bộ; MANI hiện có 1 mũi'],
-    ['Price', '250.000 đ / vỉ 5 mũi (≈ 50.000 đ / mũi)', 'Phân khúc giá trung bình – cao; thấp hơn nhiều so với mũi lẻ Strauss (180.000 đ)'],
-    ['Place', 'MANI → nhà phân phối → đại lý → người dùng (bệnh viện / trường / phòng khám)', 'Duy trì mạng ≈ 200 đại lý với tồn kho và chính sách giá ổn định'],
-    ['Promotion', 'Offline: kết hợp workshop chỉnh nha · Online: Facebook (sản phẩm mới, mini game) · Nội dung KOL · Thăm đại lý, thăm phòng khám · Gửi mẫu dùng thử · Khuyến mại ra mắt', 'Chi tiết thời gian: tab Tasks']
-  ], { bold: [0] });
-
-  wSection_(w, '🖨️  C. MATERIALS & SALES TOOLS');
-  wTable_(w, ['Item', 'Output', 'Quantity', 'Status', 'Document'], [
-    ['Flyer A4 (bản tiếng Việt)', 'IPR-01EF Brochure VN', '1.000 bản in', 'Done', ['Brochure VN', L.brochureVN]],
-    ['Standee', 'Thiết kế xong; chưa in', 'Chưa ghi nhận', 'Not started', ['', '']],
-    ['Giá cắm mũi khoan', 'In laser logo MANI, DIA-BURS', 'Chưa ghi nhận', 'Done', ['', '']],
-    ['Catalogue / bản dịch catalogue', 'IPR-01EF _ Catalogue.pdf · Bản dịch Catalog mũi khoan IPR', '—', 'Done', ['Catalogue', L.catalogue]],
-    ['Ảnh sản phẩm', 'IPR-01EF.png', '—', 'Done', ['Ảnh', L.img]],
-    ['Thông số kỹ thuật (hồ sơ thầu)', 'TSKT _ Mũi khoan IPR.xlsx', '—', 'Done', ['TSKT', L.tskt]]
-  ], { link: 4, center: [3] });
-
-  wSection_(w, '🎓  D. TRAINING');
-  wTable_(w, ['Audience', 'Content', 'Date', 'Document'], [
-    ['Nội bộ (Sales / Marketing)', 'Đào tạo sản phẩm IPR-01EF', '18/06/2025', ['', '']],
-    ['Nhà phân phối', 'Đào tạo sản phẩm IPR-01EF cho NPP', '25/07/2025', ['Training NPP 25.07.25', L.trainNPP]],
-    ['Nội bộ (bổ sung)', 'Đào tạo nội bộ IPR-01EF', '31/12/2025', ['InternalTraining 31.12.25', L.trainInt]]
-  ], { link: 3, center: [2] });
-
-  wSection_(w, '🎁  E. LAUNCH PROMOTION');
-  wKV_(w, [
-    ['Offer', 'Mua 03 hộp IPR — tặng 01 hộp Glide Finder'],
-    ['Who', 'Đại lý, đại lý trực thuộc, khách lẻ mặt hàng nha khoa MANI'],
-    ['Period', '01/08/2025 – 10/08/2025 (theo thông báo đại lý ngày 01/08/2025). Tiến độ cũ ghi 04–25/08/2025.'],
-    ['Result', 'Chưa ghi nhận số hộp bán / số hộp tặng — cập nhật tại tab Results']
-  ]);
-}
-
-function buildDocs_(ss) {
-  var w = W2_(ss, TB.docs, [44, 170, 120, 330, 300, 120], '#99C1DE');
-  wTitle_(w, '📁  DOCUMENTS · PROJECT FILE MAP', '✏️ PIC thêm 1 dòng khi lưu tài liệu mới vào thư mục dự án · bấm 🔗 Open để mở.');
-  var rows = [
-    ['General', 'Folder', 'Thư mục 2025 Launching IPR Dia-Burs', 'Thư mục gốc của dự án', ['🔗 Open', L.dirLaunch]],
-    ['General', 'Folder', 'MKT Material', 'Ấn phẩm, catalogue, ảnh, IFU, TSKT', ['🔗 Open', L.dirMkt]],
-    ['General', 'Folder', 'Training', 'Bài đào tạo nhà phân phối', ['🔗 Open', L.dirTrain]],
-    ['General', 'Minutes', 'IPR Lauching Họp 08/05', 'Họp khởi động — file đang trống', ['🔗 Open', L.meet0805]],
-    ['P1 · Feasibility', 'Research', 'Thư mục 202507 Market Research - IPR final Report', 'Báo cáo nghiên cứu thị trường IPR', ['🔗 Open', L.dirResearch]],
-    ['P1 · Feasibility', 'Research', 'Thư mục Dự án IPR', 'Bản tổng hợp nghiên cứu, thông tin sản phẩm, khảo sát hình dạng', ['🔗 Open', L.dirProject]],
-    ['P1 · Feasibility', 'Research', 'Tổng quan về IPR.pdf', 'Tổng quan kỹ thuật mài kẽ', ['🔗 Open', L.overview]],
-    ['P1 · Feasibility', 'Research', 'IPR _ Nghiên cứu thị trường.pdf', 'Khảo sát 11 phòng khám, thói quen IPR', ['🔗 Open', L.research]],
-    ['P1 · Feasibility', 'Research', 'IPR_Tổng hợp nghiên cứu.pdf', 'Bối cảnh, định vị, đối thủ, kết luận', ['🔗 Open', L.researchSum]],
-    ['P1 · Feasibility', 'Research', 'IPR_Sản phẩm Vs định vị cạnh tranh.pdf', 'So sánh sản phẩm & định vị', ['🔗 Open', L.compete]],
-    ['P1 · Feasibility', 'Product', 'Thông tin IPR 01 EF _Final.pdf', 'Thông số, chỉ định, chống chỉ định, tiệt trùng', ['🔗 Open', L.infoFinal]],
-    ['P1 · Feasibility', 'Product', 'IPR 01EF_Thông tin tổng hợp.pdf', 'Thông tin tổng hợp sản phẩm', ['🔗 Open', L.infoSum]],
-    ['P1 · Feasibility', 'Product', 'Mani IPR 01 EF_04_14_report.pdf', 'Báo cáo lâm sàng của MANI', ['🔗 Open', L.clinical]],
-    ['P1 · Feasibility', 'Product', 'IPR IFU.pdf', 'Hướng dẫn sử dụng', ['🔗 Open', L.ifu]],
-    ['P1 · Feasibility', 'Product', 'MANI — IPR-01EF.pdf (web)', 'Brochure gốc của MANI', ['🔗 Open', L.maniPdf]],
-    ['P1 · Feasibility', 'Product', 'MANI — dental_04_14_report.pdf (web)', 'Báo cáo lâm sàng (bản web)', ['🔗 Open', L.maniReport]],
-    ['P1 · Feasibility', 'Product', 'MANI — 6DIA-BURS.pdf (web)', 'IFU DIA-BURS (bản web)', ['🔗 Open', L.maniIfu]],
-    ['P2 · Launch planning', 'Material', 'IPR-01EF Brochure VN.pdf', 'Flyer tiếng Việt', ['🔗 Open', L.brochureVN]],
-    ['P2 · Launch planning', 'Material', 'Thư mục bản dịch flyer', 'Bản dịch flyer', ['🔗 Open', L.dirFlyer]],
-    ['P2 · Launch planning', 'Material', 'IPR-01EF _ Catalogue.pdf', 'Catalogue', ['🔗 Open', L.catalogue]],
-    ['P2 · Launch planning', 'Material', 'Bản dịch Catalog mũi khoan IPR', 'Bản dịch catalogue', ['🔗 Open', L.catTrans]],
-    ['P2 · Launch planning', 'Material', 'IPR-01EF.png', 'Ảnh sản phẩm', ['🔗 Open', L.img]],
-    ['P2 · Launch planning', 'Tender', 'TSKT _ Mũi khoan IPR.xlsx', 'Thông số kỹ thuật cho hồ sơ thầu', ['🔗 Open', L.tskt]],
-    ['P2 · Launch planning', 'Training', 'Training _ IPR 01 EF _ 25.07.25.pptx', 'Đào tạo nhà phân phối 25/07/2025', ['🔗 Open', L.trainNPP]],
-    ['P2 · Launch planning', 'Survey', 'Google Form "KHẢO SÁT SỬ DỤNG MŨI KHOAN IPR"', 'Form lấy phản hồi dùng thử', ['🔗 Open', L.form]],
-    ['P3 · Launch execution', 'Promotion', 'Thông báo khuyến mại ra mắt 01/08/2025', 'Mua 3 hộp IPR tặng 1 hộp Glide Finder', ['🔗 Open', L.promo]],
-    ['P4 · Measure & optimize', 'Survey', 'IPR Surveys _MMH', 'Kết quả form dùng thử (3 phiếu)', ['🔗 Open', L.formResp]],
-    ['P4 · Measure & optimize', 'Training', 'InternalTraining _ IPR 01 EF _ 31.12.25.pptx', 'Đào tạo nội bộ bổ sung', ['🔗 Open', L.trainInt]],
-    ['P4 · Measure & optimize', 'Survey', 'IPR Survey_For New Umbrella shape.docx', 'Bộ câu hỏi khảo sát hình dạng mũi mới (MANI)', ['🔗 Open', L.shapeDoc]],
-    ['P4 · Measure & optimize', 'Survey', '202609_IPR Survey_Results.xlsx', 'Kết quả khảo sát hình dạng mũi, 8 phòng khám', ['🔗 Open', L.shapeRes]],
-    ['P4 · Measure & optimize', 'Survey', 'IPR _ Khảo sát khách hàng lần 2', 'File đang trống', ['🔗 Open', L.survey2]]
-  ].map(function (r, i) { return [i + 1].concat(r); });
-  var t = wTable_(w, ['No', 'Phase', 'Type', 'Document', 'Purpose', '🔗 Open'], rows, { link: 5, center: [0] });
-  w.sh.setFrozenRows(3);
-  w.r = t.r1 + 2;
-  wNote_(w, 'Ghi chú: trong thư mục MKT Material có file "Feedback của khách hàng" nói về composite nướu tại labo — không thuộc IPR, nên chuyển sang thư mục đúng.');
-}
-
-/* ═══ Adapter cho các tab nội dung (Feasibility · Launch Plan · Documents) ═══════════════════ */
-function W2_(ss, name, widths, tab) { return { sh: sheet_(ss, name, widths, tab), r: 4, n: widths.length }; }
-function wTitle_(w, title, sub) { head_(w.sh, title, sub, w.n); w.r = 4; }
-function wSection_(w, text) { section_(w.sh, w.r, 2, w.n, text); w.r += 1; }
-function wKV_(w, pairs) { w.r = kv_(w.sh, w.r, pairs, w.n); }
-function wTable_(w, headers, rows, opt) {
-  opt = opt || {};
-  var t = table_(w.sh, w.r, 2, headers, rows, { bold: opt.bold, center: opt.center, links: opt.link !== undefined ? [opt.link] : [] });
-  w.sh.setRowHeights(t.r0 + 1, rows.length, 30);
-  w.r = t.r1 + 2; return t;
-}
-function wNote_(w, text) {
-  w.sh.getRange(w.r, 2, 1, w.n).mergeAcross().setValue(text).setWrap(true).setFontStyle('italic').setFontColor(C_.mut);
-  w.sh.setRowHeight(w.r, 30); w.r += 1;
-}
-
-/* ═══ Launch Flow · lưu đồ (không viền, to, tự đổi màu) ═══════════════════════════════════ */
-function buildFlow_(ss) {
-  var NODE = 165, GATE = 140, ARR = 30;
-  var widths = [], i;
-  for (i = 0; i < 4; i++) { widths.push(NODE); widths.push(ARR); widths.push(GATE); if (i < 3) widths.push(ARR); }
-  var sh = sheet_(ss, TB.flow, widths, '#2C4A5E', 80);   // B..P
-  var NC = widths.length;                                 // 15
-  var col = function (k) { return 2 + k * 4; }, gcol = function (k) { return 4 + k * 4; };
-  sh.getRange(1, 1, 80, NC + 1).setFontSize(10.5);
-  // ── header
-  sh.getRange('B1').setValue('🚀  IPR-01EF LAUNCH FLOW').setFontSize(22).setFontWeight('bold').setFontColor(C_.navy);
-  sh.getRange(1, 14, 1, 3).merge().setFormula('="📅  "&TEXT(TODAY(),"dd/mm/yyyy")').setHorizontalAlignment('right').setFontColor(C_.acc).setFontSize(11);
-  sh.getRange('B2').setValue('Live map of the launch, following the MMH SOP for new product launches · colours change automatically when PICs update Tasks, Gates, Samples and Results.')
-    .setFontColor(C_.acc).setFontSize(10.5);
-  sh.getRange(3, 2, 1, NC).setBackground(C_.line);
-  [[1, 50], [2, 24], [3, 4], [4, 14], [5, 26], [6, 42], [7, 26], [8, 18], [9, 30], [10, 26], [11, 14],
-   [12, 42], [13, 30], [14, 12], [15, 24], [27, 22], [28, 30], [29, 30], [34, 18], [35, 30]].forEach(function (h) { sh.setRowHeight(h[0], h[1]); });
-
-  // ── KPI tiles
-  var E = 'Engine!C';
-  var tiles = [
-    ['✅  OVERALL PROGRESS', '=TEXT(' + E + TOT.ratio + ',"0%")&"     "&' + E + TOT.done + '&" / "&' + E + TOT.total + '&" tasks"',
-      '=SPARKLINE(' + E + TOT.ratio + ',{"charttype","bar";"max",1;"color1","' + C_.teal + '"})'],
-    ['📍  CURRENT PHASE', '=' + E + TOT.phaseLabel, '=INDEX(Engine!J' + E_PH + ':J' + (E_PH + 3) + ',' + E + TOT.phaseNo + ')'],
-    ['⚠️  NEEDS ATTENTION', '=' + E + TOT.overdue + '&" overdue  ·  "&' + E + TOT.confirm + '&" to confirm"',
-      '=' + E + TOT.bypass + '&" gate(s) bypassed · see Gates"'],
-    ['💬  CUSTOMER SIGNAL', '="Feedback "&TEXT(' + E + TOT.rate + ',"0%")&"   ("&' + E + TOT.fb + '&" / "&' + E + TOT.sent + '&" clinics)"',
-      '=IF(' + E + TOT.units + '=0,"Sales: no data yet · fill in Results","Sales: "&TEXT(' + E + TOT.units + ',"#,##0")&" boxes")']
-  ];
-  tiles.forEach(function (t, k) {
-    var c = col(k);
-    for (var rr = 5; rr <= 7; rr++) sh.getRange(rr, c, 1, 3).merge();
-    sh.getRange(5, c, 3, 3).setBackground(C_.tile).setHorizontalAlignment('left');
-    sh.getRange(5, c).setValue(t[0]).setFontWeight('bold').setFontColor(C_.acc).setFontSize(10);
-    sh.getRange(6, c).setFormula(t[1]).setFontWeight('bold').setFontColor(C_.navy).setFontSize(17);
-    sh.getRange(7, c).setFormula(t[2]).setFontColor(C_.mut).setFontSize(10);
-  });
-
-  // ── flow title + legend
-  sh.getRange('B9').setValue('🧭  LAUNCH FLOW  ·  4 phases · 11 steps · 4 gates').setFontWeight('bold').setFontColor(C_.navy).setFontSize(13);
-  var leg = [['✅ DONE', C_.teal, C_.white], ['🔄 IN PROGRESS', C_.acc2, C_.white], ['❓ TO CONFIRM', C_.yelb, C_.navy],
-    ['⏰ OVERDUE', C_.red, C_.white], ['⏸ NOT STARTED', C_.pale, C_.acc], ['📍 CURRENT PHASE', C_.yel, C_.navy],
-    ['⚠️ GATE BYPASSED', C_.yelb, C_.navy], ['🔒 GATE OPEN', C_.pale, C_.acc]];
-  leg.forEach(function (l, k) {
-    sh.getRange(10, 2 + k * 2).setValue(l[0]).setBackground(l[1]).setFontColor(l[2]).setFontWeight('bold').setFontSize(9)
-      .setHorizontalAlignment('center');
-  });
-
-  // ── phases + steps + gates
-  var rules = [];
-  PHASES.forEach(function (p, k) {
-    var c = col(k), er = E_PH + k;
-    sh.getRange(12, c).setFormula('=IF(Engine!$C$' + TOT.phaseNo + '=' + (k + 1) + ',"📍  ","")&"' + p[1] + '  PHASE ' + (k + 1) + '"&CHAR(10)&"' + p[2].toUpperCase() + '"')
-      .setBackground(C_.navy).setFontColor(C_.white).setFontWeight('bold').setFontSize(12).setWrap(true).setHorizontalAlignment('center');
-    rules.push(cf_(sh.getRange(12, c), '=INDIRECT("Engine!C' + TOT.phaseNo + '")=' + (k + 1), C_.yel, C_.navy, true));
-    sh.getRange(13, c).setFormula('=Engine!J' + er).setBackground(C_.pale).setFontWeight('bold').setHorizontalAlignment('center').setFontSize(10);
-    rules = rules.concat(statusRules_(sh.getRange(13, c), absA1_(13, c), STEP_COLORS));
-    sh.getRange(14, c).setFormula('=SPARKLINE(Engine!H' + er + ',{"charttype","bar";"max",1;"color1","' + C_.navy + '"})').setBackground(C_.pale);
-    sh.getRange(15, c).setValue('▼').setFontColor(C_.acc).setHorizontalAlignment('center').setFontSize(13);
-    var steps = STEPS.filter(function (s) { return s[1] === p[0]; });
-    steps.forEach(function (s, j) {
-      var r = 16 + j * 4, sr = E_STEP + STEPS.indexOf(s);
-      sh.setRowHeight(r, 38); sh.setRowHeight(r + 1, 26); sh.setRowHeight(r + 2, 12);
-      sh.getRange(r, c, 3, 1).setBackground(C_.pale).setHorizontalAlignment('center');
-      sh.getRange(r, c).setValue(s[0] + '  ' + s[2] + '\n' + s[3]).setFontWeight('bold').setFontSize(11).setWrap(true);
-      sh.getRange(r + 1, c).setFormula('=Engine!L' + sr).setFontSize(9.5).setWrap(true);
-      sh.getRange(r + 2, c).setFormula('=SPARKLINE(Engine!K' + sr + ',{"charttype","bar";"max",1;"color1","#FFFFFF"})');
-      rules = rules.concat(statusRules_(sh.getRange(r, c, 3, 1), absA1_(r + 1, c), STEP_COLORS));
-      if (j < steps.length - 1) { sh.setRowHeight(r + 3, 22); sh.getRange(r + 3, c).setValue('▼').setFontColor(C_.acc).setHorizontalAlignment('center').setFontSize(13); }
+function tasksRows_() {
+  var rows = [];
+  if (SNAP && SNAP.tasks && SNAP.tasks.length) {
+    SNAP.tasks.forEach(function (r) {
+      var no = String(r[TC.no - 1] || ''), d = String(r[TC.task - 1] || ''), m = /^="?Phase (\d)/.exec(d) || /^Phase (\d) · /.exec(d);
+      if (!no && m && !r[TC.step - 1]) rows.push({ band: +m[1] }); else rows.push({ v: r });
     });
-    // gate node (aligned with step 2)
-    var g = GATES[k], gc = gcol(k), gr = E_GATE + k;
-    sh.getRange(20, gc, 3, 1).setBackground(C_.pale).setHorizontalAlignment('center').setWrap(true);
-    sh.getRange(20, gc).setValue('🚦  ' + g[0] + '\n' + g[1].toUpperCase()).setFontWeight('bold').setFontSize(10.5);
-    sh.getRange(21, gc).setFormula('=Engine!N' + gr).setFontSize(9.5).setFontWeight('bold');
-    rules = rules.concat(statusRules_(sh.getRange(20, gc, 3, 1), absA1_(21, gc), GATE_COLORS));
-    // arrows: phase ▶ gate ▶ next phase
-    sh.getRange(21, gc - 1).setValue('▶').setFontColor(C_.acc).setHorizontalAlignment('center').setFontSize(16);
-    if (k < 3) sh.getRange(21, gc + 1).setValue('▶').setFontColor(C_.acc).setHorizontalAlignment('center').setFontSize(16);
+    while (rows.length && !rows[rows.length - 1].band && !rows[rows.length - 1].v.some(function (x, i) { return TK_IN.indexOf(i + 1) >= 0 && x !== ''; })) rows.pop();
+    return rows;
+  }
+  var ph = 0;
+  taskSeed_().forEach(function (t) {
+    var p = +t[0].split('.')[0];
+    if (p !== ph) { rows.push({ band: p }); ph = p; }
+    var v = []; for (var i = 0; i < TC.last; i++) v.push('');
+    v[TC.no - 1] = t[0]; v[TC.step - 1] = t[1]; v[TC.task - 1] = t[2]; v[TC.pic - 1] = t[3]; v[TC.ab - 1] = t[4]; v[TC.dep - 1] = t[5]; v[TC.nf - 1] = t[6];
+    v[TC.pe - 1] = D_(t[7]); v[TC.st - 1] = t[8]; v[TC.ae - 1] = D_(t[9]); v[TC.ev - 1] = t[10] ? (t[10][1] ? hl_(L[t[10][1]], t[10][0]) : t[10][0]) : '';
+    v[TC.ao - 1] = D_(t[11]); v[TC.bs - 1] = D_(t[12]); v[TC.be - 1] = D_(t[13]); v[TC.note - 1] = t[14];
+    rows.push({ v: v });
   });
-  sh.getRange(16, 2, 11, NC).setVerticalAlignment('middle');
-
-  // ── why the project moved
-  sh.getRange('B28').setValue('🚦  WHY THE PROJECT MOVED · GATE DECISIONS').setFontWeight('bold').setFontColor(C_.navy).setFontSize(13);
-  var hdr = [[2, 1, 'Gate'], [3, 2, 'Status'], [5, 4, 'Why (required criteria)'], [9, 4, 'To add (recommended)'], [13, 4, 'From → To · decided by']];
-  hdr.forEach(function (h) { var rg = sh.getRange(29, h[0], 1, h[1]); if (h[1] > 1) rg.merge(); rg.setValue(h[2]); });
-  sh.getRange(29, 2, 1, NC).setBackground(C_.pale).setFontColor(C_.navy).setFontWeight('bold').setFontSize(10);
-  GATES.forEach(function (g, k) {
-    var r = 30 + k, er = E_GATE + k;
-    sh.setRowHeight(r, 56);
-    sh.getRange(r, 2, 1, NC).setBackground(k % 2 ? C_.alt : C_.white).setWrap(true).setVerticalAlignment('middle');
-    sh.getRange(r, 2).setValue('🚦 ' + g[0] + ' · ' + g[1]).setFontWeight('bold').setFontColor(C_.navy);
-    var st = sh.getRange(r, 3, 1, 2); st.merge(); sh.getRange(r, 3).setFormula('=Engine!N' + er).setFontWeight('bold').setHorizontalAlignment('center');
-    rules = rules.concat(statusRules_(st, absA1_(r, 3), GATE_COLORS));
-    sh.getRange(r, 5, 1, 4).merge(); sh.getRange(r, 5).setFormula('=Engine!O' + er).setFontSize(9.5);
-    sh.getRange(r, 9, 1, 4).merge(); sh.getRange(r, 9).setFormula('=Engine!P' + er).setFontSize(9.5).setFontColor(C_.mut);
-    sh.getRange(r, 13, 1, 4).merge(); sh.getRange(r, 13).setValue(g[2] + '\n👤 ' + g[3]).setFontSize(9.5);
+  return rows;
+}
+function taskFormulas_(r, R0, R1) {
+  var c = function (k) { return '$' + CL_(TC[k]) + r; }, col = function (k) { return '$' + CL_(TC[k]) + '$' + R0 + ':$' + CL_(TC[k]) + '$' + R1; };
+  var B = c('no'), J = c('st'), U = c('ph');
+  var f = {};
+  f.flag = '=IF(' + B + '="","",IF(' + J + '="Cancelled","",IF(' + J + '="Done",IF(AND(' + c('nf') + '="Yes",' + c('ev') + '=""),"Missing file",""),IF(' + c('open') + '>0,"Blocked",IF(' + c('unl') + '=FALSE,"Phase locked",IF(' + J + '="To confirm","To confirm",IF(AND(' + c('pe') + '<>"",' + c('pe') + '<TODAY()),"Overdue",IF(' + c('pic') + '="","No PIC",""))))))))';
+  f.late = '=IF(OR(' + B + '="",' + J + '="Done",' + J + '="Cancelled",' + c('pe') + '=""),"",IF(' + c('pe') + '<TODAY(),TODAY()-' + c('pe') + ',""))';
+  f.chk = '=IF(' + B + '="","",IF(AND(OR(' + J + '="In progress",' + J + '="Waiting approval",' + J + '="Done"),' + c('open') + '>0),"Not allowed: a task in Depends on is not Done",IF(AND(OR(' + J + '="In progress",' + J + '="Waiting approval"),' + c('unl') + '=FALSE),"Not allowed: previous phase not approved",IF(AND(' + J + '="Done",' + c('nf') + '="Yes",' + c('ev') + '=""),"Not allowed: evidence file missing",IF(AND(' + J + '="Done",' + c('ab') + '<>"",' + c('ao') + '=""),"Needs approval record","")))))';
+  f.ph = '=IF(OR(' + B + '="",' + c('step') + '=""),"",IFERROR(VLOOKUP(' + c('step') + ',' + R_STEPS_() + ',2,FALSE),""))';
+  f.open = '=IF(OR(' + B + '="",' + c('dep') + '=""),0,SUMPRODUCT(ISNUMBER(SEARCH(","&' + col('no') + '&",",","&SUBSTITUTE(' + c('dep') + '," ","")&","))*(' + col('no') + '<>"")*(' + col('st') + '<>"Done")))';
+  f.unl = '=IF(' + B + '="","",IF(OR(' + U + '="",' + U + '<=1),TRUE,IFERROR(INDEX(' + q_(T.appr) + '$G$' + AP.ph0 + ':$G$' + (AP.ph0 + 3) + ',' + U + '-1)="Approved",FALSE)))';
+  f.cat = '=IF(' + B + '="","",IF(' + J + '="Done","Done",IF(' + J + '="Cancelled","Cancelled",IF(OR(' + c('flag') + '="Overdue",' + c('flag') + '="Blocked",' + c('flag') + '="Phase locked"),"Overdue / blocked",IF(' + J + '="To confirm","To confirm",IF(OR(' + J + '="In progress",' + J + '="Waiting approval"),"In progress","Not started"))))))';
+  f.pend = '=IF(AND(' + B + '<>"",OR(' + c('flag') + '="Blocked",' + c('flag') + '="Phase locked",' + c('flag') + '="Overdue",' + c('flag') + '="No PIC",' + c('flag') + '="Missing file",' + c('flag') + '="To confirm",' + J + '="Waiting approval")),1,0)';
+  f.rank = '=IF(' + c('pend') + '=1,SUM($' + CL_(TC.pend) + '$' + R0 + ':' + CL_(TC.pend) + r + '),"")';
+  f.dkey = '=IF(AND(' + B + '<>"",' + J + '<>"Done",' + J + '<>"Cancelled",' + c('pe') + '<>""),IF(AND(' + c('pe') + '>=TODAY(),' + c('pe') + '<=TODAY()+' + q_(T.setup) + '$I$' + (SU.plan0 + 8) + '),' + c('pe') + '+ROW()/100000,""),"")';
+  f.bstart = '=IF(' + B + '="","",IF(' + c('bs') + '<>"",' + c('bs') + ',IF(' + c('pe') + '<>"",' + c('pe') + '-7,"")))';
+  f.bend = '=IF(' + B + '="","",IF(' + J + '="Done",IF(' + c('ae') + '<>"",' + c('ae') + ',' + c('pe') + '),IF(' + c('flag') + '="Overdue",TODAY(),' + c('pe') + ')))';
+  return f;
+}
+var T_AUTO = ['flag', 'late', 'chk', 'ph', 'open', 'unl', 'cat', 'pend', 'rank', 'dkey', 'bstart', 'bend'];
+function buildTasks_(ss) {
+  var rows = tasksRows_(), n = Math.max(TK.n, rows.length + 30), R0 = TK.r0, R1 = R0 + n - 1;
+  TK.r1 = R1;
+  var W = [44, 170, 260, 150, 140, 70, 52, 80, 112, 80, 160, 84, 92, 56, 80, 84, 230, 240, 90, 40, 46, 56, 120, 40, 46, 80, 76, 76];
+  var sh = prep_(ss, T.tasks, W, K.acc, R1 + 2);
+  title_(sh, 'UPDATE · TASKS', 'All launch tasks, grouped by phase. One row per task. Phase and step progress on VIEW · Overview come from here.',
+    'Owner: Head of Sales & Marketing · PIC: own rows · Approver: Approved on', 'Owner: blue columns · PIC: green columns · Approver: yellow column', 19);
+  sh.getRange(5, 2, 1, 9).merge().setValue('Add a task: use an empty row at the bottom or menu IPR Launch ▸ Add a task row; type the number (e.g. 4.7) and choose the Step. Start, Baseline end, Notes and Check are to the right of Days late.')
+    .setFontSize(9).setWrap(true).setBackground('#F3F7FA').setBorder(null, true, null, null, null, null, K.acc, SpreadsheetApp.BorderStyle.SOLID_THICK);
+  sh.getRange(5, 11, 1, 9).merge().setValue('Stops: Actual end is refused while a task in "Depends on" is not Done or the previous phase is not approved. Done without the evidence file shows "Missing file".')
+    .setFontSize(9).setWrap(true).setFontColor(K.badFg).setBackground('#FBF4F1').setBorder(null, true, null, null, null, null, K.bO, SpreadsheetApp.BorderStyle.SOLID_THICK);
+  sh.setRowHeight(5, 36);
+  ribbon_(sh, 6, [[2, 8, 'owner'], [10, 3, 'pic'], [13, 1, 'appr'], [14, 2, 'auto'], [16, 2, 'owner'], [18, 1, 'pic'], [19, 2, 'auto'], [21, 9, 'auto']]);
+  header_(sh, 7, 2, ['No.', 'Step', 'Task', 'PIC', 'Approval by', 'Depends on', 'Needs file', 'Plan end', 'Status', 'Actual end', 'Evidence file', 'Approved on',
+    'Flag', 'Days late', 'Start', 'Baseline end', 'Notes', 'Check', 'Assigned email', 'Phase', 'Open deps', 'Phase unlocked', 'Category', 'Pending', 'Rank', 'Deadline key', 'Bar start', 'Bar end'],
+    [14, 15, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]);
+  sh.getRange(R0, TC.no, n, 1).setNumberFormat('@');
+  sh.getRange(R0, TC.dep, n, 1).setNumberFormat('@');
+  var data = [], bands = [];
+  for (var i = 0; i < n; i++) {
+    var r = R0 + i, it = rows[i], v = [];
+    for (var c = 0; c < TC.last - 1; c++) v.push('');
+    if (it && it.band) { v[TC.task - 2] = bandFormula_(it.band); bands.push(r); }
+    else if (it && it.v) { TK_IN.forEach(function (k) { var x = it.v[k - 1]; v[k - 2] = (x === null || x === undefined) ? '' : x; }); }
+    if (!(it && it.band)) { var f = taskFormulas_(r, R0, R1); T_AUTO.forEach(function (k) { v[TC[k] - 2] = f[k]; }); }
+    data.push(v);
+  }
+  sh.getRange(R0, 2, n, TC.last - 1).setValues(data);
+  grid_(sh, R0, 2, n, TC.last - 1);
+  sh.getRange(R0, 2, n, TC.last - 1).setFontSize(9.5);
+  autoCols_(sh, R0, n, [TC.flag, TC.late, TC.chk, TC.sent]);
+  [TC.pe, TC.ae, TC.ao, TC.bs, TC.be, TC.sent, TC.bstart, TC.bend].forEach(function (c) { sh.getRange(R0, c, n, 1).setNumberFormat('dd/mm/yy').setHorizontalAlignment('center'); });
+  [TC.no, TC.dep, TC.nf, TC.st, TC.flag, TC.late].forEach(function (c) { sh.getRange(R0, c, n, 1).setHorizontalAlignment('center'); });
+  sh.getRange(R0, TC.dkey, n, 1).setNumberFormat('0.00000');
+  sh.getRange(R0, TC.ev, n, 1).setFontColor(K.link);
+  bands.forEach(function (r) { band_(sh, r, 2, TC.chk - 1); });
+  // dropdown + chặn
+  var dSt = SpreadsheetApp.newDataValidation().requireValueInList(STATUSES, true).setAllowInvalid(false).setHelpText('Choose a status.').build();
+  var nonBand = function (fn) { for (var i = 0; i < n; i++) { if (bands.indexOf(R0 + i) < 0) fn(R0 + i); } };
+  var stepRg = ss.getSheetByName(T.setup).getRange(SU.step0, 2, 11, 1), roleRg = ss.getSheetByName(T.setup).getRange(SU.team0, 2, SU.teamN, 1);
+  var blocks = runs_(R0, n, bands);
+  blocks.forEach(function (b) {
+    sh.getRange(b[0], TC.st, b[1], 1).setDataValidation(dSt);
+    sh.getRange(b[0], TC.step, b[1], 1).setDataValidation(dvRange_(stepRg, true));
+    sh.getRange(b[0], TC.pic, b[1], 2).setDataValidation(dvRange_(roleRg, true));
+    sh.getRange(b[0], TC.nf, b[1], 1).setDataValidation(dvList_(['Yes', 'No'], true));
+    sh.getRange(b[0], TC.ae, b[1], 1).setDataValidation(dvCustom_('=AND($' + CL_(TC.open) + b[0] + '=0,$' + CL_(TC.unl) + b[0] + '=TRUE)',
+      'Not allowed: every task in "Depends on" must be Done and the previous phase must be approved.'));
+    [TC.pe, TC.ao, TC.bs, TC.be].forEach(function (c) { sh.getRange(b[0], c, b[1], 1).setDataValidation(dvDate_()); });
   });
+  statusCF_(sh, [A1_(R0, TC.st) + ':' + A1_(R1, TC.st), A1_(R0, TC.flag) + ':' + A1_(R1, TC.flag)]);
+  cfFormula_(sh, [A1_(R0, TC.chk) + ':' + A1_(R1, TC.chk)], '=LEFT($' + CL_(TC.chk) + R0 + ',11)="Not allowed"', K.badBg, K.badFg, true);
+  cfFormula_(sh, [A1_(R0, TC.chk) + ':' + A1_(R1, TC.chk)], '=$' + CL_(TC.chk) + R0 + '="Needs approval record"', K.waitBg, K.waitFg, true);
+  cfFormula_(sh, [A1_(R0, TC.late) + ':' + A1_(R1, TC.late)], '=N($' + CL_(TC.late) + R0 + ')>0', null, K.badFg, true);
+  cfFormula_(sh, [A1_(R0, TC.pic) + ':' + A1_(R1, TC.pic)], '=AND($' + CL_(TC.no) + R0 + '<>"",$' + CL_(TC.pic) + R0 + '="")', K.waitBg, null, false);
+  sh.hideColumns(TC.ph, TC.last - TC.ph + 1);
+  protectWarn_(sh, sh.getRange(R0, TC.flag, n, 2)); protectWarn_(sh, sh.getRange(R0, TC.chk, n, TC.last - TC.chk + 1));
+  sh.setFrozenRows(7); sh.setFrozenColumns(4);
+}
+function runs_(r0, n, bands) { var out = [], s = null; for (var i = 0; i <= n; i++) { var r = r0 + i, ok = i < n && bands.indexOf(r) < 0; if (ok && s === null) s = r; if (!ok && s !== null) { out.push([s, r - s]); s = null; } } return out; }
 
-  // ── next actions
-  sh.getRange('B35').setValue('📝  NEXT ACTIONS FOR PICs  ·  from Tasks, overdue first').setFontWeight('bold').setFontColor(C_.navy).setFontSize(13);
-  var t = 'Tasks!', cond = t + 'B4:B<>"",' + t + 'L4:L<>"Done",' + t + 'L4:L<>"Cancelled"';
-  sh.getRange('B36').setFormula('=IFERROR(ARRAYFORMULA(SORT(FILTER(' +
-    'IF(REGEXMATCH(' + t + 'O4:O,"OVERDUE"),"⏰   OVERDUE · ",IF(' + t + 'L4:L="Not recorded","❓   ","▫️   "))&UPPER(' + t + 'L4:L)&"   ·   "&' + t + 'B4:B&"  "&' + t + 'F4:F' +
-    '&IF(' + t + 'K4:K<>"","   ·   due "&TEXT(' + t + 'K4:K,"dd/mm/yyyy"),"")&IF(' + t + 'I4:I<>"","   ·   "&' + t + 'I4:I,"")&"   ·   "&' + t + 'H4:H,' + cond + '),' +
-    'FILTER(IF(REGEXMATCH(' + t + 'O4:O,"OVERDUE"),1,IF(' + t + 'L4:L="Not recorded",2,3)),' + cond + '),TRUE)),"✅  No open items — all tasks are done")');
-  var na = sh.getRange(36, 2, 30, 1);
-  sh.getRange(36, 2, 30, NC).setFontSize(10.5).setWrap(false);
-  sh.setRowHeights(36, 30, 26);
-  rules.push(cf_(na, '=REGEXMATCH(B36,"OVERDUE")', null, '#A0523F', true));
-  rules.push(cf_(na, '=REGEXMATCH(B36,"NOT RECORDED")', null, '#8A6A1F', false));
-  sh.getRange(36, 2, 30, 1).setBackground(null);
-  // ── how it works
-  sh.getRange(67, 2, 1, NC).setBackground(C_.line); sh.setRowHeight(67, 3);
-  sh.getRange(68, 2).setValue('ℹ️  How it works: ① PICs update Tasks (status, dates), Gates (tick decisions), Samples and Results  ② each step takes its colour from its tasks  ' +
-    '③ a gate is PASSED when all Required criteria are met, BYPASSED when the next phase started without it  ④ 📍 marks the latest phase with activity.')
-    .setFontColor(C_.mut).setFontSize(9.5);
-  sh.setConditionalFormatRules(rules);
-  sh.setFrozenRows(0);
+/* ══ APPROVE · Phases ═════════════════════════════════════════════════════════════════════ */
+function critSeed_() {
+  // phase, criterion, type, key (step:<name> | doc:<no> | tasks:<no,no> | manual), evidence [label,key], note
+  return [
+    [1, 'Product & market research complete', 'Required', 'step:Product & market research'], [1, 'Competitors, pricing & registration complete', 'Required', 'step:Competitors, pricing & registration'],
+    [1, 'Distributor price approved (task 1.7)', 'Required', 'doc:1.7'], [1, 'Product registration / import licence confirmed (task 1.8)', 'Required', 'doc:1.8'],
+    [1, 'Kick-off minutes stored (08/05/2025)', 'Recommended', 'manual', ['Biên bản 08/05', 'meet0805'], 'File on Drive is empty.'],
+    [2, 'Marketing plan approved (task 2.1)', 'Required', 'doc:2.1'], [2, 'Core materials ready: flyer printed, display holder (tasks 2.6, 2.9)', 'Required', 'tasks:2.6,2.9'],
+    [2, 'Internal and distributor training done', 'Required', 'step:Training'], [2, 'All materials ready including standee', 'Recommended', 'step:Marketing materials'],
+    [2, 'Customer insight survey done (task 2.2)', 'Recommended', 'tasks:2.2'],
+    [3, 'Samples sent to target clinics', 'Required', 'step:Product samples'], [3, 'Launch promotion completed', 'Required', 'step:Launch promotion'],
+    [3, 'Online launch and events completed', 'Recommended', 'step:Online & events'],
+    [4, 'Customer feedback & surveys complete', 'Required', 'step:Customer feedback & surveys'], [4, 'Sales tracked against target', 'Required', 'step:Sales follow-up'],
+    [4, 'Post-launch review held', 'Required', 'step:Post-launch review'], [4, 'Lessons learned stored in the project folder', 'Recommended', 'manual']
+  ];
+}
+function critFormula_(key) {
+  var tb = q_(T.tasks), R0 = TK.r0, R1 = TK.r1, col = function (k) { return tb + '$' + CL_(TC[k]) + '$' + R0 + ':$' + CL_(TC[k]) + '$' + R1; };
+  if (key.indexOf('step:') === 0) return '=IF(IFERROR(INDEX(' + q_(T.calc) + '$K$3:$K$13,MATCH("' + key.slice(5) + '",' + q_(T.calc) + '$A$3:$A$13,0)),"")="Done","Met","Not met")';
+  if (key.indexOf('doc:') === 0) return '=IF(SUMPRODUCT((' + col('no') + '="' + key.slice(4) + '")*(' + col('st') + '="Done")*(' + col('ev') + '<>""))>0,"Met","Not met")';
+  if (key.indexOf('tasks:') === 0) {
+    var ids = key.slice(6).split(',');
+    return '=IF(' + ids.map(function (x) { return 'SUMPRODUCT((' + col('no') + '="' + x + '")*(' + col('st') + '="Done"))'; }).join('+') + '>=' + ids.length + ',"Met","Not met")';
+  }
+  return '';
+}
+function critSource_(key) {
+  if (key.indexOf('step:') === 0) return 'Step: ' + key.slice(5);
+  if (key.indexOf('doc:') === 0) return 'Task ' + key.slice(4) + ' + evidence file';
+  if (key.indexOf('tasks:') === 0) return 'Tasks ' + key.slice(6).replace(/,/g, ', ');
+  return 'Approver ticks';
+}
+function buildApprove_(ss) {
+  var sh = prep_(ss, T.appr, [250, 140, 90, 110, 96, 100, 96, 320, 170, 50, 50, 50, 50, 140], K.gold, AP.hist0 + 200);
+  title_(sh, 'APPROVE · PHASES', 'Each phase closes with an approval by the General Director. Decision "Approved" is accepted only when every required criterion is met.',
+    'Owner submits · General Director decides', 'Owner: Submitted on · Approver: Decision, Decision date, Comment (or menu Review & decide a phase)', 9);
+  ribbon_(sh, 5, [[2, 4, 'auto'], [6, 1, 'owner'], [7, 3, 'appr'], [10, 1, 'auto']]);
+  header_(sh, 6, 2, ['Phase', 'Approver', 'Required met', 'Recommended met', 'Submitted on', 'Decision', 'Decision date', 'Comment', 'Status', 'Req. total', 'Req. met', 'Rec. total', 'Rec. met', 'Decided by'], [2, 3, 4, 5, 10, 11, 12, 13, 14, 15]);
+  var C0 = AP.cr0, crit = critSeed_(), rowsC = [], ph = 0;
+  crit.forEach(function (c) { if (c[0] !== ph) { rowsC.push({ band: c[0] }); ph = c[0]; } rowsC.push({ c: c }); });
+  var C1 = C0 + rowsC.length - 1, crRg = function (col) { return '$' + col + '$' + C0 + ':$' + col + '$' + C1; };
+  var seedDec = [['30/07/2025', 'Approved', '31/07/2025', 'Research, price and registration complete. Recorded at tracker setup (2025 launch).'],
+    ['31/07/2025', 'Approved', '01/08/2025', 'Plan, core materials and training ready. Recorded at tracker setup (2025 launch).'],
+    ['31/08/2025', 'Approved', '31/08/2025', 'Samples and launch promotion completed; online activities to confirm. Recorded at tracker setup (2025 launch).'], ['', '', '', '']];
+  var data = [];
+  for (var i = 0; i < 4; i++) {
+    var r = AP.ph0 + i, s = seedDec[i];
+    if (SNAP && SNAP.appr && SNAP.appr[i]) { var a = SNAP.appr[i]; s = [a[5], a[6], a[7], a[8]]; }
+    data.push(['="Phase ' + (i + 1) + ' · "&' + q_(T.setup) + '$D$' + (SU.step0 + i) + '&" · "&' + q_(T.setup) + '$E$' + (SU.step0 + i),
+      '=' + q_(T.setup) + '$I$' + (SU.plan0 + 3), '=L' + r + '&" / "&K' + r, '=N' + r + '&" / "&M' + r,
+      typeof s[0] === 'string' ? D_(s[0]) : s[0], s[1], typeof s[2] === 'string' ? D_(s[2]) : s[2], s[3],
+      '=IF(G' + r + '="Approved","Approved",IF(G' + r + '="Returned","Returned",IF(F' + r + '<>"",IF(L' + r + '=K' + r + ',"Waiting approval","Submitted · criteria missing"),IF(L' + r + '=K' + r + ',"Ready to submit","Not submitted"))))',
+      '=COUNTIFS(' + crRg('H') + ',' + (i + 1) + ',' + crRg('C') + ',"Required")', '=COUNTIFS(' + crRg('H') + ',' + (i + 1) + ',' + crRg('C') + ',"Required",' + crRg('E') + ',"Met")',
+      '=COUNTIFS(' + crRg('H') + ',' + (i + 1) + ',' + crRg('C') + ',"Recommended")', '=COUNTIFS(' + crRg('H') + ',' + (i + 1) + ',' + crRg('C') + ',"Recommended",' + crRg('E') + ',"Met")',
+      (SNAP && SNAP.appr && SNAP.appr[i]) ? SNAP.appr[i][14] || '' : (seedDec[i][1] ? ROLES.gd : '')]);
+  }
+  sh.getRange(AP.ph0, 2, 4, 14).setValues(data);
+  grid_(sh, AP.ph0, 2, 4, 9);
+  sh.getRange(AP.ph0, 2, 4, 1).setFontWeight('bold');
+  autoCols_(sh, AP.ph0, 4, [2, 3, 4, 5, 10]);
+  sh.getRange(AP.ph0, 4, 4, 4).setHorizontalAlignment('center');
+  [6, 8].forEach(function (c) { sh.getRange(AP.ph0, c, 4, 1).setNumberFormat('dd/mm/yyyy').setHorizontalAlignment('center').setDataValidation(dvDate_()); });
+  sh.getRange(AP.ph0, 7, 4, 1).setHorizontalAlignment('center').setDataValidation(dvCustom_('=OR(G' + AP.ph0 + '="",G' + AP.ph0 + '="Returned",AND(G' + AP.ph0 + '="Approved",L' + AP.ph0 + '=K' + AP.ph0 + '))',
+    'Type Approved or Returned. Approved is accepted only when all required criteria are met. Easier: menu IPR Launch ▸ Review & decide a phase.'));
+  sh.setRowHeights(AP.ph0, 4, 28);
+  statusCF_(sh, ['G' + AP.ph0 + ':G' + (AP.ph0 + 3), 'J' + AP.ph0 + ':J' + (AP.ph0 + 3)]);
+  // tiêu chí
+  section_(sh, C0 - 2, 2, 9, 'Criteria · checked automatically from UPDATE · Tasks', 'Required = blocks approval · Recommended = shown, does not block');
+  header_(sh, C0 - 1, 2, ['Criterion', 'Type', 'Checked from', 'Met', 'Evidence', 'Note', 'Phase', 'Key'], [2, 3, 4, 5, 8, 9]);
+  var cdata = [], cbands = [], manual = [], snapIdx = 0;
+  rowsC.forEach(function (it, k) {
+    var r = C0 + k;
+    if (it.band) { cdata.push(['="Phase ' + it.band + ' · "&' + q_(T.setup) + '$D$' + (SU.step0 + it.band - 1), '', '', '', '', '', '', '']); cbands.push(r); return; }
+    var c = it.c, met = critFormula_(c[3]), ev = c[4] ? hl_(L[c[4][1]], c[4][0]) : '', note = c[5] || '';
+    var sn = SNAP && SNAP.crit && SNAP.crit[k] ? SNAP.crit[k] : null;
+    if (sn) { ev = sn[5] !== undefined ? sn[5] : ev; note = sn[6] !== undefined ? sn[6] : note; }
+    if (c[3] === 'manual') { met = sn && (sn[4] === 'Met' || sn[4] === 'Not met') ? sn[4] : 'Not met'; manual.push(r); }
+    cdata.push([c[1], c[2], critSource_(c[3]), met, ev, note, c[0], c[3]]);
+  });
+  sh.getRange(C0, 2, cdata.length, 8).setValues(cdata);
+  grid_(sh, C0, 2, cdata.length, 6);
+  autoCols_(sh, C0, cdata.length, [2, 3, 4, 5]);
+  manual.forEach(function (r) { sh.getRange(r, 5).setBackground(K.white).setFontColor(K.ink).setDataValidation(dvList_(['Met', 'Not met'], true)); });
+  cbands.forEach(function (r) { band_(sh, r, 2, 6); });
+  sh.getRange(C0, 5, cdata.length, 1).setHorizontalAlignment('center');
+  sh.getRange(C0, 6, cdata.length, 1).setFontColor(K.link);
+  cfFormula_(sh, ['E' + C0 + ':E' + C1], '=AND($E' + C0 + '="Not met",$C' + C0 + '="Recommended")', K.waitBg, K.waitFg, true);
+  statusCF_(sh, ['E' + C0 + ':E' + C1], ['Met', 'Not met']);
+  // lịch sử
+  var H0 = AP.hist0;
+  section_(sh, H0 - 2, 2, 6, 'History · approvals, baseline and emails', 'Written by the tracker');
+  header_(sh, H0 - 1, 2, ['Date', 'By', 'Action', 'Item', 'Detail', 'Email sent to'], [2, 3, 4, 5, 6, 7]);
+  var hist = SNAP && SNAP.hist ? nonEmpty_(SNAP.hist, [1, 2, 3]).map(function (r) { return r.slice(1, 7); }) : [
+    [D_('05/05/2025'), ROLES.hsm, 'Baseline set', 'Project plan', 'Baseline dates locked (date assumed at tracker setup).', ''],
+    [D_('30/06/2025'), ROLES.gd, 'Task approved', '2.1 Marketing plan', 'Recorded at tracker setup (2025 launch).', ''],
+    [D_('31/07/2025'), ROLES.gd, 'Task approved', '1.7 Distributor price', 'Recorded at tracker setup (2025 launch).', ''],
+    [D_('31/07/2025'), ROLES.gd, 'Task approved', '3.2 Launch promotion', 'Recorded at tracker setup (2025 launch).', ''],
+    [D_('31/07/2025'), ROLES.gd, 'Phase approved', 'Phase 1 · Feasibility', 'Recorded at tracker setup (2025 launch).', ''],
+    [D_('01/08/2025'), ROLES.gd, 'Phase approved', 'Phase 2 · Launch planning', 'Recorded at tracker setup (2025 launch).', ''],
+    [D_('31/08/2025'), ROLES.gd, 'Phase approved', 'Phase 3 · Launch execution', 'Recorded at tracker setup (2025 launch).', ''],
+    [new Date(), 'Tracker', 'Tracker built', 'IPR-01EF Launch Tracker ' + IPR_BUILD, 'Layout v4: tabs by job (VIEW · UPDATE · APPROVE · SETUP).', '']];
+  if (hist.length) {
+    sh.getRange(H0, 2, hist.length, 6).setValues(hist);
+    sh.getRange(H0, 2, hist.length, 1).setNumberFormat('dd/mm/yyyy').setHorizontalAlignment('center');
+    grid_(sh, H0, 2, hist.length, 6);
+    sh.getRange(H0, 2, hist.length, 6).setFontSize(9.5);
+  }
+  sh.hideColumns(11, 5);
+  protectWarn_(sh, sh.getRange(AP.ph0, 2, 4, 4)); protectWarn_(sh, sh.getRange(AP.ph0, 10, 4, 6));
+  protectWarn_(sh, sh.getRange(C0, 2, cdata.length, 3)); protectWarn_(sh, sh.getRange(C0, 8, cdata.length, 2));
+  protectWarn_(sh, sh.getRange(H0 - 1, 2, 202, 6));
+  AP.cr1 = C1;
+  sh.setFrozenRows(4);
+}
+
+/* ══ _calc (ẩn) ═══════════════════════════════════════════════════════════════════════════ */
+function buildCalc_(ss) {
+  var sh = prep_(ss, T.calc, [190, 60, 60, 60, 60, 60, 60, 60, 60, 60, 120, 70, 170, 50, 50, 50, 50, 50], '#999999', 60);
+  sh.getRange(1, 1).setValue('_calc · do not edit. Counts tasks per step and phase from UPDATE · Tasks; feeds VIEW · Overview and APPROVE · Phases.').setFontColor(K.mut);
+  var tb = q_(T.tasks), R0 = TK.r0, R1 = TK.r1, col = function (k) { return tb + '$' + CL_(TC[k]) + '$' + R0 + ':$' + CL_(TC[k]) + '$' + R1; };
+  sh.getRange(2, 1, 1, 18).setValues([['Step', 'Phase', 'Total', 'Done', 'In progress', 'Waiting', 'To confirm', 'Not started', 'Overdue', 'Blocked', 'Status', 'Progress', 'Main PIC', 'cat Done', 'cat In progress', 'cat Overdue/blocked', 'cat To confirm', 'cat Not started']]).setFontWeight('bold');
+  var rows = [];
+  for (var i = 0; i < 11; i++) {
+    var r = 3 + i, A = '$A' + r, by = col('step') + ',' + A + ',' + col('no') + ',"<>"';
+    rows.push(['=' + q_(T.setup) + '$B$' + (SU.step0 + i), '=' + q_(T.setup) + '$C$' + (SU.step0 + i),
+      '=COUNTIFS(' + by + ',' + col('st') + ',"<>Cancelled")', '=COUNTIFS(' + by + ',' + col('st') + ',"Done")', '=COUNTIFS(' + by + ',' + col('st') + ',"In progress")',
+      '=COUNTIFS(' + by + ',' + col('st') + ',"Waiting approval")', '=COUNTIFS(' + by + ',' + col('st') + ',"To confirm")', '=COUNTIFS(' + by + ',' + col('st') + ',"Not started")',
+      '=COUNTIFS(' + by + ',' + col('flag') + ',"Overdue")', '=COUNTIFS(' + by + ',' + col('flag') + ',"Blocked")+COUNTIFS(' + by + ',' + col('flag') + ',"Phase locked")',
+      '=IF(C' + r + '=0,"No tasks",IF(D' + r + '=C' + r + ',"Done",IF(J' + r + '>0,"Blocked",IF(I' + r + '>0,"Overdue",IF(F' + r + '>0,"Waiting approval",IF(D' + r + '+G' + r + '=C' + r + ',"To confirm",IF(D' + r + '+E' + r + '>0,"In progress","Not started")))))))',
+      '=IF(C' + r + '=0,0,D' + r + '/C' + r + ')', '=IFERROR(INDEX(' + col('pic') + ',MATCH(' + A + ',' + col('step') + ',0))&"","")',
+      '=COUNTIFS(' + by + ',' + col('cat') + ',"Done")', '=COUNTIFS(' + by + ',' + col('cat') + ',"In progress")', '=COUNTIFS(' + by + ',' + col('cat') + ',"Overdue / blocked")',
+      '=COUNTIFS(' + by + ',' + col('cat') + ',"To confirm")', '=COUNTIFS(' + by + ',' + col('cat') + ',"Not started")']);
+  }
+  sh.getRange(3, 1, 11, 18).setValues(rows);
+  sh.getRange(15, 1, 1, 18).setValues([['Phase', 'Name', 'Total', 'Done', 'Active', 'Status', 'Progress', 'Approval', 'Decided on', '', '', '', '', 'cat Done', 'cat In progress', 'cat Overdue/blocked', 'cat To confirm', 'cat Not started']]).setFontWeight('bold');
+  var ph = [];
+  for (var p = 1; p <= 4; p++) {
+    var r2 = 15 + p, cnt = 'COUNTIF($B$3:$B$13,A' + r2 + ')', cs = function (x) { return 'COUNTIFS($B$3:$B$13,A' + r2 + ',$K$3:$K$13,"' + x + '")'; }, su = function (c) { return '=SUMIF($B$3:$B$13,A' + r2 + ',$' + c + '$3:$' + c + '$13)'; };
+    ph.push([p, '=' + q_(T.setup) + '$D$' + (SU.step0 + p - 1), su('C'), su('D'), '=(SUMIF($B$3:$B$13,A' + r2 + ',$D$3:$D$13)+SUMIF($B$3:$B$13,A' + r2 + ',$E$3:$E$13)+SUMIF($B$3:$B$13,A' + r2 + ',$F$3:$F$13))>0',
+      '=IF(' + cs('Done') + '=' + cnt + ',"Done",IF(' + cs('Blocked') + '>0,"Blocked",IF(' + cs('Overdue') + '>0,"Overdue",IF(' + cs('Not started') + '=' + cnt + ',"Not started",IF(' + cs('To confirm') + '+' + cs('Done') + '=' + cnt + ',"To confirm","In progress")))))',
+      '=IF(C' + r2 + '=0,0,D' + r2 + '/C' + r2 + ')', '=' + q_(T.appr) + '$J$' + (AP.ph0 + p - 1), '=' + q_(T.appr) + '$H$' + (AP.ph0 + p - 1), '', '', '', '',
+      su('N'), su('O'), su('P'), su('Q'), su('R')]);
+  }
+  sh.getRange(16, 1, 4, 18).setValues(ph);
+  var cat = col('cat'), flg = col('flag');
+  var tot = [['Tasks', '=COUNTIFS(' + col('no') + ',"<>",' + col('st') + ',"<>Cancelled")'], ['Done', '=COUNTIF(' + cat + ',"Done")'], ['In progress', '=COUNTIF(' + cat + ',"In progress")'],
+    ['Overdue / blocked', '=COUNTIF(' + cat + ',"Overdue / blocked")'], ['To confirm', '=COUNTIF(' + cat + ',"To confirm")'], ['Not started', '=COUNTIF(' + cat + ',"Not started")'],
+    ['Progress', '=IF(B22=0,0,B23/B22)'], ['Current phase no.', '=IF(E19,4,IF(E18,3,IF(E17,2,1)))'], ['Current phase', '=INDEX($B$16:$B$19,B29)'],
+    ['Overdue tasks', '=COUNTIF(' + flg + ',"Overdue")'], ['Blocked tasks', '=COUNTIF(' + flg + ',"Blocked")+COUNTIF(' + flg + ',"Phase locked")'],
+    ['Waiting approval', '=COUNTIF(' + q_(T.appr) + '$J$' + AP.ph0 + ':$J$' + (AP.ph0 + 3) + ',"Waiting approval")+COUNTIF(' + col('st') + ',"Waiting approval")'],
+    ['Time used', '=MAX(0,MIN(1,(TODAY()-' + q_(T.setup) + '$I$' + SU.plan0 + ')/(' + q_(T.setup) + '$I$' + (SU.plan0 + 1) + '-' + q_(T.setup) + '$I$' + SU.plan0 + ')))'],
+    ['Plan text', '="Plan "&TEXT(' + q_(T.setup) + '$I$' + SU.plan0 + ',"dd/mm/yyyy")&" → "&TEXT(' + q_(T.setup) + '$I$' + (SU.plan0 + 1) + ',"dd/mm/yyyy")']];
+  sh.getRange(21, 1).setValue('Totals').setFontWeight('bold');
+  sh.getRange(22, 1, tot.length, 2).setValues(tot);
+  // rows: 22 Tasks · 23 Done · 24 InProg · 25 Over · 26 Conf · 27 NotSt · 28 Progress · 29 PhaseNo · 30 Phase · 31 Overdue · 32 Blocked · 33 Waiting · 34 Time used · 35 Plan text
+  sh.getRange(3, 12, 11, 1).setNumberFormat('0%'); sh.getRange(16, 7, 4, 1).setNumberFormat('0%'); sh.getRange(28, 2).setNumberFormat('0%'); sh.getRange(34, 2).setNumberFormat('0%');
+  sh.getRange(16, 9, 4, 1).setNumberFormat('dd/mm/yyyy');
+  protectWarn_(sh, null);
 }

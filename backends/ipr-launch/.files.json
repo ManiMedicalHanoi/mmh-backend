@@ -1,5 +1,8 @@
 [
   "appsscript.json",
   "Mã.gs",
-  "IPR_SOP.gs"
+  "IPR_SOP.gs",
+  "IPR_Views.gs",
+  "IPR_Flow.gs",
+  "MMH_MailDomain.gs"
 ]
