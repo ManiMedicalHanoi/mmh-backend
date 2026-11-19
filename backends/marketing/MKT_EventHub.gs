@@ -383,7 +383,7 @@ function ehSync_(opt){
     var events = ehRead_(ss, 'EVENTS'), byId = {}, sig0 = {};
     var sigOf = function(e){ return JSON.stringify(EH.COLS.EVENTS.filter(function(c){ return c !== 'updatedAt' && c !== 'updatedBy'; }).map(function(c){ return ehS_(e[c]); })); };
     events.forEach(function(e){ byId[ehS_(e.id)] = e; sig0[ehS_(e.id)] = sigOf(e); });
-    var srcRows = ehRead_(ss, EH_SRC_TAB), srcBy = {}; srcRows.forEach(function(r){ srcBy[ehS_(r.fileId)] = r; });
+    var srcRows = ehRead_(ss, EH_SRC_TAB), srcBy = {}; srcRows.forEach(function(r){ srcBy[ehS_(r.fileId)] = r; if (ehS_(r.eventId) && byId[ehS_(r.eventId)]) byId[ehS_(r.eventId)]._fn = ehS_(r.name); });
     var planRows = ehRead_(ss, 'PLAN_JSON'), planBy = {}; planRows.forEach(function(r){ planBy[ehS_(r.eventId)] = r; });
     var today = ehIso_(new Date()), dirty = { ev:{}, plan:false, src:false };
 
@@ -404,10 +404,11 @@ function ehSync_(opt){
         if (cand.length > 1){ var w = ehWords_(f.name); cand.sort(function(a, b){ return ehOverlap_(w, b) - ehOverlap_(w, a); }); }
         ev = cand[0];
       }
+      if (!ev && ehIsEnCopy_(f.name, files)){ sr.issue = 'Bản tiếng Anh của file kế hoạch — dùng chung sự kiện với bản tiếng Việt, bỏ qua'; return; }   /* v2.4.1 */
       if (!ev && ehIsJunkFile_(f.name)){ sr.issue = 'Không phải file kế hoạch sự kiện (danh sách khách / khảo sát / đăng ký) — bỏ qua'; return; }   /* v2.4 */
       if (!ev){ ev = { id: 'EV' + meta.start.replace(/-/g, '').slice(2) + '-' + evsHash_(f.id).slice(0, 4).toUpperCase(), follow: meta.start >= today ? 'Có' : 'Không',
                        src: 'FILE', state: '' }; EH.ROLES.forEach(function(r){ ev[r] = ehTeamDefault_(ss, r); }); events.push(ev); byId[ev.id] = ev; rep.evNew++; }
-      ev.planFileId = f.id; ev.planUrl = f.url; ev.start = meta.start; ev.end = meta.end;
+      ev.planFileId = f.id; ev.planUrl = f.url; ev.start = meta.start; ev.end = meta.end; ev._fn = f.name;
       if (!ehS_(ev.folderId) && f.dir){ ev.folderId = f.dir.id; ev.folderUrl = f.dir.url; }   /* v2.0: folder sự kiện = cha của file kế hoạch (bỏ cấp "Plan") */
       if (!ev.type || ev.src === 'FILE' || ev.src === 'OFFLINE+FILE') ev.type = meta.type;
       if (meta.city) ev.city = meta.city;
@@ -443,7 +444,8 @@ function ehSync_(opt){
       var ev = events.filter(function(e){ return ehS_(e.offlineName) && evsNorm_(e.offlineName) === o.nk; })[0];
       if (!ev){
         var cand = events.filter(function(e){ return !ehS_(e.offlineName) && !ehS_(e.sample) && ehS_(e.start) === o.start; });
-        if (cand.length > 1){ var w = ehWords_(o.name + ' ' + o.place); cand.sort(function(a, b){ return ehOverlap_(w, b) - ehOverlap_(w, a); }); }
+        if (cand.length > 1){ var w = ehWords_(o.name + ' ' + o.place); cand.sort(function(a, b){ return ehOverlap_(w, b) - ehOverlap_(w, a); });
+          if (ehOverlap_(w, cand[0]) === ehOverlap_(w, cand[1])) cand = [];   /* v2.4.1: hoà điểm ⇒ không ghép chéo (lỗi 09/10: Văn Lang ↔ HUBT) */ }
         ev = cand[0];
       }
       if (!ev){ ev = { id: 'EV' + o.start.replace(/-/g, '').slice(2) + '-' + evsHash_(o.nk).slice(0, 4).toUpperCase(), name: o.name, start: o.start, end: o.end,
@@ -501,7 +503,7 @@ function ehSync_(opt){
   } catch(err){ return { ok:false, error: String(err && err.message || err) }; }
   finally { try { lock.releaseLock(); } catch(e){} }
 }
-function ehOverlap_(words, ev){ var s = ehWords_([ev.name, ev.city, ev.venue, ev.offlineName].join(' ')); return words.filter(function(w){ return s.indexOf(w) >= 0; }).length; }
+function ehOverlap_(words, ev){ var s = ehWords_([ev.name, ev.city, ev.venue, ev.offlineName, ev._fn].join(' '));   /* v2.4.1: + tên file kế hoạch */ return words.filter(function(w){ return s.indexOf(w) >= 0; }).length; }
 function ehTeamDefault_(ss, role){
   if (!ehTeamDefault_.m){ ehTeamDefault_.m = {}; ehRead_(ss, 'TEAM').forEach(function(r){ ehTeamDefault_.m[ehS_(r.role)] = ehS_(r.people).split(',')[0].trim(); }); }
   return ehTeamDefault_.m[role] || '';

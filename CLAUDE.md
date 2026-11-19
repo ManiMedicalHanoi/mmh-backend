@@ -693,3 +693,6 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   ⇒ đồng bộ KHÔNG tạo sự kiện mới; sự kiện đã lỡ tạo từ file đó (nguồn FILE, chưa có việc) ⇒ không gửi về app. Boot gắn `planName` (tên file kế hoạch, tab NGUỒN FILE) ⇒ app ghi rõ nguồn từng sự kiện.
   Việc: "Chia việc với NPP, Trường / Viện" ⇒ **"Phân công công việc"**, BỎ "Giám đốc duyệt kế hoạch + ngân sách" (`ehTaskFix_`: mẫu Event form_Task, TEMPLATE cũ, cổng G1, mốc quan trọng, nhắc việc hằng ngày, dữ liệu gửi app).
   KHÔNG xoá / sửa dòng nào trong sheet. Chẩn đoán (chỉ đọc): ping `marketing?action=ehEvDiag&key=<8 ký tự cuối EH.ROOT>&full=1` (`&only=hide|show`).
+  **v2.4.1**: sự kiện nguồn FILE không đọc ra kế hoạch (không TÊN SỰ KIỆN / nhiệm vụ / agenda), không có dòng MKT Offline, chưa có việc ⇒ cũng ẩn (`ehNoPlan_`). Ghép dòng MKT Offline: tính điểm trùng từ có cả TÊN FILE kế hoạch (`ev._fn`),
+  nhiều sự kiện cùng ngày hoà điểm ⇒ KHÔNG ghép (lỗi 09/10/2026: triển lãm Văn Lang ↔ HUBT bị ghép chéo — 2 dòng đó CHƯA sửa trong sheet, chờ người dùng). File "…_EN" cùng ngày với file tiếng Việt (`ehIsEnCopy_`)
+  ⇒ không tạo sự kiện mới (đã có 1 sự kiện trùng "20261113-15 … VOS Da Nang_EN" 43 việc — chưa xoá, chờ người dùng).
