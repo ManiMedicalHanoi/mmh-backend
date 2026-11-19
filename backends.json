@@ -299,5 +299,17 @@
     "sheetId": "1fzV1vc-C0U-PdFq3O8P7mceOWs9hj5qGKY6eyYSvkS0",
     "sheetUrl": "https://docs.google.com/spreadsheets/d/1fzV1vc-C0U-PdFq3O8P7mceOWs9hj5qGKY6eyYSvkS0/edit?gid=1014817478#gid=1014817478",
     "note": "File gốc nhận câu trả lời Google Form đăng ký sự kiện: mỗi KOL / bác sĩ 1 link form, đổ về 1 tab; cột A Event name do Marketing dán tay, có tiến trình done / cancel / pending, cột nguồn 'Anh chị biết đến sự kiện qua đâu' (MANI = MMH tuyển, khác = NPP). Nguồn số đăng ký cho app Sự kiện MKT / Report Hub (chỉ đọc số đếm, không đưa tên / SĐT khách lên app). Người dùng gửi 18/11/2026."
+  },
+  "composite-data": {
+    "name": "Data composite (HS 30064010 Nha khoa Composite Bond — dữ liệu nhập khẩu, giá bán lẻ)",
+    "apps": [],
+    "scriptId": "1vsq9m4an-Od_jZN9QnmNJh1_VDTIlWLbVO0g2L_Op8xIdOxbbzgsDmrD",
+    "sheetId": "1szwMAzyBdqHqmbOfQ7ZCRhnTztvFvjazT4nrUt3XoyY"
+  },
+  "mmg-price": {
+    "name": "Price calculation MMG (tính giá MMG + Competitor Benchmark)",
+    "apps": [],
+    "scriptId": "1AUPOrqOcHhZkRHzhZ3dCl5kQndIrr5FNhOtPQ7cBhUpRLHZUXFSH4V18",
+    "sheetId": "1xYjl3OV8Bm6IBX4290pJ_9K93eJcRL9cpwfb32jenqU"
   }
 }
