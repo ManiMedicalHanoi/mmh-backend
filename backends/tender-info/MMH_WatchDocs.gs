@@ -452,6 +452,7 @@ function wtdUpload_(me, p) {
   } finally { lock.releaseLock(); }
   try { wtdSumWrite_(cur, Object.assign({}, cur.info), [{ sec: sec, docType: docType, name: orig || sv.name, url: sv.url }]); } catch (e) { Logger.log('wUpload sum: ' + e.message); }
   wtBotLog_(ss, 'app · ' + me.pic, h.key, 'upload', sv.name, orig);
+  wtdDocsBust_();
   return { ok: true, name: sv.name, url: sv.url, gsheet: sv.gsheet, folder: folder.getUrl(), hit: wtHitOut_(wtHits_(ss).filter(function (x) { return x.key === h.key; })[0]) };
 }
 
@@ -498,3 +499,31 @@ function wtdRequeue_(p) {
   try { CacheService.getScriptCache().remove('wt_q'); } catch (e) {}
   return Object.assign({ ok: true }, out);
 }
+
+
+/* ════════════════════════════════════════════════════════════════════
+   TÀI LIỆU ĐÃ TẢI — DANH SÁCH RIÊNG (19/11/2026, người dùng: "hôm qua còn thấy tài liệu các hồ sơ đã tải, hôm nay mất hết")
+   Tab Tài liệu trước lấy từ wBoot.hits = 800 tin mới nhất của người đang xem ⇒ nhiều tin mới (tải hàng loạt) đẩy gói đã tải ra ngoài.
+   wDocs {all: 1|0} (mọi phiên email công ty) ⇒ MỌI gói đã có file (all=1: của mọi người; mặc định: gói người xem theo dõi), không giới hạn 800,
+   dạng gọn: {v, rows: [{k, t, no, inv, nm, prov, done, url, ag (số file cần Agent chưa có), f: [{n, u, s, d (loại), g (Sheet), z (byte)}]}]}.
+   Đệm `wt_docs` 5 phút (xoá khi có file mới: wtdUpload_ / botFile gọi wtdDocsBust_).
+   ════════════════════════════════════════════════════════════════════ */
+function wtdDocs_(me, p) {
+  const all = wtTrue_(p.all), C = CacheService.getScriptCache(), ck = 'wt_docs';
+  let rows = null;
+  try { const s = wtBigGet_(C, ck); if (s) rows = JSON.parse(s); } catch (e) {}
+  if (!rows) {
+    rows = wtHits_(wtBook_()).filter(function (h) { return (h.files || []).length; }).map(function (h) {
+      const I = h.info || {};
+      return { k: h.key, t: h.type, no: h.no, inv: h.investor, nm: h.name, prov: wtS_(I.prov), done: wtS_(h.done) || wtS_(h.last), date: wtS_(h.date), url: wtS_(I.url),
+        w: h.watchers, ag: (I.agentFiles || []).filter(function (a) { return a && typeof a === 'object' && !a.done; }).length,
+        f: (h.files || []).map(function (f) { return { n: f.name, u: f.url, i: f.id || '', s: f.sec || '', d: f.kind || '', g: f.gsheet ? 1 : 0, z: f.size || 0 }; }) };
+    });
+    try { wtBigPut_(C, ck, JSON.stringify(rows), 300); } catch (e) {}
+  }
+  const mine = function (r) { return (r.w || []).some(function (m) { return m === me.mail || wtLocal_(m) === me.local; }); };
+  const out = rows.filter(function (r) { return all || mine(r); }).map(function (r) { const o = Object.assign({}, r); delete o.w; return o; });
+  out.sort(function (a, b) { return String(b.done).localeCompare(String(a.done)); });
+  return { ok: true, all: all, n: out.length, rows: out };
+}
+function wtdDocsBust_() { try { CacheService.getScriptCache().remove('wt_docs'); } catch (e) {} }

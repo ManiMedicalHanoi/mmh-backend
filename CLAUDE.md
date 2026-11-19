@@ -714,3 +714,12 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   (không đụng công thức A / C / M / N / O, không đụng bảng A). Bỏ hàng MANI / Schütz, dạng nhộng, vật liệu che màu / nướu / labo; ghép sản phẩm MANI theo `CBF` (Flow V = flow độ nhớt cao,
   Hybrid Ease = composite đặc thường quy, Micro Hybrid = thẩm mỹ, Nano = chịu lực, Bulk, Bond); mỗi nhóm lấy hãng nhập khẩu nhiều nhất (giới hạn `CBF.CAP`, tổng 100 dòng);
   thị phần = PCS nhập khẩu 2025 ÷ tổng cùng nhóm (kể cả MANI). Ngày lấy data đọc chữ hiển thị (ô ngày nguồn có ô lưu đảo ngày ↔ tháng). Xem dữ liệu: `cbRows` (giá + PCS từng dòng), `cbDiag`.
+- **19/11/2026 — Máy tải Agent v2.0: bấm tải trên app là tải CẢ GÓI qua máy có VNeGP Agent (tender-info `MMH_WatchAgent.gs` v1.1, MMH_Watch v1.8, người dùng yêu cầu: không mở muasamcong, tải ẩn, không chiếm Chrome)**:
+  app `wAgentReq {keys, want}` ⇒ `info.agentReq` (giữ trong `WT_INFO_KEEP`) ⇒ `botAgentList` trả thêm `pkgs` ⇒ máy tải (`Tender-Result/theo-doi/agent/agent_worker.py` v2.0, hỏi 45 giây / lần)
+  `botPkgStart` (gói "Đang tải") ⇒ chạy `tai_nhanh.py` bằng Chromium RIÊNG của playwright, headless (`browser:'auto'` = chromium ⇒ msedge ⇒ chrome, không đụng trình duyệt người dùng đang mở) ⇒ `botPkgPut` từng file
+  (`wtaDocType_`: tên chuẩn theo tab + tên file, trùng file "cần Agent" ⇒ done) ⇒ đẩy kho GitHub `tender-docs` nếu máy đã cài token (`github.json`) ⇒ `botPkgDone`. Bot GitHub (`wtBotEligible_`) nhường gói có agentReq < `WTA.HOLD_MIN` (10) phút.
+  App mở trên CHÍNH máy tải ⇒ gọi thẳng `http://127.0.0.1:8767` (`/ping`, `/job`, `/jobs`; CORS chỉ manimedicalhanoi.github.io + `Access-Control-Allow-Private-Network`; Chrome hỏi quyền truy cập mạng cục bộ 1 lần).
+  `tools/msc/tai_nhanh.py` GIỐNG HỆT ở 3 nơi: kho này, `Tender-Result/theo-doi/agent/` (bộ cài máy tải), skill `mmh-tender-opportunity` (`mmh-library/skills/…/scripts/msc/`) — sửa 1 nơi chép sang nơi kia (`j['tags']` = tab của từng file).
+  **wDocs (19/11/2026, người dùng: "hôm qua còn thấy tài liệu các hồ sơ đã tải, hôm nay mất hết")**: tab Tài liệu cũ lấy từ `wBoot.hits` (800 tin mới nhất của người xem) ⇒ tải hàng loạt đẩy gói đã tải ra ngoài.
+  `wtdDocs_` (MMH_WatchDocs.gs) = MỌI gói có file (`all=1` mọi người · mặc định gói người xem theo dõi), dạng gọn `{k,t,no,inv,nm,prov,done,url,ag,f:[{n,u,i,s,d,g,z}]}`, đệm `wt_docs` 5 phút chia mảnh (`wtBigPut_`), xoá khi có file mới (`wtdDocsBust_` ở botFile / wtdUpload_).
+
