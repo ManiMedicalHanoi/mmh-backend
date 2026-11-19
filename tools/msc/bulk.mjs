@@ -69,13 +69,17 @@ if (MODE === 'knife' || MODE === 'knife-dry') {
   process.exit(0);
 }
 if (MODE === 'dry' || MODE === 'run') {
-  const r = await post({ action: 'botGrabInv', op: MODE, re: RE, from: FROM, want: WANT, mail: MAIL, max: 5000, types: process.env.BULK_TYPES || 'kqdt' });
+  // BULK_NAMEF=vt ⇒ chỉ gói vật tư / dụng cụ (bộ lọc tên gói của tools/msc/knife-extra.json)
+  const NF = process.env.BULK_NAMEF === 'vt' ? JSON.parse(fs.readFileSync('tools/msc/knife-extra.json', 'utf8')) : {};
+  const r = await post({ action: 'botGrabInv', op: MODE, re: RE, from: FROM, to: process.env.BULK_TO || '', want: WANT, mail: MAIL, max: 5000, types: process.env.BULK_TYPES || 'kqdt',
+    nameInc: NF.nameInc || '', nameExc: NF.nameExc || '', nameStrong: NF.nameStrong || '' });
+  if (process.env.BULK_NAMEF === 'vt') console.log('Lọc tên gói: chỉ vật tư / dụng cụ (bỏ thuốc, hóa chất, máy, sửa chữa, dịch vụ…)');
   if (!r.ok) { console.log('Lỗi:', JSON.stringify(r).slice(0, 500)); process.exit(1); }
   console.log(`Chủ đầu tư khớp "${RE}" · từ ${FROM} · ${r.total} gói (có kết quả ${r.byType.kqdt} · mới mời thầu ${r.byType.tbmt}) · tài liệu: ${r.want.join(', ')}`);
   console.log('Theo tháng:', JSON.stringify(r.byMonth));
   console.log('Đã có trong danh sách tải:', JSON.stringify(r.existing), '· gói mới:', r.fresh);
   console.log(`Chủ đầu tư (${r.byInv.length}):`);
-  r.byInv.forEach(([n, c]) => console.log(`  ${String(c).padStart(4)}  ${n}`));
+  r.byInv.slice(0, +process.env.BULK_TOPN || 9999).forEach(([n, c]) => console.log(`  ${String(c).padStart(4)}  ${n}`));
   console.log('Mẫu gói mới nhất:'); r.sample.forEach(s => console.log('  ' + s.join(' | ')));
   if (r.res) console.log('KẾT QUẢ ĐẶT TẢI:', JSON.stringify(r.res));
   fs.writeFileSync('bulk-report.json', JSON.stringify(r, null, 1));
