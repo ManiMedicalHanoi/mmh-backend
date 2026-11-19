@@ -3233,7 +3233,11 @@ function naDear_(names){
   }).join(', ');
 }
 function naMailHtml_(o, kind, user, wk, imgs){
-  if(NA_ENV.lang() === 'en') return naMailHtmlEn_(o, kind, user, wk, imgs);   /* 18/11/2026 — Thai teams: short, formal English e-mail */
+  return NA_ENV.lang() === 'en' ? naMailHtmlEn_(o, kind, user, wk, imgs)   /* 18/11/2026 — Thai teams: short, formal English e-mail */
+    : naMailHtmlVi_(o, kind, user, wk, imgs);                                  /* 19/11/2026 — VN teams: cùng kiểu gọn, tiếng Việt */
+}
+/* bản thư thường cũ (15/10/2026) — giữ để tham khảo, không còn dùng */
+function naMailHtmlOld_(o, kind, user, wk, imgs){
   var L = naL_, e = naEsc_, link = NA_CRM_URL + '#na=' + encodeURIComponent(o.id);
   var who = kind === 'submit' ? naDear_(o.subTo) : o.pic;
   var by = e(o.decBy || user.pic);
@@ -3304,7 +3308,7 @@ function naMailHtmlEn_(o, kind, user, wk, imgs){
   t.push(row('Case', e(o.type === 'new_sku' ? 'New SKU' : 'New account') + (o.kpi ? ' · KPI ' + e(o.kpi) : '') + (o.month ? ' · ' + e(String(o.month).replace(/^(\d{4})(\d{2})$/, '$2/$1')) : '')));
   t.push(row('Account', acc));
   t.push(row('Distributor', e(naShort_(o.npp, 80)) + (o.orderDate ? ' (confirmed ' + e(o.orderDate) + ')' : '') + (o.orderNo ? ' · ' + e(o.orderNo) : '')));
-  if(o.sku || o.ptype) t.push(row('Products', e(naShort_((o.ptype ? o.ptype + ' · ' : '') + naSkuShort_(o.sku), 160))));
+  if(o.sku || o.ptype) t.push(row('Products', e(naShort_((o.ptype ? o.ptype + ' · ' : '') + naSkuView_(o.sku), 160))));
   if(o.qty || o.amount) t.push(row('Qty / amount', (o.qty ? e(o.qty) : '—') + ' / ' + (o.amount ? Number(o.amount).toLocaleString('en-US') : '—')));
   if(kind === 'submit' && o.weekly) t.push(row('Visit history', e(naShort_(o.weekly, 120))));
   var nt = naShort_(naNoteClean_(o.note), 300); if(nt) t.push(row('Note', e(nt)));
@@ -3332,17 +3336,66 @@ function naSkuShort_(s){
   while((m = re.exec(s))){ var k = m[1] + ' × ' + m[2]; if(!seen[k]){ seen[k] = 1; out.push(k); } }
   return out.length ? out.join(', ') : s.replace(/\n/g, ', ');
 }
+/* chữ ngắn (≤ 160 ký tự) ⇒ giữ nguyên (mỗi dòng 1 sản phẩm); dán cả phiếu đơn dài ⇒ chỉ lấy "MÃ × SL" */
+function naSkuView_(s){ var t = String(s == null ? '' : s).replace(/\s*\n\s*/g, ', ').trim(); return t.length <= 160 ? t : naSkuShort_(s); }
 function naSubjEn_(o, kind){
   var t = o.type === 'new_sku' ? 'New SKU' : 'New Account', a = naShort_(o.account, 70);
   var head = kind === 'submit' ? 'Approval Request' : kind === 'approve' ? 'Approved' : kind === 'return' ? 'Returned for Changes' : 'Rejected';
+  return '[MMH CRM] ' + head + ': ' + t + ' – ' + a + ' (' + o.pic + ')';
+}
+/* ⭐ 19/11/2026 — email Mở mới TIẾNG VIỆT dạng gọn, formal (người dùng: áp dụng kiểu email nhóm Thái cho Dental / Surgical VN):
+   bảng 1 dòng / mục, chữ dài cắt ngắn, SKU dán cả phiếu ⇒ "MÃ × SL", ghi chú là câu lỗi app thì bỏ, ảnh chứng từ nhúng. Người nhận theo NA_APPROVERS (không đổi). */
+function naMailHtmlVi_(o, kind, user, wk, imgs){
+  var e = naEsc_, link = NA_CRM_URL + '#na=' + encodeURIComponent(o.id);
+  var who = kind === 'submit' ? naDear_(o.subTo) : naDear_(o.pic), by = e(o.decBy || user.pic);
+  var type = o.type === 'new_sku' ? 'SKU mới' : 'mở mới';
+  var p = function(s){ return '<p style="margin:0 0 12px">' + s + '</p>'; };
+  var row = function(k, v){ return v ? '<tr><td style="padding:2px 14px 2px 0;color:#555;white-space:nowrap;vertical-align:top">' + k + '</td><td style="padding:2px 0">' + v + '</td></tr>' : ''; };
+  var h = ['<div lang="vi" style="font-family:Aptos,Calibri,Arial,sans-serif;font-size:14px;line-height:1.5;color:#1A1A1A;max-width:720px">'];
+  h.push(p('Dear ' + e(who || 'anh/chị') + ','));
+  if(kind === 'submit') h.push(p('Em xin gửi case ' + type + ' dưới đây, nhờ anh/chị xem và xác nhận trên CRM.'));
+  else if(kind === 'approve') h.push(p('Case ' + type + ' dưới đây đã được ' + by + ' <b>xác nhận</b>.'));
+  else if(kind === 'return') h.push(p(by + ' đã <b>yêu cầu chỉnh sửa</b> case ' + type + ' dưới đây. Em cập nhật trên CRM rồi gửi xác nhận lại.'));
+  else h.push(p('Case ' + type + ' dưới đây <b>không được xác nhận</b> (' + by + ').'));
+  if(kind !== 'submit' && o.comment) h.push(p('Nhận xét: ' + e(naShort_(o.comment, 400))));
+  var acc = e(naShort_(o.account, 120)) + (o.code ? ' (' + e(o.code) + ')' : '') + (o.accType || o.province ? ', ' + e([o.accType, o.province].filter(String).join(', ')) : '');
+  var t = [];
+  t.push(row('Case', e(o.type === 'new_sku' ? 'SKU mới' : 'Đại lý / khách hàng mới') + (o.kpi ? ' · KPI ' + e(o.kpi) : '') + (o.month ? ' · tháng ' + e(String(o.month).replace(/^(\d{4})(\d{2})$/, '$2/$1')) : '')));
+  t.push(row('Account', acc));
+  t.push(row('Nhà phân phối', e(naShort_(o.npp, 80)) + (o.orderDate ? ' (' + (naNeedOrder_() ? 'đơn đầu ' : 'xác nhận ') + e(o.orderDate) + ')' : '') + (o.orderNo ? ' · ' + e(o.orderNo) : '')));
+  if(o.sku || o.ptype) t.push(row('Sản phẩm', e(naShort_((o.ptype ? o.ptype + ' · ' : '') + naSkuView_(o.sku), 160))));
+  if((o.lines || []).length) t.push(row('Chi tiết đơn', e(naShort_((o.lines || []).map(function(x){ return (x.ptype || '') + ' × ' + (x.qty || ''); }).join(', '), 160))));
+  if(o.qty || o.amount) t.push(row('SL / giá trị', (o.qty ? e(o.qty) : '—') + ' / ' + (o.amount ? Number(o.amount).toLocaleString('en-US').replace(/,/g, '.') + ' VND' : '—')));
+  if(kind === 'submit' && o.weekly) t.push(row('Lịch sử chăm sóc', e(naShort_(o.weekly, 120))));
+  var nt = naShort_(naNoteClean_(o.note), 300); if(nt) t.push(row('Ghi chú', e(nt)));
+  h.push('<table style="border-collapse:collapse;margin:0 0 14px;font-size:14px">' + t.join('') + '</table>');
+  var fs = o.files || [], inl = {};
+  (imgs || []).forEach(function(x){ inl[x.id] = x; });
+  if(fs.length){
+    h.push(p('<b>Chứng từ</b>'));
+    fs.forEach(function(f, i){
+      var u = 'https://drive.google.com/file/d/' + f.id + '/view', x = inl[f.id];
+      h.push('<div style="margin:0 0 12px">' + (i + 1) + '. ' + e(naKindLabel_(f.kind)) + ' · <a href="' + u + '">' + e(naShort_(f.name || 'mở file', 60)) + '</a>' +
+        (x ? '<br><img src="cid:' + x.cid + '" style="max-width:560px;height:auto;border:1px solid #DDD;margin-top:6px" alt="' + e(naKindLabel_(f.kind)) + '">' : '') + '</div>');
+    });
+  } else if(kind === 'reject' && o.rejectedFiles && o.rejectedFiles.length){
+    h.push(p('Đã xoá chứng từ: ' + e(naShort_(o.rejectedFiles.join(', '), 200))));
+  }
+  h.push(p((kind === 'submit' ? 'Xác nhận / không xác nhận: ' : 'Mở case: ') + '<a href="' + link + '">' + link + '</a>'));
+  h.push(p('Trân trọng,<br>' + e(kind === 'submit' ? o.pic : (o.decBy || user.pic)) + '<br>' + e(NA_ENV.teamLabel()) + ', MANI Medical Hanoi'));
+  h.push('<div style="margin-top:16px;font-size:12px;color:#777">Gửi tự động từ MMH CRM · mã case ' + e(o.id) + '</div></div>');
+  return h.join('');
+}
+function naSubjVi_(o, kind){
+  var t = o.type === 'new_sku' ? 'SKU mới' : 'Mở mới', a = naShort_(o.account, 70);
+  var head = kind === 'submit' ? 'Xin xác nhận' : kind === 'approve' ? 'Đã xác nhận' : kind === 'return' ? 'Yêu cầu chỉnh sửa' : 'Không xác nhận';
   return '[MMH CRM] ' + head + ': ' + t + ' – ' + a + ' (' + o.pic + ')';
 }
 function naKindLabel_(k){ return k === 'dist' ? naL_('Xác nhận NPP', 'Distributor confirmation') : k === 'order' ? naL_('Chứng từ đơn hàng', 'Order document') : k === 'tender' ? naL_('Thông báo trúng thầu', 'Tender award') : naL_('Khác', 'Other'); }
 function naSendMail_(o, kind, user, to, cc, wk){
   var out = { ok:false };
   try{
-    var subj = NA_ENV.lang() === 'en' ? naSubjEn_(o, kind) : ((kind === 'submit' ? naL_('[MMH CRM] Xin xác nhận ', '[MMH CRM] Approval request · ') : kind === 'approve' ? naL_('[MMH CRM] ĐÃ XÁC NHẬN ', '[MMH CRM] APPROVED · ') : kind === 'return' ? naL_('[MMH CRM] CẦN BỔ SUNG ', '[MMH CRM] CHANGES REQUESTED · ') : naL_('[MMH CRM] KHÔNG XÁC NHẬN ', '[MMH CRM] REJECTED · ')) +
-      naTypeLabel_(o.type) + ' · ' + o.account + ' · ' + o.pic + (o.month ? ' · ' + o.month : ''));
+    var subj = NA_ENV.lang() === 'en' ? naSubjEn_(o, kind) : naSubjVi_(o, kind);
     /* ảnh ⇒ nhúng trong thân email (cid:), file khác ⇒ đính kèm */
     var att = [], size = 0, skipped = 0, imgs = [], inl = {};
     if(kind !== 'reject') (o.files || []).forEach(function(f, i){
