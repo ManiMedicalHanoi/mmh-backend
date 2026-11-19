@@ -729,3 +729,13 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   ⇒ có việc ⇒ mở muasamcong trong cửa sổ THU NHỎ của trình duyệt, làm đúng các bước `tools/msc/bot.mjs` (bản port: `tien-ich/bg.js` điều phối + `page.js` chạy trong trang — sửa bot ⇒ xem có cần sửa tiện ích);
   VNeGP Agent chạy ⇒ trang gọi Agent (Origin muasamcong) lấy luôn file cần Agent + tải nốt `agentFiles` cũ. App v2.9: `boot.ext`, nút Tải ⇒ `postMessage {mmhExt:'kick'}`. Bộ cài Python (`theo-doi/agent/`) đã XOÁ;
   `tai_nhanh.py` nay chỉ còn ở kho này + skill mmh-tender-opportunity. Thử: workflow Tender-Result **Thử tiện ích tải hồ sơ thầu** (muasamcong thật + máy chủ / Agent giả, `tools/ext-test/run.mjs`).
+- **19/11/2026 — Đề xuất chi phí PO / Travel Bill thay người dùng (`expense-giang`, script GẮN Sheet "7. FY67 Expenses Approval - Giang, Minh Trang" `14vzawIC…`, người dùng yêu cầu)**:
+  tab **Expense Approval** (dữ liệu từ dòng 7; nhập tay C Proposal Date · D PIC · E Document type PO | Travel Bill · F No. · H Name · I SL · J ĐVT · K Đơn giá · M VND · N Required date ·
+  O Type of expense (= cột B sheet Master expense FY67, vd. `39/…Business trip…` công tác, `29/…Event organization…`, `33/…POSM…`) · P NCC dự kiến · Q Payment type · AM Expensed Record Month yyyyMM · AO Rate;
+  công thức: B tháng, G Document No = `<loại>/<PIC>-<No>-<yyyymmdd>`, AC / AN / AP, AE–AG email theo tab Name). Luồng (`Mã.gs` v7.0 LITE): PIC Menu ▸ Expense Proposal ▸ Confirm = `handlePropose`
+  ⇒ `proposeCore_(p, email PIC)`: AD Proposed + AL khoá + email HOD (Tuyen) ⇒ HOD Menu (AH / AJ) ⇒ email Giám đốc ⇒ Director Menu (AK, tạo folder chứng từ = Document No ở cột R) ⇒ PIC After Purchase (S–Z) ⇒ Kế toán (AA / AB).
+  **Web app `MMH_ExpenseApi.gs`** (key = 8 ký tự cuối ID Sheet): `exInfo` (danh mục + chứng từ gần đây, `&pic=` `&doc=`) · `exAdd` (`p` = JSON `{pic, docType, date, no, required, expMonth, rate, payType, expType, supplier, items:[{desc,qty,unit,price,…}]}`,
+  `op=dry` xem trước — KHÔNG ghi; `op=run&rid=` ghi dòng sau dòng cuối có dữ liệu, đọc lại kiểm Document No / số tiền rồi đề xuất thay PIC) · `exPropose` (dòng đã điền sẵn). PIC qua API: `EXA.PICS` (Giang, Minh Trang).
+  **Quy trình khi người dùng bảo "tạo đề xuất"**: hỏi đủ thông tin ⇒ ping `exAdd op=dry` ⇒ gửi người dùng bảng PO / Travel Bill xem trước (Document No, từng dòng, tổng, loại chi phí, hình thức thanh toán, tháng ghi nhận, tỷ giá, To HOD / CC)
+  ⇒ người dùng xác nhận ⇒ `op=run&rid=<mới>`. Gọi qua workflow **Kiểm tra** ▸ ping `expense-giang?action=exAdd&key=…&op=dry&p=<JSON mã hoá URL>&full=1`.
+  Email gửi từ tài khoản chạy web app (mmh.product) qua `mmhMail_`. Mẫu nội dung cũ: Travel Bill "Công tác <nơi> dd - dd/mm/yyyy/<Travel Allowance | VMB | Hotel>", tiếp khách / mua hàng = PO.
