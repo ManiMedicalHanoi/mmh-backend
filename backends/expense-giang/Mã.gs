@@ -395,9 +395,13 @@ function showProposeDialog() {
   }), 'Expense Propose - ' + (r.picName || r.user), 1850, 1000);
 }
 
-function handlePropose(p) {
+function handlePropose(p) { return proposeCore_(p, currentUser_()); }
+
+// ⭐ 19/11/2026 — lõi đề xuất, nhận email người đề xuất (menu: người đang đăng nhập · API MMH_ExpenseApi.gs: email PIC)
+function proposeCore_(p, user) {
+  user = normEmail_(user);
   return withLock_(() => {
-    const sh = sh_(), C = CONFIG.COL, user = currentUser_();
+    const sh = sh_(), C = CONFIG.COL;
     const rows = (p.rows || []).map(Number);
     if (!rows.length) throw new Error('Please select at least one item.');
 
@@ -758,7 +762,7 @@ function sendMail_(to, cc, subject, html) {
   cc = uniqEmails_([].concat(cc || [])).filter(e => !inList_(e, to));
   if (!to.length) throw new Error('no recipient');
   if (MailApp.getRemainingDailyQuota() <= 0) throw new Error('daily email quota exhausted');
-  MailApp.sendEmail({ to: to.join(','), cc: cc.join(','), subject: subject, htmlBody: html, name: 'MMH Expense Approval' });
+  mmhMail_({ to: to.join(','), cc: cc.join(','), subject: subject, htmlBody: html, name: 'MMH Expense Approval' });   // ⭐ 19/11/2026 qua MMH_MailDomain.gs
 }
 function eachDoc_(items, fn) {
   const groups = groupByDoc_(items), errs = [];
