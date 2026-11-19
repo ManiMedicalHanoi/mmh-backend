@@ -1,7 +1,7 @@
 /* ════════════════ CHẨN ĐOÁN GIỚI HẠN 130% (chỉ đọc) — 19/11/2026 ════════════════
    Rule (4. Rule · MMHSOP_009): mọi KPI tối đa 130% (tháng, quý, năm); CHỈ doanh số NPP / sản phẩm mới
    (mã F0–F6, nhóm Kết quả) không giới hạn. Hỗ trợ bán C5 / C6 / C7 thuộc nhóm Quá trình ⇒ tối đa 130%.
-   ?action=capDiag&key=<8 ký tự cuối ID file KPI>[&code=C5]
+   ?action=capDiag&key=<8 ký tự cuối ID file KPI>[&code=C5][&brief=1 — bỏ công thức mẫu]
    ⇒ sheet 5. Member KPI Monthly: mọi ô "<kỳ> %" của mã KHÔNG phải F mà > 130% hoặc "% x W" > 130% × trọng số
       (vi phạm), số ô đã kiểm, mẫu công thức ô % của mã C5 / C6 / C7, mã F vượt 130% (đúng rule, để đối chiếu);
       3. Detail KPI: cột "<tháng> %" / "FY68 %" của mã không phải F mà > 130%.
@@ -70,5 +70,10 @@ function kscCapDiag_(p) {
     }
     out.d3 = d;
   } else out.d3 = { error: 'Không thấy sheet 3. Detail KPI' };
+  if (String(p.brief || '') === '1') {                                /* gọn: bỏ công thức mẫu, chỉ số liệu */
+    if (out.m5 && out.m5.supp) out.m5.supp = out.m5.supp.map(function (x) { return x.member + ' · ' + x.code + ' · max ' + (x.maxP == null ? '—' : Math.round(x.maxP * 1000) / 10 + '%'); });
+    if (out.m5 && out.m5.bad) out.m5.bad.forEach(function (x) { delete x.fPct; delete x.fPw; });
+    if (out.d3 && out.d3.supp) out.d3.supp = out.d3.supp.map(function (x) { return x.code + ' · max ' + (x.maxP == null ? '—' : Math.round(x.maxP * 1000) / 10 + '%'); });
+  }
   return out;
 }
