@@ -723,3 +723,9 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   **wDocs (19/11/2026, người dùng: "hôm qua còn thấy tài liệu các hồ sơ đã tải, hôm nay mất hết")**: tab Tài liệu cũ lấy từ `wBoot.hits` (800 tin mới nhất của người xem) ⇒ tải hàng loạt đẩy gói đã tải ra ngoài.
   `wtdDocs_` (MMH_WatchDocs.gs) = MỌI gói có file (`all=1` mọi người · mặc định gói người xem theo dõi), dạng gọn `{k,t,no,inv,nm,prov,done,url,ag,f:[{n,u,i,s,d,g,z}]}`, đệm `wt_docs` 5 phút chia mảnh (`wtBigPut_`), xoá khi có file mới (`wtdDocsBust_` ở botFile / wtdUpload_).
 
+- **19/11/2026 — TIỆN ÍCH CHROME / EDGE "MMH Tải hồ sơ thầu" thay máy tải Agent Python + bot cần token (tender-info `MMH_WatchExt.gs`, MMH_Watch v1.9; người dùng: bộ cài .bat bị Kaspersky chặn là Trojan, cài phức tạp, bot GitHub không tự chạy)**:
+  tiện ích ở `Tender-Result/theo-doi/tien-ich/` (zip `theo-doi/MMH_Tai_ho_so_thau.zip`, cài: chrome://extensions ▸ Developer mode ▸ Load unpacked). Lấy phiên `mmh_tk` khi người dùng mở app MMH bất kỳ trên github.io
+  ⇒ lệnh `bot*` nhận PHIÊN EMAIL thay khoá bot, chỉ `WTX.ACTIONS` (botHello · botNext · botFile · botDone · botAgentList · botAgentPut), tên nhật ký "Tiện ích · <PIC>". Mỗi phút `botHello {agent}` (ghi Script Property `WT_EXT`, trả n gói chờ + ag file cần Agent)
+  ⇒ có việc ⇒ mở muasamcong trong cửa sổ THU NHỎ của trình duyệt, làm đúng các bước `tools/msc/bot.mjs` (bản port: `tien-ich/bg.js` điều phối + `page.js` chạy trong trang — sửa bot ⇒ xem có cần sửa tiện ích);
+  VNeGP Agent chạy ⇒ trang gọi Agent (Origin muasamcong) lấy luôn file cần Agent + tải nốt `agentFiles` cũ. App v2.9: `boot.ext`, nút Tải ⇒ `postMessage {mmhExt:'kick'}`. Bộ cài Python (`theo-doi/agent/`) đã XOÁ;
+  `tai_nhanh.py` nay chỉ còn ở kho này + skill mmh-tender-opportunity. Thử: workflow Tender-Result **Thử tiện ích tải hồ sơ thầu** (muasamcong thật + máy chủ / Agent giả, `tools/ext-test/run.mjs`).
