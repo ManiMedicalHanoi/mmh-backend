@@ -304,7 +304,9 @@
     "name": "Data composite (HS 30064010 Nha khoa Composite Bond — dữ liệu nhập khẩu, giá bán lẻ)",
     "apps": [],
     "scriptId": "1vsq9m4an-Od_jZN9QnmNJh1_VDTIlWLbVO0g2L_Op8xIdOxbbzgsDmrD",
-    "sheetId": "1szwMAzyBdqHqmbOfQ7ZCRhnTztvFvjazT4nrUt3XoyY"
+    "sheetId": "1szwMAzyBdqHqmbOfQ7ZCRhnTztvFvjazT4nrUt3XoyY",
+    "newWebapp": true,
+    "smoke": false
   },
   "mmg-price": {
     "name": "Price calculation MMG (tính giá MMG + Competitor Benchmark)",
