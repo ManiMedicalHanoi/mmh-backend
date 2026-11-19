@@ -1,0 +1,36 @@
+name: Theo dõi gói thầu — tải hàng loạt
+# Đặt tải hàng loạt hồ sơ (TBMT, HSMT, mở thầu, kết quả) của mọi gói có chủ đầu tư khớp từ khoá (mặc định "mắt") từ một ngày,
+# hoặc rà hàng hóa trúng thầu theo từ khoá kìm / móc (tools/msc/kw-forceps-hook.json). tender-info ▸ MMH_WatchBulk.gs, tools/msc/bulk.mjs.
+on:
+  workflow_dispatch:
+    inputs:
+      mode: { description: 'dry = chỉ đếm · run = đặt tải · goods = rà hàng hóa', default: 'dry', type: choice, options: [dry, run, goods] }
+      re: { description: 'Chủ đầu tư chứa (regex, có dấu)', default: 'mắt' }
+      from: { description: 'Từ ngày (yyyy-mm-dd)', default: '2026-01-01' }
+      want: { description: 'Loại tài liệu', default: 'tbmt,hsmt,mo,kq,nt,hh,qd' }
+      mail: { description: 'Email công ty người theo dõi (tuỳ chọn)', default: '' }
+permissions: { contents: read, actions: write }
+jobs:
+  bulk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      WT_BOT_KEY: ${{ secrets.WT_BOT_KEY }}
+      BULK_MODE: ${{ inputs.mode }}
+      BULK_RE: ${{ inputs.re }}
+      BULK_FROM: ${{ inputs.from }}
+      BULK_WANT: ${{ inputs.want }}
+      BULK_MAIL: ${{ inputs.mail }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { sparse-checkout: "backends.json\ntools/msc", sparse-checkout-cone-mode: false }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: node tools/msc/bulk.mjs
+      - name: Đánh thức bot tải hồ sơ
+        if: ${{ inputs.mode == 'run' }}
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: gh workflow run tender-dl.yml --repo "$GITHUB_REPOSITORY" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: bulk-report, path: "bulk-report.json\ngoods-report.json\ngoods-report.csv", retention-days: 14, if-no-files-found: ignore }
