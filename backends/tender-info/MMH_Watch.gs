@@ -56,8 +56,8 @@ function wtDo_(a, p) {
     // số gói Chờ tải / Đang tải (Training Hub hwWarm đọc ⇒ đánh thức bot khi còn gói; đệm 60 giây)
     let q = null; const c = CacheService.getScriptCache();
     try { q = JSON.parse(c.get('wt_q') || 'null'); } catch (e) {}
-    if (!q) { q = { wait: 0, work: 0 }; try { wtHits_(wtBook_()).forEach(function (h) { if (h.status === WT.ST.WAIT) q.wait++; else if (h.status === WT.ST.WORK) q.work++; }); c.put('wt_q', JSON.stringify(q), 60); } catch (e) { q.err = String(e.message || e); } }
-    return { ok: true, app: 'tender-watch', v: WT.VER, lastScan: P.getProperty('WT_LAST_SCAN') || '', trig: trig, invV: P.getProperty('WT_INV_V') || '', recV: P.getProperty('WT_REC_V') || '', allV: P.getProperty('WT_ALL_V') || '', wait: q.wait, work: q.work, botSeen: P.getProperty('WT_BOT_SEEN') || '' };
+    if (!q) { q = { wait: 0, work: 0, agWait: 0 }; try { wtHits_(wtBook_()).forEach(function (h) { if (h.status === WT.ST.WAIT) { if ((h.info || {}).ag) q.agWait++; else q.wait++; } else if (h.status === WT.ST.WORK) q.work++; }); c.put('wt_q', JSON.stringify(q), 60); } catch (e) { q.err = String(e.message || e); } }
+    return { ok: true, app: 'tender-watch', v: WT.VER, lastScan: P.getProperty('WT_LAST_SCAN') || '', trig: trig, invV: P.getProperty('WT_INV_V') || '', recV: P.getProperty('WT_REC_V') || '', allV: P.getProperty('WT_ALL_V') || '', wait: q.wait, work: q.work, agWait: q.agWait || 0, botSeen: P.getProperty('WT_BOT_SEEN') || '' };
   }
   if (/^bot/.test(a)) {
     if (!wtBotOk_(p.key)) {
@@ -74,7 +74,7 @@ function wtDo_(a, p) {
       if (p._ext) return { ok: false, code: 'KEY', error: 'Cần khoá bot.' };
       return a === 'botGrabInv' ? wtbGrabInv_(p) : a === 'botGoodsScan' ? wtbGoodsScan_(p) : wtbGoodsWrite_(p);
     }
-    if (a === 'botPeek') { wtBotSeen_(p.bot); return { ok: true, n: wtBotEligible_(wtHits_(wtBook_())).length }; }
+    if (a === 'botPeek') { wtBotSeen_(p.bot); return { ok: true, n: wtBotEligible_(wtHits_(wtBook_()), !p._ext).length }; }
     if (a === 'botNext') return wtBotNext_(p);
     if (a === 'botFile') return wtBotFile_(p);
     if (a === 'botDone') return wtBotDone_(p);
@@ -577,7 +577,7 @@ function wtNotifyNew_(news) {
 /* ══════════ TRIGGER ══════════ */
 function wtTick() {
   try { wtEnsureTrig_(); } catch (e) {}   // tự cài trigger gộp 15 phút (wtmTick) dù chưa ai mở app
-  try { const data = wtLoad_(wtBook_()); try { wtdInvBuild_(data); } catch (e) { Logger.log('wtdInvBuild_: ' + e.message); } try { wtdPkgBuild_(data); } catch (e) { Logger.log('wtdPkgBuild_: ' + e.message); } try { wtdRecentBuild_(data); } catch (e) { Logger.log('wtdRecentBuild_: ' + e.message); } try { wtdAllBuild_(data); } catch (e) { Logger.log('wtdAllBuild_: ' + e.message); } wtScan_({ data: data }); } catch (e) { Logger.log('wtTick: ' + e.message); PropertiesService.getScriptProperties().setProperty('WT_LAST_SCAN', wtNow_() + ' · lỗi: ' + e.message); }
+  try { const data = wtLoad_(wtBook_()); try { wtdInvBuild_(data); } catch (e) { Logger.log('wtdInvBuild_: ' + e.message); } try { wtdPkgBuild_(data); } catch (e) { Logger.log('wtdPkgBuild_: ' + e.message); } try { wtdRecentBuild_(data); } catch (e) { Logger.log('wtdRecentBuild_: ' + e.message); } try { wtdAllBuild_(data); } catch (e) { Logger.log('wtdAllBuild_: ' + e.message); } wtScan_({ data: data }); try { wtbAuto_(data); } catch (e) { Logger.log('wtbAuto_: ' + e.message); } } catch (e) { Logger.log('wtTick: ' + e.message); PropertiesService.getScriptProperties().setProperty('WT_LAST_SCAN', wtNow_() + ' · lỗi: ' + e.message); }
 }
 function wtEnsureTrig_() {
   const P = PropertiesService.getScriptProperties();
@@ -610,10 +610,13 @@ function wtBotLog_(ss, bot, key, job, result, note) {
 
 /** Gói bot cần làm: Chờ tải · Lỗi (chưa quá số lần, thử lại sau ≥ 1 giờ) · Đang tải quá hạn giữ chỗ */
 function wtBare_(no) { return String(no || '').toUpperCase().replace(/\s+/g, '').replace(/-\d+$/, ''); }
-function wtBotEligible_(H) {
+// cloud = bot GitHub (khoá bot). Gói info.ag = 1 (TBMT / KHLCNT tự đặt hằng ngày — 19/11/2026 người dùng: "tải về hôm sau khi bật bot tải qua Agent")
+// CHỈ dành cho tiện ích trên máy có VNeGP Agent ⇒ bot cloud không nhận (không tốn phút GitHub), wPing không đếm vào `wait` (Training Hub không đánh thức bot cloud vì chúng).
+function wtBotEligible_(H, cloud) {
   const now = Date.now(), age = function (s) { return s ? (now - new Date(String(s).replace(' ', 'T') + '+07:00').getTime()) / 6e4 : 1e9; };
   return H.filter(function (h) {
     if (!h.no) return false;
+    if (cloud && (h.info || {}).ag) return false;
     if (h.status === WT.ST.WAIT) return !((h.info || {}).agentReq && !(h.info || {}).agentReq.done && age((h.info || {}).agentReq.at) < WTA.HOLD_MIN);   // nhường máy Agent
     if (h.status === WT.ST.WORK) return age(h.last) > WT.LEASE_MIN;
     if (h.status === WT.ST.ERR) return h.tries < WT.MAX_TRY && age(h.last) > 60;
@@ -627,11 +630,12 @@ function wtBotNext_(p) {
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) return { ok: true, jobs: [] };
   try {
-    const sh = wtSheet_(ss, WT.SH_H, WT.HH), H = wtHits_(ss), jobs = [], E = wtBotEligible_(H), taken = {};
+    const sh = wtSheet_(ss, WT.SH_H, WT.HH), H = wtHits_(ss), jobs = [], E = wtBotEligible_(H, !p._ext), taken = {};
     // cùng 1 số gói có thể có 2 dòng (TBMT + Kết quả) ⇒ chỉ 1 lượt tải; số đang có dòng "Đang tải" (chưa hết hạn) ⇒ bỏ qua
     H.forEach(function (h) { if (h.status === WT.ST.WORK && E.indexOf(h) < 0) taken[wtBare_(h.no)] = 1; });
     // 19/11/2026 (người dùng: "ưu tiên cho bot tải các gói ở các bv mắt trước"): chủ đầu tư có chữ "mắt" (có dấu) hoặc gói tải hàng loạt đi trước, rồi ngày mới trước
-    const pri = function (h) { return (/mắt/i.test(String(h.investor || '').normalize('NFC')) || (h.info || {}).bulk) ? 0 : 1; };
+    // 19/11/2026 (2) lịch tải: info.pri nếu có (1 = gói vật tư mới hằng ngày, 3 = tồn đọng vật tư "tải sau") · không có ⇒ địa bàn đã trao đổi (bệnh viện mắt / bệnh viện từng có KQTT dao = gói hàng loạt cũ) 0 · gói người dùng tự đặt 1
+    const pri = function (h) { const i = h.info || {}; if (typeof i.pri === 'number') return i.pri; return (/mắt/i.test(String(h.investor || '').normalize('NFC')) || i.bulk) ? 0 : 1; };
     E.sort(function (a, b) { return pri(a) - pri(b) || (b.date || '').localeCompare(a.date || ''); }).forEach(function (h) {
       const b = wtBare_(h.no);
       if (jobs.length >= n || taken[b]) return;

@@ -1,5 +1,5 @@
 /* ════════════════════════════════════════════════════════════════════
-   MMH_WatchBulk.gs v1.0 (19/11/2026, người dùng yêu cầu) — ĐẶT TẢI HÀNG LOẠT THEO NHÓM CHỦ ĐẦU TƯ + RÀ HÀNG HÓA THEO TỪ KHOÁ
+   MMH_WatchBulk.gs v1.2 (19/11/2026, người dùng yêu cầu) — ĐẶT TẢI HÀNG LOẠT THEO NHÓM CHỦ ĐẦU TƯ + RÀ HÀNG HÓA THEO TỪ KHOÁ
    (khoá bot WT_BOT_KEY, gọi từ workflow "Theo dõi gói thầu — tải hàng loạt" ▸ tools/msc/bulk.mjs)
 
    botGrabInv {key, re, from, to, types, want, op: dry|run, max, mail}
@@ -9,12 +9,19 @@
      Gói đã có trong GÓI TÌM THẤY (mọi loại trừ khmt, cùng số) ⇒ wtReq_ (đang tải / chờ tải ⇒ gộp loại tài liệu; đã tải ⇒ bỏ qua).
      want mặc định = mọi loại trừ kh. mail (tuỳ chọn, email công ty) = người theo dõi gói ⇒ thấy trong app. op=dry chỉ đếm.
      invs (tuỳ chọn, v1.1) = mảng tên chủ đầu tư đúng như Báo Đấu Thầu ⇒ chỉ lấy gói của các chủ đầu tư này (bỏ qua re).
+     pri (số, thấp = trước) · ag=1 (chỉ máy có Agent) · types thêm khmt (KHLCNT, số PL) · op=auto (tự đặt hằng ngày, xem wtbAuto_) · op=autoStatus.
      nameInc / nameExc / nameStrong (tuỳ chọn, regex chữ thường có dấu) = lọc theo TÊN GÓI: chứa nameStrong ⇒ lấy; không chứa nameInc hoặc chứa nameExc ⇒ bỏ.
    botGoodsScan {key, inc, exc, codes, re, from}
      Rà 2 file tổng hàng hóa trúng thầu (wtgData_, MMH_WatchMerge.gs): dòng có Danh mục / Hãng / Cấu hình chứa 1 cụm trong inc
      hoặc 1 mã trong codes (so không dấu, theo nguyên từ) và không chứa cụm trong exc ⇒ trả từng dòng (chỉ đọc).
    ════════════════════════════════════════════════════════════════════ */
-const WTB = { MAX: 3000, WANT_DEF: ['tbmt', 'hsmt', 'mo', 'kq', 'nt', 'hh', 'qd'] };
+const WTB = { MAX: 3000, WANT_DEF: ['tbmt', 'hsmt', 'mo', 'kq', 'nt', 'hh', 'qd'],
+  // bộ lọc TÊN GÓI "vật tư y tế" (GIỐNG tools/msc/knife-extra.json — sửa 1 nơi chép nơi kia)
+  VT: { inc: 'vật tư|vtyt|dụng cụ|phẫu thuật|mắt|nhãn|tiêu hao|chỉ khâu|\\bdao\\b|kim|thủy tinh thể|thuỷ tinh thể|dịch kính|trang thiết bị y tế|thiết bị y tế',
+    exc: 'thuốc|dược liệu|vị thuốc|hóa chất|hoá chất|xét nghiệm|sửa chữa|bảo dưỡng|bảo trì|xây dựng|xây lắp|cải tạo|dịch vụ|\\bthuê|phần mềm|in ấn|văn phòng phẩm|thực phẩm|suất ăn|khí y tế|\\boxy|lọc máu|chạy thận|thận nhân tạo|x-quang|x quang|\\bphim|máy|hệ thống|vắc xin|vaccine|sinh phẩm|nha khoa|răng',
+    strong: 'phẫu thuật|mắt|nhãn khoa|chỉ khâu|thủy tinh thể|thuỷ tinh thể|dịch kính|vật tư y tế' },
+  // tự đặt tải hằng ngày (wtbAuto_): Kết quả ⇒ bot cloud (KQ + 2 Excel; QĐ chỉ ghi tên cho Agent) · TBMT / KHLCNT ⇒ CHỈ máy có Agent (ag)
+  AUTO: { kqdt: ['kq', 'nt', 'hh', 'qd'], tbmt: ['tbmt', 'hsmt', 'mo'], khmt: ['kh'], BACK_DAYS: 3, PRI: 1 } };
 
 function wtbList_(v) {
   if (Array.isArray(v)) return v.map(wtS_).filter(String);
@@ -24,7 +31,7 @@ function wtbList_(v) {
   return s.split(/[,;\n]/).map(wtS_).filter(String);
 }
 
-function wtbPick_(p) {
+function wtbPick_(p, data0) {
   const re = new RegExp(wtS_(p.re) || 'mắt', 'i');
   // invs = danh sách TÊN CHỦ ĐẦU TƯ đúng y như Báo Đấu Thầu (bulk.mjs đã đối chiếu, vd. bệnh viện từng có KQTT dao nhãn khoa) ⇒ thay cho re
   const IV = {}; wtbList_(p.invs).forEach(function (n) { IV[n.normalize('NFC').replace(/\s+/g, ' ').trim()] = 1; });
@@ -40,9 +47,9 @@ function wtbPick_(p) {
     return true;
   };
   const from = wtS_(p.from) || '2026-01-01', to = wtS_(p.to) || '9999-12-31';
-  const types = wtbList_(p.types).filter(function (t) { return t === 'kqdt' || t === 'tbmt'; });
+  const types = wtbList_(p.types).filter(function (t) { return t === 'kqdt' || t === 'tbmt' || t === 'khmt'; });
   const T = types.length ? types : ['kqdt', 'tbmt'];
-  const data = wtLoad_(wtBook_()), g = {};
+  const data = data0 || wtLoad_(wtBook_()), g = {};
   T.forEach(function (type) {
     (data[type] || []).forEach(function (r) {
       const inv = wtS_(r.inv).normalize('NFC');
@@ -51,6 +58,7 @@ function wtbPick_(p) {
       const d = r.date || r.upd || '';
       if (!d || d < from || d > to) return;
       const b = wtBare_(r.no);
+      if (type === 'khmt') { if (!/^PL/.test(b)) return; g['K|' + b] = g['K|' + b] || r; return; }   // KHLCNT (số PL…) — việc riêng
       if (!/^IB/.test(b)) return;
       const cur = g[b];
       if (!cur || (cur.type !== 'kqdt' && type === 'kqdt')) g[b] = r;
@@ -59,8 +67,56 @@ function wtbPick_(p) {
   return Object.keys(g).map(function (b) { return g[b]; }).sort(function (a, b) { return String(a.date).localeCompare(String(b.date)); });
 }
 
+/** Dòng đã có trong GÓI TÌM THẤY cho 1 gói theo ĐÚNG LOẠI (v1.2): Kết quả chỉ khớp dòng kqdt (trước khớp cả dòng TBMT đã tải ⇒ kết quả không bao giờ được tải);
+ *  TBMT khớp dòng tbmt hoặc kqdt cùng số; KHLCNT khớp dòng khmt cùng số. */
+function wtbExMap_(H) {
+  const m = {};
+  H.forEach(function (h) { const k = (h.type === 'khmt' ? 'khmt|' : h.type === 'kqdt' ? 'kqdt|' : 'tbmt|') + wtBare_(h.no); m[k] = m[k] || h; });
+  return m;
+}
+function wtbExOf_(m, r) {
+  const b = wtBare_(r.no);
+  if (r.type === 'khmt') return m['khmt|' + b];
+  if (r.type === 'kqdt') return m['kqdt|' + b];
+  return m['tbmt|' + b] || m['kqdt|' + b];
+}
+/** Đưa list vào hàng đợi (giữ khoá ghi ngoài). opt: {want (mảng theo loại hoặc chung), pri, ag, by, mail, force, max} */
+function wtbQueue_(ss, list, opt) {
+  const res = { queued: 0, merged: 0, skipDone: 0, skipWork: 0, added: 0 };
+  const me = { mail: opt.mail || '', pic: opt.by || 'Tải hàng loạt', local: wtLocal_(opt.mail || '') };
+  const sh = wtSheet_(ss, WT.SH_H, WT.HH), ex = wtbExMap_(wtHits_(ss)), now = wtNow_(), add = [];
+  const wantOf = function (t) { const w = opt.want || []; return Array.isArray(w) ? w : (w[t] || []); };
+  list.slice(0, opt.max || 5000).forEach(function (r) {
+    const want = wantOf(r.type), h = wtbExOf_(ex, r);
+    if (h) {
+      const q = wtReq_(sh, h, me, want, opt.force, !me.mail);
+      if (!q.skip && h.row > 0) {   // vào lại hàng đợi ⇒ gắn mức ưu tiên / cờ chỉ cho Agent của lượt này
+        const ag0 = typeof opt.ag === 'function' ? opt.ag(r) : opt.ag, inf = Object.assign({}, h.info || {});
+        if (want.length) inf.want = want; else delete inf.want;
+        if (typeof opt.pri === 'number') inf.pri = opt.pri;
+        if (ag0) inf.ag = 1; else delete inf.ag;
+        sh.getRange(h.row, 7).setValue(JSON.stringify(inf));
+      }
+      if (!q.skip) res.queued++; else if (q.skip === 'wait') res.merged++; else if (q.skip === 'work') res.skipWork++; else res.skipDone++;
+      return;
+    }
+    const info = { proj: wtS_(r.proj), price: wtS_(r.price), win: wtS_(r.win), winner: wtS_(r.winner), form: wtS_(r.form), open: wtS_(r.open), prov: wtS_(r.prov), n: r.n || 1, grab: 1, bulk: 1, by: me.pic, want: want };
+    if (typeof opt.pri === 'number') info.pri = opt.pri;
+    const ag = typeof opt.ag === 'function' ? opt.ag(r) : opt.ag;
+    if (ag) info.ag = 1;
+    add.push([r.type + ':' + r.no, r.type, r.no, r.inv, r.invKey, wtS_(r.name).slice(0, 400), JSON.stringify(info), r.date || '', now, me.mail, WT.ST.WAIT, '[]', 0, now, '', '', r.type + '!' + r.row]);
+    ex[(r.type === 'khmt' ? 'khmt|' : r.type === 'kqdt' ? 'kqdt|' : 'tbmt|') + wtBare_(r.no)] = { status: WT.ST.WAIT, watchers: [], info: info, row: -1 };
+  });
+  if (add.length) sh.getRange(sh.getLastRow() + 1, 1, add.length, WT.HH.length).setValues(add);
+  res.added = add.length;
+  try { CacheService.getScriptCache().remove('wt_q'); } catch (e) {}
+  return res;
+}
+
 function wtbGrabInv_(p) {
   if (wtS_(p.op) === 'narrow') return wtbNarrow_(p);
+  if (wtS_(p.op) === 'auto') return wtbAuto_(null, { dry: wtTrue_(p.dry), from: wtS_(p.from) });
+  if (wtS_(p.op) === 'autoStatus') { const P = PropertiesService.getScriptProperties(); return { ok: true, mark: P.getProperty('WT_AUTO_FROM') || '', last: wtJson_(P.getProperty('WT_AUTO_LAST') || '', null) }; }
   const run = wtS_(p.op) === 'run', force = wtTrue_(p.force);
   const max = Math.min(+p.max || 2000, 5000);
   let want = wtWant_(wtbList_(p.want));
@@ -72,35 +128,19 @@ function wtbGrabInv_(p) {
   list.forEach(function (r) { byInv[r.inv] = (byInv[r.inv] || 0) + 1; byType[r.type]++; const m = String(r.date).slice(0, 7); byMonth[m] = (byMonth[m] || 0) + 1; });
   const out = { ok: true, op: run ? 'run' : 'dry', want: want, total: list.length, byType: byType, byMonth: byMonth,
     byInv: Object.keys(byInv).map(function (k) { return [k, byInv[k]]; }).sort(function (a, b) { return b[1] - a[1]; }) };
-  const ss = wtBook_(), H = wtHits_(ss), exBy = {};
-  H.forEach(function (h) { if (h.type !== 'khmt') exBy[wtBare_(h.no)] = exBy[wtBare_(h.no)] || h; });
+  const ss = wtBook_(), exM = wtbExMap_(wtHits_(ss));
   const st = {}; let fresh = 0;
-  list.forEach(function (r) { const h = exBy[wtBare_(r.no)]; if (h) st[h.status || '(trống)'] = (st[h.status || '(trống)'] || 0) + 1; else fresh++; });
+  list.forEach(function (r) { const h = wtbExOf_(exM, r); if (h) st[h.status || '(trống)'] = (st[h.status || '(trống)'] || 0) + 1; else fresh++; });
   out.existing = st; out.fresh = fresh;
   out.sample = list.slice(-15).map(function (r) { return [r.type, r.no, r.date, r.inv, wtS_(r.name).slice(0, 90)]; });
   if (!run) return out;
 
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(30000)) return { ok: false, code: 'BUSY', error: 'Máy chủ đang bận — thử lại sau ít giây.' };
-  const me = { mail: mail, pic: 'Tải hàng loạt', local: wtLocal_(mail) };
-  const res = { queued: 0, merged: 0, skipDone: 0, skipWork: 0, added: 0 };
-  try {
-    const sh = wtSheet_(ss, WT.SH_H, WT.HH), H2 = wtHits_(ss), ex2 = {}, now = wtNow_(), add = [];
-    H2.forEach(function (h) { if (h.type !== 'khmt') ex2[wtBare_(h.no)] = ex2[wtBare_(h.no)] || h; });
-    list.slice(0, max).forEach(function (r) {
-      const h = ex2[wtBare_(r.no)];
-      if (h) {
-        const q = wtReq_(sh, h, me, want, force, !mail);
-        if (!q.skip) res.queued++; else if (q.skip === 'wait') res.merged++; else if (q.skip === 'work') res.skipWork++; else res.skipDone++;
-        return;
-      }
-      const info = { proj: wtS_(r.proj), price: wtS_(r.price), win: wtS_(r.win), winner: wtS_(r.winner), form: wtS_(r.form), open: wtS_(r.open), prov: wtS_(r.prov), n: 1, grab: 1, bulk: 1, by: me.pic, want: want };
-      add.push([r.type + ':' + r.no, r.type, r.no, r.inv, r.invKey, wtS_(r.name).slice(0, 400), JSON.stringify(info), r.date || '', now, mail, WT.ST.WAIT, '[]', 0, now, '', '', r.type + '!' + r.row]);
-    });
-    if (add.length) sh.getRange(sh.getLastRow() + 1, 1, add.length, WT.HH.length).setValues(add);
-    res.added = add.length;
-    try { CacheService.getScriptCache().remove('wt_q'); } catch (e) {}
-  } finally { lock.releaseLock(); }
+  let res;
+  const pri = p.pri === undefined || p.pri === '' ? undefined : +p.pri;
+  try { res = wtbQueue_(ss, list, { want: want, pri: isNaN(pri) ? undefined : pri, ag: wtTrue_(p.ag), mail: mail, force: force, max: max, by: 'Tải hàng loạt' }); }
+  finally { lock.releaseLock(); }
   PropertiesService.getScriptProperties().setProperty('WT_BULK_LAST', JSON.stringify({ at: wtNow_(), re: wtbList_(p.invs).length ? 'danh sách ' + wtbList_(p.invs).length + ' CĐT' : (wtS_(p.re) || 'mắt'), from: wtS_(p.from) || '2026-01-01', total: list.length, res: res }));
   out.res = res;
   return out;
@@ -173,4 +213,44 @@ function wtbNarrow_(p) {
     if (!dry) { try { CacheService.getScriptCache().remove('wt_q'); } catch (e) {} }
   } finally { lock.releaseLock(); }
   return { ok: true, op: 'narrow', dry: dry, want: want, res: res };
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   TỰ ĐẶT TẢI HẰNG NGÀY GÓI VẬT TƯ Y TẾ (v1.2, 19/11/2026 — người dùng: "gói thầu vật tư y tế có kết quả cần được tải về;
+   TBMT, KHLCNT tải về ngày hôm sau khi bật bot tải qua Agent")
+   Gọi ở cuối mỗi wtTick (30 phút, dùng lại dữ liệu đã đọc). Gói vật tư (WTB.VT, mọi chủ đầu tư) có ngày tin ≥ mốc − 3 ngày:
+     Kết quả ⇒ hàng đợi bot cloud (want kq · nt · hh · qd, pri 1 — sau địa bàn đã trao đổi, trước tồn đọng pri 3)
+     TBMT / KHLCNT ⇒ hàng đợi CHỈ cho tiện ích trên máy có VNeGP Agent (info.ag = 1, bot cloud không nhận ⇒ không tốn phút GitHub)
+   Gói đã có ⇒ wtReq_ (đã tải ⇒ bỏ qua). Mốc lưu Script Property WT_AUTO_FROM; kết quả lượt cuối WT_AUTO_LAST.
+   Xem trước / chạy tay: botGrabInv op=auto (dry=1 chỉ đếm, from=yyyy-mm-dd ghi đè mốc).
+   ════════════════════════════════════════════════════════════════════ */
+function wtbAuto_(data, o) {
+  o = o || {};
+  const P = PropertiesService.getScriptProperties(), tz = 'Asia/Ho_Chi_Minh';
+  const today = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  let mark = wtS_(o.from) || P.getProperty('WT_AUTO_FROM') || '';
+  if (!mark) mark = Utilities.formatDate(new Date(Date.now() - 2 * 864e5), tz, 'yyyy-MM-dd');   // lần đầu: chỉ tin 2 ngày gần nhất (tồn đọng đặt riêng)
+  const from = wtS_(o.from) || Utilities.formatDate(new Date(new Date(mark + 'T00:00:00+07:00').getTime() - WTB.AUTO.BACK_DAYS * 864e5), tz, 'yyyy-MM-dd');
+  data = data || wtLoad_(wtBook_());
+  const base = { re: '.', from: from, to: today, nameInc: WTB.VT.inc, nameExc: WTB.VT.exc, nameStrong: WTB.VT.strong };
+  const L = {
+    kqdt: wtbPick_(Object.assign({ types: 'kqdt' }, base), data),
+    tbmt: wtbPick_(Object.assign({ types: 'tbmt' }, base), data),
+    khmt: wtbPick_(Object.assign({ types: 'khmt' }, base), data)
+  };
+  const out = { ok: true, op: 'auto', from: from, to: today, n: { kqdt: L.kqdt.length, tbmt: L.tbmt.length, khmt: L.khmt.length } };
+  if (o.dry) { out.sample = L.kqdt.concat(L.tbmt, L.khmt).slice(-15).map(function (r) { return [r.type, r.no, r.date, r.inv, wtS_(r.name).slice(0, 90)]; }); return out; }
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(20000)) { out.busy = 1; return out; }
+  try {
+    const ss = wtBook_();
+    out.res = {
+      kqdt: wtbQueue_(ss, L.kqdt, { want: WTB.AUTO.kqdt, pri: WTB.AUTO.PRI, by: 'Tự động hằng ngày' }),
+      tbmt: wtbQueue_(ss, L.tbmt, { want: WTB.AUTO.tbmt, pri: WTB.AUTO.PRI, ag: 1, by: 'Tự động hằng ngày' }),
+      khmt: wtbQueue_(ss, L.khmt, { want: WTB.AUTO.khmt, pri: WTB.AUTO.PRI, ag: 1, by: 'Tự động hằng ngày' })
+    };
+  } finally { lock.releaseLock(); }
+  P.setProperty('WT_AUTO_FROM', today);
+  P.setProperty('WT_AUTO_LAST', JSON.stringify({ at: wtNow_(), from: from, n: out.n, res: out.res }));
+  return out;
 }
