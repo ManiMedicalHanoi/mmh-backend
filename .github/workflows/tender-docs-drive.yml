@@ -1,0 +1,26 @@
+name: Tender docs ⇒ Drive
+# Đưa tài liệu kho ManiMedicalHanoi/tender-docs vào thư mục Drive "Bv Mắt Trung ương" (mỗi gói 1 thư mục con) — tender-info ▸ botSaveTo.
+# File đã có trên Drive (cùng tên) được bỏ qua ⇒ chạy lại bao nhiêu lần cũng không trùng. Chạy tay: Actions ▸ Tender docs ⇒ Drive ▸ Run workflow.
+on:
+  workflow_dispatch:
+  push:
+    branches: ['claude/**']
+    paths: ['.github/workflows/tender-docs-drive.yml']
+jobs:
+  copy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      WT_BOT_KEY: ${{ secrets.WT_BOT_KEY }}
+      MAP: '{"IB2300259536":"1Up7cEU_zFwT_19sYNDvDNWr5L8X2203H","IB2300259582":"1w5YxIaIoizYkTYa88hQHUic24GlCalVC","IB2400477249":"11UsU59ftu8vYq_fHmOkq3KdKtNnAn2wC","IB2400485675":"1j3dWZQ9kJ21-XOgunPe4KHvEB3YP9oQa","IB2400564280":"17gnhM844Pa7r-bkd1EuqrAAJpyFEXqSA","IB2500030200":"1VwVINi1hedjxzEtVSdYOwIsZXs7K2F6t","IB2500469837":"1_Kmke9R1NizTPfuNUP2MKj4TKxelT69e","IB2500602738":"1uJWBBhqe3SzV-nVjCvK3WrBmWLCd6RwM","IB2600597308":"1YoJLu5ALmG_WZ5yiCc7WLEWAqSYJ2PiX","IB2600604507":"1jZScw0NPhAj9zHB2Q2Dgn5z0nre_7AY-"}'
+    steps:
+      - uses: actions/checkout@v4
+        with: { sparse-checkout: "backends.json\ntools/msc", sparse-checkout-cone-mode: false }
+      - uses: actions/checkout@v4
+        with: { repository: ManiMedicalHanoi/tender-docs, path: tender-docs }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Gửi tài liệu lên Drive
+        run: |
+          export WT_URL=$(node -e "console.log(require('./backends.json')['tender-info'].url)")
+          DOCS=tender-docs node tools/msc/docs2drive.mjs

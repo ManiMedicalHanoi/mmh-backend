@@ -69,6 +69,7 @@ function wtDo_(a, p) {
       p._ext = ext;
     }
     if (a === 'botHello') return wtxHello_(p);
+    if (a === 'botSaveTo') { if (p._ext) return { ok: false, code: 'KEY', error: 'Cần khoá bot.' }; return wtsSaveTo_(p); }   // MMH_WatchSave.gs
     if (a === 'botPeek') { wtBotSeen_(p.bot); return { ok: true, n: wtBotEligible_(wtHits_(wtBook_())).length }; }
     if (a === 'botNext') return wtBotNext_(p);
     if (a === 'botFile') return wtBotFile_(p);
