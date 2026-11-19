@@ -17,7 +17,7 @@
    Lần đầu theo dõi 1 chủ đầu tư: hiện gói trong WT.BASE_DAYS ngày gần nhất (không báo), tự tải gói trong WT.DL_BASE_DAYS ngày.
    ════════════════════════════════════════════════════════════════════ */
 const WT = {
-  VER: '1.8',
+  VER: '1.9',
   MASTER_ID: '1byCL6NjhqBuEcd-K5pxYRrQj2XXs6GMIvR79x45mHRQ',   // Training Master (RH_Users, RH_Secret, RH_Notify)
   APP_URL: 'https://manimedicalhanoi.github.io/Tender-Result/theo-doi/',
   SH_W: 'THEO DÕI · DANH SÁCH',
@@ -60,7 +60,15 @@ function wtDo_(a, p) {
     return { ok: true, app: 'tender-watch', v: WT.VER, lastScan: P.getProperty('WT_LAST_SCAN') || '', trig: trig, invV: P.getProperty('WT_INV_V') || '', recV: P.getProperty('WT_REC_V') || '', allV: P.getProperty('WT_ALL_V') || '', wait: q.wait, work: q.work, botSeen: P.getProperty('WT_BOT_SEEN') || '' };
   }
   if (/^bot/.test(a)) {
-    if (!wtBotOk_(p.key)) return { ok: false, code: 'KEY', error: 'Khoá bot không đúng.' };
+    if (!wtBotOk_(p.key)) {
+      // v1.9 — tiện ích Chrome / Edge "MMH Tải hồ sơ thầu" dùng PHIÊN EMAIL của người cài (không cần khoá bot), chỉ các lệnh tải (MMH_WatchExt.gs)
+      if (!wtS_(p.tk) || WTX.ACTIONS.indexOf(a) < 0) return { ok: false, code: 'KEY', error: 'Khoá bot không đúng.' };
+      const ext = wtWho_(p);
+      if (ext.err) return { ok: false, code: 'AUTH', error: ext.err };
+      p.bot = p.worker = wtxName_(ext, p);
+      p._ext = ext;
+    }
+    if (a === 'botHello') return wtxHello_(p);
     if (a === 'botPeek') { wtBotSeen_(p.bot); return { ok: true, n: wtBotEligible_(wtHits_(wtBook_())).length }; }
     if (a === 'botNext') return wtBotNext_(p);
     if (a === 'botFile') return wtBotFile_(p);
@@ -306,7 +314,7 @@ function wtBoot_(me, p) {
     bot: { seen: P.getProperty('WT_BOT_SEEN') || '', name: P.getProperty('WT_BOT_NAME') || '', hasKey: !!P.getProperty('WT_BOT_KEY'),
       queue: H.filter(function (h) { return h.status === WT.ST.WAIT || h.status === WT.ST.WORK; }).length },
     nm: wtJson_(P.getProperty('WN_STAT'), null),
-    lastScan: P.getProperty('WT_LAST_SCAN') || '', sumUrl: wtdSumUrl_(), rootUrl: wtdRootUrl_(), mg: wtmUrls_(), mgLast: JSON.parse(P.getProperty('WT_MG_LAST') || 'null'), invV: P.getProperty('WT_INV_V') || '', recV: P.getProperty('WT_REC_V') || '', allV: P.getProperty('WT_ALL_V') || '', agw: wtaStatus_()
+    lastScan: P.getProperty('WT_LAST_SCAN') || '', sumUrl: wtdSumUrl_(), rootUrl: wtdRootUrl_(), mg: wtmUrls_(), mgLast: JSON.parse(P.getProperty('WT_MG_LAST') || 'null'), invV: P.getProperty('WT_INV_V') || '', recV: P.getProperty('WT_REC_V') || '', allV: P.getProperty('WT_ALL_V') || '', agw: wtaStatus_(), ext: wtxStatus_()
   };
 }
 /** info gọn cho app (18/11/2026): bỏ fields / kqFields / moFields / pkgs… (mỗi gói vài KB — 800 gói ⇒ vài MB mỗi lần mở app, đầy bộ nhớ trình duyệt dùng chung) */
