@@ -8,6 +8,7 @@
      Mỗi số TBMT 1 việc: có kết quả ⇒ khoá kqdt:<số>, chưa có ⇒ tbmt:<số> (bot mở cùng 1 trang gói: TBMT, HSMT, mở thầu, kết quả).
      Gói đã có trong GÓI TÌM THẤY (mọi loại trừ khmt, cùng số) ⇒ wtReq_ (đang tải / chờ tải ⇒ gộp loại tài liệu; đã tải ⇒ bỏ qua).
      want mặc định = mọi loại trừ kh. mail (tuỳ chọn, email công ty) = người theo dõi gói ⇒ thấy trong app. op=dry chỉ đếm.
+     invs (tuỳ chọn, v1.1) = mảng tên chủ đầu tư đúng như Báo Đấu Thầu ⇒ chỉ lấy gói của các chủ đầu tư này (bỏ qua re).
    botGoodsScan {key, inc, exc, codes, re, from}
      Rà 2 file tổng hàng hóa trúng thầu (wtgData_, MMH_WatchMerge.gs): dòng có Danh mục / Hãng / Cấu hình chứa 1 cụm trong inc
      hoặc 1 mã trong codes (so không dấu, theo nguyên từ) và không chứa cụm trong exc ⇒ trả từng dòng (chỉ đọc).
@@ -24,6 +25,9 @@ function wtbList_(v) {
 
 function wtbPick_(p) {
   const re = new RegExp(wtS_(p.re) || 'mắt', 'i');
+  // invs = danh sách TÊN CHỦ ĐẦU TƯ đúng y như Báo Đấu Thầu (bulk.mjs đã đối chiếu, vd. bệnh viện từng có KQTT dao nhãn khoa) ⇒ thay cho re
+  const IV = {}; wtbList_(p.invs).forEach(function (n) { IV[n.normalize('NFC').replace(/\s+/g, ' ').trim()] = 1; });
+  const useIv = Object.keys(IV).length > 0;
   const from = wtS_(p.from) || '2026-01-01', to = wtS_(p.to) || '9999-12-31';
   const types = wtbList_(p.types).filter(function (t) { return t === 'kqdt' || t === 'tbmt'; });
   const T = types.length ? types : ['kqdt', 'tbmt'];
@@ -31,7 +35,7 @@ function wtbPick_(p) {
   T.forEach(function (type) {
     (data[type] || []).forEach(function (r) {
       const inv = wtS_(r.inv).normalize('NFC');
-      if (!r.no || !re.test(inv)) return;
+      if (!r.no || !(useIv ? IV[inv.replace(/\s+/g, ' ').trim()] : re.test(inv))) return;
       const d = r.date || r.upd || '';
       if (!d || d < from || d > to) return;
       const b = wtBare_(r.no);
@@ -85,7 +89,7 @@ function wtbGrabInv_(p) {
     res.added = add.length;
     try { CacheService.getScriptCache().remove('wt_q'); } catch (e) {}
   } finally { lock.releaseLock(); }
-  PropertiesService.getScriptProperties().setProperty('WT_BULK_LAST', JSON.stringify({ at: wtNow_(), re: wtS_(p.re) || 'mắt', from: wtS_(p.from) || '2026-01-01', total: list.length, res: res }));
+  PropertiesService.getScriptProperties().setProperty('WT_BULK_LAST', JSON.stringify({ at: wtNow_(), re: wtbList_(p.invs).length ? 'danh sách ' + wtbList_(p.invs).length + ' CĐT' : (wtS_(p.re) || 'mắt'), from: wtS_(p.from) || '2026-01-01', total: list.length, res: res }));
   out.res = res;
   return out;
 }
