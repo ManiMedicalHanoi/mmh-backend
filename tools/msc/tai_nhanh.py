@@ -186,6 +186,7 @@ async def grab_attachments(pg, folder, tag, j, captured):
                 f.write(data)
             unrar(os.path.join(folder, name))
             j['files'].append(name)
+            j.setdefault('tags', {})[name] = tag
             log(f'  ⬇ {j["no"]} · {tag}: {name} ({len(data) // 1024} KB)')
         except Exception as e:
             j['errors'].append(f'{name}: Agent — {e}')
@@ -208,6 +209,7 @@ async def click_downloads(pg, folder, labels, j, tag):
                 name = safe(d.suggested_filename, 150)
                 await d.save_as(os.path.join(folder, name))
                 j['files'].append(name)
+                j.setdefault('tags', {})[name] = tag
                 log(f'  ⬇ {j["no"]} · {tag}: {name}')
             except Exception as e:
                 log(f'  · {j["no"]}: nút "{lb}" #{k + 1} không ra file ({str(e).splitlines()[0][:80]})')
@@ -354,7 +356,8 @@ async def run(nos, opts):
         kw = {'headless': not opts.get('show')}
         br = opts.get('browser') or 'chrome'
         b = None
-        for ch in ([br] if br == 'chromium' else [br, 'msedge', 'chromium']):
+        # 'auto' (máy tải Agent): Chromium riêng của playwright trước ⇒ không đụng Chrome / Edge người dùng đang mở
+        for ch in (['chromium', 'msedge', 'chrome'] if br == 'auto' else [br] if br == 'chromium' else [br, 'msedge', 'chromium']):
             try:
                 b = await p.chromium.launch(**kw) if ch == 'chromium' else await p.chromium.launch(channel=ch, **kw)
                 log(f'Mở trình duyệt: {ch}')

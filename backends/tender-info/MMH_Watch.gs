@@ -17,7 +17,7 @@
    Lần đầu theo dõi 1 chủ đầu tư: hiện gói trong WT.BASE_DAYS ngày gần nhất (không báo), tự tải gói trong WT.DL_BASE_DAYS ngày.
    ════════════════════════════════════════════════════════════════════ */
 const WT = {
-  VER: '1.7',
+  VER: '1.8',
   MASTER_ID: '1byCL6NjhqBuEcd-K5pxYRrQj2XXs6GMIvR79x45mHRQ',   // Training Master (RH_Users, RH_Secret, RH_Notify)
   APP_URL: 'https://manimedicalhanoi.github.io/Tender-Result/theo-doi/',
   SH_W: 'THEO DÕI · DANH SÁCH',
@@ -77,6 +77,9 @@ function wtDo_(a, p) {
     if (a === 'botPing') { wtBotSeen_(p.bot); return { ok: true, v: WT.VER }; }
     if (a === 'botAgentList') return wtaList_(p);
     if (a === 'botAgentPut') return wtaPut_(p);
+    if (a === 'botPkgStart') return wtaPkgStart_(p);
+    if (a === 'botPkgPut') return wtaPkgPut_(p);
+    if (a === 'botPkgDone') return wtaPkgDone_(p);
     return { ok: false, error: 'Không có lệnh ' + a };
   }
   const me = wtWho_(p);
@@ -90,6 +93,7 @@ function wtDo_(a, p) {
   if (a === 'wScan') { const r = wtScan_({}); return { ok: true, scan: r }; }
   if (a === 'wBotKey') return wtBotKey_(me, p);
   if (a === 'wQuick') return wtQuick_(me, p);
+  if (a === 'wAgentReq') return wtaReq_(me, p);
   if (a === 'wPkgs') return wtdPkgs_(me, p);
   if (a === 'wRecent') return wtdRecent_(me, p);
   if (a === 'wAll') return wtdAll_(me, p);
@@ -305,7 +309,7 @@ function wtBoot_(me, p) {
   };
 }
 /** info gọn cho app (18/11/2026): bỏ fields / kqFields / moFields / pkgs… (mỗi gói vài KB — 800 gói ⇒ vài MB mỗi lần mở app, đầy bộ nhớ trình duyệt dùng chung) */
-const WT_INFO_KEEP = ['url', 'prov', 'want', 'winner', 'win', 'price', 'open', 'form', 'bidName', 'investor', 'quick', 'by', 'grab', 'n', 'planNo', 'proj'];
+const WT_INFO_KEEP = ['agentReq', 'url', 'prov', 'want', 'winner', 'win', 'price', 'open', 'form', 'bidName', 'investor', 'quick', 'by', 'grab', 'n', 'planNo', 'proj'];
 function wtInfoSlim_(I) {
   I = I || {}; const o = {};
   WT_INFO_KEEP.forEach(function (k) { if (I[k] !== undefined && I[k] !== null && I[k] !== '') o[k] = I[k]; });
@@ -596,7 +600,7 @@ function wtBotEligible_(H) {
   const now = Date.now(), age = function (s) { return s ? (now - new Date(String(s).replace(' ', 'T') + '+07:00').getTime()) / 6e4 : 1e9; };
   return H.filter(function (h) {
     if (!h.no) return false;
-    if (h.status === WT.ST.WAIT) return true;
+    if (h.status === WT.ST.WAIT) return !((h.info || {}).agentReq && !(h.info || {}).agentReq.done && age((h.info || {}).agentReq.at) < WTA.HOLD_MIN);   // nhường máy Agent
     if (h.status === WT.ST.WORK) return age(h.last) > WT.LEASE_MIN;
     if (h.status === WT.ST.ERR) return h.tries < WT.MAX_TRY && age(h.last) > 60;
     return false;
