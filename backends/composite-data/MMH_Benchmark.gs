@@ -18,7 +18,7 @@ function doGet(e) {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     if (!p.key || p.key !== ss.getId().slice(-8)) out = { ok: false, code: 'KEY' };
     else if (p.action === 'cbDiag') out = cbDiag_(ss, p);
-    else if (p.action === 'cbDump') out = cbZip_(cbDump_(ss), p);
+    else if (p.action === 'cbDump') out = cbZip_(function () { return cbDump_(ss); }, p);
     else out = { ok: false, code: 'ACTION' };
   } catch (err) {
     out = { ok: false, error: String(err && err.message || err) };
@@ -50,10 +50,23 @@ function cbDiag_(ss, p) {
 
 /* Dữ liệu gọn cho việc ghép (chỉ đọc): sheet Giá bán lẻ + số lượng nhập khẩu / quy cách theo hãng · nhãn hiệu · phân loại
  * (Total data). z=1 ⇒ gzip + base64, cắt theo off / n ký tự. */
-function cbZip_(obj, p) {
-  var s = JSON.stringify(obj);
-  if (p.z !== '1') return obj;
-  var b = Utilities.base64Encode(Utilities.gzip(Utilities.newBlob(s, 'application/json')).getBytes());
+function cbZip_(objFn, p) {
+  var cache = CacheService.getScriptCache(), b = null;
+  var head = p.fresh === '1' ? null : cache.get('cbz:n');
+  if (head) {
+    var keys = []; for (var i = 0; i < Number(head); i++) keys.push('cbz:' + i);
+    var got = cache.getAll(keys), parts = [];
+    for (i = 0; i < keys.length; i++) { if (got[keys[i]] == null) { parts = null; break; } parts.push(got[keys[i]]); }
+    if (parts) b = parts.join('');
+  }
+  if (!b) {
+    var s = JSON.stringify(objFn());
+    b = Utilities.base64Encode(Utilities.gzip(Utilities.newBlob(s, 'application/json')).getBytes());
+    var put = {}, n0 = 0;
+    for (var o = 0; o < b.length; o += 90000) put['cbz:' + (n0++)] = b.slice(o, o + 90000);
+    put['cbz:n'] = String(n0);
+    cache.putAll(put, 21600);
+  }
   var off = Number(p.off || 0), n = Number(p.n || 5800);
   return { len: b.length, off: off, part: b.slice(off, off + n) };
 }
@@ -74,9 +87,12 @@ function cbDump_(ss) {
   var C = { nam: col(['năm']), hang: col(['tên hãng']), nh: col(['tên nhãn hiệu']), lv2: col(['phân loại level 2']),
             w: col(['trọng lượng']), wu: col(['đơn vị trọng lượng']), pcs: col(['số lượng ( pcs)', 'số lượng (pcs)']),
             ngay: col(['ngày đăng ký']), lv1: col(['phân loại level 1']), usd: col(['trị giá usd']) };
-  var data = td.getRange(4, 1, lr - 3, lc).getValues();
+  var need = ['nam', 'hang', 'nh', 'lv2', 'w', 'wu', 'pcs', 'ngay', 'lv1'], colv = {};
+  need.forEach(function (k) { colv[k] = C[k] >= 0 ? td.getRange(4, C[k] + 1, lr - 3, 1).getValues() : null; });
   var agg = {};
-  data.forEach(function (r) {
+  for (var ri = 0; ri < lr - 3; ri++) {
+    var r = {}; need.forEach(function (k) { r[C[k]] = colv[k] ? colv[k][ri][0] : ''; });
+    (function (r) {
     var nh = String(r[C.nh] || '').trim(); if (!nh) return;
     var y = r[C.nam] || (r[C.ngay] instanceof Date ? r[C.ngay].getFullYear() : '');
     var k = [String(r[C.hang] || '').trim(), nh, String(r[C.lv2] || '').trim(), String(r[C.lv1] || '').trim()].join('|');
@@ -86,6 +102,7 @@ function cbDump_(ss) {
     var wk = (r[C.w] === '' ? '' : r[C.w]) + ' ' + String(r[C.wu] || '');
     a.w[wk] = (a.w[wk] || 0) + 1;
     if (r[C.ngay] instanceof Date) { var d = Utilities.formatDate(r[C.ngay], 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd'); if (d > a.last) a.last = d; }
-  });
+    })(r);
+  }
   return { cols: C, hdr: hdr.slice(0, 80), price: price, agg: agg };
 }
