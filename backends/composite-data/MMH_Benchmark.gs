@@ -154,8 +154,8 @@ var CBF = {
   /* Quy tắc ghép với sản phẩm MANI (theo tài liệu MMG: Flow V = flow độ nhớt cao; Hybrid Ease = composite đặc phục hồi thường quy,
    * dễ thao tác; Micro Hybrid = thẩm mỹ, Smart Shade; Nano = chịu lực cao). Sửa danh sách từ khoá để ghép khác rồi chạy lại. */
   BULK: /bulk|\bsdr\b|everx|powerflow/i,
-  FLOW_V: /injectable|universal flow|majes\w* es flow|omnichroma/i,
-  MICRO: /omnichroma|easy match|simplishade|estelite(?! posterior)|palfique (lx5|asteria)|beautifil ii|everglow|empress direct|amaris|vittra|harmonize|forma\b|reflectys|zenchrm|\bluna\b|twiny|a\.uno|a\.nuo|opallis|nt premium|cirus/i,
+  FLOW_V: /flo-v|injectable|universal flow|majes\w* es flow|omnichroma/i,
+  MICRO: /mani micro|omnichroma|easy match|simplishade|estelite(?! posterior)|palfique (lx5|asteria)|beautifil ii|everglow|empress direct|amaris|vittra|harmonize|forma\b|reflectys|zenchrm|\bluna\b|twiny|a\.uno|a\.nuo|opallis|nt premium|cirus/i,
   NANO: /z350|filtek supreme|nano|p60|posterior|n-ceram|ceram\.x|ap-x|herculite|polofil nht|nanofil|charmfil|sculpt/i,
   CAP: { 'MANIBond 7th Gen': 18, 'MANIFill Bulk': 12, 'MANIFill Hybrid Ease': 15, 'MANIFill Flow': 14, 'MANIFill Flow V': 10,
          'MANIFill Micro Hybrid': 15, 'MANIFill Nano': 16 },
