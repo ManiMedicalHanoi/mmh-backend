@@ -19,7 +19,8 @@
    ════════════════════════════════════════════════════════════════════ */
 
 const EXA = {
-  VER: '1.0',
+  VER: '1.1',
+  TZ: 'Asia/Ho_Chi_Minh',                   // "hôm nay" theo giờ VN (múi giờ của file Sheet lệch ngày)
   PICS: ['Giang', 'Minh Trang'],            // PIC của file này được tạo đề xuất qua API
   DOC_TYPES: ['PO', 'Travel Bill'],
   CURRENCIES: ['VND'],
@@ -27,7 +28,7 @@ const EXA = {
   MASTER: 'Master expense FY67',
   PAY: { 'post-mmh': 'Post- Pay/ MMH account', 'post-personal': 'Post- Pay/ Personal account',
          'pre-mmh': 'Pre- Pay/ MMH account', 'pre-personal': 'Pre- Pay/ Personal account' },
-  DEF_EXP: { 'Travel Bill': '39' }           // loại chi phí mặc định theo loại chứng từ
+  DEF_EXP: { 'Travel Bill': '39' }           // loại chi phí mặc định theo loại chứng từ (vé máy bay VN = 41, tiếp khách thường 4 / 57 — xem dòng cũ)
 };
 
 function doGet(e) {
@@ -136,9 +137,9 @@ function exaInfo_(p) {
   if (pic) rows = rows.filter(x => x.picName === pic);
   if (doc) rows = rows.filter(x => x.docNo === doc);
   rows = rows.slice(-n);
-  const nowM = Utilities.formatDate(new Date(), tz_(), 'yyyyMM');
+  const nowM = Utilities.formatDate(new Date(), EXA.TZ, 'yyyyMM');
   return {
-    ok: true, ver: EXA.VER, today: Utilities.formatDate(new Date(), tz_(), 'yyyy-MM-dd'),
+    ok: true, ver: EXA.VER, today: Utilities.formatDate(new Date(), EXA.TZ, 'yyyy-MM-dd'),
     sheet: SpreadsheetApp.getActiveSpreadsheet().getName(), firstFree: exaLastUsed_(sh) + 1,
     pics: EXA.PICS.map(n2 => { const m = picInfo_(n2) || {}; return { name: n2, email: m.picEmail, hod: m.hodEmail, cc: m.ccEmails }; }),
     director: CONFIG.DIRECTOR_EMAILS, docTypes: EXA.DOC_TYPES, payTypes: CONFIG.PAYMENT_TYPES, currencies: EXA.CURRENCIES,
@@ -158,7 +159,7 @@ function exaPlan_(d, all) {
   if (!map) errs.push('PIC "' + pic + '" không có trong PIC_MAPPING');
   const docType = EXA.DOC_TYPES.find(t => t.toLowerCase() === String(d.docType || '').trim().toLowerCase()) || '';
   if (!docType) errs.push('docType phải là PO hoặc Travel Bill');
-  const today = Utilities.formatDate(new Date(), tz_(), 'yyyy-MM-dd');
+  const today = Utilities.formatDate(new Date(), EXA.TZ, 'yyyy-MM-dd');
   const date = d.date ? exaIso_(d.date) : today;
   if (!date) errs.push('date sai định dạng (yyyy-mm-dd)');
   const no = Number(d.no) || 1;
