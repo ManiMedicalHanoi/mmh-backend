@@ -1,18 +1,583 @@
 {
-  "_note": "Từ khoá rà hàng hóa trúng thầu cho Kìm vi phẫu MANI (Micro Forceps) và Móc mở vùng bè MANI (Trabeculotomy Hook). So không dấu, theo nguyên từ. 19/11/2026. Mã đối thủ lấy từ dữ liệu thầu panh bóc màng + nhập khẩu 2020-2025 (Product Team).",
-  "groups": {
-    "forceps_strict": ["kìm vi phẫu", "kìm bóc màng", "kẹp bóc màng", "panh bóc màng", "pince bóc màng", "pince bóc", "panh dịch kính", "kẹp dịch kính", "kìm dịch kính", "kẹp nội nhãn", "kẹp gắp dị vật nội nhãn", "kẹp gắp nội nhãn", "kẹp màng ngăn trong", "kẹp màng giới hạn trong", "bóc màng ngăn trong", "bóc màng giới hạn trong", "kẹp màng trước võng mạc", "kẹp võng mạc", "đầu pince", "đầu panh", "đầu kẹp bóc", "kẹp đầu nhám", "kẹp gắp có đầu nhám", "micro forceps", "microforceps", "vitreoretinal forceps", "ilm forceps", "end grasping", "end gripping", "maxgrip", "max grip", "eckardt", "revolution dsp", "grieshaber"],
-    "forceps_broad": ["forceps", "forcep", "panh", "pince", "kẹp", "kìm", "ilm", "erm", "dịch kính", "võng mạc", "23g", "25g", "27g"],
-    "hook_strict": ["móc mở vùng bè", "móc mở bè", "móc vùng bè", "móc bè", "móc cắt bè", "cắt bè trong", "mở bè trong", "trabeculotomy", "trabeculotome", "microhook", "micro hook", "tanito", "kahook", "dual blade", "goniotomy", "goniotome", "trabectome", "gatt", "istent", "i stent", "hydrus", "ống schlemm", "schlemm", "migs"],
-    "hook_broad": ["móc", "hook", "kính soi góc", "soi góc tiền phòng", "gonio", "gonioscope", "goniolens", "góc tiền phòng"]
-  },
-  "not_target": ["móc mống mắt", "iris hook", "móc nâng mống mắt", "vòng nâng mống mắt", "sinskey", "móc thủy tinh thể", "móc thể thủy tinh", "kuglen", "móc lác", "móc cơ", "muscle hook", "móc mi", "lid hook", "kẹp xé bao", "kẹp xé bao trước", "capsulorhexis", "utrata", "kẹp gắp thể thủy tinh", "kẹp kim", "kẹp phẫu tích", "kẹp mi", "kẹp chắp", "kẹp cầm máu", "kẹp mạch máu"],
-  "exclude": ["kẹp rốn", "kẹp ống", "kẹp clip", "kẹp giấy", "kẹp hồ sơ", "kẹp tóc", "kẹp chì", "kẹp phim", "kẹp cáp", "hemolok", "hem o lok", "kìm cắt dây", "kìm điện", "kìm nhổ răng"],
-  "codes": {
-    "Alcon": ["706.44", "706.43", "706.45", "705.44", "705.44P", "705.43", "705.43P", "705.47P", "705.13", "711.43", "711.44"],
-    "FCI": ["S9.6011.23", "S9.6012.23", "S9.6013.23", "S9.6017.23", "S9.6018.23", "S9.6018.25", "S9.6013.25", "S9.6012.25", "S9.6013.27", "S9.6012.27", "6011.23", "6012.23", "6013.23", "6017.23", "6018.23", "6018.25", "6013.25", "6012.25", "6013.27", "6012.27"],
-    "Geuder": ["G-46341", "G-46343", "G-46041", "G-37512", "46341", "46343", "46041", "37512"],
-    "Vortex": ["VS0713.23", "VS0713.25", "VS0740.23", "VS0740.25", "VS0742.23", "VS0742.25", "VS0743.23", "VS0743.25", "VS0744.23", "VS0744.25", "VS0745.23", "G2.45"],
-    "MANI": ["MSQ25A28", "MRD25A28", "MIL25A28", "MSQ27A28", "MRD27A28", "MIL27A28", "MSQ25", "MRD25", "MSQ27", "MRD27", "MTH-S"]
-  }
+ "_note": "Từ khoá rà hàng hóa trúng thầu cho Kìm vi phẫu MANI (Micro Forceps) và Móc mở vùng bè MANI (Trabeculotomy Hook). So không dấu, theo nguyên từ. 19/11/2026. Mã đối thủ lấy từ dữ liệu thầu panh bóc màng + nhập khẩu 2020-2025 (Product Team).",
+ "groups": {
+  "forceps_strict": [
+   "kìm vi phẫu",
+   "kìm bóc màng",
+   "kẹp bóc màng",
+   "panh bóc màng",
+   "pince bóc màng",
+   "pince bóc",
+   "panh dịch kính",
+   "kẹp dịch kính",
+   "kìm dịch kính",
+   "kẹp nội nhãn",
+   "kẹp gắp dị vật nội nhãn",
+   "kẹp gắp nội nhãn",
+   "kẹp màng ngăn trong",
+   "kẹp màng giới hạn trong",
+   "bóc màng ngăn trong",
+   "bóc màng giới hạn trong",
+   "kẹp màng trước võng mạc",
+   "kẹp võng mạc",
+   "đầu pince",
+   "đầu panh",
+   "đầu kẹp bóc",
+   "kẹp đầu nhám",
+   "kẹp gắp có đầu nhám",
+   "micro forceps",
+   "microforceps",
+   "vitreoretinal forceps",
+   "ilm forceps",
+   "end grasping",
+   "end gripping",
+   "maxgrip",
+   "max grip",
+   "eckardt",
+   "revolution dsp",
+   "grieshaber"
+  ],
+  "forceps_broad": [
+   "forceps",
+   "forcep",
+   "panh",
+   "pince",
+   "kẹp",
+   "kìm",
+   "ilm",
+   "erm",
+   "dịch kính",
+   "võng mạc",
+   "23g",
+   "25g",
+   "27g"
+  ],
+  "hook_strict": [
+   "móc mở vùng bè",
+   "móc mở bè",
+   "móc vùng bè",
+   "móc bè",
+   "móc cắt bè",
+   "cắt bè trong",
+   "mở bè trong",
+   "trabeculotomy",
+   "trabeculotome",
+   "microhook",
+   "micro hook",
+   "tanito",
+   "kahook",
+   "dual blade",
+   "goniotomy",
+   "goniotome",
+   "trabectome",
+   "gatt",
+   "istent",
+   "i stent",
+   "hydrus",
+   "ống schlemm",
+   "schlemm",
+   "migs"
+  ],
+  "hook_broad": [
+   "móc",
+   "hook",
+   "kính soi góc",
+   "soi góc tiền phòng",
+   "gonio",
+   "gonioscope",
+   "goniolens",
+   "góc tiền phòng"
+  ]
+ },
+ "not_target": [
+  "móc mống mắt",
+  "iris hook",
+  "móc nâng mống mắt",
+  "vòng nâng mống mắt",
+  "sinskey",
+  "móc thủy tinh thể",
+  "móc thể thủy tinh",
+  "kuglen",
+  "móc lác",
+  "móc cơ",
+  "muscle hook",
+  "móc mi",
+  "lid hook",
+  "kẹp xé bao",
+  "kẹp xé bao trước",
+  "capsulorhexis",
+  "utrata",
+  "kẹp gắp thể thủy tinh",
+  "kẹp kim",
+  "kẹp phẫu tích",
+  "kẹp mi",
+  "kẹp chắp",
+  "kẹp cầm máu",
+  "kẹp mạch máu"
+ ],
+ "exclude": [
+  "kẹp rốn",
+  "kẹp ống",
+  "kẹp clip",
+  "kẹp giấy",
+  "kẹp hồ sơ",
+  "kẹp tóc",
+  "kẹp chì",
+  "kẹp phim",
+  "kẹp cáp",
+  "hemolok",
+  "hem o lok",
+  "kìm cắt dây",
+  "kìm điện",
+  "kìm nhổ răng"
+ ],
+ "codes": {
+  "Alcon": [
+   "706.44",
+   "706.43",
+   "706.45",
+   "705.44",
+   "705.44P",
+   "705.43",
+   "705.43P",
+   "705.47P",
+   "705.13",
+   "711.43",
+   "711.44"
+  ],
+  "FCI": [
+   "S9.6011.23",
+   "S9.6012.23",
+   "S9.6013.23",
+   "S9.6017.23",
+   "S9.6018.23",
+   "S9.6018.25",
+   "S9.6013.25",
+   "S9.6012.25",
+   "S9.6013.27",
+   "S9.6012.27",
+   "6011.23",
+   "6012.23",
+   "6013.23",
+   "6017.23",
+   "6018.23",
+   "6018.25",
+   "6013.25",
+   "6012.25",
+   "6013.27",
+   "6012.27"
+  ],
+  "Geuder": [
+   "G-46341",
+   "G-46343",
+   "G-46041",
+   "G-37512",
+   "46341",
+   "46343",
+   "46041",
+   "37512"
+  ],
+  "Vortex": [
+   "VS0713.23",
+   "VS0713.25",
+   "VS0740.23",
+   "VS0740.25",
+   "VS0742.23",
+   "VS0742.25",
+   "VS0743.23",
+   "VS0743.25",
+   "VS0744.23",
+   "VS0744.25",
+   "VS0745.23",
+   "G2.45"
+  ],
+  "MANI": [
+   "MSQ25A28",
+   "MRD25A28",
+   "MIL25A28",
+   "MSQ27A28",
+   "MRD27A28",
+   "MIL27A28",
+   "MSQ25",
+   "MRD25",
+   "MSQ27",
+   "MRD27",
+   "MTH-S"
+  ]
+ },
+ "brands": {
+  "Alcon": [
+   "alcon",
+   "grieshaber"
+  ],
+  "FCI": [
+   "fci",
+   "france chirurgie instrumentation"
+  ],
+  "Geuder": [
+   "geuder"
+  ],
+  "Vortex": [
+   "vortex",
+   "voltex"
+  ],
+  "DORC": [
+   "dorc",
+   "dutch ophthalmic"
+  ],
+  "Bausch & Lomb": [
+   "bausch",
+   "bausch lomb",
+   "bausch & lomb"
+  ],
+  "BVI": [
+   "bvi",
+   "synergetics",
+   "beaver visitec",
+   "beaver-visitec"
+  ],
+  "Oertli": [
+   "oertli"
+  ],
+  "MedOne": [
+   "medone"
+  ],
+  "Katalyst": [
+   "katalyst"
+  ],
+  "Optikon": [
+   "optikon"
+  ],
+  "Inami (Tanito)": [
+   "inami"
+  ],
+  "New World Medical (Kahook)": [
+   "new world medical"
+  ],
+  "Glaukos (iStent)": [
+   "glaukos"
+  ]
+ },
+ "history": [
+  [
+   "2023",
+   "Bv Mắt Nghệ An",
+   "Vortex",
+   "23G",
+   "Panh bóc màng dùng trong phẫu thuật dịch kính võng mạc",
+   "VS0713.23;VS0713.25;VS0740.23;VS0740.25;VS0742.23;VS0742.25;VS0743.23;VS0743.25;",
+   3,
+   5250000,
+   "CÔNG TY TNHH KIM HƯNG"
+  ],
+  [
+   "2021",
+   "Bv Mắt Nghệ An",
+   "Vortex",
+   "23G",
+   "Panh bóc màng dùng trong phẫu thuật dịch kính võng mạc",
+   "VS0713.23; VS0713.25; VS0740.23; VS0740.25; VS0742.23; VS0742.25; VS0743.23, VS0",
+   20,
+   5250000,
+   "CÔNG TY TNHH KIM HƯNG"
+  ],
+  [
+   "2023",
+   "Bv Mắt Nghệ An",
+   "Vortex",
+   "23G",
+   "Panh bóc màng dùng trong phẫu thuật dịch kính võng mạc",
+   "G2.45",
+   20,
+   3885000,
+   "CÔNG TY TNHH KIM HƯNG"
+  ],
+  [
+   "2024",
+   "Bv Mắt Nghệ An",
+   "Vortex",
+   "23G",
+   "Panh bóc màng dùng trong phẫu thuật dịch kính võng mạc",
+   "Panh bóc màng ACTU8",
+   5,
+   3885000,
+   "CÔNG TY TNHH KIM HƯNG"
+  ],
+  [
+   "2020",
+   "Bv Mắt Hà Đông",
+   "Geuder",
+   "23G",
+   "Panh bóc màng",
+   "Panh bóc màngCode: G-46041/G-46341",
+   4,
+   3400000,
+   "CÔNG TY CỔ PHẦN THIÊN TRƯỜNG"
+  ],
+  [
+   "2025",
+   "Bv 108",
+   "FCI",
+   "23G",
+   "Panh bóc màng",
+   "",
+   10,
+   3255000,
+   "CÔNG TY TNHH KIM HƯNG"
+  ],
+  [
+   "2019",
+   "Bv Mắt TP HCM",
+   "Alcon",
+   "23G",
+   "Kẹp bóc màng cỡ 23G dùng trong phẫu thuật dịch kính võng mạc",
+   "",
+   216,
+   2952950,
+   "CÔNG TY TNHH THIẾT BỊ Y KHOA TÂM AN"
+  ],
+  [
+   "2023",
+   "Bv Mắt TP HCM",
+   "Alcon",
+   "23G",
+   "Kẹp bóc màng ngăn trong 23G dùng trong phẫu thuật dịch kính võng mạc",
+   "",
+   1850,
+   2945145,
+   "CÔNG TY CỔ PHẦN DƯỢC - THIẾT BỊ Y TẾ ĐÀ NẴNG"
+  ],
+  [
+   "2024",
+   "Bv Mắt TW",
+   "Vortex",
+   "25G",
+   "Kẹp bóc màng trước võng mạc 25G đầu thẳng có khía",
+   "",
+   50,
+   2940000,
+   "CÔNG TY TNHH KIM HƯNG"
+  ],
+  [
+   "2024",
+   "Bv Mắt TW",
+   "Vortex",
+   "25G",
+   "Kẹp bóc màng trước võng mạc 25G đầu vát",
+   "",
+   50,
+   2940000,
+   "CÔNG TY TNHH KIM HƯNG"
+  ],
+  [
+   "2023",
+   "Bv Mắt TP HCM",
+   "Alcon",
+   "23G",
+   "Kẹp bóc màng ngăn trong 25G dùng trong phẫu thuật dịch kính võng mạc",
+   "",
+   2660,
+   3274425,
+   "CÔNG TY CỔ PHẦN DƯỢC - THIẾT BỊ Y TẾ ĐÀ NẴNG"
+  ],
+  [
+   "2023",
+   "Bv Mắt TP HCM",
+   "Alcon",
+   "25G",
+   "Kẹp bóc màng ngăn trong 25G dùng trong phẫu thuật dịch kính võng mạc",
+   "",
+   50,
+   2929311,
+   "CÔNG TY CỔ PHẦN DƯỢC - THIẾT BỊ Y TẾ ĐÀ NẴNG"
+  ],
+  [
+   "2022",
+   "Bv Mắt Hà Đông",
+   "Geuder",
+   "23G",
+   "Đầu pince bóc màng thẳng dùng trong phẫu thuật dịch kính 23G",
+   "",
+   30,
+   2910000,
+   "CÔNG TY CỔ PHẦN THIÊN TRƯỜNG"
+  ],
+  [
+   "2023",
+   "Bv Mắt Hà Đông",
+   "Geuder",
+   "23G",
+   "Đầu pince bóc màng thẳng dùng trong phẫu thuật dịch kính 23G",
+   "",
+   20,
+   2910000,
+   "CÔNG TY CỔ PHẦN THIÊN TRƯỜNG"
+  ],
+  [
+   "2024",
+   "Bv Mắt Hà Đông",
+   "Geuder",
+   "23G",
+   "Đầu pince bóc màng thẳng dùng trong phẫu thuật dịch kính 23G",
+   "",
+   40,
+   2910000,
+   "CÔNG TY CỔ PHẦN THIÊN TRƯỜNG"
+  ],
+  [
+   "2023",
+   "Bv 108",
+   "Geuder",
+   "23G",
+   "Kẹp bóc màng thẳng 23g dùng trong phẫu thuật dịch kính, võng mạc",
+   "",
+   10,
+   2900000,
+   "CÔNG TY CỔ PHẦN THIÊN TRƯỜNG"
+  ],
+  [
+   "2023",
+   "Bv 108",
+   "Geuder",
+   "23G",
+   "Kẹp bóc màng thẳng",
+   "",
+   30,
+   2900000,
+   "CÔNG TY CỔ PHẦN THIÊN TRƯỜNG"
+  ],
+  [
+   "2025",
+   "Bv 108",
+   "Geuder",
+   "23G",
+   "Kẹp bóc màng thẳng",
+   "",
+   30,
+   2900000,
+   "CÔNG TY CỔ PHẦN THIÊN TRƯỜNG"
+  ],
+  [
+   "2021",
+   "Bv Mắt Hà Đông",
+   "Geuder",
+   "23G",
+   "Pince bóc màng dùng trong phẫu thuật mắt",
+   "G-46041/G-46341",
+   20,
+   2899000,
+   "CÔNG TY CỔ PHẦN THIÊN TRƯỜNG"
+  ],
+  [
+   "2021",
+   "Bv Mắt Hà Nội",
+   "Geuder",
+   "23G",
+   "Pince bóc màng dùng trong phẫu thuật mắt G-46041/G-46341",
+   "",
+   20,
+   2899000,
+   "CÔNG TY CỔ PHẦN THIÊN TRƯỜNG"
+  ],
+  [
+   "2022",
+   "Bv Mắt Hà Đông",
+   "Geuder",
+   "23G",
+   "Pince bóc màng dùng trong phẫu thuật mắt G-46041/G-46341",
+   "",
+   5,
+   2899000,
+   "CÔNG TY CỔ PHẦN THIÊN TRƯỜNG"
+  ],
+  [
+   "2024",
+   "Bv Mắt TW",
+   "FCI",
+   "23G",
+   "Kẹp bóc màng trước võng mạc 23G đầu thẳng có khía",
+   "",
+   50,
+   2835000,
+   "CÔNG TY TNHH KIM HƯNG"
+  ],
+  [
+   "2024",
+   "Bv Mắt TW",
+   "FCI",
+   "23G",
+   "Kẹp bóc màng trước võng mạc 23G đầu vát",
+   "",
+   50,
+   2835000,
+   "CÔNG TY TNHH KIM HƯNG"
+  ],
+  [
+   "2024",
+   "Bv Mắt TW",
+   "Vortex",
+   "25G",
+   "Kẹp bóc màng ngăn trong 25G, đầu hình càng cua (End-Grasping/end - gripping)",
+   "",
+   100,
+   2625000,
+   "CÔNG TY TNHH KIM HƯNG"
+  ],
+  [
+   "2025",
+   "Bv Mắt TW",
+   "Alcon",
+   "23G",
+   "Kẹp bóc màng ngăn trong 23G dùng trong phẫu thuật dịch kính võng mạc",
+   "",
+   700,
+   3430350,
+   "CÔNG TY TNHH DKSH VIỆT NAM"
+  ],
+  [
+   "2025",
+   "Bv Mắt TW",
+   "Alcon",
+   "25G",
+   "Kẹp bóc màng ngăn trong 25G dùng trong phẫu thuật dịch kính võng mạc",
+   "",
+   150,
+   3496878,
+   "CÔNG TY TNHH DKSH VIỆT NAM"
+  ],
+  [
+   "2025",
+   "Bv Mắt TW",
+   "Alcon",
+   "25G",
+   "Kẹp gắp có đầu nhám 25G dùng trong phẫu thuật dịch kính võng mạc",
+   "",
+   150,
+   4078998,
+   "CÔNG TY TNHH DKSH VIỆT NAM"
+  ],
+  [
+   "2024",
+   "Bv Mắt TW",
+   "FCI",
+   "23G",
+   "Kẹp bóc màng ngăn trong 23G, đầu hình càng cua (End-Grasping/end - gripping)",
+   "",
+   200,
+   2520000,
+   "CÔNG TY TNHH KIM HƯNG"
+  ],
+  [
+   "2019",
+   "Bv Mắt TP HCM",
+   "Alcon",
+   "23G",
+   "Kẹp bóc màng đầu nhám cỡ 23G dùng trong phẫu thuật dịch kính võng mạc",
+   "",
+   144,
+   2068770,
+   "CÔNG TY TNHH THIẾT BỊ Y KHOA TÂM AN"
+  ]
+ ],
+ "_history_note": "29 dòng trúng thầu panh / kẹp bóc màng 2019 đến 2025 (file \"Panh bóc màng (Vitreous forcep) _Tender\", Product Team): năm, chủ đầu tư, hãng, cỡ, tên hàng, mã, SL, đơn giá, nhà thầu."
 }
