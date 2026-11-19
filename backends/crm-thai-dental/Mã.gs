@@ -1380,6 +1380,7 @@ function route_(p){
   if(/^(ping|boot)$/.test(a)){ try { dfMaybe_(); } catch(eD){} }        /* v1.19 — chuẩn hoá ngày (1 lần + mỗi đêm) */
   if(/^(ping|boot)$/.test(a)){ try { thdFixTick_(); } catch(eF){} }    /* 02/11/2026 — TH_DentalFix.gs (once, in the background) */
   if(/^opp[A-Z]/.test(a) && typeof oppRoute_ === 'function'){ var opr = oppRoute_(a, p); if(opr) return opr; }   /* 11/11/2026 — MMH_Opp.gs (CRM Working Map) */
+  if(a === 'naResend') return thdNaResendApi_(p);                      /* 18/11/2026 — phải đứng trước naRoute_ (tên bắt đầu "na") */
   if(/^na[A-Z]/.test(a)) return naRoute_(a, user, p);                    /* v1.9 */
   if(/^kr[A-Z]/.test(a)) return krRoute_(a, user, p);                    /* v1.9 */
   { var thr = (typeof thtRoute_ === 'function') ? thtRoute_(a, user, p) : null; if(thr) return thr; }   /* 09/11/2026 — TH_Trip.gs: every trip action → the team's own Business Trip file */
@@ -1388,7 +1389,6 @@ function route_(p){
   if(/^trip(Master|Propose)2$/.test(a)) return tripRoute_(a, user, p);  /* v1.16 */
   switch(a){
     case 'thdSample': return thdSampleApi_(p);
-    case 'naResend': return thdNaResendApi_(p);                         /* 18/11/2026 — TH_NaResend.gs (gửi lại email xin duyệt Mở mới cho người duyệt mới, cần key) */
     case 'thdCare': return thdCareApi_(p);                               /* 17/11/2026 — TH_DentalCare.gs (diagnostics) */
     case 'thdFix': return thdFixApi_(p);                                 /* 02/11/2026 — TH_DentalFix.gs */                           /* 30/10/2026 — dữ liệu mẫu thử KPI (TH_DentalSample.gs) */
     case 'rpLog': return rplApi_(p);                                      /* ⭐ 23/10/2026: thống kê gửi báo cáo (MMH_ReportLog.gs) */
