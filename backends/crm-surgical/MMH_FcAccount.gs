@@ -338,7 +338,7 @@ function faSync_(opt){
     });
     var sum = faSum_(out);
     st.n = out.length; st.by = sum.by; st.val = sum.val; st.ms = Date.now() - t0;
-    if(!opt.dry){ faWrite_(sh, out); try{ faPriceSheet_(ss()); }catch(e){} faStatus_(st); try{ CacheService.getScriptCache().remove('fa_list'); }catch(e){} }
+    if(!opt.dry){ faWrite_(sh, out); try{ faPriceSheet_(ss()); }catch(e){} try{ hpPriceSheet_(ss()); }catch(e){} faStatus_(st); try{ CacheService.getScriptCache().remove('fa_list'); }catch(e){} }
     return { ok:true, dry:!!opt.dry, n:out.length, by:sum.by, val:sum.val, src:st.src, ms:st.ms, first:first, news:st.news || st.newsErr || null };
   } finally { lock.releaseLock(); }
 }
