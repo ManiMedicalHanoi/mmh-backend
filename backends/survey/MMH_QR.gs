@@ -1,6 +1,6 @@
 /**
  * MMH_QR.gs v1.0 (18/11/2026) — mã QR cho khảo sát MMH (MMH_SurveyNative.gs): ảnh PNG (đính kèm email, chiếu / in nhỏ) + SVG (in ấn khổ lớn).
- * Thư viện "QR Code Generator for JavaScript" (Kazuhiko Arase, giấy phép MIT — giữ nguyên chú thích bản quyền bên dưới; bản gốc ở Training-Hub/quiz/doi-tac/qrcode-generator.js),
+ * Thư viện "QR Code Generator for JavaScript" (Kazuhiko Arase, giấy phép MIT — giữ nguyên chú thích bản quyền bên dưới; bản gốc ở MMH-Survey/lib/qrcode-generator.js),
  * bỏ phần UMD cuối. PNG tự dựng (1 bit / điểm ảnh, khối deflate "stored") — không cần thư viện / dịch vụ ngoài.
  *   nsQrPng_(text, px?)  ⇒ Blob image/png (mặc định ~1000 px, viền trắng 4 ô)
  *   nsQrSvg_(text)       ⇒ chuỗi SVG (vector)

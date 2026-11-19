@@ -5,8 +5,8 @@
  * v1.1 (17/11/2026; v1.1: đạt từ 6/10 câu, câu góp ý sản phẩm KHÔNG tính điểm pqFeedback, top 3 mỗi phần nhận túi cói — người dùng yêu cầu)
  * v1.0 (16/11/2026) — bài kiểm tra kiểu Kahoot cho đối tác (NPP, đại lý) sau 2 bài đào tạo nha khoa.
  * Trang riêng của MMH (không dùng Kahoot vì Kahoot không bắt nhập thông tin + SĐT trước khi làm — người dùng yêu cầu):
- *   GitHub Pages Training-Hub/quiz/doi-tac/?b=<mã bài>   (mã QR ở cuối video trỏ tới đây)
- *   GitHub Pages Training-Hub/quiz/doi-tac/?b=<mã bài>&v=board   (màn xếp hạng chiếu lên TV khi đào tạo trực tiếp)
+ *   GitHub Pages MMH-Survey/training-quiz/doi-tac/?b=<mã bài>   (mã QR ở cuối video trỏ tới đây)
+ *   GitHub Pages MMH-Survey/training-quiz/doi-tac/?b=<mã bài>&v=board   (màn xếp hạng chiếu lên TV khi đào tạo trực tiếp)
  * Lệnh công khai (fetch POST text/plain, không cookie, không khoá):
  *   pqMeta   {b}                                        ⇒ {title, sub, n, perQ, pass}
  *   pqStart  {b, info:{name, dealer, phone, agree}}     ⇒ {tk, n, perQ, q} — rút n câu rải đều chương, trộn thứ tự đáp án
@@ -20,7 +20,7 @@
  * về chủ thư mục (= tài khoản chạy máy chủ; đổi bằng Script Property PQ_NOTIFY, "-" = tắt email). Ngân hàng câu hỏi: MMH_PartnerQuizBank.gs.
  */
 var PQ = { VER: '1.2', SUM_TAB: 'TỔNG HỢP', BOOK_PROP: 'PQ_BOOK', BOOK: 'MMH · Bài kiểm tra đối tác · Kết quả', TAB: 'KET_QUA', FB: 3500, TTL: 7200,
-  PAGE: 'https://manimedicalhanoi.github.io/Training-Hub/quiz/doi-tac/',
+  PAGE: 'https://manimedicalhanoi.github.io/MMH-Survey/training-quiz/doi-tac/',
   HEAD: ['Thời gian nộp', 'Mã bài', 'Bài', 'Họ tên', 'Đại lý / NPP', 'Số điện thoại', 'Số câu đúng', 'Số câu', 'Điểm', 'Đạt', 'Thời gian làm (giây)', 'Chi tiết', 'Mã lượt', 'Góp ý sản phẩm (không tính điểm)'] };
 
 function pqRoute_(a, p) {
