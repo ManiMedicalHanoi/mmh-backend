@@ -2,6 +2,8 @@
 //   BULK_MODE=dry   ⇒ botGrabInv op=dry (chỉ đếm gói của chủ đầu tư khớp BULK_RE từ BULK_FROM)
 //   BULK_MODE=run   ⇒ botGrabInv op=run (đưa vào hàng đợi tải; bot tender-dl tải dần)
 //   BULK_MODE=knife(-dry) ⇒ mọi bệnh viện từng có KQTT dao nhãn khoa (kqttMap) ⇒ botGrabInv invs (gói đã tải bỏ qua)
+//   BULK_MODE=auto(-dry|-status) ⇒ botGrabInv op=auto (gói vật tư mới hằng ngày — máy chủ tự chạy ở wtTick)
+//   BULK_PRI = mức ưu tiên (0 địa bàn đã trao đổi · 1 gói mới hằng ngày · 3 tồn đọng "tải sau")
 //   BULK_MODE=goods ⇒ botGoodsScan theo tools/msc/kw-forceps-hook.json ⇒ goods-report.json + goods-report.csv (artifact)
 import fs from 'node:fs';
 const B = JSON.parse(fs.readFileSync('backends.json', 'utf8'));
@@ -68,10 +70,15 @@ if (MODE === 'knife' || MODE === 'knife-dry') {
   fs.writeFileSync('bulk-report.json', JSON.stringify({ how, pick: [...pick], ask, none, r }, null, 1));
   process.exit(0);
 }
+if (MODE === 'auto' || MODE === 'auto-dry' || MODE === 'auto-status') {
+  const r = await post(MODE === 'auto-status' ? { action: 'botGrabInv', op: 'autoStatus' } : { action: 'botGrabInv', op: 'auto', dry: MODE === 'auto-dry' ? 1 : 0, from: process.env.BULK_AUTO_FROM || '' });
+  console.log('TỰ ĐẶT TẢI HẰNG NGÀY (gói vật tư: Kết quả ⇒ bot cloud · TBMT / KHLCNT ⇒ máy có Agent):', JSON.stringify(r, null, 1));
+  process.exit(r.ok ? 0 : 1);
+}
 if (MODE === 'dry' || MODE === 'run') {
   // BULK_NAMEF=vt ⇒ chỉ gói vật tư / dụng cụ (bộ lọc tên gói của tools/msc/knife-extra.json)
   const NF = process.env.BULK_NAMEF === 'vt' ? JSON.parse(fs.readFileSync('tools/msc/knife-extra.json', 'utf8')) : {};
-  const r = await post({ action: 'botGrabInv', op: MODE, re: RE, from: FROM, to: process.env.BULK_TO || '', want: WANT, mail: MAIL, max: 5000, types: process.env.BULK_TYPES || 'kqdt',
+  const r = await post({ action: 'botGrabInv', op: MODE, re: RE, from: FROM, to: process.env.BULK_TO || '', want: WANT, mail: MAIL, max: 8000, types: process.env.BULK_TYPES || 'kqdt', pri: process.env.BULK_PRI || '',
     nameInc: NF.nameInc || '', nameExc: NF.nameExc || '', nameStrong: NF.nameStrong || '' });
   if (process.env.BULK_NAMEF === 'vt') console.log('Lọc tên gói: chỉ vật tư / dụng cụ (bỏ thuốc, hóa chất, máy, sửa chữa, dịch vụ…)');
   if (!r.ok) { console.log('Lỗi:', JSON.stringify(r).slice(0, 500)); process.exit(1); }
