@@ -1,6 +1,7 @@
 // TẢI HÀNG LOẠT + RÀ HÀNG HÓA (19/11/2026, MMH_WatchBulk.gs của tender-info). Chạy trong workflow "Theo dõi gói thầu — tải hàng loạt" (WT_BOT_KEY).
 //   BULK_MODE=dry   ⇒ botGrabInv op=dry (chỉ đếm gói của chủ đầu tư khớp BULK_RE từ BULK_FROM)
 //   BULK_MODE=run   ⇒ botGrabInv op=run (đưa vào hàng đợi tải; bot tender-dl tải dần)
+//   BULK_MODE=knife(-dry) ⇒ mọi bệnh viện từng có KQTT dao nhãn khoa (kqttMap) ⇒ botGrabInv invs (gói đã tải bỏ qua)
 //   BULK_MODE=goods ⇒ botGoodsScan theo tools/msc/kw-forceps-hook.json ⇒ goods-report.json + goods-report.csv (artifact)
 import fs from 'node:fs';
 const B = JSON.parse(fs.readFileSync('backends.json', 'utf8'));
@@ -24,6 +25,45 @@ if (MODE === 'narrow' || MODE === 'narrow-dry') {
   const r = await post({ action: 'botGrabInv', op: 'narrow', want: process.env.BULK_WANT || 'kq,nt,hh,qd', dry: MODE === 'narrow-dry' ? 1 : 0 });
   console.log('THU HẸP HÀNG ĐỢI:', JSON.stringify(r));
   process.exit(r.ok ? 0 : 1);
+}
+// ---------- knife / knife-dry: mọi bệnh viện từng có KQTT dao nhãn khoa (file tender tổng "Data xử lý", đọc qua tender-hungvi ?action=kqttMap)
+//   ⇒ tên chủ đầu tư Báo Đấu Thầu (so bằng chính wn* của MMH_WatchNames.gs) ⇒ botGrabInv invs=[…] (gói đã tải / đang chờ ⇒ wtReq_ bỏ qua, không tải lặp)
+if (MODE === 'knife' || MODE === 'knife-dry') {
+  const vm = await import('node:vm');
+  const W = { console }; vm.createContext(W);
+  vm.runInContext(fs.readFileSync('backends/tender-info/MMH_WatchNames.gs', 'utf8'), W);
+  const kq = JSON.parse(await (await fetch(B['tender-hungvi'].url + '?action=kqttMap&from=' + (process.env.KNIFE_FROM || '201901'), { redirect: 'follow' })).text());
+  if (!kq.ok) { console.log('kqttMap lỗi:', JSON.stringify(kq).slice(0, 300)); process.exit(1); }
+  const ci = Object.fromEntries(kq.cols.map((c, i) => [c, i])), buy = {};
+  kq.rows.forEach(r => { const n = String(r[ci.buyer] || '').normalize('NFC').replace(/\s+/g, ' ').trim(); if (!n) return; const b = buy[n] = buy[n] || { n, prov: '', rows: 0, last: '' }; b.rows++; if (!b.prov && r[ci.prov]) b.prov = String(r[ci.prov]); const m = String(r[ci.month] || ''); if (m > b.last) b.last = m; });
+  const BUY = Object.values(buy);
+  console.log(`KQTT dao nhãn khoa: ${kq.rows.length} dòng · ${BUY.length} chủ đầu tư (từ ${process.env.KNIFE_FROM || '201901'})`);
+  const T = await post({ action: 'botNames' });
+  if (!T.ok) { console.log('botNames lỗi:', JSON.stringify(T).slice(0, 300)); process.exit(1); }
+  const IX = W.wnIndex_(T.inv), exact = {};
+  T.inv.forEach(r => { const n = String(r[0] || '').normalize('NFC').replace(/\s+/g, ' ').trim(); if (n) exact[n] = 1; });
+  const pick = new Set(), how = { exact: 0, key: 0, auto: 0, ask: 0, none: 0 }, ask = [], none = [];
+  for (const b of BUY) {
+    if (exact[b.n]) { pick.add(b.n); how.exact++; continue; }
+    const k = W.wnKey_(b.n), P = W.wnProv_(b.prov) || W.wnProv_(b.n), same = (IX.byKey[k] || []).filter(x => !P || !x.p || x.p === P);
+    if (k.length >= 8 && same.length) { same.forEach(x => pick.add(x.name)); how.key++; continue; }
+    const m = W.wnMatch_(IX, { name: b.n, prov: b.prov });
+    if (m.st === 'auto') { pick.add(m.inv); (m.also || []).forEach(a => pick.add(a)); how.auto++; }
+    else if (m.st === 'ask') { how.ask++; ask.push(b.n + ' (' + b.prov + ') ⇒ ' + m.cands.map(c => c[0] + ' [' + c[1] + ']').join(' | ')); }
+    else { how.none++; none.push(b.n + ' (' + b.prov + ', ' + b.rows + ' dòng, gần nhất ' + b.last + ')'); }
+  }
+  console.log('Đối chiếu tên:', JSON.stringify(how), '⇒', pick.size, 'tên chủ đầu tư Báo Đấu Thầu');
+  if (ask.length) { console.log('\nChưa chắc (KHÔNG đưa vào, ' + ask.length + '):'); ask.forEach(x => console.log('  ' + x)); }
+  if (none.length) { console.log('\nKhông thấy trên Báo Đấu Thầu (' + none.length + '):'); none.forEach(x => console.log('  ' + x)); }
+  const r = await post({ action: 'botGrabInv', op: MODE === 'knife' ? 'run' : 'dry', invs: [...pick], from: FROM, want: process.env.BULK_WANT || 'kq,nt,hh,qd', mail: MAIL, max: 5000, types: process.env.BULK_TYPES || 'kqdt' });
+  if (!r.ok) { console.log('Lỗi:', JSON.stringify(r).slice(0, 500)); process.exit(1); }
+  console.log(`\nGói từ ${FROM}: ${r.total} (có kết quả ${r.byType.kqdt} · mới mời thầu ${r.byType.tbmt}) · tài liệu: ${r.want.join(', ')}`);
+  console.log('Theo tháng:', JSON.stringify(r.byMonth));
+  console.log('Đã có trong danh sách tải (không tải lặp):', JSON.stringify(r.existing), '· gói mới:', r.fresh);
+  console.log(`Chủ đầu tư có gói (${r.byInv.length}):`); r.byInv.forEach(([n, c]) => console.log(`  ${String(c).padStart(4)}  ${n}`));
+  if (r.res) console.log('KẾT QUẢ ĐẶT TẢI:', JSON.stringify(r.res));
+  fs.writeFileSync('bulk-report.json', JSON.stringify({ how, pick: [...pick], ask, none, r }, null, 1));
+  process.exit(0);
 }
 if (MODE === 'dry' || MODE === 'run') {
   const r = await post({ action: 'botGrabInv', op: MODE, re: RE, from: FROM, want: WANT, mail: MAIL, max: 5000, types: process.env.BULK_TYPES || 'kqdt' });

@@ -6,7 +6,7 @@ on:
     - cron: '37 23 * * *'   # 06:37 giờ Việt Nam: rà hàng hóa (goods) mỗi sáng trên file tổng đã gộp
   workflow_dispatch:
     inputs:
-      mode: { description: 'dry = chỉ đếm · run = đặt tải · narrow = chỉ giữ KQ + 2 Excel · goods = rà hàng hóa + ghi tab LỌC trong file tổng', default: 'dry', type: choice, options: [dry, run, goods, narrow, narrow-dry] }
+      mode: { description: 'dry = chỉ đếm · run = đặt tải · narrow = chỉ giữ KQ + 2 Excel · goods = rà hàng hóa + ghi tab LỌC trong file tổng · knife = mọi bệnh viện từng có KQTT dao nhãn khoa', default: 'dry', type: choice, options: [dry, run, goods, narrow, narrow-dry, knife-dry, knife] }
       re: { description: 'Chủ đầu tư chứa (regex, có dấu)', default: 'mắt' }
       from: { description: 'Từ ngày (yyyy-mm-dd)', default: '2026-01-01' }
       want: { description: 'Loại tài liệu (kq = KQLCNT, nt / hh = 2 Excel, qd = quyết định qua Agent)', default: 'kq,nt,hh,qd' }
@@ -27,12 +27,12 @@ jobs:
       BULK_MAIL: ${{ inputs.mail }}
     steps:
       - uses: actions/checkout@v4
-        with: { sparse-checkout: "backends.json\ntools/msc", sparse-checkout-cone-mode: false }
+        with: { sparse-checkout: "backends.json\ntools/msc\nbackends/tender-info/MMH_WatchNames.gs", sparse-checkout-cone-mode: false }
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
       - run: node tools/msc/bulk.mjs
       - name: Đánh thức bot tải hồ sơ
-        if: ${{ inputs.mode == 'run' || inputs.mode == 'narrow' }}
+        if: ${{ inputs.mode == 'run' || inputs.mode == 'narrow' || inputs.mode == 'knife' }}
         env: { GH_TOKEN: '${{ github.token }}' }
         run: gh workflow run tender-dl.yml --repo "$GITHUB_REPOSITORY" || true
       - uses: actions/upload-artifact@v4
