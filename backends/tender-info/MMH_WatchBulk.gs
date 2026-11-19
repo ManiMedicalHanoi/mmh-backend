@@ -93,6 +93,7 @@ function wtbGoodsScan_(p) {
   const d = wtgData_();
   const inc = wtbList_(p.inc).map(wtmK_).filter(String), exc = wtbList_(p.exc).map(wtmK_).filter(String);
   const codes = wtbList_(p.codes).map(wtmK_).filter(String);
+  const brands = wtbList_(p.brands).map(wtmK_).filter(String);   // so với cột Hãng sản xuất
   const re = wtS_(p.re) ? new RegExp(wtS_(p.re), 'i') : null;
   const has = function (txt, ph) { return (' ' + txt + ' ').indexOf(' ' + ph + ' ') >= 0; };
   const rows = [];
@@ -100,11 +101,35 @@ function wtbGoodsScan_(p) {
     if (re && !re.test(wtS_(r[2]).normalize('NFC'))) return;
     const txt = wtmK_([r[7], r[8], r[11]].join(' '));
     const hi = inc.filter(function (x) { return has(txt, x); }), hc = codes.filter(function (x) { return has(txt, x); });
-    if (!hi.length && !hc.length) return;
-    if (exc.some(function (x) { return has(txt, x); })) return;
+    const hk = wtmK_(r[8]), hb = brands.filter(function (x) { return has(hk, x); });
+    if (!hi.length && !hc.length && !hb.length) return;
+    if (!hb.length && exc.some(function (x) { return has(txt, x); })) return;
     rows.push({ inv: r[2], prov: r[1], pkg: r[3], no: r[4], lot: r[5], win: r[6], item: r[7], hang: r[8], dvt: r[9], qty: r[10], price: r[12], amount: r[13],
-      cfg: wtS_(r[11]).slice(0, 400), kw: hi, code: hc });
+      cfg: wtS_(r[11]).slice(0, 400), kw: hi, code: hc, brand: hb });
   });
   const pk = {}; d.rows.forEach(function (r) { pk[r[14]] = 1; });
-  return { ok: true, scanned: d.rows.length, pkgs: Object.keys(pk).length, n: rows.length, rows: rows.slice(0, WTB.MAX), cut: rows.length > WTB.MAX, mg: wtmUrls_() };
+  return { ok: true, scanned: d.rows.length, pkgs: Object.keys(pk).length, n: rows.length, rows: rows.slice(0, +p.max || 8000), cut: rows.length > (+p.max || 8000), mg: wtmUrls_() };
+}
+
+/** botGoodsWrite {key, tab, head:[...], rows:[[...]], note} ⇒ ghi (thay toàn bộ) 1 tab kết quả lọc trong file tổng hàng hóa (tên tab bắt đầu "LỌC · ") */
+function wtbGoodsWrite_(p) {
+  const id = PropertiesService.getScriptProperties().getProperty(WTM.KIND.hh.prop);
+  if (!id) return { ok: false, error: 'Chưa có file tổng hàng hóa.' };
+  let tab = wtS_(p.tab) || 'LỌC · KÌM VI PHẪU & MÓC';
+  if (tab.indexOf('LỌC · ') !== 0) tab = 'LỌC · ' + tab;
+  const head = typeof p.head === 'string' ? wtJson_(p.head, []) : (p.head || []);
+  const rows = typeof p.rows === 'string' ? wtJson_(p.rows, []) : (p.rows || []);
+  if (!head.length) return { ok: false, error: 'Thiếu tiêu đề cột.' };
+  const ss = SpreadsheetApp.openById(id);
+  let sh = ss.getSheetByName(tab);
+  if (!sh) sh = ss.insertSheet(tab);
+  sh.clear();
+  const note = wtS_(p.note);
+  sh.getRange(1, 1).setValue(note || ('Cập nhật ' + wtNow_()));
+  sh.getRange(2, 1, 1, head.length).setValues([head]).setFontWeight('bold').setBackground('#2C4A5E').setFontColor('#FFFFFF');
+  const W = head.length, data = rows.map(function (r) { const a = r.slice(0, W); while (a.length < W) a.push(''); return a.map(function (c) { return c === null || c === undefined ? '' : c; }); });
+  if (data.length) sh.getRange(3, 1, data.length, W).setValues(data);
+  sh.setFrozenRows(2);
+  try { if (sh.getFilter()) sh.getFilter().remove(); sh.getRange(2, 1, Math.max(data.length, 1) + 1, W).createFilter(); } catch (e) {}
+  return { ok: true, tab: tab, n: data.length, url: 'https://docs.google.com/spreadsheets/d/' + id + '/edit#gid=' + sh.getSheetId() };
 }

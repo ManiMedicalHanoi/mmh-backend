@@ -754,3 +754,5 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   gói Báo Đấu Thầu có tên chủ đầu tư khớp `re` (mặc định "mắt", chữ có dấu ⇒ "Răng Hàm Mặt" không khớp) từ `from` (mặc định 2026-01-01), chỉ TBMT + Kết quả (không KHLCNT); mỗi số TBMT 1 việc (có kết quả ⇒ `kqdt:`),
   `want` mặc định mọi loại trừ `kh`; gói đã có ⇒ `wtReq_` (đã tải ⇒ bỏ qua). `botGoodsScan {key, inc, exc, codes, re}` = rà 2 file tổng hàng hóa (chỉ đọc). Gọi: workflow **Theo dõi gói thầu — tải hàng loạt**
   (`tools/msc/bulk.mjs`, mode dry | run | goods; từ khoá + mã đối thủ ở `tools/msc/kw-forceps-hook.json`; artifact `bulk-report` có goods-report.csv). run ⇒ tự gọi tender-dl.
+  goods (cũng tự chạy 06:37 mỗi sáng): `botGoodsScan` thêm `brands` (so cột Hãng sản xuất: Alcon, FCI, Geuder, Vortex, DORC, B&L, BVI, Oertli…) ⇒ bulk.mjs phân 8 nhóm (có dấu) + độ giống (Dice) với 29 dòng kìm / panh
+  bóc màng đã trúng 2019 đến 2025 (`history` trong kw json) ⇒ `botGoodsWrite` ghi đè tab **"LỌC · KÌM VI PHẪU & MÓC"** trong file tổng "Kết quả trúng thầu - Tổng hợp danh mục hàng hóa" (có bộ lọc).
