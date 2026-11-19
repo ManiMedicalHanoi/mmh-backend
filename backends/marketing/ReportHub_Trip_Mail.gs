@@ -246,6 +246,7 @@ function rhxSubStatus(t){
    Mỗi tháng 1 KEY TASK "Lịch công tác MMYYYY", mỗi chuyến đi của PIC thuộc phòng ban này
    là 1 SUB TASK. Thêm mới / cập nhật / xoá theo đúng file Business Trip.                */
 function rhxTripSync(fromTrigger){
+  try{ if(typeof rhxEnsurePeople_ === 'function') rhxEnsurePeople_(); }catch(e){}   /* ⭐ 19/11/2026: chạy cả ở trigger đồng bộ ⇒ Master có Mai ngay sau deploy */
   if(typeof shWeekly !== 'function') return { ok:false, error:'Thiếu hàm shWeekly trong Code.gs' };
   var lock = LockService.getScriptLock();
   if(!lock.tryLock(20000)) return { ok:false, error:'Hệ thống đang bận, thử lại sau.' };
@@ -396,6 +397,7 @@ function rhxTripMaster(user, p){
        C = Tỉnh / thành (Vietnam-Thailand province - Japan - Germany)
        E = MMH Member & Distributor  (người / đơn vị đi cùng)
        F = Equipment-assets in/out                                                        */
+  try{ if(typeof rhxEnsurePeople_ === 'function') rhxEnsurePeople_(); }catch(e){}   /* ⭐ 19/11/2026: người mới (Mai) có trong Master */
   var c = CacheService.getScriptCache(), hit = c.get('rhx_trip_master_v127');
   var master = hit ? JSON.parse(hit) : null;
   if(!master){
@@ -430,7 +432,7 @@ function rhxDefaultEmails(picName){
     'Khang':{hod:'tt.tuyen@mani.inc',director:'nt.ha@mani.inc'},'Viet Ha':{hod:'tt.tuyen@mani.inc',director:'nt.ha@mani.inc'},
     'Ngoc':{hod:'tt.tuyen@mani.inc',director:'nt.ha@mani.inc'},'Quynh Anh':{hod:'vtt.hoa@mani.inc',director:'nt.ha@mani.inc'},
     'Hau':{hod:'vtt.hoa@mani.inc',director:'nt.ha@mani.inc'},'Dam Viet':{hod:'vtt.hoa@mani.inc',director:'nt.ha@mani.inc'},
-    'Dam Ha':{hod:'vtt.hoa@mani.inc',director:'nt.ha@mani.inc'},'Hoa':{hod:'vtt.hoa@mani.inc',director:'nt.ha@mani.inc'},
+    'Dam Ha':{hod:'vtt.hoa@mani.inc',director:'nt.ha@mani.inc'},'Mai':{hod:'vtt.hoa@mani.inc',director:'nt.ha@mani.inc'},'Hoa':{hod:'vtt.hoa@mani.inc',director:'nt.ha@mani.inc'},
     'Tuyen':{hod:'nt.ha@mani.inc',director:'nt.ha@mani.inc'},'Nguyen Ha':{hod:'nt.ha@mani.inc',director:'nt.ha@mani.inc'}
   };
   return MAP[picName] || { hod:'tt.tuyen@mani.inc', director:'nt.ha@mani.inc' };
@@ -440,6 +442,8 @@ function rhxTripRecipients(tripPic, picEmail, rowVals){
   var T = RHX.T;
   var hod = rowVals ? rhxStr(rowVals[T.EMAIL_HOD-1]) : '';
   var dir = rowVals ? rhxStr(rowVals[T.EMAIL_DIRECTOR-1]) : '';
+  if(!rhxValidEmail(hod)) hod = '';   /* ⭐ 19/11/2026: công thức lỗi (#N/A, #REF!) ⇒ dùng người duyệt mặc định theo PIC */
+  if(!rhxValidEmail(dir)) dir = '';
   if(!hod || !dir){ var d = rhxDefaultEmails(tripPic); if(!hod) hod = d.hod; if(!dir) dir = d.director; }
   var isDirector = /^nt\.ha@/i.test(String(picEmail||''));
   if(isDirector) return { to:'vtt.hoa@manimedicalhanoi.com', cc:picEmail, hod:hod, director:dir };
@@ -519,6 +523,7 @@ function rhxTripPropose(user, p){
   if(!s || !fi) return { ok:false, error:'Ngày không hợp lệ' };
   if(fi < s) return { ok:false, error:'Finish date phải sau hoặc bằng Start date' };
 
+  try{ if(typeof rhxEnsurePeople_ === 'function') rhxEnsurePeople_(); }catch(e){}   /* ⭐ 19/11/2026 */
   var sh = rhxTripSheet(), T = RHX.T;
   var lock = LockService.getScriptLock();                     /* 2 người đề xuất cùng lúc không trùng dòng */
   if(!lock.tryLock(20000)) return { ok:false, error:'Hệ thống đang bận, vui lòng thử lại sau vài giây.' };

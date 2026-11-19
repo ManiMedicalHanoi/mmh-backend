@@ -739,3 +739,7 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   **Quy trình khi người dùng bảo "tạo đề xuất"**: hỏi đủ thông tin ⇒ ping `exAdd op=dry` ⇒ gửi người dùng bảng PO / Travel Bill xem trước (Document No, từng dòng, tổng, loại chi phí, hình thức thanh toán, tháng ghi nhận, tỷ giá, To HOD / CC)
   ⇒ người dùng xác nhận ⇒ `op=run&rid=<mới>`. Gọi qua workflow **Kiểm tra** ▸ ping `expense-giang?action=exAdd&key=…&op=dry&p=<JSON mã hoá URL>&full=1`.
   Email gửi từ tài khoản chạy web app (mmh.product) qua `mmhMail_`. Mẫu nội dung cũ: Travel Bill "Công tác <nơi> dd - dd/mm/yyyy/<Travel Allowance | VMB | Hotel>" (loại 39, riêng VMB = 41 Flight ticket), tiếp khách / mua hàng = PO. Múi giờ file Sheet lệch ngày ⇒ "hôm nay" của API theo `EXA.TZ` (giờ VN).
+- **19/11/2026 — Mai (Accounting, `mmh.account@manimedicalhanoi.com`) vào luồng đề xuất / duyệt công tác (người dùng yêu cầu)**: HOD duyệt = Hoa, Director = Nguyen Ha.
+  `trip/Mã.gs`: `getPICNameFromEmail` (2 miền), `getDefaultEmailsForPIC`, HOD Menu `hodToPICs['vtt.hoa']`. `ReportHub_Trip_Mail.gs` (backoffice / management / marketing): `rhxDefaultEmails` có Mai;
+  `rhxTripRecipients` bỏ qua email lỗi công thức (#N/A / #REF!) ⇒ người duyệt mặc định. `MMH_TripPeople.gs` (GIỐNG HỆT 3 nơi) ▸ `rhxEnsurePeople_` thêm người trong `RHX_PEOPLE` còn thiếu vào sheet Master
+  của file Business Trip (cột E danh sách chọn + I:M email PIC / Director / HOD / CC; chỉ ghi ô trống) — chạy ở tripMaster / tripPropose / tripSync (≤ 1 lần / 6 giờ). Người mới ⇒ thêm vào `RHX_PEOPLE` + các map ở trip/Mã.gs.
