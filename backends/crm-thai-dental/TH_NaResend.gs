@@ -31,9 +31,10 @@ function thdNaResendApi_(p){
     naWrite_(o); naBump_();
   } finally { lock.releaseLock(); }
   var names = str_(p.cc) ? str_(p.cc).split(/\s*,\s*/) : null;
-  var cc = (names ? names.map(function(n){ return NA_ENV.email(n); }) : [NA_ENV.director, NA_ENV.hr, NA_ENV.email(o.pic)])
+  /* 19/11/2026 — CC mặc định (Director · kế toán Hòa · PIC) LUÔN có; `cc` chỉ THÊM người (lần gửi lại 18/11 thiếu chị Hòa) */
+  var cc = [NA_ENV.director, NA_ENV.hr, NA_ENV.email(o.pic)].concat(names ? names.map(function(n){ return NA_ENV.email(n); }) : [])
     .filter(function(e, i, a){ return e && a.indexOf(e) === i && to.indexOf(e) < 0; });
   var mail = naSendMail_(o, 'submit', { pic: o.pic }, to, cc, wk);
   try{ NA_ENV.log({ pic: 'Admin' }, 'resend', o.account, 'case ' + o.id + ' → ' + o.subTo + ' · cc ' + cc.length); }catch(e){}
-  return { ok: !!mail.ok, id: o.id, to: aps, cc: names || ['Director', 'HR', o.pic], mail: { ok: mail.ok, files: mail.files, warn: mail.warn, error: mail.error } };
+  return { ok: !!mail.ok, id: o.id, to: aps, cc: ['Nguyen Ha', 'Hoa', o.pic].concat(names || []), mail: { ok: mail.ok, files: mail.files, warn: mail.warn, error: mail.error } };
 }
