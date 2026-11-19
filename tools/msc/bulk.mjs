@@ -43,19 +43,23 @@ const inc = [...G.forceps_strict, ...G.forceps_broad, ...G.hook_strict, ...G.hoo
 const r = await post({ action: 'botGoodsScan', inc, exc: K.exclude, codes: codes.map(x => x[1]), re: process.env.BULK_RE_GOODS || '' });
 if (!r.ok) { console.log('Lỗi:', JSON.stringify(r).slice(0, 500)); process.exit(1); }
 console.log(`File tổng hàng hóa: ${r.scanned} dòng · ${r.pkgs} gói · khớp sơ bộ ${r.n} dòng${r.cut ? ' (đã cắt 3.000)' : ''}`);
-const FW = ['forceps', 'forcep', 'panh', 'pince', 'kẹp', 'kìm'], VR = ['dịch kính', 'võng mạc', 'ilm', 'erm', '23g', '25g', '27g', 'nội nhãn', 'bóc màng'];
+// phân loại lại CÓ DẤU (không dấu thì "kìm" = "kim" tiêm, "móc" = "mọc", "kẹp" = "kép"): máy chủ chỉ lọc sơ bộ
+const vn = s => String(s ?? '').toLowerCase().normalize('NFC');
+const hasV = (t, w) => new RegExp('(^|[^\\p{L}\\p{N}])' + vn(w).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^\\p{L}\\p{N}])', 'u').test(t);
+const FW = ['forceps', 'forcep', 'panh', 'pince', 'kẹp', 'kìm'];
+const VR = ['dịch kính', 'võng mạc', 'ilm', 'erm', 'nội nhãn', 'bóc màng', 'màng ngăn trong', 'màng giới hạn', 'vitreoretinal', 'vitreous', 'retina'];
+const EYE = ['mắt', 'nhãn', 'glôcôm', 'glocom', 'glaucoma', 'tiền phòng', 'vùng bè', 'bè củng', 'schlemm', 'gonio', 'trabecul'];
 const out = { A_forceps: [], A_hook: [], B_forceps: [], B_hook: [], code_hits: [], not_target: [], noise: 0 };
 for (const x of r.rows) {
-  const t = norm([x.item, x.hang, x.cfg].join(' '));
+  const t = norm([x.item, x.hang, x.cfg].join(' ')), tv = vn([x.item, x.hang, x.cfg].join(' '));
   const code = codes.filter(([, c]) => has(t, c)).map(([b, c]) => b + ' ' + c);
   const row = Object.assign({}, x, { code });
-  const nt = K.not_target.some(p => has(t, p));
   if (code.length) out.code_hits.push(row);
-  if (G.forceps_strict.some(p => has(t, p))) { out.A_forceps.push(row); continue; }
-  if (G.hook_strict.some(p => has(t, p))) { out.A_hook.push(row); continue; }
-  if (nt) { out.not_target.push(row); continue; }
-  if (FW.some(p => has(t, p)) && VR.some(p => has(t, p))) { out.B_forceps.push(row); continue; }
-  if (G.hook_broad.some(p => has(t, p)) && (has(t, 'móc') || has(t, 'hook'))) { out.B_hook.push(row); continue; }
+  if (G.forceps_strict.some(p => hasV(tv, p))) { out.A_forceps.push(row); continue; }
+  if (G.hook_strict.some(p => hasV(tv, p))) { out.A_hook.push(row); continue; }
+  if (K.not_target.some(p => hasV(tv, p))) { out.not_target.push(row); continue; }
+  if (FW.some(p => hasV(tv, p)) && VR.some(p => hasV(tv, p))) { out.B_forceps.push(row); continue; }
+  if ((hasV(tv, 'móc') || hasV(tv, 'hook')) && EYE.some(p => tv.includes(vn(p)))) { out.B_hook.push(row); continue; }
   if (!code.length) out.noise++;
 }
 for (const k of Object.keys(out)) if (Array.isArray(out[k])) console.log(`${k}: ${out[k].length} dòng`);
