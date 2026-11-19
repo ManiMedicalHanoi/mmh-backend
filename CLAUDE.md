@@ -746,3 +746,7 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
 - **19/11/2026 — Dental Thái: thêm task báo "Thao tác này không được hỗ trợ trên dải ô có một hàng đã bị lọc bỏ" (Yong)**: sheet CUSTOMER TASK bật bộ lọc ẩn dòng ⇒ `Range.copyTo` (chép công thức cho dòng mới, `fmlPut_` /
   khối OTHERS TASK) lỗi ⇒ cả lệnh lưu thất bại. crm-thai-dental + crm-thai: `fmlCopy_` (copyTo, lỗi ⇒ `setFormulaR1C1` theo công thức R1C1 của dòng nguồn), `writeRow_` bọc `fixFormulas_` trong try (lỗi chỉ ghi nhật ký);
   `deleteRow_` dùng `delRowsSafe_` (`MMH_RowDelete.gs` nay GIỐNG HỆT ở 5 backend CRM). Chép công thức mới trên sheet người dùng hay lọc ⇒ dùng `fmlCopy_`, không gọi thẳng copyTo.
+- **19/11/2026 — Giá NPP bán cho bệnh viện (`crm-surgical/MMH_HospPrices.gs`, người dùng gửi 2 báo giá "đại lý – bệnh viện")**: KHÁC giá MANI → NPP (`MMH_Prices.gs`, chưa VAT).
+  `HP_ROWS` (111 mã dao từ 16/05/2025 · 181 mã chỉ khâu từ 09/06/2026): giá hộp tối đa BV · tối thiểu BV CÔNG · tối thiểu BV TƯ (đã gồm VAT); `hpPriceOf_(mã)` ⇒ giá / cái `{max, pubMin, priMin}`.
+  Thầu công lập ⇒ dùng `pubMin` / `max`. Sheet tra cứu "BẢNG GIÁ NPP - BỆNH VIỆN" (`hpPriceSheet_`, ghi ở lượt đồng bộ Follow up by Account); action `fuHospPrice` (phiên email công ty, `codes` lọc mã).
+  Bản PDF + CSV: mmh-library ▸ `Bảng giá đại lý/`. Báo giá mới ⇒ sửa mảng (cả 2 nơi).

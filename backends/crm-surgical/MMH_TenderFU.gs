@@ -123,6 +123,7 @@ function fuRoute_(action, p){
     if(action === 'fuVisitLog') return fuVisitLog_(p);
     if(action === 'fuLocSave') return fuLocSave_(p);
     if(action === 'fuAccDiag') return fuAccDiag_(p);
+    if(action === 'fuHospPrice') return hpApi_(p);               /* MMH_HospPrices.gs — giá NPP bán cho bệnh viện (tối đa · tối thiểu công / tư) */
     return { ok:false, error:'Unknown action: ' + action };
   }catch(e){ return { ok:false, error:String(e && e.message || e) }; }
 }
