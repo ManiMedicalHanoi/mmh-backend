@@ -1,0 +1,18 @@
+{
+  "_note": "Từ khoá rà hàng hóa trúng thầu cho Kìm vi phẫu MANI (Micro Forceps) và Móc mở vùng bè MANI (Trabeculotomy Hook). So không dấu, theo nguyên từ. 19/11/2026. Mã đối thủ lấy từ dữ liệu thầu panh bóc màng + nhập khẩu 2020-2025 (Product Team).",
+  "groups": {
+    "forceps_strict": ["kìm vi phẫu", "kìm bóc màng", "kẹp bóc màng", "panh bóc màng", "pince bóc màng", "pince bóc", "panh dịch kính", "kẹp dịch kính", "kìm dịch kính", "kẹp nội nhãn", "kẹp gắp dị vật nội nhãn", "kẹp gắp nội nhãn", "kẹp màng ngăn trong", "kẹp màng giới hạn trong", "bóc màng ngăn trong", "bóc màng giới hạn trong", "kẹp màng trước võng mạc", "kẹp võng mạc", "đầu pince", "đầu panh", "đầu kẹp bóc", "kẹp đầu nhám", "kẹp gắp có đầu nhám", "micro forceps", "microforceps", "vitreoretinal forceps", "ilm forceps", "end grasping", "end gripping", "maxgrip", "max grip", "eckardt", "revolution dsp", "grieshaber"],
+    "forceps_broad": ["forceps", "forcep", "panh", "pince", "kẹp", "kìm", "ilm", "erm", "dịch kính", "võng mạc", "23g", "25g", "27g"],
+    "hook_strict": ["móc mở vùng bè", "móc mở bè", "móc vùng bè", "móc bè", "móc cắt bè", "cắt bè trong", "mở bè trong", "trabeculotomy", "trabeculotome", "microhook", "micro hook", "tanito", "kahook", "dual blade", "goniotomy", "goniotome", "trabectome", "gatt", "istent", "i stent", "hydrus", "ống schlemm", "schlemm", "migs"],
+    "hook_broad": ["móc", "hook", "kính soi góc", "soi góc tiền phòng", "gonio", "gonioscope", "goniolens", "góc tiền phòng"]
+  },
+  "not_target": ["móc mống mắt", "iris hook", "móc nâng mống mắt", "vòng nâng mống mắt", "sinskey", "móc thủy tinh thể", "móc thể thủy tinh", "kuglen", "móc lác", "móc cơ", "muscle hook", "móc mi", "lid hook", "kẹp xé bao", "kẹp xé bao trước", "capsulorhexis", "utrata", "kẹp gắp thể thủy tinh", "kẹp kim", "kẹp phẫu tích", "kẹp mi", "kẹp chắp", "kẹp cầm máu", "kẹp mạch máu"],
+  "exclude": ["kẹp rốn", "kẹp ống", "kẹp clip", "kẹp giấy", "kẹp hồ sơ", "kẹp tóc", "kẹp chì", "kẹp phim", "kẹp cáp", "hemolok", "hem o lok", "kìm cắt dây", "kìm điện", "kìm nhổ răng"],
+  "codes": {
+    "Alcon": ["706.44", "706.43", "706.45", "705.44", "705.44P", "705.43", "705.43P", "705.47P", "705.13", "711.43", "711.44"],
+    "FCI": ["S9.6011.23", "S9.6012.23", "S9.6013.23", "S9.6017.23", "S9.6018.23", "S9.6018.25", "S9.6013.25", "S9.6012.25", "S9.6013.27", "S9.6012.27", "6011.23", "6012.23", "6013.23", "6017.23", "6018.23", "6018.25", "6013.25", "6012.25", "6013.27", "6012.27"],
+    "Geuder": ["G-46341", "G-46343", "G-46041", "G-37512", "46341", "46343", "46041", "37512"],
+    "Vortex": ["VS0713.23", "VS0713.25", "VS0740.23", "VS0740.25", "VS0742.23", "VS0742.25", "VS0743.23", "VS0743.25", "VS0744.23", "VS0744.25", "VS0745.23", "G2.45"],
+    "MANI": ["MSQ25A28", "MRD25A28", "MIL25A28", "MSQ27A28", "MRD27A28", "MIL27A28", "MSQ25", "MRD25", "MSQ27", "MRD27", "MTH-S"]
+  }
+}

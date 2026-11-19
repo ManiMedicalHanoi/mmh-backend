@@ -750,3 +750,7 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   `HP_ROWS` (111 mã dao từ 16/05/2025 · 181 mã chỉ khâu từ 09/06/2026): giá hộp tối đa BV · tối thiểu BV CÔNG · tối thiểu BV TƯ (đã gồm VAT); `hpPriceOf_(mã)` ⇒ giá / cái `{max, pubMin, priMin}`.
   Thầu công lập ⇒ dùng `pubMin` / `max`. Sheet tra cứu "BẢNG GIÁ NPP - BỆNH VIỆN" (`hpPriceSheet_`, ghi ở lượt đồng bộ Follow up by Account); action `fuHospPrice` (phiên email công ty, `codes` lọc mã).
   Bản PDF + CSV: mmh-library ▸ `Bảng giá đại lý/`. Báo giá mới ⇒ sửa mảng (cả 2 nơi).
+- **19/11/2026 — Tải hàng loạt theo nhóm chủ đầu tư + rà hàng hóa kìm / móc (tender-info `MMH_WatchBulk.gs`, người dùng yêu cầu)**: `botGrabInv {key, re, from, to, types, want, op: dry|run, mail}` (khoá bot) —
+  gói Báo Đấu Thầu có tên chủ đầu tư khớp `re` (mặc định "mắt", chữ có dấu ⇒ "Răng Hàm Mặt" không khớp) từ `from` (mặc định 2026-01-01), chỉ TBMT + Kết quả (không KHLCNT); mỗi số TBMT 1 việc (có kết quả ⇒ `kqdt:`),
+  `want` mặc định mọi loại trừ `kh`; gói đã có ⇒ `wtReq_` (đã tải ⇒ bỏ qua). `botGoodsScan {key, inc, exc, codes, re}` = rà 2 file tổng hàng hóa (chỉ đọc). Gọi: workflow **Theo dõi gói thầu — tải hàng loạt**
+  (`tools/msc/bulk.mjs`, mode dry | run | goods; từ khoá + mã đối thủ ở `tools/msc/kw-forceps-hook.json`; artifact `bulk-report` có goods-report.csv). run ⇒ tự gọi tender-dl.

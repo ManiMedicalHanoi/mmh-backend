@@ -70,6 +70,10 @@ function wtDo_(a, p) {
     }
     if (a === 'botHello') return wtxHello_(p);
     if (a === 'botSaveTo') { if (p._ext) return { ok: false, code: 'KEY', error: 'Cần khoá bot.' }; return wtsSaveTo_(p); }   // MMH_WatchSave.gs
+    if (a === 'botGrabInv' || a === 'botGoodsScan') {   // MMH_WatchBulk.gs — chỉ khoá bot (không cho tiện ích dùng phiên email)
+      if (p._ext) return { ok: false, code: 'KEY', error: 'Cần khoá bot.' };
+      return a === 'botGrabInv' ? wtbGrabInv_(p) : wtbGoodsScan_(p);
+    }
     if (a === 'botPeek') { wtBotSeen_(p.bot); return { ok: true, n: wtBotEligible_(wtHits_(wtBook_())).length }; }
     if (a === 'botNext') return wtBotNext_(p);
     if (a === 'botFile') return wtBotFile_(p);
