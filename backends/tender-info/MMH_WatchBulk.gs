@@ -44,6 +44,7 @@ function wtbPick_(p) {
 }
 
 function wtbGrabInv_(p) {
+  if (wtS_(p.op) === 'narrow') return wtbNarrow_(p);
   const run = wtS_(p.op) === 'run', force = wtTrue_(p.force);
   const max = Math.min(+p.max || 2000, 5000);
   let want = wtWant_(wtbList_(p.want));
@@ -132,4 +133,28 @@ function wtbGoodsWrite_(p) {
   sh.setFrozenRows(2);
   try { if (sh.getFilter()) sh.getFilter().remove(); sh.getRange(2, 1, Math.max(data.length, 1) + 1, W).createFilter(); } catch (e) {}
   return { ok: true, tab: tab, n: data.length, url: 'https://docs.google.com/spreadsheets/d/' + id + '/edit#gid=' + sh.getSheetId() };
+}
+
+/** op=narrow (19/11/2026, người dùng: "chỉ cần KQTT + 2 file Excel, file cần Agent để Agent tải"): gói do tải hàng loạt đưa vào (info.bulk) còn Chờ tải
+ *  ⇒ gói chưa có kết quả (tbmt:) = Không tải · gói có kết quả (kqdt:) = ghi đè loại tài liệu bằng want (mặc định kq, nt, hh, qd — qd chỉ ghi tên cho Agent). dry=1 chỉ đếm. */
+function wtbNarrow_(p) {
+  let want = wtWant_(wtbList_(p.want));
+  if (!wtbList_(p.want).length) want = ['kq', 'nt', 'hh', 'qd'];
+  const dry = wtTrue_(p.dry);
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) return { ok: false, code: 'BUSY', error: 'Máy chủ đang bận — thử lại sau ít giây.' };
+  const res = { off: 0, narrowed: 0, keep: 0, done: 0, work: 0 };
+  try {
+    const ss = wtBook_(), sh = wtSheet_(ss, WT.SH_H, WT.HH);
+    wtHits_(ss).forEach(function (h) {
+      if (!(h.info && h.info.bulk)) return;
+      if (h.status === WT.ST.DONE || h.status === WT.ST.NOFILE) { res.done++; return; }
+      if (h.status === WT.ST.WORK) { res.work++; return; }
+      if (h.status !== WT.ST.WAIT) { res.keep++; return; }
+      if (h.type === 'tbmt') { res.off++; if (!dry) { sh.getRange(h.row, 11).setValue(WT.ST.OFF); sh.getRange(h.row, 15).setValue('Chỉ tải kết quả: gói chưa có KQ'); } return; }
+      res.narrowed++; if (!dry) sh.getRange(h.row, 7).setValue(wtInfoWant_(h.info, want));
+    });
+    if (!dry) { try { CacheService.getScriptCache().remove('wt_q'); } catch (e) {} }
+  } finally { lock.releaseLock(); }
+  return { ok: true, op: 'narrow', dry: dry, want: want, res: res };
 }
