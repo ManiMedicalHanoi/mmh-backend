@@ -434,7 +434,7 @@ function wtReq_(sh, h, me, want, force, noWatch) {
   }
   if (!force && (h.status === WT.ST.DONE || h.status === WT.ST.NOFILE)) return { skip: 'done' };
   sh.getRange(h.row, 7).setValue(wtInfoWant_(h.info, want));
-  sh.getRange(h.row, 11, 1, 4).setValues([[WT.ST.WAIT, JSON.stringify(h.files || []), 0, '']]);
+  sh.getRange(h.row, 11, 1, 4).setValues([[WT.ST.WAIT, JSON.stringify(h.files || []), 0, wtNow_()]]);   // cột 14 = lúc vào hàng đợi (app: "đã chờ x phút"; bot ghi đè khi bắt đầu tải)
   return {};
 }
 
