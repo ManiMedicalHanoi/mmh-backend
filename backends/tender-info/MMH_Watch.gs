@@ -322,7 +322,7 @@ function wtInfoSlim_(I) {
 }
 function wtHitOut_(h) {
   return { key: h.key, type: h.type, no: h.no, investor: h.investor, name: h.name, info: wtInfoSlim_(h.info), date: h.date, found: h.found,
-    status: h.status, files: h.files, tries: h.tries, note: h.note, done: h.done, watchers: h.watchers.length };
+    status: h.status, files: h.files, tries: h.tries, note: h.note, done: h.done, last: h.last, watchers: h.watchers.length };   // last = lúc bắt đầu tải (app ước tính %)
 }
 
 function wtSave_(me, p) {
