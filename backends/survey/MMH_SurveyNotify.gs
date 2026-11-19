@@ -124,8 +124,8 @@ function nsMailParts_(st, toList, owner) {
     '<p style="margin:0 0 4px"><b>Link khảo sát:</b> <a href="' + e(url) + '">' + e(url) + '</a></p>' +
     '<p style="' + P + '"><img src="cid:qr" width="160" height="160" alt="Mã QR khảo sát"></p>' +
     '<p style="margin:0 0 4px"><b>Theo dõi kết quả:</b></p><ul style="margin:0 0 12px;padding-left:20px">' +
-    '<li>Biểu đồ: <a href="' + e(app) + '">' + e(app) + '</a></li>' +
-    '<li>Dữ liệu chi tiết: <a href="' + e(sheet) + '">Google Sheet kết quả</a></li></ul>' +
+    '<li>App Customer Survey (biểu đồ, thống kê từng câu): <a href="' + e(app) + '">' + e(app) + '</a></li>' +
+    '<li>Google Sheet kết quả (dữ liệu chi tiết từng bác sĩ): <a href="' + e(sheet) + '">' + e(sheet) + '</a></li></ul>' +
     '<p style="' + P + '">Team đưa link và mã QR vào ấn phẩm, chương trình sự kiện và follow-up bác sĩ sau sự kiện giúp ' + e(self.toLowerCase()) + ' nhé.</p>' +
     '<p style="margin:0">Best regards,</p><p style="margin:0">' + e(nsVN_(owner) || 'Mani Medical Hanoi') + '</p></div>';
   return { subject: subject, html: html, url: url, app: app, sheet: sheet, groups: groups, nq: nq, ev: ev, who: who };
