@@ -314,5 +314,13 @@
     "apps": [],
     "scriptId": "1AUPOrqOcHhZkRHzhZ3dCl5kQndIrr5FNhOtPQ7cBhUpRLHZUXFSH4V18",
     "sheetId": "1xYjl3OV8Bm6IBX4290pJ_9K93eJcRL9cpwfb32jenqU"
+  },
+  "expense-giang": {
+    "name": "7. FY67 Expenses Approval - Giang, Minh Trang (đề xuất chi phí PO / Travel Bill — script gắn Sheet)",
+    "apps": [],
+    "scriptId": "1_kBwknm75qDr7m12iLAEuccvJ4_E0ER9ojcjla63JRgSmw1Cd1uLMlP4",
+    "sheetId": "14vzawICf83AW6UNNBjy9pQYMSsMIOxcnz-xWn9QukG8",
+    "sheetUrl": "https://docs.google.com/spreadsheets/d/14vzawICf83AW6UNNBjy9pQYMSsMIOxcnz-xWn9QukG8/edit?gid=170979659#gid=170979659",
+    "note": "File đề xuất chi phí của Giang + Minh Trang (tab Expense Approval: đề xuất ⇒ HOD ⇒ Giám đốc duyệt; PO Form, Travel Bill Form). Chưa có web app."
   }
 }
