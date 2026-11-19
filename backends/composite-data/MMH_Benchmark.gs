@@ -189,15 +189,15 @@ function cbGroup_(r) {
   return { g: 'MANIFill Hybrid Ease', why: 'composite đặc phục hồi thường quy' };
 }
 
-/* Khoá chống lặp tên: cùng hãng + cùng nhóm MANI + tên đã bỏ chữ phụ (TM, Paste, Refill, Syringe, Restorative, Universal,
- * Bulk Fill, Flowable, dấu, khoảng trắng) ⇒ coi là 1 sản phẩm, chỉ giữ dòng nhập khẩu nhiều nhất. CBF.ALIAS = tên gõ khác của cùng sản phẩm. */
-CBF.ALIAS = { 'auno': 'anuo' };
+/* Khoá chống lặp tên: cùng hãng + cùng nhóm MANI + tên đã bỏ chữ phụ (TM, Paste, Refill, Syringe, Restorative, dấu, khoảng trắng;
+ * KHÔNG bỏ Universal / Bulk Fill / Flowable — Tetric N-Bond ≠ Tetric N-Bond Universal) ⇒ coi là 1 sản phẩm, chỉ giữ dòng nhập khẩu nhiều nhất. CBF.ALIAS = tên gõ khác của cùng sản phẩm. */
+CBF.ALIAS = { 'auno': 'anuo', 'sdrplusbulkfillflowable': 'sdrplus', 'empressdirect': 'ipsempressdirect' };
 function cbNameKey_(nm) {
-  var k = cbNorm_(nm).replace(/™/g, ' ').replace(/\b(tm|paste|refill|syringe|restorative|universal|bulk fill|flowable)\b/g, ' ')
+  var k = cbNorm_(nm).replace(/™/g, ' ').replace(/\b(tm|paste|refill|syringe|restorative)\b/g, ' ')
     .replace(/[^a-z0-9]+/g, '');
   return CBF.ALIAS[k] || k;
 }
-function cbKey_(r, g) { return cbNorm_(r[1]) + '|' + g + '|' + cbNameKey_(r[2]); }
+function cbKey_(r, g) { return cbNorm_(cbBrand_(r[1])) + '|' + g + '|' + cbNameKey_(r[2]); }
 
 function cbIso_(s) {
   var m = String(s || '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
