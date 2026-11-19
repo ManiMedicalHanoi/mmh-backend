@@ -305,8 +305,9 @@
     "apps": [],
     "scriptId": "1vsq9m4an-Od_jZN9QnmNJh1_VDTIlWLbVO0g2L_Op8xIdOxbbzgsDmrD",
     "sheetId": "1szwMAzyBdqHqmbOfQ7ZCRhnTztvFvjazT4nrUt3XoyY",
-    "newWebapp": true,
-    "smoke": false
+    "smoke": false,
+    "deploymentId": "AKfycbzGM5ZG6PyPymCntSSfBuWlJ2CXrYnwJNhSSQ2z4NqQ53xxIXn7QYf1l4kXbTSoAuXQvg",
+    "url": "https://script.google.com/macros/s/AKfycbzGM5ZG6PyPymCntSSfBuWlJ2CXrYnwJNhSSQ2z4NqQ53xxIXn7QYf1l4kXbTSoAuXQvg/exec"
   },
   "mmg-price": {
     "name": "Price calculation MMG (tính giá MMG + Competitor Benchmark)",
