@@ -189,6 +189,16 @@ function cbGroup_(r) {
   return { g: 'MANIFill Hybrid Ease', why: 'composite đặc phục hồi thường quy' };
 }
 
+/* Khoá chống lặp tên: cùng hãng + cùng nhóm MANI + tên đã bỏ chữ phụ (TM, Paste, Refill, Syringe, Restorative, Universal,
+ * Bulk Fill, Flowable, dấu, khoảng trắng) ⇒ coi là 1 sản phẩm, chỉ giữ dòng nhập khẩu nhiều nhất. CBF.ALIAS = tên gõ khác của cùng sản phẩm. */
+CBF.ALIAS = { 'auno': 'anuo' };
+function cbNameKey_(nm) {
+  var k = cbNorm_(nm).replace(/™/g, ' ').replace(/\b(tm|paste|refill|syringe|restorative|universal|bulk fill|flowable)\b/g, ' ')
+    .replace(/[^a-z0-9]+/g, '');
+  return CBF.ALIAS[k] || k;
+}
+function cbKey_(r, g) { return cbNorm_(r[1]) + '|' + g + '|' + cbNameKey_(r[2]); }
+
 function cbIso_(s) {
   var m = String(s || '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
   return m ? m[3] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[1]).slice(-2) : '';
@@ -203,7 +213,7 @@ function cbPlan_(ss) {
   var den = {}, dseen = {};
   M.forEach(function (m) {
     var G = Number(m.r[5]) > 0 ? cbGroup_(m.r) : null; if (!G) return;
-    var k = cbNorm_(m.r[1]) + '|' + cbNorm_(m.r[2]) + '|' + G.g, v = m.y[2025] || 0;
+    var k = cbKey_(m.r, G.g), v = m.y[2025] || 0;
     if (dseen[k] != null) { if (v > dseen[k]) { den[G.g] += v - dseen[k]; dseen[k] = v; } return; }
     dseen[k] = v; den[G.g] = (den[G.g] || 0) + v;
   });
@@ -215,7 +225,7 @@ function cbPlan_(ss) {
     if (CBF.SKIP_BRAND.test(String(r[1]).trim()) || !(Number(r[5]) > 0)) { skipped++; return; }
     var G = cbGroup_(r); if (!G) { skipped++; return; }
     var v25 = m.y[2025] || 0, v26 = m.y[2026] || 0, vol = v25 + v26;
-    var key = cbNorm_(r[1]) + '|' + cbNorm_(r[2]) + '|' + G.g;
+    var key = cbKey_(r, G.g);
     var c = { r: r, g: G.g, why: G.why, v25: v25, v26: v26, vol: vol, w: m.w, tier: m.tier };
     if (seen[key]) { if (vol > seen[key].vol) { cand[cand.indexOf(seen[key])] = c; seen[key] = c; } skipped++; return; }
     seen[key] = c; cand.push(c);
@@ -240,6 +250,15 @@ function cbPlan_(ss) {
       G: wm ? String(qty).replace('.', ',') + ' ' + unit : '', H: qty, I: unit, J: Number(r[5]), K: '', L: share,
       P: 'Data composite · Giá bán lẻ', Q: cbIso_(dmap[[cbNorm_(r[1]), cbNorm_(r[2]), cbNorm_(r[3])].join('|')] || r[7]), R: note
     };
+  });
+  /* Cùng hãng + cùng tên nhưng khác dạng (vd. Omnichroma flow / paste ở 2 nhóm) ⇒ ghi rõ dạng sau tên để không trùng tên */
+  var nameCnt = {};
+  rows.forEach(function (x) { var k = cbNorm_(x.D) + '|' + cbNameKey_(x.E); nameCnt[k] = (nameCnt[k] || 0) + 1; });
+  rows.forEach(function (x, i) {
+    if (nameCnt[cbNorm_(x.D) + '|' + cbNameKey_(x.E)] > 1) {
+      var lv2 = String(take[i].r[3] || '').trim(), form = /flow/i.test(lv2) ? 'Flow' : /paste/i.test(lv2) ? 'Paste' : lv2;
+      if (form && x.E.toLowerCase().indexOf(form.toLowerCase()) < 0) x.E += ' (' + form + ')';
+    }
   });
   return { rows: rows, cnt: cnt, cand: cand.length, skipped: skipped, notIn: left, den: den };
 }
