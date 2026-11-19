@@ -713,4 +713,6 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   (`wtaDocType_`: tên chuẩn theo tab + tên file, trùng file "cần Agent" ⇒ done) ⇒ đẩy kho GitHub `tender-docs` nếu máy đã cài token (`github.json`) ⇒ `botPkgDone`. Bot GitHub (`wtBotEligible_`) nhường gói có agentReq < `WTA.HOLD_MIN` (10) phút.
   App mở trên CHÍNH máy tải ⇒ gọi thẳng `http://127.0.0.1:8767` (`/ping`, `/job`, `/jobs`; CORS chỉ manimedicalhanoi.github.io + `Access-Control-Allow-Private-Network`; Chrome hỏi quyền truy cập mạng cục bộ 1 lần).
   `tools/msc/tai_nhanh.py` GIỐNG HỆT ở 3 nơi: kho này, `Tender-Result/theo-doi/agent/` (bộ cài máy tải), skill `mmh-tender-opportunity` (`mmh-library/skills/…/scripts/msc/`) — sửa 1 nơi chép sang nơi kia (`j['tags']` = tab của từng file).
+  **wDocs (19/11/2026, người dùng: "hôm qua còn thấy tài liệu các hồ sơ đã tải, hôm nay mất hết")**: tab Tài liệu cũ lấy từ `wBoot.hits` (800 tin mới nhất của người xem) ⇒ tải hàng loạt đẩy gói đã tải ra ngoài.
+  `wtdDocs_` (MMH_WatchDocs.gs) = MỌI gói có file (`all=1` mọi người · mặc định gói người xem theo dõi), dạng gọn `{k,t,no,inv,nm,prov,done,url,ag,f:[{n,u,i,s,d,g,z}]}`, đệm `wt_docs` 5 phút chia mảnh (`wtBigPut_`), xoá khi có file mới (`wtdDocsBust_` ở botFile / wtdUpload_).
 

@@ -94,6 +94,7 @@ function wtDo_(a, p) {
   if (a === 'wBotKey') return wtBotKey_(me, p);
   if (a === 'wQuick') return wtQuick_(me, p);
   if (a === 'wAgentReq') return wtaReq_(me, p);
+  if (a === 'wDocs') return wtdDocs_(me, p);
   if (a === 'wPkgs') return wtdPkgs_(me, p);
   if (a === 'wRecent') return wtdRecent_(me, p);
   if (a === 'wAll') return wtdAll_(me, p);
@@ -668,6 +669,7 @@ function wtBotFile_(p) {
       files.push({ name: sv.name, url: f.getUrl(), id: f.getId(), size: bytes.length, kind: wtS_(p.kind), sec: sec, gsheet: sv.gsheet });
       sh.getRange(cur.row, 12).setValue(JSON.stringify(files));
     } finally { lock.releaseLock(); }
+    wtdDocsBust_();
   }
   return { ok: true, id: f.getId(), url: f.getUrl(), name: sv.name, gsheet: sv.gsheet, folder: folder.getUrl() };
 }
