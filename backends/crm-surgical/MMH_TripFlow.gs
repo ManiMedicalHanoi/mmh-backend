@@ -62,10 +62,10 @@ function tfTripSheet_(){
   if(!sh) throw new Error('File Business Trip không có sheet "' + TF.TRIP_TAB + '"');
   return sh;
 }
-/* email luôn đi bằng miền @manimedicalhanoi.com (mmhMail_ nếu backend đã có MMH_MailDomain.gs) */
+/* người nhận nhân sự MMH ⇒ đuôi @mani.inc (20/11/2026; mmhMail_ nếu backend đã có MMH_MailDomain.gs) */
 function tfMail_(o){
   if(typeof mmhMail_ === 'function') return mmhMail_(o);
-  ['to','cc','replyTo'].forEach(function(k){ if(o[k]) o[k] = String(o[k]).replace(/@mani\.inc\b/gi, '@manimedicalhanoi.com'); });
+  ['to','cc','replyTo'].forEach(function(k){ if(o[k]) o[k] = String(o[k]).replace(/@manimedicalhanoi\.com\b/gi, '@mani.inc'); });
   return MailApp.sendEmail(o);
 }
 function tfUniq_(a){ var seen = {}; return a.filter(function(e){ var k = tfLocal_(e); if(!k || seen[k]) return false; seen[k] = 1; return true; }); }

@@ -283,11 +283,11 @@ function pingEmail(to, requestedFrom, requestedFromName) {
 
   let method = 'GmailApp';
   try {
-    GmailApp.sendEmail(to, subject, '', _mailOptions({ htmlBody: html }, wantFrom, fromName));
+    GmailApp.sendEmail(mmhAddr_(to), subject, '', _mailOptions({ htmlBody: html }, wantFrom, fromName));
   } catch (gmailErr) {
     method = 'MailApp (fallback)';
     try {
-      MailApp.sendEmail({ to: to, subject: subject, htmlBody: html, name: fromName });
+      MailApp.sendEmail({ to: mmhAddr_(to), subject: subject, htmlBody: html, name: fromName });
     } catch (mailErr) {
       throw new Error('Cả GmailApp và MailApp đều fail. GmailApp: ' + gmailErr.message + ' | MailApp: ' + mailErr.message);
     }
@@ -355,11 +355,11 @@ function sendReportEmail(body) {
 
   let method = 'GmailApp';
   try {
-    GmailApp.sendEmail(to, subject, '', _mailOptions({ htmlBody: htmlBody, attachments: attachments }, wantFrom, fromName));
+    GmailApp.sendEmail(mmhAddr_(to), subject, '', _mailOptions({ htmlBody: htmlBody, attachments: attachments }, wantFrom, fromName));
   } catch (gmailErr) {
     method = 'MailApp (fallback)';
     try {
-      MailApp.sendEmail({ to: to, subject: subject, htmlBody: htmlBody, attachments: attachments, name: fromName });
+      MailApp.sendEmail({ to: mmhAddr_(to), subject: subject, htmlBody: htmlBody, attachments: attachments, name: fromName });
     } catch (mailErr) {
       throw new Error('GmailApp lỗi: ' + gmailErr.message + ' | MailApp lỗi: ' + mailErr.message + ' | Quota còn: ' + MailApp.getRemainingDailyQuota() + ' | Size đính kèm: ' + Math.round(totalAttachSize/1024) + 'KB');
     }

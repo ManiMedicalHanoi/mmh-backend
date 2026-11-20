@@ -223,6 +223,7 @@ function rkvMail_(p, mode) {
   if (mode === 'data') {
     var md = kscMailData(pic, month);
     if (!md.ok) return md;
+    if (typeof mmhAddr_ === 'function') { md.to = mmhAddr_(md.to); md.cc = mmhAddr_(md.cc); }   /* 20/11/2026: nhân sự MMH ⇒ @mani.inc */
     return {ok: true, data: md};
   }
   /* ⭐ v1.4 (02/11/2026) — Biểu mẫu FM01 (MMHSOP_009): lý do đạt/chưa đạt từng KPI, hành động tháng tới, điểm nổi bật, khó khăn, hỗ trợ cần thiết + file Word đính kèm */

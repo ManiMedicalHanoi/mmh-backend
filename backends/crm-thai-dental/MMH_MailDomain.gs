@@ -1,14 +1,14 @@
 /* ════════════════════════════════════════════════════════════════════
-   ⭐ 08/10/2026 · MMH_MailDomain.gs — MỌI EMAIL GỬI ĐI DÙNG MIỀN @manimedicalhanoi.com
-   Người dùng: email tới miền @mani.inc hay bị chặn / vào thư rác ⇒ đổi hết người nhận sang @manimedicalhanoi.com
-   (cùng phần trước @). Mọi lệnh MailApp.sendEmail / GmailApp.sendEmail trong dự án gọi qua mmhMail_ / mmhGmail_.
+   ⭐ 08/10/2026 · MMH_MailDomain.gs — chuẩn hoá MIỀN NGƯỜI NHẬN của mọi email gửi đi
+   ⭐ 20/11/2026 (người dùng yêu cầu): email tới nhân sự MMH gửi tới đuôi @mani.inc — mọi địa chỉ @manimedicalhanoi.com
+   được đổi sang @mani.inc (cùng phần trước @). Tài khoản GỬI (chủ script) không đổi. Trước 20/11 làm ngược lại (⇒ @manimedicalhanoi.com). Mọi lệnh MailApp.sendEmail / GmailApp.sendEmail trong dự án gọi qua mmhMail_ / mmhGmail_.
    Đăng nhập vẫn nhận cả 2 miền (so theo phần trước @). Code mới: KHÔNG gọi MailApp.sendEmail trực tiếp — dùng mmhMail_.
    ════════════════════════════════════════════════════════════════════ */
-var MMH_MAIL_DOMAIN = 'manimedicalhanoi.com';
+var MMH_MAIL_DOMAIN = 'mani.inc';
 function mmhAddr_(s) {
   if (s == null) return s;
   if (Array.isArray(s)) return s.map(mmhAddr_);
-  return String(s).replace(/@mani\.inc\b/gi, '@' + MMH_MAIL_DOMAIN);
+  return String(s).replace(/@manimedicalhanoi\.com\b/gi, '@' + MMH_MAIL_DOMAIN);
 }
 function mmhMailOpts_(o) {
   if (o && typeof o === 'object') ['to', 'cc', 'bcc', 'replyTo'].forEach(function (k) { if (o[k]) o[k] = mmhAddr_(o[k]); });

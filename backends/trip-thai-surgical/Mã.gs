@@ -968,7 +968,7 @@ function sendApprovalEmail(sheet, tripData, hodEmail) {
   };
   if (finalCC) mail.cc = finalCC;
 
-  MailApp.sendEmail(mail);
+  mmhMail_(mail);
   Logger.log('✅ Approval email sent to: ' + picEmail + ' | CC: ' + finalCC);
 }
 
@@ -1001,7 +1001,7 @@ function sendRejectionEmail(sheet, tripData, hodComment, hodEmail) {
   };
   if (isValidEmail(directorEmail)) mail.cc = directorEmail;
 
-  MailApp.sendEmail(mail);
+  mmhMail_(mail);
   Logger.log('✅ Rejection email sent to: ' + picEmail);
 }
 
@@ -2546,7 +2546,7 @@ function sendProposalEmail(sheet, selectedRows, newRows, userEmail) {
       const htmlBody = buildBusinessTripProposalEmailV2(greeting, picName, [tripForEmail], sheetUrl);
       const subject = 'Approval Business trip - ' + tripForEmail.startDate.replace(/\//g, '') + ' - ' + picName;
 
-      MailApp.sendEmail({
+      mmhMail_({
         to: toRecipients,
         cc: ccList.join(','),
         subject: subject,
@@ -2808,7 +2808,7 @@ function sendReportEmail(sheet, rowNumber, tripData, docLink, keyActivities, key
     };
     if (directorValid && directorEmail.toLowerCase() !== String(CONFIG.REPORT_TO_EMAIL).toLowerCase()) mail.cc = directorEmail;
 
-    MailApp.sendEmail(mail);
+    mmhMail_(mail);
 
     return {
       success: true,
