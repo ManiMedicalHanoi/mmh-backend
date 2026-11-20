@@ -227,6 +227,7 @@ function wttSumBuild_(force) {
   if (!force && Date.now() - at < WTT.SUM_EVERY_MIN * 6e4) return { skip: 'recent' };
   const t0 = Date.now(), ss = wtBook_(), H = wtHits_(ss), T = wttTargets_(), G = {};
   wttKwLoad_(wtdSumBook_());
+  let heal = null; try { heal = wtdSumHeal_(); } catch (e) { Logger.log('wtdSumHeal_: ' + e.message); }   // dòng "cần Agent" đã tải xong ⇒ link thật
   // gom theo số TBMT (dòng TBMT + dòng Kết quả của cùng 1 gói)
   H.forEach(function (h) {
     if (h.type === 'khmt' || !/^IB/.test(wtBare_(h.no))) return;
@@ -319,7 +320,7 @@ function wttSumBuild_(force) {
     P.setProperty('WT_PSUM_FMT', '1');
   }
   try { sh.getRange(1, 1, Math.max(rows.length, 1) + 1, W).createFilter(); } catch (e) {}
-  const st = { at: now, rows: rows.length, mani: rows.filter(function (r) { return r[23]; }).length, target: rows.filter(function (r) { return r[1]; }).length, ms: Date.now() - t0 };
+  const st = { at: now, heal: heal, rows: rows.length, mani: rows.filter(function (r) { return r[23]; }).length, target: rows.filter(function (r) { return r[1]; }).length, ms: Date.now() - t0 };
   P.setProperty('WT_PSUM_AT', String(Date.now()));
   P.setProperty('WT_PSUM_LAST', JSON.stringify(st));
   return Object.assign({ ok: true, url: 'https://docs.google.com/spreadsheets/d/' + book.getId() + '/edit#gid=' + sh.getSheetId() }, st);

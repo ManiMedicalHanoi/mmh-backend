@@ -123,6 +123,26 @@ function wtdSumWrite_(h, info, docs) {
   const book = wtdSumBook_(), sh = wtdSumSheet_(book);
   const n = WTD.HEAD.length, last = sh.getLastRow();
   const keys = last > 1 ? sh.getRange(2, n, last - 1, 1).getValues().map(function (r) { return wtS_(r[0]); }) : [];
+  const kinds = last > 1 ? sh.getRange(2, 11, last - 1, 1).getValues().map(function (r) { return wtS_(r[0]); }) : [];
+  // 20/11/2026 (người dùng: tải được qua Agent thì thay dòng "Trang gói" bằng link thật): tài liệu có link ⇒ ghi đè dòng "cần Agent" cùng số gói
+  // (cùng tên file gốc, hoặc cùng loại tài liệu) thay vì thêm dòng mới; tài liệu cần Agent mà đã có dòng link thật ⇒ không ghi lại dòng "cần Agent".
+  const agRe = /cần Agent/;
+  const kp = function (k) { const a = String(k).split('|'); return { no: wtBare_(a[0]), t: a[1] || '', nm: a.slice(2).join('|') }; };
+  const findAg = function (no, d) {
+    const b = wtBare_(no); let byType = -1;
+    for (let i = 0; i < keys.length; i++) {
+      if (!agRe.test(kinds[i])) continue;
+      const x = kp(keys[i]); if (x.no !== b) continue;
+      if (x.nm && (x.nm === d.name || x.nm === d.orig)) return i;
+      if (byType < 0 && x.t && x.t === d.docType) byType = i;
+    }
+    return byType;
+  };
+  const hasReal = function (no, d) {
+    const b = wtBare_(no);
+    for (let i = 0; i < keys.length; i++) { if (agRe.test(kinds[i])) continue; const x = kp(keys[i]); if (x.no === b && (x.nm === d.name || x.t === d.docType)) return true; }
+    return false;
+  };
   const I = info || {}, F = I.fields || {}, K = I.kqFields || {}, M = I.moFields || {};
   let sec_ = 'tbmt';
   const g = function (k) { return wtS_((sec_ === 'kq' && K[k]) || (sec_ === 'mo' && M[k]) || F[k] || K[k]); };
@@ -143,8 +163,12 @@ function wtdSumWrite_(h, info, docs) {
       g('Gói thầu có nhiều phần/lô'), g('Số lượng phần (lô)'), place, g('Số quyết định phê duyệt'), g('Ngày phê duyệt'),
       wtdMonths_(g('Thời gian thực hiện gói thầu') || g('Thời gian thực hiện hợp đồng') || g('Thời gian thực hiện')), wtdMoney_(K['Giá trúng thầu'] || g('Giá trúng thầu') || (h.info || {}).win),
       wtS_(K['Nhà thầu trúng thầu'] || K['Tên nhà thầu trúng thầu']) || g('Nhà thầu trúng thầu') || wtS_((h.info || {}).winner), g('Mã KHLCNT') || wtS_(I.planNo), g('Tên dự toán mua sắm') || g('Tên dự án'), wtS_(I.url), now, key];
-    const at = keys.indexOf(key);
-    if (at >= 0) { row[0] = at + 1; upd.push([at + 2, row]); linkAt.push([at + 2, row[11]]); } else { out.push(row); keys.push(key); }
+    let at = keys.indexOf(key);
+    if (at >= 0 && d.agent && !agRe.test(kinds[at])) return;              // dòng đã là bản tải thật ⇒ giữ link thật
+    if (at < 0 && !d.agent && d.url) at = findAg(no, d);                 // thay dòng "cần Agent" của chính tài liệu này
+    if (at < 0 && d.agent && hasReal(no, d)) return;                     // đã có bản tải thật ⇒ không thêm lại dòng "cần Agent"
+    if (at >= 0) { row[0] = at + 1; upd.push([at + 2, row]); linkAt.push([at + 2, row[11]]); keys[at] = key; kinds[at] = row[10]; }
+    else { out.push(row); keys.push(key); kinds.push(row[10]); }
   });
   upd.forEach(function (u) { sh.getRange(u[0], 1, 1, n).setValues([u[1]]); });
   const start0 = sh.getLastRow() + 1;
@@ -161,6 +185,36 @@ function wtdSumWrite_(h, info, docs) {
     try { sh.getRange(x[0], 12).setRichTextValue(SpreadsheetApp.newRichTextValue().setText(/docs\.google\.com\/spreadsheets/.test(u) ? 'Mở (Google Sheet)' : /muasamcong/.test(u) ? 'Trang gói' : 'Mở').setLinkUrl(u).build()); } catch (e) {}
   });
   return out.length + upd.length;
+}
+/** Dọn dòng "cần Agent — chưa tải" ĐÃ được tải (20/11/2026): agentFiles của gói có done + url ⇒ dòng đó đổi sang link thật; đã có dòng link thật cùng tài liệu ⇒ xoá dòng "cần Agent".
+ *  Chạy ở wtmTick (≤ 1 lần / 30 phút cùng tab Tổng hợp gói thầu) hoặc botGrabInv op=sumheal. */
+function wtdSumHeal_() {
+  const book = wtdSumBook_(), sh = wtdSumSheet_(book), n = WTD.HEAD.length, last = sh.getLastRow();
+  if (last < 2) return { ok: true, fixed: 0, removed: 0 };
+  const K = sh.getRange(2, 11, last - 1, 1).getValues(), KEY = sh.getRange(2, n, last - 1, 1).getValues();
+  const done = {};   // số gói ⇒ { tên gốc: {url, type} }
+  wtHits_(wtBook_()).forEach(function (h) {
+    ((h.info || {}).agentFiles || []).forEach(function (a) {
+      if (!a || !a.done || !a.url) return;
+      [h.no, (h.info || {}).planNo].forEach(function (no) { if (!no) return; const b = wtBare_(no); (done[b] = done[b] || {})[a.name] = { url: a.url, type: a.type || '' }; });
+    });
+  });
+  const real = {};
+  KEY.forEach(function (r, i) { if (/cần Agent/.test(wtS_(K[i][0]))) return; const a = wtS_(r[0]).split('|'); real[wtBare_(a[0]) + '|' + (a[1] || '')] = 1; real[wtBare_(a[0]) + '#' + a.slice(2).join('|')] = 1; });
+  const fix = [], del = [];
+  KEY.forEach(function (r, i) {
+    const kd = wtS_(K[i][0]); if (!/cần Agent/.test(kd)) return;
+    const a = wtS_(r[0]).split('|'), b = wtBare_(a[0]), t = a[1] || '', nm = a.slice(2).join('|');
+    if (real[b + '|' + t] || real[b + '#' + nm]) { del.push(i + 2); return; }
+    const f = (done[b] || {})[nm];
+    if (f) fix.push([i + 2, kd.replace(/\s*\(cần Agent[^)]*\)/, ''), f.url]);
+  });
+  fix.forEach(function (x) {
+    sh.getRange(x[0], 11).setValue(x[1]);
+    try { sh.getRange(x[0], 12).setRichTextValue(SpreadsheetApp.newRichTextValue().setText(/docs\.google\.com\/spreadsheets/.test(x[2]) ? 'Mở (Google Sheet)' : 'Mở').setLinkUrl(x[2]).build()); } catch (e) { sh.getRange(x[0], 12).setValue(x[2]); }
+  });
+  del.sort(function (a, b) { return b - a; }).forEach(function (r) { sh.deleteRow(r); });
+  return { ok: true, fixed: fix.length, removed: del.length, left: K.filter(function (r) { return /cần Agent/.test(wtS_(r[0])); }).length - fix.length - del.length };
 }
 function wtdSumUrl_() {
   const id = PropertiesService.getScriptProperties().getProperty('WT_SUM');

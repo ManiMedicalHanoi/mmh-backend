@@ -90,6 +90,11 @@ if (MODE === 'sum') {
   console.log('TỔNG HỢP GÓI THẦU:', JSON.stringify(r, null, 1));
   process.exit(r.ok ? 0 : 1);
 }
+if (MODE === 'sumheal') {   // dọn dòng "cần Agent" đã tải xong ở tab Tài liệu
+  const r = await post({ action: 'botGrabInv', op: 'sumheal' });
+  console.log('DỌN TAB TÀI LIỆU:', JSON.stringify(r));
+  process.exit(r.ok ? 0 : 1);
+}
 if (MODE === 'scan') {   // thử bộ từ khoá: BULK_RE = đoạn chữ
   const r = await post({ action: 'botGrabInv', op: 'scan', text: process.env.BULK_RE || '' });
   console.log('TỪ KHOÁ:', JSON.stringify(r, null, 1));
