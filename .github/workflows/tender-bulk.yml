@@ -1,12 +1,13 @@
 name: Theo dõi gói thầu — tải hàng loạt
 # Đặt tải hàng loạt hồ sơ (TBMT, HSMT, mở thầu, kết quả) của mọi gói có chủ đầu tư khớp từ khoá (mặc định "mắt") từ một ngày,
-# hoặc rà hàng hóa trúng thầu theo từ khoá kìm / móc (tools/msc/kw-forceps-hook.json). tender-info ▸ MMH_WatchBulk.gs, tools/msc/bulk.mjs.
+# hoặc rà hàng hóa trúng thầu theo từ khoá kìm / móc (tools/msc/kw-forceps-hook.json); địa bàn MMH + tab Tổng hợp gói thầu (MMH_WatchTarget.gs).
+# tender-info ▸ MMH_WatchBulk.gs, tools/msc/bulk.mjs.
 on:
   schedule:
     - cron: '37 23 * * *'   # 06:37 giờ Việt Nam: rà hàng hóa (goods) mỗi sáng trên file tổng đã gộp
   workflow_dispatch:
     inputs:
-      mode: { description: 'dry = chỉ đếm · run = đặt tải · narrow = chỉ giữ KQ + 2 Excel · goods = rà hàng hóa + ghi tab LỌC trong file tổng · knife = mọi bệnh viện từng có KQTT dao nhãn khoa', default: 'dry', type: choice, options: [dry, run, goods, narrow, narrow-dry, knife-dry, knife, auto-dry, auto, auto-status] }
+      mode: { description: 'dry = chỉ đếm · run = đặt tải · narrow = chỉ giữ KQ + 2 Excel · goods = rà hàng hóa + ghi tab LỌC trong file tổng · knife = mọi bệnh viện từng có KQTT dao nhãn khoa · targets = lưu BV có KQTT dao làm địa bàn MMH + xem tồn đọng (backlog=1 ⇒ đặt tải) · sum = ghi ngay tab Tổng hợp gói thầu', default: 'dry', type: choice, options: [dry, run, goods, narrow, narrow-dry, knife-dry, knife, auto-dry, auto, auto-status, targets-dry, targets, sum, scan] }
       re: { description: 'Chủ đầu tư chứa (regex, có dấu)', default: 'mắt' }
       from: { description: 'Từ ngày (yyyy-mm-dd)', default: '2026-01-01' }
       want: { description: 'Loại tài liệu (kq = KQLCNT, nt / hh = 2 Excel, qd = quyết định qua Agent)', default: 'kq,nt,hh,qd' }
@@ -15,6 +16,7 @@ on:
       namef: { description: 'vt = chỉ gói vật tư / dụng cụ (dry / run)', default: '' }
       to: { description: 'Đến ngày (yyyy-mm-dd, tuỳ chọn)', default: '' }
       pri: { description: 'Ưu tiên: 0 địa bàn đã trao đổi · 1 gói mới hằng ngày · 3 tồn đọng tải sau', default: '' }
+      backlog: { description: 'targets: 1 = đặt tải tồn đọng của địa bàn MMH (Kết quả từ ngày from + TBMT ≤ 45 ngày)', default: '' }
 permissions: { contents: read, actions: write }
 jobs:
   bulk:
@@ -32,6 +34,7 @@ jobs:
       BULK_TO: ${{ inputs.to }}
       BULK_TOPN: '60'
       BULK_PRI: ${{ inputs.pri }}
+      BULK_BACKLOG: ${{ inputs.backlog }}
     steps:
       - uses: actions/checkout@v4
         with: { sparse-checkout: "backends.json\ntools/msc\nbackends/tender-info/MMH_WatchNames.gs", sparse-checkout-cone-mode: false }
@@ -39,7 +42,7 @@ jobs:
         with: { node-version: 20 }
       - run: node tools/msc/bulk.mjs
       - name: Đánh thức bot tải hồ sơ
-        if: ${{ inputs.mode == 'run' || inputs.mode == 'narrow' || inputs.mode == 'knife' }}
+        if: ${{ inputs.mode == 'run' || inputs.mode == 'narrow' || inputs.mode == 'knife' || (inputs.mode == 'targets' && inputs.backlog == '1') }}
         env: { GH_TOKEN: '${{ github.token }}' }
         run: gh workflow run tender-dl.yml --repo "$GITHUB_REPOSITORY" || true
       - uses: actions/upload-artifact@v4

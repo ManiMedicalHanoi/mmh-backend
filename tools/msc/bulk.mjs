@@ -2,6 +2,8 @@
 //   BULK_MODE=dry   ⇒ botGrabInv op=dry (chỉ đếm gói của chủ đầu tư khớp BULK_RE từ BULK_FROM)
 //   BULK_MODE=run   ⇒ botGrabInv op=run (đưa vào hàng đợi tải; bot tender-dl tải dần)
 //   BULK_MODE=knife(-dry) ⇒ mọi bệnh viện từng có KQTT dao nhãn khoa (kqttMap) ⇒ botGrabInv invs (gói đã tải bỏ qua)
+//   BULK_MODE=targets(-dry) ⇒ lưu BV có KQTT dao làm ĐỊA BÀN MMH (botTargets) + xem trước tồn đọng; BULK_BACKLOG=1 ⇒ đặt tải tồn đọng
+//   BULK_MODE=sum ⇒ ghi ngay tab "Tổng hợp gói thầu" · BULK_MODE=scan ⇒ thử bộ từ khoá trên chữ BULK_RE
 //   BULK_MODE=auto(-dry|-status) ⇒ botGrabInv op=auto (gói vật tư mới hằng ngày — máy chủ tự chạy ở wtTick)
 //   BULK_PRI = mức ưu tiên (0 địa bàn đã trao đổi · 1 gói mới hằng ngày · 3 tồn đọng "tải sau")
 //   BULK_MODE=goods ⇒ botGoodsScan theo tools/msc/kw-forceps-hook.json ⇒ goods-report.json + goods-report.csv (artifact)
@@ -30,7 +32,7 @@ if (MODE === 'narrow' || MODE === 'narrow-dry') {
 }
 // ---------- knife / knife-dry: mọi bệnh viện từng có KQTT dao nhãn khoa (file tender tổng "Data xử lý", đọc qua tender-hungvi ?action=kqttMap)
 //   ⇒ tên chủ đầu tư Báo Đấu Thầu (so bằng chính wn* của MMH_WatchNames.gs) ⇒ botGrabInv invs=[…] (gói đã tải / đang chờ ⇒ wtReq_ bỏ qua, không tải lặp)
-if (MODE === 'knife' || MODE === 'knife-dry') {
+if (MODE === 'knife' || MODE === 'knife-dry' || MODE === 'targets' || MODE === 'targets-dry') {
   const vm = await import('node:vm');
   const W = { console }; vm.createContext(W);
   vm.runInContext(fs.readFileSync('backends/tender-info/MMH_WatchNames.gs', 'utf8'), W);
@@ -60,6 +62,19 @@ if (MODE === 'knife' || MODE === 'knife-dry') {
   const X = JSON.parse(fs.readFileSync('tools/msc/knife-extra.json', 'utf8'));
   let nAdd = 0; (X.add || []).forEach(n => { if (exact[n.normalize('NFC').replace(/\s+/g, ' ').trim()] && !pick.has(n)) { pick.add(n); nAdd++; } else if (!exact[n.normalize('NFC').replace(/\s+/g, ' ').trim()]) console.log('  (tên lọc tay không có trên Báo Đấu Thầu:', n + ')'); });
   console.log('Thêm từ danh sách lọc tay:', nAdd, '⇒ tổng', pick.size, 'tên chủ đầu tư');
+  // ĐỊA BÀN MMH (MMH_WatchTarget.gs): lưu danh sách BV có KQTT dao lên máy chủ ⇒ lượt tự tải hằng ngày lấy TBMT + Kết quả của các BV này
+  if (MODE === 'knife' || MODE === 'targets') {
+    const t = await post({ action: 'botTargets', src: 'kqtt-dao', names: [...pick], note: 'bulk.mjs ' + MODE + ' · KQTT từ ' + (process.env.KNIFE_FROM || '201901') });
+    console.log('\nLƯU ĐỊA BÀN MMH (BV có KQTT dao):', JSON.stringify(t));
+    if (!t.ok) process.exit(1);
+  }
+  if (MODE === 'targets' || MODE === 'targets-dry') {
+    // tồn đọng của mọi địa bàn MMH (BV mắt · Răng Hàm Mặt / nha khoa · khách CRM Surgical + Dental · BV có KQTT dao): Kết quả từ FROM + TBMT ≤ 45 ngày
+    const r = await post({ action: 'botGrabInv', op: 'targets', from: FROM, run: MODE === 'targets' && process.env.BULK_BACKLOG === '1' ? 1 : 0 });
+    console.log('\nĐỊA BÀN MMH — TỒN ĐỌNG' + (r.res ? ' (ĐÃ ĐẶT TẢI)' : ' (xem trước)') + ':', JSON.stringify(r, null, 1));
+    fs.writeFileSync('bulk-report.json', JSON.stringify({ how, pick: [...pick], ask, none, r }, null, 1));
+    process.exit(r.ok ? 0 : 1);
+  }
   const r = await post({ action: 'botGrabInv', op: MODE === 'knife' ? 'run' : 'dry', invs: [...pick], nameInc: X.nameInc, nameExc: X.nameExc, nameStrong: X.nameStrong, from: FROM, want: process.env.BULK_WANT || 'kq,nt,hh,qd', mail: MAIL, max: 5000, types: process.env.BULK_TYPES || 'kqdt' });
   if (!r.ok) { console.log('Lỗi:', JSON.stringify(r).slice(0, 500)); process.exit(1); }
   console.log(`\nGói từ ${FROM}: ${r.total} (có kết quả ${r.byType.kqdt} · mới mời thầu ${r.byType.tbmt}) · tài liệu: ${r.want.join(', ')}`);
@@ -69,6 +84,16 @@ if (MODE === 'knife' || MODE === 'knife-dry') {
   if (r.res) console.log('KẾT QUẢ ĐẶT TẢI:', JSON.stringify(r.res));
   fs.writeFileSync('bulk-report.json', JSON.stringify({ how, pick: [...pick], ask, none, r }, null, 1));
   process.exit(0);
+}
+if (MODE === 'sum') {
+  const r = await post({ action: 'botGrabInv', op: 'sum' });
+  console.log('TỔNG HỢP GÓI THẦU:', JSON.stringify(r, null, 1));
+  process.exit(r.ok ? 0 : 1);
+}
+if (MODE === 'scan') {   // thử bộ từ khoá: BULK_RE = đoạn chữ
+  const r = await post({ action: 'botGrabInv', op: 'scan', text: process.env.BULK_RE || '' });
+  console.log('TỪ KHOÁ:', JSON.stringify(r, null, 1));
+  process.exit(r.ok ? 0 : 1);
 }
 if (MODE === 'auto' || MODE === 'auto-dry' || MODE === 'auto-status') {
   const r = await post(MODE === 'auto-status' ? { action: 'botGrabInv', op: 'autoStatus' } : { action: 'botGrabInv', op: 'auto', dry: MODE === 'auto-dry' ? 1 : 0, from: process.env.BULK_AUTO_FROM || '' });

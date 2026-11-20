@@ -255,6 +255,11 @@ function wtmReg_(B, reg, bare, s, n, note) {
 }
 
 /** trigger 15 phút (tự cài ở wtEnsureTrig_) */
-function wtmTick() { try { wtmMerge_({}); } catch (e) { Logger.log('wtmTick: ' + e.message); } }
+function wtmTick() {
+  const t0 = Date.now();
+  try { wtmMerge_({}); } catch (e) { Logger.log('wtmTick: ' + e.message); }
+  // tab "Tổng hợp gói thầu" (MMH_WatchTarget.gs) — ≤ 1 lần / 30 phút, chỉ khi lượt gộp còn đủ thời gian
+  if (Date.now() - t0 < 150000) { try { wttSumBuild_(false); } catch (e) { Logger.log('wttSumBuild_: ' + e.message); } }
+}
 /** chạy tay trong trình soạn: gộp lại tất cả */
 function wtmMergeAll() { return wtmMerge_({ force: true }); }

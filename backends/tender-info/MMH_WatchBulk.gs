@@ -1,5 +1,5 @@
 /* ════════════════════════════════════════════════════════════════════
-   MMH_WatchBulk.gs v1.2 (19/11/2026, người dùng yêu cầu) — ĐẶT TẢI HÀNG LOẠT THEO NHÓM CHỦ ĐẦU TƯ + RÀ HÀNG HÓA THEO TỪ KHOÁ
+   MMH_WatchBulk.gs v1.3 (20/11/2026, người dùng yêu cầu) — ĐẶT TẢI HÀNG LOẠT THEO NHÓM CHỦ ĐẦU TƯ + RÀ HÀNG HÓA THEO TỪ KHOÁ
    (khoá bot WT_BOT_KEY, gọi từ workflow "Theo dõi gói thầu — tải hàng loạt" ▸ tools/msc/bulk.mjs)
 
    botGrabInv {key, re, from, to, types, want, op: dry|run, max, mail}
@@ -11,15 +11,17 @@
      invs (tuỳ chọn, v1.1) = mảng tên chủ đầu tư đúng như Báo Đấu Thầu ⇒ chỉ lấy gói của các chủ đầu tư này (bỏ qua re).
      pri (số, thấp = trước) · ag=1 (chỉ máy có Agent) · types thêm khmt (KHLCNT, số PL) · op=auto (tự đặt hằng ngày, xem wtbAuto_) · op=autoStatus.
      nameInc / nameExc / nameStrong (tuỳ chọn, regex chữ thường có dấu) = lọc theo TÊN GÓI: chứa nameStrong ⇒ lấy; không chứa nameInc hoặc chứa nameExc ⇒ bỏ.
+     v1.3: op=targets (tồn đọng ĐỊA BÀN MMH, run=1 mới đặt tải) · op=sum (ghi ngay tab "Tổng hợp gói thầu") · op=scan&text= (thử bộ từ khoá) — MMH_WatchTarget.gs.
+     Bộ lọc vật tư (WTB.VT) nay nhận cả gói nha khoa / răng (trước bị loại).
    botGoodsScan {key, inc, exc, codes, re, from}
      Rà 2 file tổng hàng hóa trúng thầu (wtgData_, MMH_WatchMerge.gs): dòng có Danh mục / Hãng / Cấu hình chứa 1 cụm trong inc
      hoặc 1 mã trong codes (so không dấu, theo nguyên từ) và không chứa cụm trong exc ⇒ trả từng dòng (chỉ đọc).
    ════════════════════════════════════════════════════════════════════ */
 const WTB = { MAX: 3000, WANT_DEF: ['tbmt', 'hsmt', 'mo', 'kq', 'nt', 'hh', 'qd'],
   // bộ lọc TÊN GÓI "vật tư y tế" (GIỐNG tools/msc/knife-extra.json — sửa 1 nơi chép nơi kia)
-  VT: { inc: 'vật tư|vtyt|dụng cụ|phẫu thuật|mắt|nhãn|tiêu hao|chỉ khâu|\\bdao\\b|kim|thủy tinh thể|thuỷ tinh thể|dịch kính|trang thiết bị y tế|thiết bị y tế',
-    exc: 'kiểm định|hiệu chuẩn|thuốc|dược liệu|vị thuốc|hóa chất|hoá chất|xét nghiệm|sửa chữa|bảo dưỡng|bảo trì|xây dựng|xây lắp|cải tạo|dịch vụ|\\bthuê|phần mềm|in ấn|văn phòng phẩm|thực phẩm|suất ăn|khí y tế|\\boxy|lọc máu|chạy thận|thận nhân tạo|x-quang|x quang|\\bphim|máy|hệ thống|vắc xin|vaccine|sinh phẩm|nha khoa|răng',
-    strong: 'phẫu thuật|mắt|nhãn khoa|chỉ khâu|thủy tinh thể|thuỷ tinh thể|dịch kính|vật tư y tế' },
+  VT: { inc: 'vật tư|vtyt|dụng cụ|phẫu thuật|mắt|nhãn|tiêu hao|chỉ khâu|\\bdao\\b|kim|thủy tinh thể|thuỷ tinh thể|dịch kính|trang thiết bị y tế|thiết bị y tế|nha khoa|răng|nội nha|composite',
+    exc: 'kiểm định|hiệu chuẩn|thuốc|dược liệu|vị thuốc|hóa chất|hoá chất|xét nghiệm|sửa chữa|bảo dưỡng|bảo trì|xây dựng|xây lắp|cải tạo|dịch vụ|\\bthuê|phần mềm|in ấn|văn phòng phẩm|thực phẩm|suất ăn|khí y tế|\\boxy|lọc máu|chạy thận|thận nhân tạo|x-quang|x quang|\\bphim|máy|hệ thống|vắc xin|vaccine|sinh phẩm',
+    strong: 'phẫu thuật|mắt|nhãn khoa|chỉ khâu|thủy tinh thể|thuỷ tinh thể|dịch kính|vật tư y tế|vật tư nha khoa|vật liệu nha khoa|răng hàm mặt|nội nha' },
   // tự đặt tải hằng ngày (wtbAuto_): Kết quả ⇒ bot cloud (KQ + 2 Excel; QĐ chỉ ghi tên cho Agent) · TBMT / KHLCNT ⇒ CHỈ máy có Agent (ag)
   AUTO: { kqdt: ['kq', 'nt', 'hh', 'qd'], tbmt: ['tbmt', 'hsmt', 'mo'], khmt: ['kh'], BACK_DAYS: 3, PRI: 1 } };
 
@@ -80,7 +82,7 @@ function wtbExOf_(m, r) {
   if (r.type === 'kqdt') return m['kqdt|' + b];
   return m['tbmt|' + b] || m['kqdt|' + b];
 }
-/** Đưa list vào hàng đợi (giữ khoá ghi ngoài). opt: {want (mảng theo loại hoặc chung), pri, ag, by, mail, force, max} */
+/** Đưa list vào hàng đợi (giữ khoá ghi ngoài). opt: {want (mảng theo loại hoặc chung), pri, ag, by, mail, force, max, promote} */
 function wtbQueue_(ss, list, opt) {
   const res = { queued: 0, merged: 0, skipDone: 0, skipWork: 0, added: 0 };
   const me = { mail: opt.mail || '', pic: opt.by || 'Tải hàng loạt', local: wtLocal_(opt.mail || '') };
@@ -96,6 +98,14 @@ function wtbQueue_(ss, list, opt) {
         if (typeof opt.pri === 'number') inf.pri = opt.pri;
         if (ag0) inf.ag = 1; else delete inf.ag;
         sh.getRange(h.row, 7).setValue(JSON.stringify(inf));
+      }
+      if (q.skip === 'wait' && opt.promote && h.row > 0) {   // v1.3: gói địa bàn MMH đang chờ (vd. chờ máy Agent) ⇒ nâng ưu tiên + cho bot cloud nhận
+        const inf = Object.assign({}, h.info || {}), cur = (wtJson_(wtS_(sh.getRange(h.row, 7).getValue()), {}) || {}).want;
+        if (Array.isArray(cur)) { if (cur.length) inf.want = cur; else delete inf.want; }
+        let ch = false;
+        if (typeof opt.pri === 'number' && !(typeof inf.pri === 'number' && inf.pri <= opt.pri)) { inf.pri = opt.pri; ch = true; }
+        if (!opt.ag && inf.ag) { delete inf.ag; ch = true; }
+        if (ch) { sh.getRange(h.row, 7).setValue(JSON.stringify(inf)); res.promoted = (res.promoted || 0) + 1; }
       }
       if (!q.skip) res.queued++; else if (q.skip === 'wait') res.merged++; else if (q.skip === 'work') res.skipWork++; else res.skipDone++;
       return;
@@ -116,7 +126,10 @@ function wtbQueue_(ss, list, opt) {
 function wtbGrabInv_(p) {
   if (wtS_(p.op) === 'narrow') return wtbNarrow_(p);
   if (wtS_(p.op) === 'auto') return wtbAuto_(null, { dry: wtTrue_(p.dry), from: wtS_(p.from) });
-  if (wtS_(p.op) === 'autoStatus') { const P = PropertiesService.getScriptProperties(); return { ok: true, mark: P.getProperty('WT_AUTO_FROM') || '', last: wtJson_(P.getProperty('WT_AUTO_LAST') || '', null) }; }
+  if (wtS_(p.op) === 'targets') return wttBacklog_(p);                                   // MMH_WatchTarget.gs — tồn đọng địa bàn MMH
+  if (wtS_(p.op) === 'sum') return wttSumBuild_(true);                                    // ghi ngay tab "Tổng hợp gói thầu"
+  if (wtS_(p.op) === 'scan') return { ok: true, scan: wttScan_(wtS_(p.text)), ctx: wttCtx_(wtS_(p.text)) };   // thử bộ từ khoá
+  if (wtS_(p.op) === 'autoStatus') { const P = PropertiesService.getScriptProperties(); return { ok: true, mark: P.getProperty('WT_AUTO_FROM') || '', last: wtJson_(P.getProperty('WT_AUTO_LAST') || '', null), targets: wttStat_(), sum: wtJson_(P.getProperty('WT_PSUM_LAST') || '', null) }; }
   const run = wtS_(p.op) === 'run', force = wtTrue_(p.force);
   const max = Math.min(+p.max || 2000, 10000);
   let want = wtWant_(wtbList_(p.want));
@@ -233,17 +246,21 @@ function wtbAuto_(data, o) {
   const from = wtS_(o.from) || Utilities.formatDate(new Date(new Date(mark + 'T00:00:00+07:00').getTime() - WTB.AUTO.BACK_DAYS * 864e5), tz, 'yyyy-MM-dd');
   data = data || wtLoad_(wtBook_());
   const base = { re: '.', from: from, to: today, nameInc: WTB.VT.inc, nameExc: WTB.VT.exc, nameStrong: WTB.VT.strong };
+  // v1.3 (20/11/2026): ĐỊA BÀN MMH (MMH_WatchTarget.gs — BV mắt, Răng Hàm Mặt / nha khoa, khách CRM Surgical + Dental, BV có KQTT dao) ⇒ TBMT + Kết quả qua bot cloud, ưu tiên 0
+  const TG = wttTargets_(), isT = function (r) { return wttLabels_(TG, r.inv).length > 0; };
+  const LT = { kqdt: wttPick_(data, 'kqdt', from, today, TG), tbmt: wttPick_(data, 'tbmt', from, today, TG) };
   const L = {
-    kqdt: wtbPick_(Object.assign({ types: 'kqdt' }, base), data),
-    tbmt: wtbPick_(Object.assign({ types: 'tbmt' }, base), data),
+    kqdt: wtbPick_(Object.assign({ types: 'kqdt' }, base), data).filter(function (r) { return !isT(r); }),
+    tbmt: wtbPick_(Object.assign({ types: 'tbmt' }, base), data).filter(function (r) { return !isT(r); }),
     khmt: wtbPick_(Object.assign({ types: 'khmt' }, base), data)
   };
-  const out = { ok: true, op: 'auto', from: from, to: today, n: { kqdt: L.kqdt.length, tbmt: L.tbmt.length, khmt: L.khmt.length } };
-  if (o.dry) { out.sample = L.kqdt.concat(L.tbmt, L.khmt).slice(-15).map(function (r) { return [r.type, r.no, r.date, r.inv, wtS_(r.name).slice(0, 90)]; }); return out; }
+  const out = { ok: true, op: 'auto', from: from, to: today, target: { kqdt: LT.kqdt.length, tbmt: LT.tbmt.length }, n: { kqdt: L.kqdt.length, tbmt: L.tbmt.length, khmt: L.khmt.length } };
+  if (o.dry) { out.sampleTarget = LT.kqdt.concat(LT.tbmt).slice(-20).map(function (r) { return [r.type, r.no, r.date, r.inv, wttLabels_(TG, r.inv).join(' · '), wtS_(r.name).slice(0, 90)]; }); out.sample = L.kqdt.concat(L.tbmt, L.khmt).slice(-15).map(function (r) { return [r.type, r.no, r.date, r.inv, wtS_(r.name).slice(0, 90)]; }); return out; }
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) { out.busy = 1; return out; }
   try {
     const ss = wtBook_();
+    out.resTarget = wttQueue_(ss, LT);
     out.res = {
       kqdt: wtbQueue_(ss, L.kqdt, { want: WTB.AUTO.kqdt, pri: WTB.AUTO.PRI, by: 'Tự động hằng ngày' }),
       tbmt: wtbQueue_(ss, L.tbmt, { want: WTB.AUTO.tbmt, pri: WTB.AUTO.PRI, ag: 1, by: 'Tự động hằng ngày' }),
@@ -251,6 +268,6 @@ function wtbAuto_(data, o) {
     };
   } finally { lock.releaseLock(); }
   P.setProperty('WT_AUTO_FROM', today);
-  P.setProperty('WT_AUTO_LAST', JSON.stringify({ at: wtNow_(), from: from, n: out.n, res: out.res }));
+  P.setProperty('WT_AUTO_LAST', JSON.stringify({ at: wtNow_(), from: from, target: out.target, resTarget: out.resTarget, n: out.n, res: out.res }));
   return out;
 }
