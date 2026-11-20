@@ -256,7 +256,7 @@ function sendReportEmail(dataObj) {
     const blob = Utilities.newBlob(htmlBody, 'text/html', 'Bidding_Report.html');
     const pdf = blob.getAs('application/pdf').setName(`Report_${dataObj.accountName.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`);
     
-    GmailApp.sendEmail(userEmail, subject, 
+    GmailApp.sendEmail(mmhAddr_(userEmail), subject, 
       `System has sent you a summary report for Investor: ${dataObj.accountName}.\n\n` +
       `Filter period: ${dataObj.filter.dateFrom} - ${dataObj.filter.dateTo}\n` +
       `See attached PDF file.`, 
@@ -4209,7 +4209,7 @@ const pdfName = 'Thông tin địa bàn _ ' + payload.accountName + '_Từ ' + m
 const pdf = blob.getAs('application/pdf').setName(pdfName);
     
     // Gửi email
-    GmailApp.sendEmail(userEmail, subject,
+    GmailApp.sendEmail(mmhAddr_(userEmail), subject,
       'Please find the attached Account report for: ' + payload.accountName,
       { attachments: [pdf] }
     );
