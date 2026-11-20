@@ -937,15 +937,21 @@ function atUpdate_(user, p, isKey){
     var f = atStatusFix_(p.status, p.progress);
     if(f.status !== undefined) o.status = f.status;
     if(f.progress !== undefined) o.progress = f.progress;
-    /* status just became Completed ⇒ revised deadline = today (same rule as the Report Hub) */
-    if(o.status && /complet/i.test(o.status) && !/complet/i.test(t.status) && p.revised === undefined) o.revised = todayIso_();
+    /* status just became Completed and the app sent no finish date (20/11/2026, Yong): the task KEEPS its own dates when the
+       deadline is already today / in the past (the work was done then — it is only being ticked now); finished before the
+       deadline ⇒ revised deadline = today. App CRM v38.2 always sends the finish date the user chose (p.revised). */
+    if(o.status && /complet/i.test(o.status) && !/complet/i.test(t.status) && p.revised === undefined){
+      var tdy = todayIso_(), due = t.revised || t.planned;
+      if(!(due && due <= tdy && (!t.start || due >= t.start))) o.revised = tdy;
+    }
     atWrite_(t.row, o); SpreadsheetApp.flush();
     if(!t.subs && t.parentNo) atRollup_(t.parentNo);
   } finally { L.releaseLock(); }
   log_(user.pic, 'update', 'alltask', t.keyTask || t.subTask, (p.status || '') + (p.progress !== undefined ? ' · ' + p.progress + '%' : ''), t.row);
   return atResp_('Task updated in sheet ALL TASK', t.row);
 }
-function atProgress_(user, p){ return atUpdate_(user, { no: p.no, status: p.status, progress: p.progress }, !!(atFind_(p.no) || {}).subs); }
+function atProgress_(user, p){ var q = { no: p.no, status: p.status, progress: p.progress }; if(p.revised !== undefined && p.revised !== '') q.revised = p.revised;   /* v38.2: finish date chosen in the app */
+  return atUpdate_(user, q, !!(atFind_(p.no) || {}).subs); }
 function atDelete_(user, p, isKey){
   var L = lock_(), t;
   try{
