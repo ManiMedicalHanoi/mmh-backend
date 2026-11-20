@@ -95,6 +95,7 @@ function doGet(e) {
   try {
     if (e && e.parameter && e.parameter.action === 'winMap') return jsonOut_(e, wmPayload_(e.parameter));   // MMH_WinMap.gs — Bản đồ trúng thầu
     if (e && e.parameter && e.parameter.action === 'kqttMap') return kqOut_(e, kqttPayload_(e.parameter)); // MMH_KqttMap.gs — KQTT dao toàn quốc (file tender tổng)
+    if (e && e.parameter && e.parameter.action === 'kqttFind') return ContentService.createTextOutput(kqttFind_(e.parameter)).setMimeType(ContentService.MimeType.TEXT); // MMH_KqttFind.gs — tìm chữ mọi cột (chỉ đọc)
     var action = (e && e.parameter && e.parameter.action) || '';
     if (action === 'ping')         return jsonOut_(e, { ok:true, ts:new Date().toISOString(), npp:CONFIG.NPP });
     if (action === 'acctPlan')     return jsonOut_(e, { ok:true, plan: readAcctPlan_(e && e.parameter && e.parameter.fy) });
