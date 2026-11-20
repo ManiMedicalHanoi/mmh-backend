@@ -35,7 +35,7 @@ const WTT = {
 const WTT_W = '[\\p{L}\\p{N}/°+%-]+(?:[.,]\\p{N}+[\\p{L}%]*)*';   // 1 chữ (số thập phân "2.2mm" giữ nguyên, dấu phẩy ngăn cách thì dừng)
 const WTT_KW = [
   // ── nhãn khoa / ngoại khoa ──
-  ['Dao phẫu thuật nhãn khoa', true, 'dao\\s+(?:mổ\\s+)?(?:phaco|giác mạc|củng mạc|nhãn khoa|mắt|chích|rạch|tạo đường hầm|tạo rãnh|lưỡi liềm|crescent|slit|stab|15\\s*(?:độ|°)|mở\\s+(?:giác|củng|bao)|golf|cắt mộng|\\d[.,]\\d{1,2}\\s*mm)(?:\\s+' + WTT_W + '){0,2}|keratome|crescent knife|slit knife|stab knife|\\bmvr\\b'],
+  ['Dao phẫu thuật nhãn khoa', true, 'dao\\s+(?:mổ\\s+)?(?:phaco|giác mạc|củng mạc|nhãn khoa|mắt|(?:chích|rạch)\\s+(?:giác|củng|tiền phòng|bao|15\\s*(?:độ|°))|tạo đường hầm|tạo rãnh|lưỡi liềm|crescent|slit|stab|15\\s*(?:độ|°)|mở\\s+(?:giác|củng|bao)|golf|cắt mộng|\\d[.,]\\d{1,2}\\s*mm)(?:\\s+' + WTT_W + '){0,2}|keratome|crescent knife|slit knife|stab knife|\\bmvr\\b'],
   ['Dao (rà lại)', false, 'dao(?!\\s+(?:động|cạo))(?:\\s+' + WTT_W + '){0,2}'],
   ['Chỉ khâu phẫu thuật', true, 'chỉ\\s+(?:khâu|phẫu thuật|liền kim|có kim|nylon|ni lông|polyamide|polyglactin|polyglycolic|pga|polyester|silk|lụa|tơ|polypropylene|prolene|vicryl|tiêu|không tiêu|tan|không tan|catgut|đơn sợi|đa sợi)(?:\\s+' + WTT_W + '){0,2}|polyglactin|polyglycolic|vicryl|prolene|monofilament|multifilament'],
   ['Kim khâu / kim phẫu thuật (Eyeless)', true, 'kim\\s+(?:khâu|phẫu thuật|tròn|tam giác|cong|thẳng|không lỗ|liền chỉ)(?:\\s+' + WTT_W + '){0,2}|eyeless'],
@@ -186,6 +186,12 @@ function wttSumSheet_(book) {
   if (!sh) { sh = book.insertSheet(WTT.SUM_SHEET, 0); }
   return sh;
 }
+/** ô ngày (Date / "yyyy-mm-dd" / "dd/mm/yyyy …") ⇒ "yyyy-mm-dd" */
+function wttDay_(v) {
+  if (v instanceof Date && !isNaN(v)) return Utilities.formatDate(v, 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
+  const t = wtS_(v); let m = t.match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) return m[0];
+  m = t.match(/(\d{2})\/(\d{2})\/(\d{4})/); return m ? m[3] + '-' + m[2] + '-' + m[1] : '';
+}
 function wttMonths_(s) { try { return wtdMonths_(s); } catch (e) { return ''; } }
 /** dựng lại tab "Tổng hợp gói thầu" (≤ 1 lần / 30 phút trừ khi force) */
 function wttSumBuild_(force) {
@@ -254,12 +260,12 @@ function wttSumBuild_(force) {
     cfgs.sort(function (a, c) { return (c.mani ? 1 : 0) - (a.mani ? 1 : 0); });
     const maniG = WTT_KW.filter(function (k) { return k[1] && acc.groups[k[0]]; }).map(function (k) { return k[0]; });
     const terms = Object.keys(acc.terms).sort(function (a, c) { return acc.terms[c] - acc.terms[a]; }).slice(0, 14);
-    const ctx = wttCtx_([name, gd.slice(0, 40).map(function (r) { return r[7]; }).join(' ')].join(' '));
+    const ctx = wttCtx_([inv, name, gd.slice(0, 40).map(function (r) { return r[7]; }).join(' ')].join(' '));
     let cfgTxt = cfgs.slice(0, 5).map(function (x) { return x.t; }).join('\n');
     if (!cfgTxt && !gd.length && g.ag) cfgTxt = '(chưa có danh mục hàng hóa — xem HSMT Chương V khi máy Agent tải xong)';
     const docTxt = (g.files ? g.files + ' file' : '') + (g.ag ? (g.files ? ' · ' : '') + 'cần Agent ' + (g.ag - g.agDone) + '/' + g.ag : '');
     rows.push(['', wttLabels_(T, inv).join(' · '), pr[1], pr[0], inv, b, name.slice(0, 400), stage,
-      pick(function (h) { return h.date; }) || fld('Ngày đăng tải').slice(0, 10), close, price, nv.slice(0, 300), lhd, tron,
+      wttDay_(hs.map(function (h) { return h.date; }).filter(Boolean)[0]) || wttDay_(fld('Ngày đăng tải')), close, price, nv.slice(0, 300), lhd, tron,
       fld('Hình thức lựa chọn nhà thầu') || pick(function (h, I) { return I.form; }), fld('Phương thức lựa chọn nhà thầu'),
       fld('Gói thầu có nhiều phần/lô'), fld('Số lượng phần (lô)'),
       wttMonths_(fld('Thời gian thực hiện gói thầu') || fld('Thời gian thực hiện hợp đồng')), win, winner.slice(0, 300), gd.length || '',
