@@ -1,5 +1,5 @@
 /* ════════════════════════════════════════════════════════════════════
-   MMH_WatchTarget.gs v1.0 (20/11/2026, người dùng yêu cầu) — ĐỊA BÀN MMH + TỔNG HỢP NGẮN TỪNG GÓI THẦU
+   MMH_WatchTarget.gs v1.1 (20/11/2026, người dùng yêu cầu) — ĐỊA BÀN MMH + TỔNG HỢP NGẮN TỪNG GÓI THẦU
 
    ① ĐỊA BÀN MMH = chủ đầu tư được tự tải TBMT + Kết quả HẰNG NGÀY (bot cloud, ưu tiên 0, không tải lặp — wtReq_):
       · tên có chữ "mắt" (bệnh viện mắt) · tên có chữ "răng" / "nha khoa" (Răng Hàm Mặt, nha khoa)
@@ -11,7 +11,7 @@
       nguồn vốn · loại hợp đồng · trọn gói? · hình thức / phương thức · số lô · giá gói / giá trúng · nhà thầu trúng · chuyên khoa ·
       NHÓM SẢN PHẨM MANI có thể cung cấp · TỪ KHOÁ xuất hiện · mặt hàng khớp + hãng trúng · yêu cầu cấu hình (trích từ Danh sách hàng hóa).
       Nguồn: GÓI TÌM THẤY (thông tin bot đọc trên trang gói) + file tổng hàng hóa (MMH_WatchMerge.gs). Ghi lại ≤ 1 lần / 30 phút (wtmTick)
-      hoặc ngay: botGrabInv op=sum. Từ khoá: WTT.KW (sửa / thêm ở đây — chữ thường có dấu).
+      hoặc ngay: botGrabInv op=sum. Từ khoá: tab "Từ khoá" của Sheet tổng hợp (mặc định WTT_KWDEF — từ gốc + cụm loại trừ).
    ════════════════════════════════════════════════════════════════════ */
 const WTT = {
   SH: 'THEO DÕI · ĐỊA BÀN MMH',
@@ -30,47 +30,74 @@ const WTT = {
     'Thời gian thực hiện (tháng)', 'Giá trúng thầu (VND)', 'Nhà thầu trúng thầu', 'Số mặt hàng', 'Chuyên khoa', 'Nhóm sản phẩm MANI có thể cung cấp',
     'Từ khoá xuất hiện', 'Mặt hàng khớp từ khoá (hãng trúng)', 'Yêu cầu cấu hình (trích)', 'Tài liệu', 'Trang gói trên muasamcong', 'Cập nhật lúc', 'Khoá']
 };
-/* TỪ KHOÁ SẢN PHẨM — [nhóm, có phải nhóm MANI / MMG (true) hay chỉ để rà lại (false), regex chữ thường có dấu].
-   Cụm "dao / chỉ / kìm / kẹp / móc / mũi / trâm" bắt thêm ≤ 2 chữ phía sau để thấy ngữ cảnh (vd. "dao mổ phaco", "kẹp phẫu tích"). */
+/* TỪ KHOÁ SẢN PHẨM (v1.1, 20/11/2026 — người dùng: "từ khoá cần chung hơn, không cần y hệt, có thể sót khi sản phẩm có cách diễn đạt khác")
+   Mỗi nhóm = danh sách TỪ GỐC (chỉ cần chứa từ đó là bắt, "*" = mọi đuôi: "forcep*" bắt forceps / forcep) + cụm LOẠI TRỪ (bỏ khi bắt đầu bằng cụm đó, vd. "dao động", "chỉ định").
+   So chữ thường, có dấu, theo nguyên từ. Cột "Từ khoá xuất hiện" ghi kèm ≤ 2 chữ phía sau để thấy ngữ cảnh.
+   Người dùng tự sửa / thêm ở tab "Từ khoá" của Sheet "Tổng hợp tài liệu thầu đã tải" (tự tạo từ danh sách mặc định dưới đây; lượt ghi tổng hợp sau dùng ngay). */
 const WTT_W = '[\\p{L}\\p{N}/°+%-]+(?:[.,]\\p{N}+[\\p{L}%]*)*';   // 1 chữ (số thập phân "2.2mm" giữ nguyên, dấu phẩy ngăn cách thì dừng)
-const WTT_KW = [
-  // ── nhãn khoa / ngoại khoa ──
-  ['Dao phẫu thuật nhãn khoa', true, 'dao\\s+(?:mổ\\s+)?(?:phaco|giác mạc|củng mạc|nhãn khoa|mắt|(?:chích|rạch)\\s+(?:giác|củng|tiền phòng|bao|15\\s*(?:độ|°))|tạo đường hầm|tạo rãnh|lưỡi liềm|crescent|slit|stab|15\\s*(?:độ|°)|mở\\s+(?:giác|củng|bao)|golf|cắt mộng|\\d[.,]\\d{1,2}\\s*mm)(?:\\s+' + WTT_W + '){0,2}|keratome|crescent knife|slit knife|stab knife|\\bmvr\\b'],
-  ['Dao (rà lại)', false, 'dao(?!\\s+(?:động|cạo))(?:\\s+' + WTT_W + '){0,2}'],
-  ['Chỉ khâu phẫu thuật', true, 'chỉ\\s+(?:khâu|phẫu thuật|liền kim|có kim|nylon|ni lông|polyamide|polyglactin|polyglycolic|pga|polyester|silk|lụa|tơ|polypropylene|prolene|vicryl|tiêu|không tiêu|tan|không tan|catgut|đơn sợi|đa sợi)(?:\\s+' + WTT_W + '){0,2}|polyglactin|polyglycolic|vicryl|prolene|monofilament|multifilament'],
-  ['Kim khâu / kim phẫu thuật (Eyeless)', true, 'kim\\s+(?:khâu|phẫu thuật|tròn|tam giác|cong|thẳng|không lỗ|liền chỉ)(?:\\s+' + WTT_W + '){0,2}|eyeless'],
-  ['Kìm vi phẫu / panh bóc màng (Micro Forceps)', true, '(?:kìm|kẹp|panh)\\s+(?:vi phẫu|bóc|gắp màng|nội nhãn|dịch kính|võng mạc|ilm)(?:\\s+' + WTT_W + '){0,2}|micro\\s*forceps|bóc màng ngăn trong|\\bilm\\b'],
-  ['Kìm · kẹp · panh (rà lại)', false, '(?:kìm|kẹp|panh|forceps)(?:\\s+' + WTT_W + '){0,2}'],
-  ['Móc mở vùng bè (Trabeculotomy Hook)', true, 'móc\\s+(?:mở\\s+(?:vùng\\s+)?bè|bè|schlemm)(?:\\s+' + WTT_W + '){0,2}|trabeculotomy|goniotomy|mở góc tiền phòng'],
-  ['Móc (rà lại)', false, 'móc(?:\\s+' + WTT_W + '){0,2}|\\bhook\\b'],
-  ['Trocar (nhãn khoa: Trocar Kit / nội soi: rà lại)', true, 'trocar(?:\\s+' + WTT_W + '){0,2}|\\btroca\\b'],
-  ['Ghim da (Manipler)', true, 'ghim\\s+(?:khâu\\s+)?da|(?:bấm|dập|đính)\\s+(?:ghim\\s+)?da|skin\\s*stapler|stapler\\s+(?:khâu\\s+)?da|tháo ghim|manipler'],
-  ['Kéo vi phẫu (rà lại)', false, 'kéo\\s+(?:vi phẫu|mống mắt|giác mạc|nội nhãn|cắt chỉ|phẫu thuật)(?:\\s+' + WTT_W + '){0,2}'],
-  // ── nha khoa ──
-  ['Trâm nội nha (MANI / JIZAI)', true, 'trâm(?:\\s+' + WTT_W + '){0,2}|\\bk[\\s-]?files?\\b|\\bh[\\s-]?files?\\b|reamer|\\bni[\\s-]?ti\\b|jizai|protaper|lentulo|gates[\\s-]?glidden|peeso|nong ống tủy|file nội nha'],
-  ['Mũi khoan (DIA-BURS / carbide / phẫu thuật)', true, 'mũi\\s+(?:khoan|mài|kim cương|carbide|tungsten|cắt|đánh bóng)(?:\\s+' + WTT_W + '){0,2}|dia[\\s-]?burs?|\\bburs?\\b'],
-  ['Composite (MMG)', true, 'composite|compozit|\\bcomposit\\b|vật liệu trám(?:\\s+' + WTT_W + '){0,2}|trám thẩm mỹ|nhựa trám|quang trùng hợp'],
-  ['Keo dán / Bond nha khoa (Mani Bond)', true, '\\bbond(?:ing)?\\b|keo dán\\s+(?:răng|nha|ngà|men)(?:\\s+' + WTT_W + '){0,1}|chất dán (?:ngà|men|nha)|\\badhesive\\b|\\betch(?:ing|ant)?\\b|axit\\s+(?:xoi|xói)\\s+mòn|acid\\s+(?:etch|phosphoric)|xoi mòn'],
-  ['Tẩy trắng răng (Mani Bleach)', true, 'tẩy trắng\\s+răng|gel tẩy trắng|thuốc tẩy trắng răng|làm trắng răng|bleach(?:ing)?|whitening|carbamide'],
-  ['Mài kẽ / đánh bóng (IPR)', true, '\\bipr\\b|mài kẽ|đĩa đánh bóng|chổi đánh bóng|đánh bóng\\s+(?:răng|composite|phục hình)']
+const WTT_KWDEF = [
+  // [nhóm, nhóm MANI / MMG?, từ gốc, loại trừ]
+  ['Dao phẫu thuật (dao nhãn khoa MANI)', true, 'dao, lưỡi dao, knife, knives, blade*, scalpel*, keratome, crescent, slit, stab, mvr', 'dao động, dao cạo, slit lamp'],
+  ['Chỉ khâu phẫu thuật', true, 'chỉ, suture*, vicryl, prolene, polyglactin, polyglycolic, polydioxanone, catgut, monofilament, multifilament, safil, monosyn',
+    'chỉ định, chỉ số, chỉ thị, chỉ dẫn, chỉ có, chỉ được, chỉ dùng, chỉ cần, chỉ là, chỉ đạo, chỉ riêng, chỉ thêm, chỉ một, chỉ áp dụng, chỉ tính, chỉ nhận, chỉ sử dụng, chỉ khi, chỉ bao gồm, chỉ báo, chỉ hướng, chỉ điểm, chỉ huy, chỉ trong, chỉ với, chỉ cho, chỉ phục vụ, chỉ cung cấp, chỉ mang, chỉ thực hiện, chỉ chấp nhận, chỉ tiêu chuẩn, chỉ tiêu kỹ thuật'],
+  ['Kim khâu / kim phẫu thuật (Eyeless)', true, 'kim khâu, kim phẫu thuật, kim tròn, kim tam giác, kim cong, kim thẳng, kim cắt, kim không lỗ, kim liền chỉ, kim spatula, needle*, eyeless, spatula', 'needle holder'],
+  ['Kìm · kẹp · panh (Micro Forceps)', true, 'kìm, kềm, kẹp, panh, pince*, forcep*, ilm, bóc màng', ''],
+  ['Móc (Trabeculotomy Hook)', true, 'móc, hook*, trabecul*, gonio*, sinskey, kuglen', 'móc treo, móc áo, móc khóa, móc khoá'],
+  ['Trocar (Trocar Kit)', true, 'trocar*, troca, trô ca, cannula, canula, canuyn, cắt dịch kính, vitrectom*', ''],
+  ['Ghim da / dập ghim (Manipler)', true, 'ghim, stapler*, staple*, bấm da, đính da, manipler', 'ghim giấy, ghim kẹp giấy, ghim bấm giấy'],
+  ['Kéo phẫu thuật (rà lại)', false, 'kéo, scissor*', 'kéo dài, kéo giãn, kéo căng, kéo về, kéo theo'],
+  ['Trâm nội nha (MANI / JIZAI)', true, 'trâm, file, files, k-file, h-file, k file, h file, reamer*, niti, ni-ti, jizai, protaper, nội nha, ống tủy, tủy răng, endodontic*, lentulo, gates, peeso', 'trâm cài'],
+  ['Mũi khoan / mũi mài (DIA-BURS)', true, 'mũi khoan, mũi mài, mũi kim cương, mũi cắt, mũi carbide, mũi tungsten, mũi đánh bóng, mũi tròn, mũi trụ, mũi côn, bur, burs, fraise, diamond, kim cương, carbide, tungsten, dia-burs', ''],
+  ['Composite / vật liệu trám (MMG)', true, 'composite*, compozit, composit, trám, nhựa trám, quang trùng hợp, flowable, nanohybrid', ''],
+  ['Keo dán / Bond (Mani Bond)', true, 'bond, bonding, keo dán, chất dán, dán dính, adhesive, etch*, xoi mòn, xói mòn, acid phosphoric, axit phosphoric, primer', ''],
+  ['Tẩy trắng (Mani Bleach)', true, 'tẩy trắng, làm trắng, bleach*, whitening, peroxide, carbamide', ''],
+  ['Đánh bóng / mài kẽ (IPR)', true, 'đánh bóng, mài kẽ, ipr, strip, strips, polish*, đĩa mài', '']
 ];
+const WTT_KW_SHEET = 'Từ khoá';
+const WTT_KW_HEAD = ['Nhóm sản phẩm', 'Nhóm MANI / MMG? (Có / Không)', 'Từ gốc (cách nhau dấu phẩy · * = mọi đuôi)', 'Bỏ qua khi bắt đầu bằng (cách nhau dấu phẩy)'];
+let WTT_KW = WTT_KWDEF;
 const WTT_CTX = [
   ['Nhãn khoa', 'mắt|nhãn khoa|nhãn cầu|phaco|thủy tinh thể|thuỷ tinh thể|dịch kính|võng mạc|giác mạc|glôcôm|glaucom|mộng thịt|tiền phòng|lệ đạo|nội nhãn|\\biol\\b'],
   ['Nha khoa', 'nha khoa|răng|nội nha|ống tủy|tủy răng|implant|chỉnh nha|hàm mặt|nha chu'],
   ['Ngoại khoa', 'phẫu thuật|ngoại khoa|khâu da|vết mổ|nội soi|gây mê']
 ];
 let WTT_RX = null;
+function wttWords_(v) { return String(v || '').split(/[,;\n]/).map(function (x) { return x.normalize('NFC').toLowerCase().replace(/\s+/g, ' ').trim(); }).filter(String); }
+function wttEsc_(w) { return w.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '[\\p{L}\\p{N}-]*').replace(/ /g, '\\s+'); }
 function wttRx_() {
   if (WTT_RX) return WTT_RX;
   const B0 = '(?<![\\p{L}\\p{N}])', B1 = '(?![\\p{L}\\p{N}])';
   WTT_RX = {
-    kw: WTT_KW.map(function (k) { return { g: k[0], mani: k[1], re: new RegExp(B0 + '(?:' + k[2] + ')' + B1, 'gu') }; }),
+    kw: WTT_KW.map(function (k) {
+      const w = wttWords_(k[2]).map(wttEsc_), x = wttWords_(k[3]).map(wttEsc_);
+      if (!w.length) return null;
+      w.sort(function (a, b) { return b.length - a.length; });   // cụm dài trước ("mũi khoan" trước "khoan")
+      const ex = x.length ? '(?!(?:' + x.join('|') + ')' + B1 + ')' : '';
+      return { g: k[0], mani: k[1], re: new RegExp(B0 + ex + '(?:' + w.join('|') + ')' + B1 + '(?:\\s+' + WTT_W + '){0,2}', 'gu') };
+    }).filter(Boolean),
     ctx: WTT_CTX.map(function (k) { return { g: k[0], re: new RegExp(B0 + '(?:' + k[1] + ')' + B1, 'u') }; })
   };
   return WTT_RX;
 }
+/** đọc tab "Từ khoá" (tạo từ WTT_KWDEF nếu chưa có) ⇒ WTT_KW */
+function wttKwLoad_(book) {
+  try {
+    let sh = book.getSheetByName(WTT_KW_SHEET);
+    if (!sh) {
+      sh = book.insertSheet(WTT_KW_SHEET);
+      sh.getRange(1, 1, 1, WTT_KW_HEAD.length).setValues([WTT_KW_HEAD]).setFontWeight('bold').setBackground('#2C4A5E').setFontColor('#FFFFFF').setWrap(true);
+      sh.getRange(2, 1, WTT_KWDEF.length, 4).setValues(WTT_KWDEF.map(function (k) { return [k[0], k[1] ? 'Có' : 'Không', k[2], k[3]]; })).setWrap(true).setVerticalAlignment('top');
+      sh.setFrozenRows(1); [260, 120, 520, 420].forEach(function (w, i) { sh.setColumnWidth(i + 1, w); });
+      try { sh.getRange(2, 2, 60, 1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['Có', 'Không'], true).build()); } catch (e) {}
+    }
+    const V = sh.getLastRow() > 1 ? sh.getRange(2, 1, sh.getLastRow() - 1, 4).getValues() : [];
+    const K = V.filter(function (r) { return wtS_(r[0]) && wtS_(r[2]); }).map(function (r) { return [wtS_(r[0]), !/^(không|no|0|false)$/i.test(wtS_(r[1])), wtS_(r[2]), wtS_(r[3])]; });
+    if (K.length) { WTT_KW = K; WTT_RX = null; }
+  } catch (e) { Logger.log('wttKwLoad_: ' + e.message); }
+  return WTT_KW;
+}
 function wttLow_(s) { return String(s == null ? '' : s).normalize('NFC').toLowerCase().replace(/\s+/g, ' '); }
-/** text ⇒ { groups: {nhóm: số lần}, terms: {cụm: số lần}, mani: bool }. Cụm của nhóm "rà lại" trùng với cụm nhóm MANI ⇒ chỉ tính nhóm MANI. */
+/** text ⇒ { groups: {nhóm: số lần}, terms: {cụm: số lần} }. Cụm của nhóm "rà lại" trùng vị trí với cụm nhóm MANI ⇒ chỉ tính nhóm MANI. */
 function wttScan_(text, acc) {
   const R = wttRx_(), t = wttLow_(text), o = acc || { groups: {}, terms: {}, cover: {} };
   if (!t) return o;
@@ -199,6 +226,7 @@ function wttSumBuild_(force) {
   const at = +(P.getProperty('WT_PSUM_AT') || 0);
   if (!force && Date.now() - at < WTT.SUM_EVERY_MIN * 6e4) return { skip: 'recent' };
   const t0 = Date.now(), ss = wtBook_(), H = wtHits_(ss), T = wttTargets_(), G = {};
+  wttKwLoad_(wtdSumBook_());
   // gom theo số TBMT (dòng TBMT + dòng Kết quả của cùng 1 gói)
   H.forEach(function (h) {
     if (h.type === 'khmt' || !/^IB/.test(wtBare_(h.no))) return;
@@ -247,7 +275,7 @@ function wttSumBuild_(force) {
     wttScan_([name, pick(function (h, I) { return I.proj || I.planName; }), docNames.join(' · ')].join(' · '), acc);
     const hitItems = [], cfgs = [];
     gd.forEach(function (r) {
-      const one = wttScan_([r[7], r[8], wtS_(r[11]).slice(0, 800)].join(' · '));
+      const one = wttScan_([r[7], r[8], wtS_(r[11]).slice(0, 400)].join(' · '));
       const gs = Object.keys(one.groups);
       Object.keys(one.groups).forEach(function (k) { acc.groups[k] = (acc.groups[k] || 0) + one.groups[k]; });
       Object.keys(one.terms).forEach(function (k) { acc.terms[k] = (acc.terms[k] || 0) + one.terms[k]; });

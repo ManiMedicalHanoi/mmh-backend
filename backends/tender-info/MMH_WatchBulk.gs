@@ -128,7 +128,7 @@ function wtbGrabInv_(p) {
   if (wtS_(p.op) === 'auto') return wtbAuto_(null, { dry: wtTrue_(p.dry), from: wtS_(p.from) });
   if (wtS_(p.op) === 'targets') return wttBacklog_(p);                                   // MMH_WatchTarget.gs — tồn đọng địa bàn MMH
   if (wtS_(p.op) === 'sum') return wttSumBuild_(true);                                    // ghi ngay tab "Tổng hợp gói thầu"
-  if (wtS_(p.op) === 'scan') return { ok: true, scan: wttScan_(wtS_(p.text)), ctx: wttCtx_(wtS_(p.text)) };   // thử bộ từ khoá
+  if (wtS_(p.op) === 'scan') { try { wttKwLoad_(wtdSumBook_()); } catch (e) {} const sc = wttScan_(wtS_(p.text)); delete sc.cover; return { ok: true, scan: sc, ctx: wttCtx_(wtS_(p.text)), groups: WTT_KW.length }; }   // thử bộ từ khoá
   if (wtS_(p.op) === 'autoStatus') { const P = PropertiesService.getScriptProperties(); return { ok: true, mark: P.getProperty('WT_AUTO_FROM') || '', last: wtJson_(P.getProperty('WT_AUTO_LAST') || '', null), targets: wttStat_(), sum: wtJson_(P.getProperty('WT_PSUM_LAST') || '', null) }; }
   const run = wtS_(p.op) === 'run', force = wtTrue_(p.force);
   const max = Math.min(+p.max || 2000, 10000);
