@@ -17,7 +17,7 @@
  * Đáp án đúng KHÔNG gửi xuống trước khi trả lời; máy chủ tự đo thời gian từng câu (CacheService, 2 giờ / lượt).
  * Điểm: đúng = 500 + tới 500 theo thời gian còn lại (tối đa 1.000 / câu); sai / hết giờ = 0. Đạt khi đúng ≥ pass.
  * v1.3 (21/11/2026): bài có khoá out {id, tab, from} (MMH_PartnerQuizBank.gs) ⇒ mỗi lượt ghi THÊM vào Sheet riêng của buổi đào tạo, tab theo ngày + NPP
- *   (pqOutSync_: chép các lượt của bài từ ngày from còn thiếu, theo Mã lượt; góp ý cập nhật cùng dòng). Sheet gốc vẫn là nguồn của xếp hạng.
+ *   (khoá old = tên tab cũ ⇒ tự đổi tên; pqOutSync_: chép các lượt của bài từ ngày from còn thiếu, theo Mã lượt; góp ý cập nhật cùng dòng). Sheet gốc vẫn là nguồn của xếp hạng.
  *   Lỗi (vd. tài khoản chạy máy chủ chưa có quyền sửa Sheet) ⇒ Script Property PQ_OUT_ERR; pqDiag &out=1 chạy ngay và báo kết quả.
  * Kết quả: Google Sheet "MMH · Bài kiểm tra đối tác · Kết quả" (thư mục SV.FOLDER, tab KET_QUA) + email tóm tắt mỗi lượt
  * về chủ thư mục (= tài khoản chạy máy chủ; đổi bằng Script Property PQ_NOTIFY, "-" = tắt email). Ngân hàng câu hỏi: MMH_PartnerQuizBank.gs.
@@ -385,7 +385,9 @@ function pqOutSync_(b) {
       var m = 'Không mở được Sheet (tài khoản chạy máy chủ chưa có quyền sửa?): ' + x.message;
       P.setProperty('PQ_OUT_ERR', new Date().toISOString() + ' · ' + m); return { ok: false, code: 'OPEN', error: m };
     }
-    var sh = ss.getSheetByName(o.tab), fresh = !sh, W = PQ.HEAD.length;
+    var sh = ss.getSheetByName(o.tab);
+    if (!sh && o.old) { sh = ss.getSheetByName(o.old); if (sh) sh.setName(o.tab); }   // đổi tên tab cũ (giữ dữ liệu)
+    var fresh = !sh, W = PQ.HEAD.length;
     if (fresh) {
       sh = ss.insertSheet(o.tab);
       sh.getRange(1, 1, 1, W).setValues([PQ.HEAD]).setFontWeight('bold').setBackground('#EEF3F8').setFontColor('#22384F');
