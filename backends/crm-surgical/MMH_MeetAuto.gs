@@ -17,10 +17,11 @@ function mtaPk_(p){ return String(p || '').normalize('NFD').replace(/[̀-ͯ]/g, 
 function mtaEsc_(s){ return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 function mtaB_(h){ return h.replace(/\*\*([\s\S]+?)\*\*/g, '<b>$1</b>'); }
 function mtaMailOf_(pic){ for(var e in USER_MAP){ if(String(USER_MAP[e].pic) === pic) return e; } return ''; }
+function mtaMondayOf_(w){ var a = w.split('-'), z = new Date(Date.UTC(+a[0], +a[1] - 1, +a[2])), u = z.getUTCDay() || 7; return mtaAdd_(w, 1 - u); }
 function mtaMonday_(d){ d = d || new Date(); var u = +Utilities.formatDate(d, MTA.TZ, 'u'); return Utilities.formatDate(new Date(d.getTime() - (u - 1) * 864e5), MTA.TZ, 'yyyy-MM-dd'); }
-function mtaWk_(w){
-  var p = function(s){ var a = s.split('-'); return { y:+a[0], m:+a[1] - 1, d:+a[2] }; }, a = p(w);
-  var z = new Date(Date.UTC(a.y, a.m, a.d) + 6 * 864e5), b = { y:z.getUTCFullYear(), m:z.getUTCMonth(), d:z.getUTCDate() };
+function mtaAdd_(w, n){ var a = w.split('-'), z = new Date(Date.UTC(+a[0], +a[1] - 1, +a[2]) + n * 864e5); return Utilities.formatDate(z, 'UTC', 'yyyy-MM-dd'); }
+function mtaWk_(w, e){
+  var p = function(s){ var a = s.split('-'); return { y:+a[0], m:+a[1] - 1, d:+a[2] }; }, a = p(w), b = p(e || mtaAdd_(w, 6));
   return a.d + (a.m !== b.m ? ' ' + MTA.MON[a.m] : '') + (a.y !== b.y ? ' ' + a.y : '') + ' – ' + b.d + ' ' + MTA.MON[b.m] + ' ' + b.y;
 }
 function mtaUl_(L){
@@ -31,18 +32,19 @@ function mtaUl_(L){
   }).join('') + '</ul>';
 }
 function mtaNl_(s){ return mtaEsc_(s).replace(/\r?\n/g, '<br>'); }
-function mtaHtml_(cfg, w, rec){
+function mtaHtml_(cfg, w, rec, e){
+  e = e || mtaAdd_(w, 6); var nx = mtaAdd_(mtaMondayOf_(e), 7);
   var F = 'font-family:Calibri,Aptos,Arial,sans-serif;font-size:14px;color:#000;line-height:1.5', d = (rec && rec.data) || {}, sm = (rec && rec.snap && rec.snap.sumEn) || {};
   var h = '<div style="' + F + '"><p style="margin:0 0 12px">Dear Tuyen san,</p>' +
-    '<p style="margin:0 0 12px">This is the summary of the ' + cfg.label + ' team weekly meeting for the week of ' + mtaWk_(w) + '.</p>';
+    '<p style="margin:0 0 12px">This is the summary of the ' + cfg.label + ' team meeting covering ' + mtaWk_(w, e) + '.</p>';
   if(!rec) h += '<p style="margin:0 0 12px">No meeting record was saved in MMH CRM for this week.</p>';
   else cfg.secs.forEach(function(s, i){
     var k = s[0];
     h += '<p style="margin:16px 0 4px"><b>' + (i + 1) + '. ' + mtaEsc_(s[1]) + '</b></p>';
     if(k === 'oth'){ h += String(d.other || '').trim() ? '<p style="margin:0 0 8px">' + mtaNl_(d.other) + '</p>' : '<p style="margin:0 0 8px">No other matters.</p>'; return; }
     var x = sm[k];
-    if(x && x.res){ h += '<p style="margin:6px 0 0"><b><u>Results this week</u></b></p>' + mtaUl_(x.res) +
-      '<p style="margin:6px 0 0"><b><u>Plan for next week</u></b></p>' + (x.plan && x.plan.length ? mtaUl_(x.plan) : '<p style="margin:0 0 8px">—</p>'); }
+    if(x && x.res){ h += '<p style="margin:6px 0 0"><b><u>Results (' + mtaWk_(w, e) + ')</u></b></p>' + mtaUl_(x.res) +
+      '<p style="margin:6px 0 0"><b><u>Plan for next week (' + mtaWk_(nx) + ')</u></b></p>' + (x.plan && x.plan.length ? mtaUl_(x.plan) : '<p style="margin:0 0 8px">—</p>'); }
     else h += '<p style="margin:0 0 8px">Data not available.</p>';
     var o = []; if(String(d[k + 'Note'] || '').trim()) o.push(['General', d[k + 'Note']]);
     cfg.pics.forEach(function(p){ var v = d[k + 'N_' + mtaPk_(p)]; if(String(v || '').trim()) o.push([p, v]); });
@@ -66,13 +68,13 @@ function mtaGet_(book, id){
 /* opt: { dry, force, team:'surgical'|'dental' (mặc định nhóm của backend) } */
 function mtaSend_(opt){
   opt = opt || {};
-  var cfg = mtaCfg_(opt.team), w = mtaMonday_(), id = 'MT-' + w.replace(/-/g, '') + '-' + cfg.tp;
-  var own = !opt.team || opt.team === (/dental/.test(String(TEAM() || '').toLowerCase()) ? 'dental' : 'surgical');
-  var book = own ? ss() : SpreadsheetApp.openById(MTA_SURG_ID), G = mtaGet_(book, id), rec = G.rec;
-  if(rec && !opt.force && String(rec.emailedAt || '') >= w) return { ok:true, skip:'sent', id:id, emailedAt:rec.emailedAt };
+  var cfg = mtaCfg_(opt.team), own = !opt.team || opt.team === (/dental/.test(String(TEAM() || '').toLowerCase()) ? 'dental' : 'surgical');
+  var book = own ? ss() : SpreadsheetApp.openById(MTA_SURG_ID), pk = mtaPick_(book, cfg.tp, opt.force);
+  if(pk.skip) return { ok:true, skip:pk.skip, id:pk.id || '', period:pk.a ? pk.a + ' → ' + pk.b : '' };
+  var w = pk.a, e = pk.b, id = pk.id || ('MT-' + w.replace(/-/g, '') + '-' + cfg.tp), G = pk.id ? mtaGet_(book, id) : { sht:null, rec:null }, rec = G.rec;
   var to = MTA.TO.map(mtaMailOf_).filter(String), cc = MTA.CC.map(mtaMailOf_).filter(String);
-  var subject = '[MMH ' + cfg.label + '] Weekly team meeting minutes – ' + mtaWk_(w), html = mtaHtml_(cfg, w, rec);
-  var out = { ok:true, id:id, week:w, rec:!!rec, sumEn:!!(rec && rec.snap && rec.snap.sumEn), subject:subject, to:MTA.TO, cc:MTA.CC, len:html.length };
+  var subject = '[MMH ' + cfg.label + '] Team meeting minutes – ' + mtaWk_(w, e), html = mtaHtml_(cfg, w, rec, e);
+  var out = { ok:true, id:id, week:w, to_:e, rec:!!rec, sumEn:!!(rec && rec.snap && rec.snap.sumEn), subject:subject, to:MTA.TO, cc:MTA.CC, len:html.length };
   if(opt.dry) return out;
   if(!to.length) return { ok:false, error:'Không thấy email người nhận' };
   mmhMail_({ to:to.join(','), cc:cc.join(','), subject:subject, htmlBody:html, name:'MMH CRM · ' + cfg.label + ' Team' });
@@ -80,6 +82,29 @@ function mtaSend_(opt){
   out.sent = mtNow_();
   try{ PropertiesService.getScriptProperties().setProperty('MTA_LAST_' + cfg.tp, JSON.stringify(out)); }catch(e){}
   return out;
+}
+/* v1.1 (21/11/2026): KỲ HỌP Từ – Đến (app CRM v39.0, Data._to / cột Tuần "dd/MM/yyyy – dd/MM/yyyy"; biên bản cũ = thứ Hai + 6 ngày).
+   Chọn kỳ CHƯA gửi email đã kết thúc (Đến ≤ hôm nay, trong 14 ngày) mới nhất; kỳ đang chạy / đã gửi ⇒ bỏ qua; không có biên bản nào gần đây ⇒ email báo chưa có biên bản (tuần hiện tại). */
+function mtaPick_(book, tp, force){
+  var today = Utilities.formatDate(new Date(), MTA.TZ, 'yyyy-MM-dd'), sht = book.getSheetByName(MT_CFG.SH_MEET), L = [];
+  if(sht && sht.getLastRow() >= 2){
+    var H = mtHdr_(sht), V = sht.getRange(2, 1, sht.getLastRow() - 1, H.n).getValues(), ci = function(h){ return (h in H.map) ? H.map[h] : -1; };
+    var iId = ci('Meeting ID'), iW = ci('Week start'), iL = ci('Tuần'), iE = ci('Emailed at'), iD = ci('Data (JSON)');
+    V.forEach(function(r){
+      var id = String(r[iId] || ''); if(id.slice(-tp.length - 1) !== '-' + tp) return;
+      var a = mtStr_(r[iW]); if(!/^\d{4}-\d{2}-\d{2}$/.test(a)) return;
+      var d = iD >= 0 ? mtJ_(String(r[iD] || '{}')) : {}; d = (d && typeof d === 'object') ? d : {};
+      var m = /(\d{2})\/(\d{2})\/(\d{4})\s*[–-]\s*(\d{2})\/(\d{2})\/(\d{4})/.exec(String(iL >= 0 ? r[iL] : '') || '');
+      var b = /^\d{4}-\d{2}-\d{2}$/.test(String(d._to || '')) ? d._to : m ? m[6] + '-' + m[5] + '-' + m[4] : mtaAdd_(a, 6);
+      var em = iE >= 0 ? mtStr_(r[iE], 'yyyy-MM-dd HH:mm') : '';
+      L.push({ id:id, a:a, b:b, sent:!!em && em.slice(0, 10) >= a });
+    });
+  }
+  var lim = mtaAdd_(today, -13), C = L.filter(function(x){ return (force || !x.sent) && x.b <= today && x.b >= lim; }).sort(function(x, y){ return x.b < y.b ? 1 : -1; });
+  if(C.length) return C[0];
+  var run = L.filter(function(x){ return x.a <= today && x.b > today; })[0]; if(run) return { skip:'running', id:run.id, a:run.a, b:run.b };
+  var done = L.filter(function(x){ return x.sent && x.b >= mtaAdd_(today, -6); })[0]; if(done) return { skip:'sent', id:done.id, a:done.a, b:done.b };
+  var w = mtaMonday_(); return { a:w, b:mtaAdd_(w, 6), id:'' };
 }
 /* trigger: thứ Bảy 16:00 giờ VN */
 function mtaWeekly(){
