@@ -1,5 +1,8 @@
 /**
  * Ngân hàng câu hỏi — bài kiểm tra đối tác (NPP, đại lý) sau buổi đào tạo nha khoa.
+ * v3.4 (21/11/2026, người dùng yêu cầu): 'nha-khoa-3' thêm 6 câu JIZAI + composite vào nhóm c1 (deck v3 có slide JIZAI, composite chi tiết) — mỗi lượt vẫn 2/10 câu nhóm c1,
+ *   8/10 câu về 2 sản phẩm mới. Câu "thận trọng quanh vùng nào" đổi đáp án nhiễu "Xoang hàm và men răng" ⇒ "Men răng và ngà răng" (slide an toàn nay nhắc xoang hàm).
+ *   Kết quả ghi thêm vào Sheet riêng của buổi đào tạo: khoá out {id, tab, from} (MMH_PartnerQuiz.gs ▸ pqOutSync_).
  * v3.3 (20/11/2026, người dùng yêu cầu): thêm bài 'nha-khoa-3' cho bộ slide mới "Danh mục nha khoa MANI và hai sản phẩm mới" (đào tạo đại lý):
  *   c1 tổng quan danh mục (dụng cụ MANI, vật liệu MMG) · c2 Carbide Bur 1559L đặc điểm · c3 1559L sử dụng an toàn · c4 IPR-01EF thiết kế · c5 IPR-01EF lâm sàng, chỉ định.
  *   Mọi câu có trên slide (tờ rơi 1559L D17701, IFU Carbide Burs, IPR-01EF Clinical Report D14501, series Thủ thuật nha khoa tập 4, 6, 14, 18).
@@ -81,8 +84,16 @@ var PQ_BANK = {
     title: 'Danh mục nha khoa MANI và hai sản phẩm mới',
     sub: 'Bài kiểm tra · 1559L và IPR-01EF',
     perQ: 20, n: 10, pass: 6, prize: 'Top 3 điểm cao nhất nhận túi cói MANI',
+    // buổi đào tạo NPP Meci 21/11/2026: kết quả ghi thêm vào Sheet người dùng gửi, tab theo ngày + NPP (chỉ lượt từ ngày from)
+    out: { id: '18PuIGqsglswkcq4okVxtdKt1IjqloLXYCBMgiRd5Dd0', tab: '21.11.26_Merci', from: '2026-11-21' },
     qs: [
       { c: 1, q: 'Ba giá trị cốt lõi của trâm máy JIZAI?', o: ['Bền bỉ · Linh hoạt · Đơn giản', 'Nhanh · Rẻ · Nhẹ', 'Cứng · Thẳng · Dài', 'Sắc · Mảnh · Dùng một lần'], a: 0, x: 'JIZAI là trâm máy NiTi xử lý nhiệt: bền bỉ, linh hoạt, đơn giản.' },
+      { c: 1, q: 'Bộ tạo hình JIZAI gồm mấy trâm?', o: ['2 trâm', '3 trâm: JIZAI I, II, III', '6 trâm', '10 trâm'], a: 1, x: 'Chỉ 3 trâm tạo hình cho hầu hết các ca: ít dụng cụ phải học và quản lý.' },
+      { c: 1, q: 'JIZAI 020/04 được dùng khi nào?', o: ['Mọi ca, thay cho JIZAI I', 'Ống tủy vôi hoá, co thắt, cong nhiều: dùng sau Glider, trước JIZAI I', 'Chỉ để mở lối vào ống tủy', 'Để trám bít ống tủy'], a: 1, x: 'Giảm 56% lực cắt dồn lên JIZAI I (dữ liệu MANI).' },
+      { c: 1, q: 'Nghiên cứu tại Việt Nam (2024) trên 45 răng hàm lớn hàm dưới: tỷ lệ thành công của JIZAI sau 6 tháng?', o: ['75,56%', '85,56%', '95,56%', '100%'], a: 2, x: 'Thời gian tạo hình trung bình 28,87 phút, không tai biến trong quá trình sửa soạn.' },
+      { c: 1, q: 'Composite MMG nào có nhiều màu men (Bleach, Incisal), dễ đánh bóng, phù hợp răng trước thẩm mỹ cao?', o: ['Mani Bulk', 'Mani Flo-V', 'Mani Micro', 'Mani Nano'], a: 2, x: 'Mani Micro: thẩm mỹ hoàn hảo, đóng khe thưa răng cửa, veneer dán dính.' },
+      { c: 1, q: 'Composite MMG nào có co ngót 1,66%, cản quang 220%?', o: ['Mani Nano', 'Mani Bulk', 'Mani Flo-V', 'Mani EG'], a: 0, x: 'Mani Nano: co ngót tối thiểu, dùng cho răng trước và sau, tái tạo cùi.' },
+      { c: 1, q: 'Mani Flo-V chiếu đèn mỗi lớp bao lâu?', o: ['10 giây', '20 giây', '40 giây', '2 phút'], a: 2, x: 'Flo-V: lớp không quá 2 mm, chiếu đèn 40 giây mỗi lớp.' },
       { c: 1, q: 'Dòng mũi khoan nào cắt bằng lưỡi, phù hợp cắt kim loại, tháo phục hình cũ?', o: ['DIA-BURS', 'Carbide Burs', 'MI Stainless Burs', 'IPR-01EF'], a: 1, x: 'Kim cương mài bằng hạt; carbide cắt bằng lưỡi.' },
       { c: 1, q: 'MI Stainless Burs dùng để làm gì?', o: ['Mài men răng', 'Cắt chọn lọc ngà mềm, giữ lại ngà lành', 'Chia cắt răng ngầm', 'Mài kẽ răng'], a: 1, x: 'Mũi thép lấy ngà sâu nhiễm khuẩn, nền tảng điều trị xâm lấn tối thiểu.' },
       { c: 1, q: 'Composite MMG nào đặt được một lớp dày 4 mm?', o: ['Mani Micro', 'Mani Flo-V', 'Mani Bulk', 'Mani Nano'], a: 2, x: 'Các dòng khác đặt lớp tối đa 2 mm.' },
@@ -96,7 +107,7 @@ var PQ_BANK = {
       { c: 2, q: 'Phần làm việc của 1559L làm bằng vật liệu gì?', o: ['Thép không gỉ', 'NiTi', 'Tungsten Carbide', 'Hạt kim cương'], a: 2, x: 'Phần làm việc Tungsten Carbide, chuôi thép không gỉ.' },
       { c: 3, q: 'Tốc độ khuyến nghị khi dùng 1559L?', o: ['40.000 vòng/phút', '120.000 vòng/phút', '160.000 vòng/phút', '450.000 vòng/phút'], a: 1, x: 'Vượt tốc độ này có thể gãy mũi khoan và gây chấn thương.' },
       { c: 3, q: 'Khi dùng 1559L, bác sĩ nên ấn lực thế nào?', o: ['Ấn mạnh để cắt nhanh', 'Lực ấn nhẹ "feather-touch"', 'Lắc mũi qua lại', 'Không cần lưu ý'], a: 1, x: 'Mũi có cấu tạo hai mảnh: tránh dùng lực quá mức.' },
-      { c: 3, q: 'Dùng 1559L cần thận trọng khi thao tác quanh vùng nào?', o: ['Xoang hàm và men răng', 'Ống răng dưới và dây thần kinh lưỡi', 'Nhú lợi kẽ răng', 'Buồng tủy'], a: 1, x: 'Ống răng dưới nằm sát chóp răng khôn hàm dưới; dây thần kinh lưỡi ở mặt trong xương hàm.' },
+      { c: 3, q: 'Dùng 1559L cần thận trọng khi thao tác quanh vùng nào?', o: ['Men răng và ngà răng', 'Ống răng dưới và dây thần kinh lưỡi', 'Nhú lợi kẽ răng', 'Buồng tủy'], a: 1, x: 'Ống răng dưới nằm sát chóp răng khôn hàm dưới; dây thần kinh lưỡi ở mặt trong xương hàm.' },
       { c: 3, q: '1559L có loại chuôi và tổng chiều dài nào?', o: ['CA · 22 mm', 'FG · 25 mm và 28 mm', 'RA · 16 mm', 'FG · 19 mm'], a: 1, x: 'Chiều dài làm việc 6 mm, đường kính tối đa 1,4 mm.' },
       { c: 3, q: 'Vì sao bác sĩ chia cắt răng ngầm thay vì nhổ nguyên khối?', o: ['Để giữ răng lại', 'Giảm lượng xương phải lấy, giảm sang chấn', 'Để không phải gây tê', 'Để không cần khâu'], a: 1, x: 'Chia cắt gọn, ít lấy xương: phẫu thuật nhẹ nhàng hơn cho bệnh nhân.' },
       { c: 4, q: 'IPR-01EF dùng cho thủ thuật nào?', o: ['Mở tủy', 'Mài kẽ răng trong chỉnh nha', 'Tháo mão kim loại', 'Chia cắt răng ngầm'], a: 1, x: 'IPR: interproximal reduction, mài bớt lớp men rất mỏng ở mặt bên răng để tạo khoảng.' },

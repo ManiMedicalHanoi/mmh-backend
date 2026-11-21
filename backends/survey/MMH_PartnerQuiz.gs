@@ -16,10 +16,13 @@
  * Lệnh có khoá: pqDiag {key, b} ⇒ số lượt, link Sheet kết quả.
  * Đáp án đúng KHÔNG gửi xuống trước khi trả lời; máy chủ tự đo thời gian từng câu (CacheService, 2 giờ / lượt).
  * Điểm: đúng = 500 + tới 500 theo thời gian còn lại (tối đa 1.000 / câu); sai / hết giờ = 0. Đạt khi đúng ≥ pass.
+ * v1.3 (21/11/2026): bài có khoá out {id, tab, from} (MMH_PartnerQuizBank.gs) ⇒ mỗi lượt ghi THÊM vào Sheet riêng của buổi đào tạo, tab theo ngày + NPP
+ *   (pqOutSync_: chép các lượt của bài từ ngày from còn thiếu, theo Mã lượt; góp ý cập nhật cùng dòng). Sheet gốc vẫn là nguồn của xếp hạng.
+ *   Lỗi (vd. tài khoản chạy máy chủ chưa có quyền sửa Sheet) ⇒ Script Property PQ_OUT_ERR; pqDiag &out=1 chạy ngay và báo kết quả.
  * Kết quả: Google Sheet "MMH · Bài kiểm tra đối tác · Kết quả" (thư mục SV.FOLDER, tab KET_QUA) + email tóm tắt mỗi lượt
  * về chủ thư mục (= tài khoản chạy máy chủ; đổi bằng Script Property PQ_NOTIFY, "-" = tắt email). Ngân hàng câu hỏi: MMH_PartnerQuizBank.gs.
  */
-var PQ = { VER: '1.2', SUM_TAB: 'TỔNG HỢP', BOOK_PROP: 'PQ_BOOK', BOOK: 'MMH · Bài kiểm tra đối tác · Kết quả', TAB: 'KET_QUA', FB: 3500, TTL: 7200,
+var PQ = { VER: '1.3', SUM_TAB: 'TỔNG HỢP', BOOK_PROP: 'PQ_BOOK', BOOK: 'MMH · Bài kiểm tra đối tác · Kết quả', TAB: 'KET_QUA', FB: 3500, TTL: 7200,
   PAGE: 'https://manimedicalhanoi.github.io/MMH-Survey/training-quiz/doi-tac/',
   HEAD: ['Thời gian nộp', 'Mã bài', 'Bài', 'Họ tên', 'Đại lý / NPP', 'Số điện thoại', 'Số câu đúng', 'Số câu', 'Điểm', 'Đạt', 'Thời gian làm (giây)', 'Chi tiết', 'Mã lượt', 'Góp ý sản phẩm (không tính điểm)'] };
 
@@ -176,6 +179,7 @@ function pqFinish_(z, s) {
   var fin = { score: s.score, nRight: s.right, n: s.ids.length, pass: z.pass, passed: passed, sec: sec, rank: rank, players: best.length,
     best: mine ? mine.score : s.score, top: pqTop_(best) };
   try { pqMail_(z, s, fin); } catch (x) {}
+  try { pqOutSync_(s.b); } catch (x) {}
   try { pqSumMaybe_(); } catch (x) {}
   return fin;
 }
@@ -239,6 +243,7 @@ function pqFeedback_(tk, text) {
     if (row) sh.getRange(row, col).setValue("'" + t);
   } finally { lock.releaseLock(); }
   if (!row) return { ok: false, code: 'ROW', error: 'Chưa tìm thấy kết quả của lượt này.' };
+  try { pqOutSync_(s.b); } catch (x) {}
   try {
     var to = pqNotify_(), z = pqQuiz_(s.b);
     if (to) mmhMail_({ to: to, subject: '[Góp ý sản phẩm] ' + s.name + ' · ' + s.dealer, body: ['Góp ý sau bài kiểm tra đối tác (không tính điểm).', '',
@@ -368,12 +373,64 @@ function pqSummary_() {
   return { rows: out.length, ms: Date.now() - t0 };
 }
 
-function pqDiag_(b, sum) {
+/* ---------- Sheet riêng của buổi đào tạo (khoá out của bài) ---------- */
+function pqOutSync_(b) {
+  var z = pqQuiz_(b), o = z && z.out;
+  if (!o || !o.id || !o.tab) return { ok: false, code: 'NOOUT' };
+  var P = PropertiesService.getScriptProperties(), t0 = Date.now();
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var ss;
+    try { ss = SpreadsheetApp.openById(o.id); } catch (x) {
+      var m = 'Không mở được Sheet (tài khoản chạy máy chủ chưa có quyền sửa?): ' + x.message;
+      P.setProperty('PQ_OUT_ERR', new Date().toISOString() + ' · ' + m); return { ok: false, code: 'OPEN', error: m };
+    }
+    var sh = ss.getSheetByName(o.tab), fresh = !sh, W = PQ.HEAD.length;
+    if (fresh) {
+      sh = ss.insertSheet(o.tab);
+      sh.getRange(1, 1, 1, W).setValues([PQ.HEAD]).setFontWeight('bold').setBackground('#EEF3F8').setFontColor('#22384F');
+      sh.setFrozenRows(1);
+      [140, 90, 230, 170, 170, 110, 80, 60, 70, 70, 90, 260, 140, 260].forEach(function (w, i) { sh.setColumnWidth(i + 1, w); });
+    }
+    var from = 0;
+    if (o.from) { var d = String(o.from).split('-'); from = new Date(+d[0], +d[1] - 1, +d[2]).getTime(); }
+    var src = pqSheet_(), last = src.getLastRow(), want = [];
+    if (last > 1) src.getRange(2, 1, last - 1, W).getValues().forEach(function (r) {
+      if (String(r[1]) !== b) return;
+      if (from && !(r[0] instanceof Date && r[0].getTime() >= from)) return;
+      want.push(r);
+    });
+    var have = {}, el = sh.getLastRow();
+    if (el > 1) sh.getRange(2, 13, el - 1, 2).getValues().forEach(function (r, i) { if (r[0]) have[String(r[0])] = { row: i + 2, fb: String(r[1]).replace(/^'/, '') }; });
+    var add = [], upd = 0;
+    want.forEach(function (r) {
+      var h = have[String(r[12])], fb = String(r[13] || '');
+      if (!h) {
+        var v = r.slice(); v[5] = "'" + String(v[5]).replace(/^'/, ''); if (fb) v[13] = "'" + fb;
+        add.push(v);
+      } else if (fb && h.fb !== fb) { sh.getRange(h.row, 14).setValue("'" + fb); upd++; }
+    });
+    if (add.length) {
+      var at = sh.getLastRow() + 1;
+      sh.getRange(at, 1, add.length, W).setValues(add);
+      sh.getRange(at, 1, add.length, 1).setNumberFormat('dd/MM/yyyy HH:mm:ss');
+    }
+    var res = { ok: true, tab: o.tab, url: ss.getUrl() + '#gid=' + sh.getSheetId(), created: fresh, rows: want.length, added: add.length, updated: upd, ms: Date.now() - t0 };
+    P.setProperty('PQ_OUT_LAST', JSON.stringify({ at: new Date().toISOString(), b: b, added: add.length, rows: want.length }));
+    P.deleteProperty('PQ_OUT_ERR');
+    return res;
+  } finally { lock.releaseLock(); }
+}
+
+function pqDiag_(b, sum, doOut) {
   var out = { ok: true, v: PQ.VER, quizzes: Object.keys(PQ_BANK).map(function (k) { return { b: k, title: PQ_BANK[k].title, bank: PQ_BANK[k].qs.length, n: PQ_BANK[k].n }; }) };
   try { var ss = pqBook_(); out.sheet = ss.getUrl(); } catch (x) { out.sheetErr = x.message; }
   if (b) { var rows = pqRows_(b); out.attempts = rows.length; out.players = pqBest_(rows).length; }
   out.notify = pqNotify_() ? 'có' : 'tắt';
   if (sum) { try { out.summary = pqSummary_(); var t = pqBook_().getSheetByName(PQ.SUM_TAB); if (t) out.summaryUrl = out.sheet + '#gid=' + t.getSheetId(); } catch (x) { out.sumErr = x.message; } }
   out.top = PQ.PAGE + '?v=top';
+  if (b && doOut) { try { out.out = pqOutSync_(b); } catch (x) { out.out = { ok: false, error: x.message }; } }
+  var P = PropertiesService.getScriptProperties();
+  out.outErr = P.getProperty('PQ_OUT_ERR') || ''; out.outLast = P.getProperty('PQ_OUT_LAST') || '';
   return out;
 }

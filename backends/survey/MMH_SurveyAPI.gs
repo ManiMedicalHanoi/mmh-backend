@@ -72,7 +72,7 @@ function svHandle_(p, body) {
     }
     if (a === 'formDump' || a === 'formEdit') return svOut_(svEdRoute_(a, p, body));
     if (a === 'scopes') return svOut_(svScopes_());
-    if (a === 'pqDiag') return svOut_(pqDiag_(p.b || (body || {}).b || '', p.sum || (body || {}).sum));
+    if (a === 'pqDiag') return svOut_(pqDiag_(p.b || (body || {}).b || '', p.sum || (body || {}).sum, p.out || (body || {}).out));
     if (a === 'trainerSessions') return svOut_(svTmSessions_(p.email || (body || {}).email, Number(p.back || (body || {}).back || 120), Number(p.ahead || (body || {}).ahead || 60)));
     if (a === 'quizLink') {  // link làm bài dạng mã ngắn cho bài đã tạo (+ đổi danh sách email nhận kết quả nếu gửi notify)
       var qf = p.formId || (body || {}).formId, nt = (body || {}).notify;
