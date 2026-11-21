@@ -127,6 +127,7 @@ function wtbGrabInv_(p) {
   if (wtS_(p.op) === 'narrow') return wtbNarrow_(p);
   if (wtS_(p.op) === 'auto') return wtbAuto_(null, { dry: wtTrue_(p.dry), from: wtS_(p.from) });
   if (wtS_(p.op) === 'targets') return wttBacklog_(p);                                   // MMH_WatchTarget.gs — tồn đọng địa bàn MMH
+  if (wtS_(p.op) === 'errs') return wtbErrs_(p);                                          // thống kê gói Lỗi (chỉ đọc)
   if (wtS_(p.op) === 'sum') return wttSumBuild_(true);
   if (wtS_(p.op) === 'sumheal') return wtdSumHeal_();                                     // dọn dòng "cần Agent" đã tải xong (tab Tài liệu)                                    // ghi ngay tab "Tổng hợp gói thầu"
   if (wtS_(p.op) === 'scan') { try { wttKwLoad_(wtdSumBook_()); } catch (e) {} const sc = wttScan_(wtS_(p.text)); delete sc.cover; return { ok: true, scan: sc, ctx: wttCtx_(wtS_(p.text)), groups: WTT_KW.length }; }   // thử bộ từ khoá
@@ -270,5 +271,28 @@ function wtbAuto_(data, o) {
   } finally { lock.releaseLock(); }
   P.setProperty('WT_AUTO_FROM', today);
   P.setProperty('WT_AUTO_LAST', JSON.stringify({ at: wtNow_(), from: from, target: out.target, resTarget: out.resTarget, n: out.n, res: out.res }));
+  return out;
+}
+
+/** op=errs (chỉ đọc, 21/11/2026): gói đang Lỗi / Chờ tải — lý do, hình thức LCNT, số lần thử, địa bàn MMH hay không, vài ví dụ */
+function wtbErrs_(p) {
+  const H = wtHits_(wtBook_()), T = wttTargets_(), out = { ok: true, err: 0, wait: 0, byNote: {}, byForm: {}, byTries: {}, byType: {}, target: 0, waitBy: {}, sample: [] };
+  const cut = function (s) { return wtS_(s).replace(/IB\d{10}(-\d+)?|PL\d{10}/g, '#').slice(0, 70) || '(trống)'; };
+  H.forEach(function (h) {
+    const I = h.info || {}, tg = wttLabels_(T, h.investor).length > 0;
+    if (h.status === WT.ST.WAIT) {
+      out.wait++;
+      const k = (I.ag ? 'máy Agent' : 'cloud') + ' · ưu tiên ' + (typeof I.pri === 'number' ? I.pri : '-') + ' · ' + h.type;
+      out.waitBy[k] = (out.waitBy[k] || 0) + 1; return;
+    }
+    if (h.status !== WT.ST.ERR) return;
+    out.err++; if (tg) out.target++;
+    const n = cut(h.note), f = wtS_(I.form) || '(không rõ)';
+    out.byNote[n] = (out.byNote[n] || 0) + 1;
+    out.byForm[f] = (out.byForm[f] || 0) + 1;
+    out.byTries[h.tries] = (out.byTries[h.tries] || 0) + 1;
+    out.byType[h.type] = (out.byType[h.type] || 0) + 1;
+    if (out.sample.length < 25) out.sample.push([h.no, h.type, h.tries, f, wtS_(h.investor).slice(0, 50), wtS_(h.name).slice(0, 60), cut(h.note)]);
+  });
   return out;
 }

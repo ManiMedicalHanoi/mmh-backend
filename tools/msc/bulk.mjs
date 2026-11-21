@@ -90,6 +90,11 @@ if (MODE === 'sum') {
   console.log('TỔNG HỢP GÓI THẦU:', JSON.stringify(r, null, 1));
   process.exit(r.ok ? 0 : 1);
 }
+if (MODE === 'errs') {
+  const r = await post({ action: 'botGrabInv', op: 'errs' });
+  console.log('GÓI LỖI / CHỜ TẢI:', JSON.stringify(r, null, 1));
+  process.exit(r.ok ? 0 : 1);
+}
 if (MODE === 'sumheal') {   // dọn dòng "cần Agent" đã tải xong ở tab Tài liệu
   const r = await post({ action: 'botGrabInv', op: 'sumheal' });
   console.log('DỌN TAB TÀI LIỆU:', JSON.stringify(r));
