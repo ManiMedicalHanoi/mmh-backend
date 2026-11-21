@@ -1,0 +1,26 @@
+name: Theo dõi gói thầu — dò tìm kiếm
+# CHỈ ĐỌC: dò cách muasamcong tìm gói Chỉ định thầu rút gọn / Chào giá rút gọn / Mua sắm trực tiếp (bot báo "không tìm thấy"). tools/msc/probe.mjs
+on:
+  workflow_dispatch:
+    inputs:
+      nos: { description: 'Các số TBMT cần thử (cách nhau dấu cách)', default: 'IB2600578840 DC2600100862 IB2600560840 IB2600466091' }
+permissions: { contents: read }
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with: { sparse-checkout: "tools/msc", sparse-checkout-cone-mode: false }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Cài trình duyệt
+        run: |
+          mkdir -p /tmp/pw && cd /tmp/pw && npm init -y >/dev/null && npm i playwright@1.48.2 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+      - name: Dò
+        env: { PROBE_NOS: '${{ inputs.nos }}', PROBE_OUT: /tmp/pw/probe-out }
+        run: cp tools/msc/probe.mjs /tmp/pw/ && cd /tmp/pw && node probe.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: probe-out, path: /tmp/pw/probe-out, retention-days: 7, if-no-files-found: ignore }
