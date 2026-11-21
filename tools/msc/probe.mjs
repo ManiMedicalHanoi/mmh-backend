@@ -39,7 +39,7 @@ async function trySearch(no, tag) {
   say('     link chi tiết:', JSON.stringify(links));
   await pg.screenshot({ path: `${OUT}/${no}_${tag.replace(/\W+/g, '_')}.png` }).catch(() => {});
 }
-for (const no of NOS) {
+for (const no of (process.env.PROBE_P1 === '0' ? [] : NOS)) {
   await pg.goto(HOME, { waitUntil: 'domcontentloaded', timeout: 90000 }).catch(() => {});
   await pg.waitForSelector('input[placeholder*="IB000202"]:visible', { timeout: 45000 }).catch(() => {});
   await pg.waitForTimeout(2500); await closePopups();
@@ -53,12 +53,43 @@ for (const no of NOS) {
   }
 }
 // trang tra cứu nâng cao (nếu có)
-for (const u of ['https://muasamcong.mof.gov.vn/web/guest/contractor-selection?render=search', 'https://muasamcong.mof.gov.vn/web/guest/contractor-selection?p_p_id=egpportalcontractorselectionv2_WAR_egpportalcontractorselectionv2&_egpportalcontractorselectionv2_WAR_egpportalcontractorselectionv2_render=search']) {
+for (const u of (process.env.PROBE_P1 === '0' ? [] : ['https://muasamcong.mof.gov.vn/web/guest/contractor-selection?render=search', 'https://muasamcong.mof.gov.vn/web/guest/contractor-selection?p_p_id=egpportalcontractorselectionv2_WAR_egpportalcontractorselectionv2&_egpportalcontractorselectionv2_WAR_egpportalcontractorselectionv2_render=search'])) {
   await pg.goto(u, { waitUntil: 'domcontentloaded', timeout: 90000 }).catch(e => say('goto lỗi', e.message.split('\n')[0]));
   await pg.waitForTimeout(6000); await closePopups();
   const info = await pg.evaluate(() => ({ title: document.title, ph: [...document.querySelectorAll('input')].filter(e => e.offsetParent).map(e => e.placeholder).filter(Boolean).slice(0, 20), lab: [...new Set([...document.querySelectorAll('label, .ant-select-selection-item, .ant-tabs-tab, button')].filter(e => e.offsetParent).map(e => e.innerText.trim()).filter(t => t && t.length < 60))].slice(0, 60) })).catch(() => ({}));
   say('TRANG TRA CỨU', u.slice(-60), JSON.stringify(info));
   await pg.screenshot({ path: OUT + '/search_' + (u.length % 97) + '.png' }).catch(() => {});
+}
+
+// ── Lần 2: bỏ bộ lọc caseKHKQ ≠ 1 (trang tự gắn khi tìm theo số) rồi mở trang chi tiết, liệt kê tab / nút ──
+if (process.env.PROBE_P2 !== '0') {
+  await pg.route(/smart\/search/, async route => {
+    const r = route.request(); let body = r.postData() || '';
+    try { const j = JSON.parse(body); j.forEach(q => (q.query || []).forEach(x => { x.filters = (x.filters || []).filter(f => f.fieldName !== 'caseKHKQ'); })); body = JSON.stringify(j); } catch (e) {}
+    await route.continue({ postData: body });
+  });
+  for (const no of NOS) {
+    await pg.goto(HOME, { waitUntil: 'domcontentloaded', timeout: 90000 }).catch(() => {});
+    await pg.waitForSelector('input[placeholder*="IB000202"]:visible', { timeout: 45000 }).catch(() => {});
+    await pg.waitForTimeout(2500); await closePopups();
+    await trySearch(no.replace(/-\d+$/, ''), 'bỏ caseKHKQ');
+    const href = await pg.evaluate(() => { const a = document.querySelector('a[href*="render=detail"]'); return a ? a.getAttribute('href') : ''; }).catch(() => '');
+    if (!href) { say('  ⇒ vẫn không có link'); continue; }
+    const url = href.startsWith('/') ? 'https://muasamcong.mof.gov.vn' + href : href;
+    await pg.goto(url, { waitUntil: 'domcontentloaded', timeout: 90000 }).catch(e => say('  goto lỗi', e.message.split('\n')[0]));
+    await pg.waitForTimeout(9000); await closePopups();
+    const d = await pg.evaluate(() => {
+      const vis = e => e.offsetParent;
+      const tabs = [...document.querySelectorAll('[role=tab], .ant-tabs-tab, .nav-link, li.tab, .tab-item')].filter(vis).map(e => e.innerText.trim()).filter(Boolean);
+      const btns = [...new Set([...document.querySelectorAll('button, a')].filter(vis).map(e => e.innerText.trim()).filter(t => t && t.length < 40))].filter(t => /xuất|tải|excel|kết quả|thông báo|hồ sơ|quyết định/i.test(t));
+      const kv = [...document.querySelectorAll('.infomation__content')].filter(vis).slice(0, 25).map(r => r.innerText.replace(/\s+/g, ' ').slice(0, 120));
+      const files = [...document.querySelectorAll('.tags-fileAttach, [class*=fileAttach]')].filter(vis).map(e => e.innerText.trim().slice(0, 80));
+      return { title: document.title, tabs, btns, kv, files, text: document.body.innerText.replace(/\s+/g, ' ').slice(0, 600) };
+    }).catch(e => ({ err: e.message }));
+    say('  ⇒ TRANG CHI TIẾT', url.replace(/.*render=/, 'render=').slice(0, 220));
+    say('     ', JSON.stringify(d).slice(0, 2500));
+    await pg.screenshot({ path: `${OUT}/${no}_chitiet.png`, fullPage: true }).catch(() => {});
+  }
 }
 await b.close();
 fs.writeFileSync(OUT + '/log.json', JSON.stringify(log, null, 1));

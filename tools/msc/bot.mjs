@@ -463,8 +463,18 @@ async function doJob(pg, job, cap) {
 const b = await chromium.launch(process.env.WT_CHANNEL ? { channel: process.env.WT_CHANNEL } : {});
 const ctx = await b.newContext({ locale: 'vi-VN', acceptDownloads: true, viewport: { width: 1440, height: 900 }, userAgent: UA });
 let total = 0;
+// 21/11/2026: ô tìm kiếm trang chủ tự gắn bộ lọc caseKHKQ ≠ 1 ⇒ gói đăng KH + KQ cùng lúc (Chỉ định thầu rút gọn, Mua sắm trực tiếp…) không bao giờ hiện
+// ⇒ bỏ bộ lọc này trong yêu cầu tìm kiếm (giữ nguyên mã reCAPTCHA của trang). Đã thử: IB2600578840 (CĐTRG, BV TWQĐ 108) tìm thấy + mở đủ tab.
+async function dropCaseKHKQ(pg) {
+  await pg.route(/smart\/search/, async route => {
+    let body = route.request().postData() || '';
+    try { const j = JSON.parse(body); (Array.isArray(j) ? j : [j]).forEach(q => (q.query || []).forEach(x => { x.filters = (x.filters || []).filter(f => f.fieldName !== 'caseKHKQ'); })); body = JSON.stringify(j); } catch (e) {}
+    await route.continue({ postData: body });
+  });
+}
 async function worker() {
   const pg = await ctx.newPage(), cap = [];
+  await dropCaseKHKQ(pg);
   await pg.route(/^https?:\/\/(localhost|127\.0\.0\.1):1234\//, async route => {
     const m = route.request().url().match(/fileId=([\w-]+)/); if (m) cap.push(m[1]);
     await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });   // bot tự gọi Agent (nếu có) ⇒ trang không tải lần 2
