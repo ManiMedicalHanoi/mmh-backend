@@ -13,7 +13,7 @@
  * v3 (17/11/2026, người dùng yêu cầu): 1 buổi đào tạo 2 phần theo bộ slide gộp.
  *   Phần 1 (nha-khoa-1) Dụng cụ: c1 JIZAI thiết kế · c2 JIZAI xử lý nhiệt, cách dùng · c3 020/04, EndoCompath, bằng chứng · c4 trâm tay (K, H, Reamer, RT, D Finder, Glide Finder) · c5 mũi khoan.
  *   Phần 2 (nha-khoa-2) Vật liệu và sản phẩm mới: c1 chọn dòng composite · c2 đặc tính composite · c3 Mani Bond, kỹ thuật trám · c4 tẩy trắng (không cần đèn, kỳ vọng) · c5 sản phẩm mới (1559L, IPR-01EF). CAD/CAM chưa giới thiệu (người dùng yêu cầu) ⇒ không hỏi.
- * Mỗi lượt rút n câu rải đều theo nhóm (c), mỗi nhóm 2 câu. Đạt từ 6/10; top 3 mỗi phần nhận túi cói MANI.
+ * Mỗi lượt rút n câu rải đều theo nhóm (c), mỗi nhóm 2 câu. Đạt từ 6/10; top 5 mỗi bài (đạt từ 6/10) nhận túi cói MANI (prizeN, v3.6 21/11/2026 — trước là top 3).
  * o = 4 đáp án (thứ tự được trộn khi phát), a = chỉ số đáp án đúng (0..3), x = giải thích hiện sau khi trả lời.
  * Không đưa kế hoạch sản phẩm sắp ra mắt / thông tin thị trường vào đây (người dùng yêu cầu).
  */
@@ -21,7 +21,7 @@ var PQ_BANK = {
   'nha-khoa-1': {
     title: 'Dụng cụ nội nha và mũi khoan MANI',
     sub: 'Bài kiểm tra · Phần 1',
-    perQ: 20, n: 10, pass: 6, prize: 'Top 3 điểm cao nhất nhận túi cói MANI',
+    perQ: 20, n: 10, pass: 6, prizeN: 5, prize: 'Top 5 điểm cao nhất (đạt từ 6/10 câu) nhận túi cói MANI',
     out: [{ npp: 'Meci', date: '2026-11-17', to: '2026-11-18' }],   // đào tạo NPP Meci 17/11/2026
     qs: [
       { c: 1, q: 'JIZAI (自在) trong tiếng Nhật nghĩa là gì?', o: ['Tốc độ', 'Tự tại', 'Sắc bén', 'Bền vững'], a: 1, x: 'JIZAI nghĩa là "tự tại": ung dung, làm chủ mọi chuyển động.' },
@@ -51,7 +51,7 @@ var PQ_BANK = {
   'nha-khoa-2': {
     title: 'Vật liệu MMG và sản phẩm mới',
     sub: 'Bài kiểm tra · Phần 2',
-    perQ: 20, n: 10, pass: 6, prize: 'Top 3 điểm cao nhất nhận túi cói MANI',
+    perQ: 20, n: 10, pass: 6, prizeN: 5, prize: 'Top 5 điểm cao nhất (đạt từ 6/10 câu) nhận túi cói MANI',
     out: [{ npp: 'Meci', date: '2026-11-17', to: '2026-11-18' }],   // đào tạo NPP Meci 17/11/2026
     qs: [
       { c: 1, q: 'Trám răng sau nhanh, lớp dày: gợi ý dòng nào?', o: ['Mani Micro', 'Mani Bulk', 'Mani Flo-V', 'Mani EG'], a: 1, x: 'Mani Bulk đặt một lớp 4 mm, chiếu 20 giây.' },
@@ -88,7 +88,7 @@ var PQ_BANK = {
   'nha-khoa-3': {
     title: 'Danh mục nha khoa MANI và hai sản phẩm mới',
     sub: 'Bài kiểm tra · 1559L và IPR-01EF',
-    perQ: 20, n: 10, pass: 6, prize: 'Top 3 điểm cao nhất nhận túi cói MANI',
+    perQ: 20, n: 10, pass: 6, prizeN: 5, prize: 'Top 5 điểm cao nhất (đạt từ 6/10 câu) nhận túi cói MANI',
     // buổi đào tạo NPP Meci 21/11/2026: kết quả ghi thêm vào Sheet người dùng gửi, tab theo ngày + NPP (chỉ lượt từ ngày from)
     out: [{ npp: 'SPI', date: '2026-11-21' }],   // đào tạo NPP SPI 21/11/2026
     qs: [
