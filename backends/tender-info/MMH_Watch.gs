@@ -620,7 +620,8 @@ function wtBotEligible_(H, cloud) {
     if (cloud && (h.info || {}).ag) return false;
     if (h.status === WT.ST.WAIT) return !((h.info || {}).agentReq && !(h.info || {}).agentReq.done && age((h.info || {}).agentReq.at) < WTA.HOLD_MIN);   // nhường máy Agent
     if (h.status === WT.ST.WORK) return age(h.last) > WT.LEASE_MIN;
-    if (h.status === WT.ST.ERR) return h.tries < WT.MAX_TRY && age(h.last) > 60;
+    // 21/11/2026: gói "Không tìm thấy số … trên muasamcong" (chủ yếu Chỉ định thầu rút gọn / Mua sắm trực tiếp — ô tìm kiếm mặc định không ra) ⇒ chỉ thử lại 1 lần, không tốn 5 lượt bot
+    if (h.status === WT.ST.ERR) return h.tries < (/Không tìm thấy số/.test(h.note) ? 2 : WT.MAX_TRY) && age(h.last) > 60;
     return false;
   });
 }
