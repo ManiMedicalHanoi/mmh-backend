@@ -24,7 +24,7 @@ const WTB = { MAX: 3000, WANT_DEF: ['tbmt', 'hsmt', 'mo', 'kq', 'nt', 'hh', 'qd'
   //   Hóa chất / xét nghiệm (weak) KHÔNG còn loại khi vế có từ vật tư; chỉ dùng cho địa bàn MMH (nameIncOpt: vế không có từ vật tư nào
   //   thì cả tên phải sạch hard + exc + weak). GIỐNG tools/msc/knife-extra.json (sửa 1 nơi chép nơi kia).
   VT: {
-    inc: ['vật tư', 'vật liệu (?:y tế|nha khoa|tiêu hao|cầm máu|phẫu thuật|cấy ghép|khâu)', 'vtyt', 'vtth', 'dụng cụ', 'y cụ', 'áo choàng', 'phẫu thuật', 'phẫu', '(?<!viện |bv |tâm )mắt', 'nhãn khoa', 'nhãn cầu',
+    inc: ['vật tư', 'vật liệu (?:y tế|nha khoa|tiêu hao|cầm máu|phẫu thuật|cấy ghép|khâu)', 'vtyt', 'vtth', 'dụng cụ', 'y cụ', 'áo choàng', 'trang thiết bị y tế', 'thiết bị y tế', 'phẫu thuật', 'phẫu', '(?<!viện |bv |tâm )mắt', 'nhãn khoa', 'nhãn cầu',
       '(?<!hóa chất |hoá chất )tiêu hao', 'dùng một lần', 'sử dụng một lần', '(?:^|[^a-zà-ỹđ])chỉ(?![a-zà-ỹđ])(?!\\s+(?:định|số|đạo|tiêu|thị|huy|dẫn|có|được|là|riêng|cần|mới|còn|cho phép))',
       'khâu', '\\bdao\\b(?! động)', 'lưỡi dao', '\\bkim\\b(?! loại)', 'kéo(?! dài)', 'kẹp', 'kìm', '\\bpanh', 'nhíp', 'ghim', 'trocar', 'catheter', 'sonde', 'ống thông',
       'dẫn lưu', 'stent', 'găng', 'băng gạc', 'băng dính', 'băng keo', '\\bgạc', 'bông y tế', 'bông gòn', 'bông hút', 'thủy tinh thể', 'thuỷ tinh thể', '\\biol\\b',
@@ -37,7 +37,7 @@ const WTB = { MAX: 3000, WANT_DEF: ['tbmt', 'hsmt', 'mo', 'kq', 'nt', 'hh', 'qd'
     hard: 'thuốc|dược liệu|dược phẩm|vắc xin|vaccine|sinh phẩm|châm cứu|thực phẩm|suất ăn|\\bthuê|ghế|giường|bàn mổ|đèn mổ|bồn rửa|\\btủ |xe đẩy|\\bcáng',
     exc: 'khí y tế|\\boxy|lọc máu|chạy thận|thận nhân tạo|x-quang|x quang|\\bphim|máy|hệ thống|vệ sinh|mua sắm tài sản|\\bxe |siêu âm|nội soi|linh kiện',
     weak: 'hóa chất|hoá chất|xét nghiệm',
-    strong: 'phẫu thuật|(?<!viện |bv |tâm )mắt|phaco|nhãn khoa|chỉ khâu|thủy tinh thể|thuỷ tinh thể|dịch kính|vật tư y tế|vật tư nha khoa|vật liệu nha khoa|' +
+    strong: 'phẫu thuật|dụng cụ|(?<!viện |bv |tâm )mắt|phaco|nhãn khoa|chỉ khâu|thủy tinh thể|thuỷ tinh thể|dịch kính|vật tư y tế|vật tư nha khoa|vật liệu nha khoa|' +
       'nha khoa|răng hàm mặt|nội nha' },
   SPLIT: /\s+và\s+|\s+&\s+|\s+[-–]\s+|[,;+()\/]/,
   // tự đặt tải hằng ngày (wtbAuto_): Kết quả ⇒ bot cloud (KQ + 2 Excel; QĐ chỉ ghi tên cho Agent) · TBMT / KHLCNT ⇒ CHỈ máy có Agent (ag)
