@@ -85,7 +85,7 @@ var PQ_BANK = {
     sub: 'Bài kiểm tra · 1559L và IPR-01EF',
     perQ: 20, n: 10, pass: 6, prize: 'Top 3 điểm cao nhất nhận túi cói MANI',
     // buổi đào tạo NPP Meci 21/11/2026: kết quả ghi thêm vào Sheet người dùng gửi, tab theo ngày + NPP (chỉ lượt từ ngày from)
-    out: { id: '18PuIGqsglswkcq4okVxtdKt1IjqloLXYCBMgiRd5Dd0', tab: '21.11.26_Merci', from: '2026-11-21' },
+    out: { id: '18PuIGqsglswkcq4okVxtdKt1IjqloLXYCBMgiRd5Dd0', tab: '21.11.26_Meci', old: '21.11.26_Merci', from: '2026-11-21' },
     qs: [
       { c: 1, q: 'Ba giá trị cốt lõi của trâm máy JIZAI?', o: ['Bền bỉ · Linh hoạt · Đơn giản', 'Nhanh · Rẻ · Nhẹ', 'Cứng · Thẳng · Dài', 'Sắc · Mảnh · Dùng một lần'], a: 0, x: 'JIZAI là trâm máy NiTi xử lý nhiệt: bền bỉ, linh hoạt, đơn giản.' },
       { c: 1, q: 'Bộ tạo hình JIZAI gồm mấy trâm?', o: ['2 trâm', '3 trâm: JIZAI I, II, III', '6 trâm', '10 trâm'], a: 1, x: 'Chỉ 3 trâm tạo hình cho hầu hết các ca: ít dụng cụ phải học và quản lý.' },
