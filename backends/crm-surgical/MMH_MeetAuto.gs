@@ -1,11 +1,13 @@
 /* ⭐ 21/11/2026 — MMH_MeetAuto.gs (GIỐNG HỆT ở crm-surgical + crm-dental — sửa 1 nơi chép sang nơi kia): EMAIL BIÊN BẢN HỌP NHÓM TỰ GỬI 16:00 THỨ BẢY (giờ VN, người dùng yêu cầu).
    Nội dung = biên bản tuần ở sheet 13. WEEKLY MEETING (Meeting ID MT-<thứ Hai yyyyMMdd>-TEAMSURGICAL | TEAMDENTAL): tóm tắt tiếng Anh app CRM lưu ở Snapshot ▸ sumEn
    (dòng "**đậm**…\ný con") + ghi chú họp (Data: <phần>Note · <phần>N_<pic> · other). Thư thường tiếng Anh: Dear Tuyen san · To Tuyen · CC Nguyen Ha (email theo USER_MAP, mmhMail_).
-   Tuần đã gửi (cột Emailed at ≥ thứ Hai) ⇒ bỏ qua. Trigger `mtaWeekly` (thứ Bảy 16:00) tự cài ở mtaTick_ (ping / boot / bundle / version / mt…), kiểm 6 giờ / lần.
-   Kiểm tra: GET action=mtaRun key=<8 ký tự cuối ID Sheet CRM> op=status | dry (không gửi; trả tiêu đề + người nhận + độ dài) | send (gửi ngay, force=1 gửi cả khi tuần đã gửi). */
+   Tuần đã gửi (cột Emailed at ≥ thứ Hai) ⇒ bỏ qua. Trigger `mtaWeekly` (thứ Bảy 16:00) CHỈ cài ở crm-dental (mtaTick_ ở ping / boot / bundle / version / mt…, kiểm 6 giờ / lần):
+   backend crm-surgical không có quyền script.scriptapp ⇒ trigger của Dental gửi luôn biên bản Surgical (mở file CRM Surgical bằng openById — cùng chủ script). Không cài trigger ở Surgical (tránh gửi 2 lần).
+   Kiểm tra: GET action=mtaRun key=<8 ký tự cuối ID Sheet CRM> op=status | check (Dental: thử đọc biên bản Surgical, không gửi) | dry | send (gửi ngay, force=1 gửi cả khi tuần đã gửi) [team=surgical|dental]. */
 var MTA = { HOUR:16, TO:['Tuyen'], CC:['Nguyen Ha'], TZ:'Asia/Ho_Chi_Minh', MON:['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] };
-function mtaCfg_(){
-  var d = /dental/.test(String(TEAM() || '').toLowerCase());
+var MTA_SURG_ID = '16ke8ZRvmbG6TUte-oDLFSGzKbW9_PA98EJnLo5LoauM';   /* file CRM Surgical (MMH_Surgical_CRM) */
+function mtaCfg_(team){
+  var d = team ? team === 'dental' : /dental/.test(String(TEAM() || '').toLowerCase());
   return d ? { label:'Dental', tp:'TEAMDENTAL', pics:['Viet', 'Vinh', 'Phuong'],
                secs:[['fc','Forecast'], ['td','Sales opportunities'], ['od','Distributor support orders'], ['vis','Field visits & plan'], ['pr','Product presentations'], ['oth','Other matters']] }
            : { label:'Surgical', tp:'TEAMSURGICAL', pics:['Viet Ha', 'Khang'],
@@ -53,10 +55,20 @@ function mtaHtml_(cfg, w, rec){
   return h;
 }
 /* gửi biên bản tuần này. opt: { dry, force } */
+/* đọc biên bản (sheet 13. WEEKLY MEETING) của 1 file bất kỳ ⇒ { sht, rec } */
+function mtaGet_(book, id){
+  var sht = book.getSheetByName(MT_CFG.SH_MEET); if(!sht) return { sht:null, rec:null };
+  var r = mtFindRow_(sht, id); if(!r) return { sht:sht, rec:null };
+  var H = mtHdr_(sht), v = sht.getRange(r, 1, 1, H.n).getValues()[0], g = function(h){ return (h in H.map) ? v[H.map[h]] : ''; };
+  var data = mtJ_(String(g('Data (JSON)') || '{}')), snap = mtJ_(String(g('Snapshot (JSON)') || '{}'));
+  return { sht:sht, rec:{ id:id, data:(data && typeof data === 'object') ? data : {}, snap:(snap && typeof snap === 'object') ? snap : {}, emailedAt:mtStr_(g('Emailed at'), 'yyyy-MM-dd HH:mm') } };
+}
+/* opt: { dry, force, team:'surgical'|'dental' (mặc định nhóm của backend) } */
 function mtaSend_(opt){
   opt = opt || {};
-  var cfg = mtaCfg_(), w = mtaMonday_(), id = 'MT-' + w.replace(/-/g, '') + '-' + cfg.tp;
-  var g = mtGet_(id), rec = g && g.ok ? g.rec : null;
+  var cfg = mtaCfg_(opt.team), w = mtaMonday_(), id = 'MT-' + w.replace(/-/g, '') + '-' + cfg.tp;
+  var own = !opt.team || opt.team === (/dental/.test(String(TEAM() || '').toLowerCase()) ? 'dental' : 'surgical');
+  var book = own ? ss() : SpreadsheetApp.openById(MTA_SURG_ID), G = mtaGet_(book, id), rec = G.rec;
   if(rec && !opt.force && String(rec.emailedAt || '') >= w) return { ok:true, skip:'sent', id:id, emailedAt:rec.emailedAt };
   var to = MTA.TO.map(mtaMailOf_).filter(String), cc = MTA.CC.map(mtaMailOf_).filter(String);
   var subject = '[MMH ' + cfg.label + '] Weekly team meeting minutes – ' + mtaWk_(w), html = mtaHtml_(cfg, w, rec);
@@ -64,14 +76,19 @@ function mtaSend_(opt){
   if(opt.dry) return out;
   if(!to.length) return { ok:false, error:'Không thấy email người nhận' };
   mmhMail_({ to:to.join(','), cc:cc.join(','), subject:subject, htmlBody:html, name:'MMH CRM · ' + cfg.label + ' Team' });
-  if(rec){ try{ mtLocked_(function(){ var sht = mtSheet_(MT_CFG.SH_MEET, MT_MEET_HDR, MT_MEET_TEXT); if(mtFindRow_(sht, id)) mtWriteRow_(sht, id, { 'Emailed at':mtNow_(), 'Emailed to':'Auto · ' + MTA.TO.concat(MTA.CC).join(', ') }); mtBump_(); return true; }); }catch(e){ out.markErr = String(e && e.message || e); } }
+  if(rec && G.sht){ try{ mtLocked_(function(){ if(mtFindRow_(G.sht, id)) mtWriteRow_(G.sht, id, { 'Emailed at':mtNow_(), 'Emailed to':'Auto · ' + MTA.TO.concat(MTA.CC).join(', ') }); if(own) mtBump_(); return true; }); }catch(e){ out.markErr = String(e && e.message || e); } }
   out.sent = mtNow_();
-  try{ PropertiesService.getScriptProperties().setProperty('MTA_LAST', JSON.stringify(out)); }catch(e){}
+  try{ PropertiesService.getScriptProperties().setProperty('MTA_LAST_' + cfg.tp, JSON.stringify(out)); }catch(e){}
   return out;
 }
 /* trigger: thứ Bảy 16:00 giờ VN */
-function mtaWeekly(){ try{ mtaSend_({}); }catch(e){ try{ PropertiesService.getScriptProperties().setProperty('MTA_LAST', JSON.stringify({ ok:false, at:new Date().toISOString(), error:String(e && e.message || e) })); }catch(_){} } }
+function mtaWeekly(){
+  ['dental', 'surgical'].forEach(function(t){
+    try{ mtaSend_({ team:t }); }catch(e){ try{ PropertiesService.getScriptProperties().setProperty('MTA_LAST_' + mtaCfg_(t).tp, JSON.stringify({ ok:false, at:new Date().toISOString(), error:String(e && e.message || e) })); }catch(_){} }
+  });
+}
 function mtaTick_(){
+  if(!/dental/.test(String(TEAM() || '').toLowerCase())) return;   /* chỉ backend Dental giữ trigger (gửi cả Surgical) */
   var C = CacheService.getScriptCache(); if(C.get('mta_tick')) return; C.put('mta_tick', '1', 6 * 3600);
   var has = ScriptApp.getProjectTriggers().some(function(t){ return t.getHandlerFunction() === 'mtaWeekly'; });
   if(!has){ ScriptApp.newTrigger('mtaWeekly').timeBased().onWeekDay(ScriptApp.WeekDay.SATURDAY).atHour(MTA.HOUR).nearMinute(0).inTimezone(MTA.TZ).create();
@@ -80,9 +97,13 @@ function mtaTick_(){
 function mtaRun_(p){
   if(!(String(p.key || '') && String(p.key) === String(ss().getId()).slice(-8))) return { ok:false, code:'KEY', error:'key?' };
   var op = String(p.op || 'status');
-  if(op === 'dry') return mtaSend_({ dry:true });
-  if(op === 'send') return mtaSend_({ force:String(p.force) === '1' });
+  var tm = /^(surgical|dental)$/.test(String(p.team || '')) ? String(p.team) : '';
+  if(op === 'dry') return mtaSend_({ dry:true, team:tm });
+  if(op === 'send') return mtaSend_({ force:String(p.force) === '1', team:tm });
   if(op === 'tick'){ CacheService.getScriptCache().remove('mta_tick'); mtaTick_(); }
-  var tr = ScriptApp.getProjectTriggers().filter(function(t){ return t.getHandlerFunction() === 'mtaWeekly'; }).length, P = PropertiesService.getScriptProperties();
-  return { ok:true, team:mtaCfg_().label, trigger:tr, trigAt:P.getProperty('MTA_TRIG') || '', last:P.getProperty('MTA_LAST') || '' };
+  var tr = -1; try{ tr = ScriptApp.getProjectTriggers().filter(function(t){ return t.getHandlerFunction() === 'mtaWeekly'; }).length; }catch(e){}
+  var P = PropertiesService.getScriptProperties();
+  var out = { ok:true, team:mtaCfg_().label, trigger:tr, trigAt:P.getProperty('MTA_TRIG') || '', lastDental:P.getProperty('MTA_LAST_TEAMDENTAL') || '', lastSurgical:P.getProperty('MTA_LAST_TEAMSURGICAL') || '' };
+  if(op === 'check'){ try{ out.surgical = mtaSend_({ dry:true, team:'surgical' }); }catch(e){ out.surgical = { ok:false, error:String(e && e.message || e) }; } }
+  return out;
 }
