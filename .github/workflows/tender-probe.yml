@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       nos: { description: 'Các số TBMT cần thử (cách nhau dấu cách)', default: 'IB2600578840 DC2600100862 IB2600560840 IB2600466091' }
+      p1: { description: '0 = bỏ phần dò lựa chọn (chỉ thử bỏ bộ lọc caseKHKQ + mở trang chi tiết)', default: '0' }
 permissions: { contents: read }
 jobs:
   probe:
@@ -19,7 +20,7 @@ jobs:
           mkdir -p /tmp/pw && cd /tmp/pw && npm init -y >/dev/null && npm i playwright@1.48.2 >/dev/null
           npx playwright install --with-deps chromium >/dev/null
       - name: Dò
-        env: { PROBE_NOS: '${{ inputs.nos }}', PROBE_OUT: /tmp/pw/probe-out }
+        env: { PROBE_NOS: '${{ inputs.nos }}', PROBE_OUT: /tmp/pw/probe-out, PROBE_P1: '${{ inputs.p1 }}' }
         run: cp tools/msc/probe.mjs /tmp/pw/ && cd /tmp/pw && node probe.mjs
       - uses: actions/upload-artifact@v4
         if: always()
