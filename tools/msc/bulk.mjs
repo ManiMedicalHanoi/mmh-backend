@@ -90,6 +90,11 @@ if (MODE === 'sum') {
   console.log('TỔNG HỢP GÓI THẦU:', JSON.stringify(r, null, 1));
   process.exit(r.ok ? 0 : 1);
 }
+if (MODE === 'vtcmp') {
+  const r = await post({ action: 'botGrabInv', op: 'vtcmp', from: FROM, to: process.env.BULK_TO || '' });
+  console.log(JSON.stringify(r, null, 1));
+  process.exit(r.ok ? 0 : 1);
+}
 if (MODE === 'refind' || MODE === 'refind-dry') {
   const r = await post({ action: 'botGrabInv', op: 'refind', run: MODE === 'refind' ? '1' : '' });
   console.log(JSON.stringify(r, null, 2));

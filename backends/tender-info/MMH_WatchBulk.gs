@@ -161,7 +161,8 @@ function wtbGrabInv_(p) {
   if (wtS_(p.op) === 'auto') return wtbAuto_(null, { dry: wtTrue_(p.dry), from: wtS_(p.from) });
   if (wtS_(p.op) === 'targets') return wttBacklog_(p);                                   // MMH_WatchTarget.gs — tồn đọng địa bàn MMH
   if (wtS_(p.op) === 'errs') return wtbErrs_(p);                                          // thống kê gói Lỗi (chỉ đọc)
-  if (wtS_(p.op) === 'refind') return wtbRefind_(p);                                      // gói "Không tìm thấy số" ⇒ Chờ tải lại (run=1)
+  if (wtS_(p.op) === 'refind') return wtbRefind_(p);
+  if (wtS_(p.op) === 'vtcmp') return wtbVtCmp_(p);                                        // so bộ lọc tên gói cũ / mới (chỉ đọc)                                      // gói "Không tìm thấy số" ⇒ Chờ tải lại (run=1)
   if (wtS_(p.op) === 'sum') return wttSumBuild_(true);
   if (wtS_(p.op) === 'sumheal') return wtdSumHeal_();                                     // dọn dòng "cần Agent" đã tải xong (tab Tài liệu)                                    // ghi ngay tab "Tổng hợp gói thầu"
   if (wtS_(p.op) === 'scan') { try { wttKwLoad_(wtdSumBook_()); } catch (e) {} const sc = wttScan_(wtS_(p.text)); delete sc.cover; return { ok: true, scan: sc, ctx: wttCtx_(wtS_(p.text)), groups: WTT_KW.length }; }   // thử bộ từ khoá
@@ -309,6 +310,34 @@ function wtbAuto_(data, o) {
 }
 
 /** op=errs (chỉ đọc, 21/11/2026): gói đang Lỗi / Chờ tải — lý do, hình thức LCNT, số lần thử, địa bàn MMH hay không, vài ví dụ */
+/** so bộ lọc tên gói v1 (trước 21/11/2026) với v2 trên tin thật [from, to] (mặc định 7 ngày) — chỉ đọc */
+function wtbVtCmp_(p) {
+  const tz = 'Asia/Ho_Chi_Minh', to = wtS_(p.to) || Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  const from = wtS_(p.from) && wtS_(p.from) !== '2026-01-01' ? wtS_(p.from) : Utilities.formatDate(new Date(Date.now() - 7 * 864e5), tz, 'yyyy-MM-dd');
+  const OLD = { nameInc: 'vật tư|vtyt|dụng cụ|phẫu thuật|mắt|nhãn|tiêu hao|chỉ khâu|\\bdao\\b|kim|thủy tinh thể|thuỷ tinh thể|dịch kính|trang thiết bị y tế|thiết bị y tế|nha khoa|răng|nội nha|composite',
+    nameExc: 'kiểm định|hiệu chuẩn|thuốc|dược liệu|vị thuốc|hóa chất|hoá chất|xét nghiệm|sửa chữa|bảo dưỡng|bảo trì|xây dựng|xây lắp|cải tạo|dịch vụ|\\bthuê|phần mềm|in ấn|văn phòng phẩm|thực phẩm|suất ăn|khí y tế|\\boxy|lọc máu|chạy thận|thận nhân tạo|x-quang|x quang|\\bphim|máy|hệ thống|vắc xin|vaccine|sinh phẩm',
+    nameStrong: 'phẫu thuật|mắt|nhãn khoa|chỉ khâu|thủy tinh thể|thuỷ tinh thể|dịch kính|vật tư y tế|vật tư nha khoa|vật liệu nha khoa|răng hàm mặt|nội nha' };
+  const OLDT = { nameExc: OLD.nameExc + '|bảo hiểm|tư vấn|giám sát|đồng phục|xăng|nhiên liệu|điện năng|vệ sinh|thu gom|rác thải|bảo vệ|mua sắm tài sản|ô tô|xe ',
+    nameStrong: 'phẫu thuật|mắt|phaco|nhãn khoa|chỉ khâu|thủy tinh thể|thuỷ tinh thể|dịch kính|vật tư y tế|vật tư nha khoa|vật liệu nha khoa|nha khoa|răng hàm mặt|nội nha' };
+  const fo = wtbNameFn_(OLD), fn = wtbNameFn1_(), fot = wtbNameFn_(OLDT), fnt = wtbNameFn_(wtbVtP_(true));
+  const data = wtLoad_(wtBook_()), TG = wttTargets_(), seen = {};
+  const out = { ok: true, from: from, to: to, total: 0, other: { old: 0, now: 0, add: [], drop: [] }, target: { old: 0, now: 0, add: [], drop: [] } };
+  ['kqdt', 'tbmt'].forEach(function (type) {
+    (data[type] || []).forEach(function (r) {
+      const d = r.date || r.upd || '', b = wtBare_(r.no);
+      if (!r.no || !d || d < from || d > to || seen[type + b]) return;
+      seen[type + b] = 1; out.total++;
+      const tg = wttLabels_(TG, r.inv).length > 0, o = tg ? fot(r.name) : fo(r.name), n = tg ? fnt(r.name) : fn(r.name), X = tg ? out.target : out.other;
+      if (o) X.old++; if (n) X.now++;
+      const row = [type === 'kqdt' ? 'KQ' : 'TBMT', b, d, wtS_(r.inv).slice(0, 45), wtS_(r.name).slice(0, 110)];
+      if (n && !o && X.add.length < 60) X.add.push(row);
+      if (o && !n && X.drop.length < 60) X.drop.push(row);
+    });
+  });
+  return out;
+}
+function wtbNameFn1_() { return wtbNameFn_(wtbVtP_()); }
+
 /** 21/11/2026: bot đã bỏ bộ lọc caseKHKQ (tìm được Chỉ định thầu rút gọn / Mua sắm trực tiếp)
  *  ⇒ đặt lại các gói Lỗi "Không tìm thấy số" về Chờ tải (số lần thử = 0). Không run=1 ⇒ chỉ đếm. */
 function wtbRefind_(p) {
