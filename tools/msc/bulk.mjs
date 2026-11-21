@@ -90,6 +90,12 @@ if (MODE === 'sum') {
   console.log('TỔNG HỢP GÓI THẦU:', JSON.stringify(r, null, 1));
   process.exit(r.ok ? 0 : 1);
 }
+if (MODE === 'refind' || MODE === 'refind-dry') {
+  const r = await post({ action: 'botGrabInv', op: 'refind', run: MODE === 'refind' ? '1' : '' });
+  console.log(JSON.stringify(r, null, 2));
+  if (!r.ok) process.exit(1);
+  process.exit(0);
+}
 if (MODE === 'errs') {
   const r = await post({ action: 'botGrabInv', op: 'errs' });
   console.log('GÓI LỖI / CHỜ TẢI:', JSON.stringify(r, null, 1));

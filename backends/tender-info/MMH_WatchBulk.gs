@@ -128,6 +128,7 @@ function wtbGrabInv_(p) {
   if (wtS_(p.op) === 'auto') return wtbAuto_(null, { dry: wtTrue_(p.dry), from: wtS_(p.from) });
   if (wtS_(p.op) === 'targets') return wttBacklog_(p);                                   // MMH_WatchTarget.gs — tồn đọng địa bàn MMH
   if (wtS_(p.op) === 'errs') return wtbErrs_(p);                                          // thống kê gói Lỗi (chỉ đọc)
+  if (wtS_(p.op) === 'refind') return wtbRefind_(p);                                      // gói "Không tìm thấy số" ⇒ Chờ tải lại (run=1)
   if (wtS_(p.op) === 'sum') return wttSumBuild_(true);
   if (wtS_(p.op) === 'sumheal') return wtdSumHeal_();                                     // dọn dòng "cần Agent" đã tải xong (tab Tài liệu)                                    // ghi ngay tab "Tổng hợp gói thầu"
   if (wtS_(p.op) === 'scan') { try { wttKwLoad_(wtdSumBook_()); } catch (e) {} const sc = wttScan_(wtS_(p.text)); delete sc.cover; return { ok: true, scan: sc, ctx: wttCtx_(wtS_(p.text)), groups: WTT_KW.length }; }   // thử bộ từ khoá
@@ -275,6 +276,30 @@ function wtbAuto_(data, o) {
 }
 
 /** op=errs (chỉ đọc, 21/11/2026): gói đang Lỗi / Chờ tải — lý do, hình thức LCNT, số lần thử, địa bàn MMH hay không, vài ví dụ */
+/** 21/11/2026: bot đã bỏ bộ lọc caseKHKQ (tìm được Chỉ định thầu rút gọn / Mua sắm trực tiếp)
+ *  ⇒ đặt lại các gói Lỗi "Không tìm thấy số" về Chờ tải (số lần thử = 0). Không run=1 ⇒ chỉ đếm. */
+function wtbRefind_(p) {
+  const ss = wtBook_(), H = wtHits_(ss), re = /Không tìm thấy số/;
+  const pick = H.filter(function (h) { return h.status === WT.ST.ERR && re.test(h.note); });
+  const out = { ok: true, op: wtTrue_(p.run) ? 'run' : 'dry', total: pick.length, byType: {}, byForm: {} };
+  pick.forEach(function (h) { out.byType[h.type] = (out.byType[h.type] || 0) + 1; const f = wtS_((h.info || {}).form) || '(không rõ)'; out.byForm[f] = (out.byForm[f] || 0) + 1; });
+  if (!wtTrue_(p.run) || !pick.length) return out;
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) return { ok: false, code: 'BUSY', error: 'Máy chủ đang bận — thử lại sau ít giây.' };
+  try {
+    const sh = wtSheet_(ss, WT.SH_H, WT.HH), n = sh.getLastRow() - 1;
+    const rg = sh.getRange(2, 11, n, 5), v = rg.getValues();          // K Trạng thái … O Ghi chú
+    let k = 0;
+    v.forEach(function (r) {
+      if (wtS_(r[0]) === WT.ST.ERR && re.test(wtS_(r[4]))) { r[0] = WT.ST.WAIT; r[2] = 0; r[4] = 'Tìm lại (bot đã sửa tìm kiếm 21/11/2026)'; k++; }
+    });
+    if (k) rg.setValues(v);
+    out.reset = k;
+  } finally { lock.releaseLock(); }
+  try { CacheService.getScriptCache().removeAll(['wt_docs', 'wt_q']); } catch (e) {}
+  return out;
+}
+
 function wtbErrs_(p) {
   const H = wtHits_(wtBook_()), T = wttTargets_(), out = { ok: true, err: 0, wait: 0, byNote: {}, byForm: {}, byTries: {}, byType: {}, target: 0, waitBy: {}, sample: [] };
   const cut = function (s) { return wtS_(s).replace(/IB\d{10}(-\d+)?|PL\d{10}/g, '#').slice(0, 70) || '(trống)'; };
