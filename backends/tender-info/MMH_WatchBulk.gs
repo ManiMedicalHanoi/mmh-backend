@@ -19,20 +19,23 @@
    ════════════════════════════════════════════════════════════════════ */
 const WTB = { MAX: 3000, WANT_DEF: ['tbmt', 'hsmt', 'mo', 'kq', 'nt', 'hh', 'qd'],
   // bộ lọc TÊN GÓI "vật tư y tế" v2 (21/11/2026, người dùng yêu cầu) — xét TỪNG VẾ của tên gói (tách ở "và", dấu phẩy, ; + / ( ) " - "):
-  //   1 vế đạt khi: không có từ LOẠI HẲN (hard) VÀ (có từ CHẮC CHẮN (strong) HOẶC (có từ VẬT TƯ (inc) và không có từ LOẠI MỀM (exc)))
+  //   Tên có từ LOẠI CẢ GÓI (all: dịch vụ, sửa chữa, kiểm định…) ⇒ bỏ. Còn lại: 1 vế đạt khi: không có từ LOẠI VẾ (hard) VÀ (có từ CHẮC CHẮN (strong) HOẶC (có từ VẬT TƯ (inc) và không có từ LOẠI MỀM (exc)))
   //   ⇒ "Hóa chất xét nghiệm và vật tư tiêu hao", "Thuốc và vật tư tiêu hao" vẫn nhận; "Thuốc generic … Bệnh viện Mắt" bị bỏ.
   //   Hóa chất / xét nghiệm (weak) KHÔNG còn loại khi vế có từ vật tư; chỉ dùng cho địa bàn MMH (nameIncOpt: vế không có từ vật tư nào
   //   thì cả tên phải sạch hard + exc + weak). GIỐNG tools/msc/knife-extra.json (sửa 1 nơi chép nơi kia).
   VT: {
-    inc: ['vật tư', 'vật liệu', 'vtyt', 'vtth', 'tbyt', 'dụng cụ', 'y cụ', 'phẫu thuật', 'phẫu', 'mổ', '(?<!viện |bv |tâm )mắt', 'nhãn khoa', 'nhãn cầu',
-      'tiêu hao', 'dùng một lần', 'sử dụng một lần', '(?:^|[^a-zà-ỹđ])chỉ(?![a-zà-ỹđ])(?!\\s+(?:định|số|đạo|tiêu|thị|huy|dẫn|có|được|là|riêng|cần|mới|còn|cho phép))',
-      'khâu', '\\bdao\\b(?! động)', 'lưỡi', '\\bkim\\b(?! loại)', 'kéo(?! dài)', 'kẹp', 'kìm', '\\bpanh', 'nhíp', 'ghim', 'trocar', 'catheter', 'sonde', 'ống thông',
+    inc: ['vật tư', 'vật liệu (?:y tế|nha khoa|tiêu hao|cầm máu|phẫu thuật|cấy ghép|khâu)', 'vtyt', 'vtth', 'dụng cụ', 'y cụ', 'áo choàng', 'phẫu thuật', 'phẫu', '(?<!viện |bv |tâm )mắt', 'nhãn khoa', 'nhãn cầu',
+      '(?<!hóa chất |hoá chất )tiêu hao', 'dùng một lần', 'sử dụng một lần', '(?:^|[^a-zà-ỹđ])chỉ(?![a-zà-ỹđ])(?!\\s+(?:định|số|đạo|tiêu|thị|huy|dẫn|có|được|là|riêng|cần|mới|còn|cho phép))',
+      'khâu', '\\bdao\\b(?! động)', 'lưỡi dao', '\\bkim\\b(?! loại)', 'kéo(?! dài)', 'kẹp', 'kìm', '\\bpanh', 'nhíp', 'ghim', 'trocar', 'catheter', 'sonde', 'ống thông',
       'dẫn lưu', 'stent', 'găng', 'băng gạc', 'băng dính', 'băng keo', '\\bgạc', 'bông y tế', 'bông gòn', 'bông hút', 'thủy tinh thể', 'thuỷ tinh thể', '\\biol\\b',
-      'dịch kính', 'phaco', 'dịch nhầy', 'nội soi', 'can thiệp', 'chỉnh hình', 'implant', 'thiết bị y tế', 'nha khoa', 'răng', 'nội nha', 'trâm',
+      'dịch kính', 'phaco', 'dịch nhầy', '\\bnhầy', 'chỉnh hình', 'implant', 'nha khoa', 'răng', 'nội nha', 'trâm',
       'mũi khoan', 'kim cương', 'composite', '\\btrám', 'keo dán', 'tẩy trắng', 'chỉnh nha'].join('|'),
-    hard: 'thuốc|dược liệu|dược phẩm|vắc xin|vaccine|sinh phẩm|châm cứu|kiểm định|hiệu chuẩn|sửa chữa|bảo dưỡng|bảo trì|xây dựng|xây lắp|cải tạo|dịch vụ|\\bthuê|phần mềm|' +
-      'in ấn|văn phòng phẩm|thực phẩm|suất ăn|bảo hiểm|tư vấn|giám sát|đồng phục|xăng|nhiên liệu|điện năng|thu gom|rác thải|bảo vệ|ô tô',
-    exc: 'khí y tế|\\boxy|lọc máu|chạy thận|thận nhân tạo|x-quang|x quang|\\bphim|máy|hệ thống|vệ sinh|mua sắm tài sản|\\bxe ',
+    // LOẠI CẢ GÓI: dịch vụ / sửa chữa / kiểm định / xây dựng… (có vật tư đi kèm vẫn là gói dịch vụ)
+    all: 'kiểm định|hiệu chuẩn|sửa chữa|bảo dưỡng|bảo trì|xây dựng|xây lắp|cải tạo|dịch vụ|phần mềm|in ấn|văn phòng phẩm|bảo hiểm|tư vấn|giám sát|đồng phục|' +
+      'xăng|nhiên liệu|điện năng|thu gom|rác thải|bảo vệ|ô tô',
+    // LOẠI VẾ: thuốc / sinh phẩm / đồ nội thất y tế… — vế khác có vật tư thì gói vẫn nhận ("Thuốc và vật tư tiêu hao")
+    hard: 'thuốc|dược liệu|dược phẩm|vắc xin|vaccine|sinh phẩm|châm cứu|thực phẩm|suất ăn|\\bthuê|ghế|giường|bàn mổ|đèn mổ|bồn rửa|\\btủ |xe đẩy|\\bcáng',
+    exc: 'khí y tế|\\boxy|lọc máu|chạy thận|thận nhân tạo|x-quang|x quang|\\bphim|máy|hệ thống|vệ sinh|mua sắm tài sản|\\bxe |siêu âm|nội soi|linh kiện',
     weak: 'hóa chất|hoá chất|xét nghiệm',
     strong: 'phẫu thuật|(?<!viện |bv |tâm )mắt|phaco|nhãn khoa|chỉ khâu|thủy tinh thể|thuỷ tinh thể|dịch kính|vật tư y tế|vật tư nha khoa|vật liệu nha khoa|' +
       'nha khoa|răng hàm mặt|nội nha' },
@@ -42,7 +45,7 @@ const WTB = { MAX: 3000, WANT_DEF: ['tbmt', 'hsmt', 'mo', 'kq', 'nt', 'hh', 'qd'
 
 /** tham số lọc tên gói vật tư (WTB.VT) cho wtbPick_; incOpt = địa bàn MMH (không bắt buộc từ vật tư) */
 function wtbVtP_(incOpt) {
-  return { nameInc: WTB.VT.inc, nameExc: WTB.VT.exc, nameStrong: WTB.VT.strong, nameHard: WTB.VT.hard, nameWeak: WTB.VT.weak, nameIncOpt: incOpt ? 1 : '' };
+  return { nameInc: WTB.VT.inc, nameExc: WTB.VT.exc, nameStrong: WTB.VT.strong, nameHard: WTB.VT.hard, nameWeak: WTB.VT.weak, nameAll: WTB.VT.all, nameIncOpt: incOpt ? 1 : '' };
 }
 
 function wtbList_(v) {
@@ -56,10 +59,13 @@ function wtbList_(v) {
 /** hàm lọc tên gói theo vế (dùng ở wtbPick_ + thử nghiệm): p.nameInc / nameExc / nameStrong / nameHard / nameWeak / nameIncOpt */
 function wtbNameFn_(p, rx) {
   rx = rx || function (v) { const t = wtS_(v); return t ? new RegExp(t.normalize('NFC').toLowerCase()) : null; };
-  const NI = rx(p.nameInc), NE = rx(p.nameExc), NS = rx(p.nameStrong), NH = rx(p.nameHard), NW = rx(p.nameWeak), opt = wtTrue_(p.nameIncOpt);
-  if (!NI && !NE && !NS && !NH && !NW) return function () { return true; };
+  const NI = rx(p.nameInc), NE = rx(p.nameExc), NS = rx(p.nameStrong), NH = rx(p.nameHard), NW = rx(p.nameWeak), NA = rx(p.nameAll), opt = wtTrue_(p.nameIncOpt);
+  if (!NI && !NE && !NS && !NH && !NW && !NA) return function () { return true; };
   return function (nm) {
-    const t = wtS_(nm).normalize('NFC').toLowerCase().replace(/\s+/g, ' ');
+    // bỏ tiền tố "Mã TBMT : IB…-00-" / "Gói thầu số 13:" (mã gói như "TBYT 01" không phải từ vật tư)
+    const t = wtS_(nm).normalize('NFC').toLowerCase().replace(/\s+/g, ' ').replace(/^mã tbmt\s*:\s*\S+?-\d{2}-/, '')
+      .replace(/^gói(?: thầu)?(?: số)?(?:\s*[\w.\/-]+){0,3}\s*:\s*/, '');
+    if (NA && NA.test(t)) return false;
     const seg = t.split(WTB.SPLIT).map(function (x) { return x.trim(); }).filter(String);
     for (let i = 0; i < seg.length; i++) {
       const g = seg[i];
