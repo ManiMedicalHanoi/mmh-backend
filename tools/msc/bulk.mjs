@@ -117,7 +117,7 @@ if (MODE === 'scan') {   // thử bộ từ khoá: BULK_RE = đoạn chữ
   process.exit(r.ok ? 0 : 1);
 }
 if (MODE === 'auto' || MODE === 'auto-dry' || MODE === 'auto-status') {
-  const r = await post(MODE === 'auto-status' ? { action: 'botGrabInv', op: 'autoStatus' } : { action: 'botGrabInv', op: 'auto', dry: MODE === 'auto-dry' ? 1 : 0, from: process.env.BULK_AUTO_FROM || '' });
+  const r = await post(MODE === 'auto-status' ? { action: 'botGrabInv', op: 'autoStatus' } : { action: 'botGrabInv', op: 'auto', dry: MODE === 'auto-dry' ? 1 : 0, from: process.env.BULK_AUTO_FROM || (FROM !== '2026-01-01' ? FROM : '') });
   console.log('TỰ ĐẶT TẢI HẰNG NGÀY (gói vật tư: Kết quả ⇒ bot cloud · TBMT / KHLCNT ⇒ máy có Agent):', JSON.stringify(r, null, 1));
   process.exit(r.ok ? 0 : 1);
 }
