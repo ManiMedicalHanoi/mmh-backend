@@ -16,13 +16,13 @@
  * Lệnh có khoá: pqDiag {key, b} ⇒ số lượt, link Sheet kết quả.
  * Đáp án đúng KHÔNG gửi xuống trước khi trả lời; máy chủ tự đo thời gian từng câu (CacheService, 2 giờ / lượt).
  * Điểm: đúng = 500 + tới 500 theo thời gian còn lại (tối đa 1.000 / câu); sai / hết giờ = 0. Đạt khi đúng ≥ pass.
- * v1.3 (21/11/2026): bài có khoá out {id, tab, from} (MMH_PartnerQuizBank.gs) ⇒ mỗi lượt ghi THÊM vào Sheet riêng của buổi đào tạo, tab theo ngày + NPP
- *   (khoá old = tên tab cũ ⇒ tự đổi tên; pqOutSync_: chép các lượt của bài từ ngày from còn thiếu, theo Mã lượt; góp ý cập nhật cùng dòng). Sheet gốc vẫn là nguồn của xếp hạng.
- *   Lỗi (vd. tài khoản chạy máy chủ chưa có quyền sửa Sheet) ⇒ Script Property PQ_OUT_ERR; pqDiag &out=1 chạy ngay và báo kết quả.
+ * v1.4 (21/11/2026, người dùng yêu cầu): kết quả theo NPP — Sheet kết quả có tab cố định Meci · SPI · Nam Dũng · Việt Thái (PQ_OUT.TABS), cột đầu "Ngày đào tạo".
+ *   Bài có out = [{ npp, date, to? }] (MMH_PartnerQuizBank.gs) ⇒ mỗi lượt / góp ý ghi thêm vào tab NPP của buổi tương ứng (pqOutSync_, chép lượt còn thiếu theo Mã lượt).
+ *   Tab KET_QUA + TỔNG HỢP giữ nguyên (nguồn xếp hạng). pqDiag &out=1 ⇒ pqOutInit_: tạo đủ tab, xoá tab tạm rỗng, chép lại mọi bài; lỗi ⇒ Script Property PQ_OUT_ERR.
  * Kết quả: Google Sheet "MMH · Bài kiểm tra đối tác · Kết quả" (thư mục SV.FOLDER, tab KET_QUA) + email tóm tắt mỗi lượt
  * về chủ thư mục (= tài khoản chạy máy chủ; đổi bằng Script Property PQ_NOTIFY, "-" = tắt email). Ngân hàng câu hỏi: MMH_PartnerQuizBank.gs.
  */
-var PQ = { VER: '1.3', SUM_TAB: 'TỔNG HỢP', BOOK_PROP: 'PQ_BOOK', BOOK: 'MMH · Bài kiểm tra đối tác · Kết quả', TAB: 'KET_QUA', FB: 3500, TTL: 7200,
+var PQ = { VER: '1.4', SUM_TAB: 'TỔNG HỢP', BOOK_PROP: 'PQ_BOOK', BOOK: 'MMH · Bài kiểm tra đối tác · Kết quả', TAB: 'KET_QUA', FB: 3500, TTL: 7200,
   PAGE: 'https://manimedicalhanoi.github.io/MMH-Survey/training-quiz/doi-tac/',
   HEAD: ['Thời gian nộp', 'Mã bài', 'Bài', 'Họ tên', 'Đại lý / NPP', 'Số điện thoại', 'Số câu đúng', 'Số câu', 'Điểm', 'Đạt', 'Thời gian làm (giây)', 'Chi tiết', 'Mã lượt', 'Góp ý sản phẩm (không tính điểm)'] };
 
@@ -373,54 +373,84 @@ function pqSummary_() {
   return { rows: out.length, ms: Date.now() - t0 };
 }
 
-/* ---------- Sheet riêng của buổi đào tạo (khoá out của bài) ---------- */
+/* ---------- tab theo NPP trong Sheet kết quả (v1.4) ---------- */
+var PQ_OUT = { TABS: ['Meci', 'SPI', 'Nam Dũng', 'Việt Thái'], DATE_COL: 'Ngày đào tạo',
+  DROP: ['21.11.26_Merci', '21.11.26_Meci'] };   // tab tạm tạo nhầm 21/11/2026 — chỉ xoá khi không có dòng dữ liệu
+function pqOutHead_() { return [PQ_OUT.DATE_COL].concat(PQ.HEAD); }
+function pqDay_(d) { if (!d) return 0; var a = String(d).split('-'); return new Date(+a[0], +a[1] - 1, +a[2]).getTime(); }
+function pqOutTab_(ss, name) {
+  var sh = ss.getSheetByName(name);
+  if (sh) return sh;
+  var H = pqOutHead_();
+  sh = ss.insertSheet(name);
+  sh.getRange(1, 1, 1, H.length).setValues([H]).setFontWeight('bold').setBackground('#EEF3F8').setFontColor('#22384F');
+  sh.setFrozenRows(1);
+  [100, 140, 90, 230, 170, 170, 110, 80, 60, 70, 70, 90, 260, 140, 260].forEach(function (w, i) { sh.setColumnWidth(i + 1, w); });
+  return sh;
+}
+
+/* tạo đủ tab NPP, xoá tab tạm rỗng, rồi chép mọi bài có out */
+function pqOutInit_() {
+  var ss = pqBook_(), made = [], dropped = [];
+  PQ_OUT.TABS.forEach(function (t) { if (!ss.getSheetByName(t)) { pqOutTab_(ss, t); made.push(t); } });
+  PQ_OUT.DROP.forEach(function (t) {
+    var sh = ss.getSheetByName(t);
+    if (sh && sh.getLastRow() <= 1 && ss.getSheets().length > 1) { ss.deleteSheet(sh); dropped.push(t); }
+  });
+  var res = { ok: true, made: made, dropped: dropped, tabs: {}, sync: {} };
+  PQ_OUT.TABS.forEach(function (t) { var sh = ss.getSheetByName(t); res.tabs[t] = ss.getUrl() + '#gid=' + sh.getSheetId(); });
+  Object.keys(PQ_BANK).forEach(function (b) { if (PQ_BANK[b].out) { try { res.sync[b] = pqOutSync_(b); } catch (x) { res.sync[b] = { ok: false, error: x.message }; } } });
+  return res;
+}
+
+/* chép lượt làm bài b còn thiếu sang tab NPP của buổi đào tạo tương ứng; góp ý cập nhật cùng dòng */
 function pqOutSync_(b) {
-  var z = pqQuiz_(b), o = z && z.out;
-  if (!o || !o.id || !o.tab) return { ok: false, code: 'NOOUT' };
-  var P = PropertiesService.getScriptProperties(), t0 = Date.now();
+  var z = pqQuiz_(b), ses = z && z.out;
+  if (!ses || !ses.length) return { ok: false, code: 'NOOUT' };
+  ses = ses.map(function (o) { return { npp: o.npp, date: o.date, from: pqDay_(o.from || o.date), to: pqDay_(o.to) }; })
+    .sort(function (x, y) { return x.from - y.from; });
+  var P = PropertiesService.getScriptProperties(), t0 = Date.now(), W = PQ.HEAD.length;
   var lock = LockService.getScriptLock(); lock.waitLock(20000);
   try {
     var ss;
-    try { ss = SpreadsheetApp.openById(o.id); } catch (x) {
-      var m = 'Không mở được Sheet (tài khoản chạy máy chủ chưa có quyền sửa?): ' + x.message;
-      P.setProperty('PQ_OUT_ERR', new Date().toISOString() + ' · ' + m); return { ok: false, code: 'OPEN', error: m };
+    try { ss = pqBook_(); } catch (x) {
+      P.setProperty('PQ_OUT_ERR', new Date().toISOString() + ' · ' + x.message); return { ok: false, code: 'OPEN', error: x.message };
     }
-    var sh = ss.getSheetByName(o.tab);
-    if (!sh && o.old) { sh = ss.getSheetByName(o.old); if (sh) sh.setName(o.tab); }   // đổi tên tab cũ (giữ dữ liệu)
-    var fresh = !sh, W = PQ.HEAD.length;
-    if (fresh) {
-      sh = ss.insertSheet(o.tab);
-      sh.getRange(1, 1, 1, W).setValues([PQ.HEAD]).setFontWeight('bold').setBackground('#EEF3F8').setFontColor('#22384F');
-      sh.setFrozenRows(1);
-      [140, 90, 230, 170, 170, 110, 80, 60, 70, 70, 90, 260, 140, 260].forEach(function (w, i) { sh.setColumnWidth(i + 1, w); });
-    }
-    var from = 0;
-    if (o.from) { var d = String(o.from).split('-'); from = new Date(+d[0], +d[1] - 1, +d[2]).getTime(); }
-    var src = pqSheet_(), last = src.getLastRow(), want = [];
+    var src = pqSheet_(), last = src.getLastRow(), by = {};
     if (last > 1) src.getRange(2, 1, last - 1, W).getValues().forEach(function (r) {
-      if (String(r[1]) !== b) return;
-      if (from && !(r[0] instanceof Date && r[0].getTime() >= from)) return;
-      want.push(r);
+      if (String(r[1]) !== b || !(r[0] instanceof Date)) return;
+      var t = r[0].getTime(), hit = null;
+      for (var i = 0; i < ses.length; i++) {
+        var end = ses[i].to || (ses[i + 1] ? ses[i + 1].from : Infinity);
+        if (t >= ses[i].from && t < end) { hit = ses[i]; break; }
+      }
+      if (!hit) return;
+      (by[hit.npp] = by[hit.npp] || []).push({ r: r, d: hit.date });
     });
-    var have = {}, el = sh.getLastRow();
-    if (el > 1) sh.getRange(2, 13, el - 1, 2).getValues().forEach(function (r, i) { if (r[0]) have[String(r[0])] = { row: i + 2, fb: String(r[1]).replace(/^'/, '') }; });
-    var add = [], upd = 0;
-    want.forEach(function (r) {
-      var h = have[String(r[12])], fb = String(r[13] || '');
-      if (!h) {
-        var v = r.slice(); v[5] = "'" + String(v[5]).replace(/^'/, ''); if (fb) v[13] = "'" + fb;
-        add.push(v);
-      } else if (fb && h.fb !== fb) { sh.getRange(h.row, 14).setValue("'" + fb); upd++; }
+    var out = { ok: true, tabs: {} };
+    Object.keys(by).forEach(function (npp) {
+      var sh = pqOutTab_(ss, npp), have = {}, el = sh.getLastRow(), add = [], upd = 0;
+      if (el > 1) sh.getRange(2, 14, el - 1, 2).getValues().forEach(function (r, i) { if (r[0]) have[String(r[0])] = { row: i + 2, fb: String(r[1]).replace(/^'/, '') }; });
+      by[npp].forEach(function (x) {
+        var r = x.r, h = have[String(r[12])], fb = String(r[13] || '');
+        if (!h) {
+          var a = x.d.split('-'), v = [new Date(+a[0], +a[1] - 1, +a[2])].concat(r.slice());
+          v[6] = "'" + String(v[6]).replace(/^'/, ''); v[14] = fb ? "'" + fb : '';
+          add.push(v);
+        } else if (fb && h.fb !== fb) { sh.getRange(h.row, 15).setValue("'" + fb); upd++; }
+      });
+      if (add.length) {
+        var at = sh.getLastRow() + 1;
+        sh.getRange(at, 1, add.length, W + 1).setValues(add);
+        sh.getRange(at, 1, add.length, 1).setNumberFormat('dd/MM/yyyy');
+        sh.getRange(at, 2, add.length, 1).setNumberFormat('dd/MM/yyyy HH:mm:ss');
+      }
+      out.tabs[npp] = { rows: by[npp].length, added: add.length, updated: upd, url: ss.getUrl() + '#gid=' + sh.getSheetId() };
     });
-    if (add.length) {
-      var at = sh.getLastRow() + 1;
-      sh.getRange(at, 1, add.length, W).setValues(add);
-      sh.getRange(at, 1, add.length, 1).setNumberFormat('dd/MM/yyyy HH:mm:ss');
-    }
-    var res = { ok: true, tab: o.tab, url: ss.getUrl() + '#gid=' + sh.getSheetId(), created: fresh, rows: want.length, added: add.length, updated: upd, ms: Date.now() - t0 };
-    P.setProperty('PQ_OUT_LAST', JSON.stringify({ at: new Date().toISOString(), b: b, added: add.length, rows: want.length }));
+    out.ms = Date.now() - t0;
+    P.setProperty('PQ_OUT_LAST', JSON.stringify({ at: new Date().toISOString(), b: b, tabs: Object.keys(out.tabs) }));
     P.deleteProperty('PQ_OUT_ERR');
-    return res;
+    return out;
   } finally { lock.releaseLock(); }
 }
 
@@ -431,7 +461,7 @@ function pqDiag_(b, sum, doOut) {
   out.notify = pqNotify_() ? 'có' : 'tắt';
   if (sum) { try { out.summary = pqSummary_(); var t = pqBook_().getSheetByName(PQ.SUM_TAB); if (t) out.summaryUrl = out.sheet + '#gid=' + t.getSheetId(); } catch (x) { out.sumErr = x.message; } }
   out.top = PQ.PAGE + '?v=top';
-  if (b && doOut) { try { out.out = pqOutSync_(b); } catch (x) { out.out = { ok: false, error: x.message }; } }
+  if (doOut) { try { out.out = pqOutInit_(); } catch (x) { out.out = { ok: false, error: x.message }; } }
   var P = PropertiesService.getScriptProperties();
   out.outErr = P.getProperty('PQ_OUT_ERR') || ''; out.outLast = P.getProperty('PQ_OUT_LAST') || '';
   return out;

@@ -1,8 +1,11 @@
 /**
  * Ngân hàng câu hỏi — bài kiểm tra đối tác (NPP, đại lý) sau buổi đào tạo nha khoa.
+ * v3.5 (21/11/2026, người dùng yêu cầu): kết quả theo NPP — mỗi bài có out = [{ npp, date, to? }] (buổi đào tạo dùng bài này) ⇒ lượt làm bài ghi thêm vào tab
+ *   của NPP trong Sheet kết quả (PQ_OUT.TABS: Meci · SPI · Nam Dũng · Việt Thái), cột "Ngày đào tạo" = date. Lượt thuộc buổi có from (= date) gần nhất trước giờ nộp
+ *   (tới to, nếu có). Buổi mới: thêm 1 phần tử vào out của bài dùng cho buổi đó (bài mới thì tạo bài mới).
  * v3.4 (21/11/2026, người dùng yêu cầu): 'nha-khoa-3' thêm 6 câu JIZAI + composite vào nhóm c1 (deck v3 có slide JIZAI, composite chi tiết) — mỗi lượt vẫn 2/10 câu nhóm c1,
  *   8/10 câu về 2 sản phẩm mới. Câu "thận trọng quanh vùng nào" đổi đáp án nhiễu "Xoang hàm và men răng" ⇒ "Men răng và ngà răng" (slide an toàn nay nhắc xoang hàm).
- *   Kết quả ghi thêm vào Sheet riêng của buổi đào tạo: khoá out {id, tab, from} (MMH_PartnerQuiz.gs ▸ pqOutSync_).
+ *   (khoá out: xem v3.5).
  * v3.3 (20/11/2026, người dùng yêu cầu): thêm bài 'nha-khoa-3' cho bộ slide mới "Danh mục nha khoa MANI và hai sản phẩm mới" (đào tạo đại lý):
  *   c1 tổng quan danh mục (dụng cụ MANI, vật liệu MMG) · c2 Carbide Bur 1559L đặc điểm · c3 1559L sử dụng an toàn · c4 IPR-01EF thiết kế · c5 IPR-01EF lâm sàng, chỉ định.
  *   Mọi câu có trên slide (tờ rơi 1559L D17701, IFU Carbide Burs, IPR-01EF Clinical Report D14501, series Thủ thuật nha khoa tập 4, 6, 14, 18).
@@ -19,6 +22,7 @@ var PQ_BANK = {
     title: 'Dụng cụ nội nha và mũi khoan MANI',
     sub: 'Bài kiểm tra · Phần 1',
     perQ: 20, n: 10, pass: 6, prize: 'Top 3 điểm cao nhất nhận túi cói MANI',
+    out: [{ npp: 'Meci', date: '2026-11-17', to: '2026-11-18' }],   // đào tạo NPP Meci 17/11/2026
     qs: [
       { c: 1, q: 'JIZAI (自在) trong tiếng Nhật nghĩa là gì?', o: ['Tốc độ', 'Tự tại', 'Sắc bén', 'Bền vững'], a: 1, x: 'JIZAI nghĩa là "tự tại": ung dung, làm chủ mọi chuyển động.' },
       { c: 1, q: 'Ba giá trị cốt lõi của JIZAI, đúng thứ tự?', o: ['Linh hoạt · Bền bỉ · Đơn giản', 'Đơn giản · Linh hoạt · Bền bỉ', 'Bền bỉ · Linh hoạt · Đơn giản', 'Bền bỉ · Đơn giản · Linh hoạt'], a: 2, x: 'Bền bỉ, linh hoạt, đơn giản.' },
@@ -48,6 +52,7 @@ var PQ_BANK = {
     title: 'Vật liệu MMG và sản phẩm mới',
     sub: 'Bài kiểm tra · Phần 2',
     perQ: 20, n: 10, pass: 6, prize: 'Top 3 điểm cao nhất nhận túi cói MANI',
+    out: [{ npp: 'Meci', date: '2026-11-17', to: '2026-11-18' }],   // đào tạo NPP Meci 17/11/2026
     qs: [
       { c: 1, q: 'Trám răng sau nhanh, lớp dày: gợi ý dòng nào?', o: ['Mani Micro', 'Mani Bulk', 'Mani Flo-V', 'Mani EG'], a: 1, x: 'Mani Bulk đặt một lớp 4 mm, chiếu 20 giây.' },
       { c: 1, q: 'Trám bít hố rãnh, tổn thương cổ răng xoang V: gợi ý dòng nào?', o: ['Mani Flo-V', 'Mani Nano', 'Mani Bulk', 'Mani Micro'], a: 0, x: 'Chảy lỏng độ nhớt cao, không nhỏ giọt, đặt đúng vị trí.' },
@@ -85,7 +90,7 @@ var PQ_BANK = {
     sub: 'Bài kiểm tra · 1559L và IPR-01EF',
     perQ: 20, n: 10, pass: 6, prize: 'Top 3 điểm cao nhất nhận túi cói MANI',
     // buổi đào tạo NPP Meci 21/11/2026: kết quả ghi thêm vào Sheet người dùng gửi, tab theo ngày + NPP (chỉ lượt từ ngày from)
-    out: { id: '18PuIGqsglswkcq4okVxtdKt1IjqloLXYCBMgiRd5Dd0', tab: '21.11.26_Meci', old: '21.11.26_Merci', from: '2026-11-21' },
+    out: [{ npp: 'SPI', date: '2026-11-21' }],   // đào tạo NPP SPI 21/11/2026
     qs: [
       { c: 1, q: 'Ba giá trị cốt lõi của trâm máy JIZAI?', o: ['Bền bỉ · Linh hoạt · Đơn giản', 'Nhanh · Rẻ · Nhẹ', 'Cứng · Thẳng · Dài', 'Sắc · Mảnh · Dùng một lần'], a: 0, x: 'JIZAI là trâm máy NiTi xử lý nhiệt: bền bỉ, linh hoạt, đơn giản.' },
       { c: 1, q: 'Bộ tạo hình JIZAI gồm mấy trâm?', o: ['2 trâm', '3 trâm: JIZAI I, II, III', '6 trâm', '10 trâm'], a: 1, x: 'Chỉ 3 trâm tạo hình cho hầu hết các ca: ít dụng cụ phải học và quản lý.' },
