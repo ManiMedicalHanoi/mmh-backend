@@ -464,6 +464,7 @@ function handle(e, method){
         return reply({ ok:true, unchanged:true, ver:dataVersion(), _ver:_cv }, callback);
     }
 
+    if (/^(ping|boot|bundle|version|mt[A-Z]\w*)$/.test(String(action))) { try { mtaTick_(); } catch(eA){} }   /* 21/11/2026 — trigger email Họp nhóm thứ Bảy 16:00 */
     /* HỌP TUẦN: action mt… xử lý bởi module cuối file */
     if (/^mt[A-Z]/.test(String(action))) return reply(mtRoute_(String(action), p), callback);
 
@@ -507,6 +508,7 @@ function handle(e, method){
       if (_rid && WRITE_ACTIONS[action]) idemEnd_(_rid, out);
       return reply(out, callback);
     }
+    if (action === 'mtaRun') return reply(mtaRun_(p), callback);   /* 21/11/2026 — MMH_MeetAuto.gs: email biên bản Họp nhóm tự gửi 16:00 thứ Bảy (status / dry / send, cần key) */
     if (action === 'k68Diag') return reply(k68Diag_(p), callback);   /* 17/10/2026 — chẩn đoán ô #ERROR! KPI viếng thăm (chỉ đọc; fix=1 chạy lại bản vá) */
     if (action === 'ordDiag') return reply(ordDiag_(p), callback);   /* 05/11/2026 — chẩn đoán đơn hàng (chỉ đọc, cần key) — MMH_OrderDiag.gs */
     if (action === 'kpiPush') return reply({ ok:true, kpiPush:k68PushQuick_() }, callback);
