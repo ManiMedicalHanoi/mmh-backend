@@ -37,7 +37,7 @@ const WTB = { MAX: 3000, WANT_DEF: ['tbmt', 'hsmt', 'mo', 'kq', 'nt', 'hh', 'qd'
     hard: 'thuốc|dược liệu|dược phẩm|vắc xin|vaccine|sinh phẩm|châm cứu|thực phẩm|suất ăn|\\bthuê|ghế|giường|bàn mổ|đèn mổ|bồn rửa|\\btủ |xe đẩy|\\bcáng',
     exc: 'khí y tế|\\boxy|lọc máu|chạy thận|thận nhân tạo|x-quang|x quang|\\bphim|máy|hệ thống|vệ sinh|mua sắm tài sản|\\bxe |siêu âm|nội soi|linh kiện',
     weak: 'hóa chất|hoá chất|xét nghiệm',
-    strong: 'phẫu thuật|dụng cụ|(?<!viện |bv |tâm )mắt|phaco|nhãn khoa|chỉ khâu|thủy tinh thể|thuỷ tinh thể|dịch kính|vật tư y tế|vật tư nha khoa|vật liệu nha khoa|' +
+    strong: 'phẫu thuật|dụng cụ|y cụ|(?<!viện |bv |tâm )mắt|phaco|nhãn khoa|chỉ khâu|thủy tinh thể|thuỷ tinh thể|dịch kính|vật tư y tế|vật tư nha khoa|vật liệu nha khoa|' +
       'nha khoa|răng hàm mặt|nội nha' },
   SPLIT: /\s+và\s+|\s+&\s+|\s+[-–]\s+|[,;+()\/]/,
   // tự đặt tải hằng ngày (wtbAuto_): Kết quả ⇒ bot cloud (KQ + 2 Excel; QĐ chỉ ghi tên cho Agent) · TBMT / KHLCNT ⇒ CHỈ máy có Agent (ag)
