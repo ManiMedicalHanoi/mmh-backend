@@ -10,7 +10,7 @@
      want mặc định = mọi loại trừ kh. mail (tuỳ chọn, email công ty) = người theo dõi gói ⇒ thấy trong app. op=dry chỉ đếm.
      invs (tuỳ chọn, v1.1) = mảng tên chủ đầu tư đúng như Báo Đấu Thầu ⇒ chỉ lấy gói của các chủ đầu tư này (bỏ qua re).
      pri (số, thấp = trước) · ag=1 (chỉ máy có Agent) · types thêm khmt (KHLCNT, số PL) · op=auto (tự đặt hằng ngày, xem wtbAuto_) · op=autoStatus.
-     nameInc / nameExc / nameStrong (tuỳ chọn, regex chữ thường có dấu) = lọc theo TÊN GÓI: chứa nameStrong ⇒ lấy; không chứa nameInc hoặc chứa nameExc ⇒ bỏ.
+     nameInc / nameExc / nameStrong / nameHard / nameWeak / nameIncOpt (tuỳ chọn, regex chữ thường có dấu) = lọc theo TÊN GÓI, xét TỪNG VẾ (v2 21/11/2026, xem WTB.VT).
      v1.3: op=targets (tồn đọng ĐỊA BÀN MMH, run=1 mới đặt tải) · op=sum (ghi ngay tab "Tổng hợp gói thầu") · op=scan&text= (thử bộ từ khoá) — MMH_WatchTarget.gs.
      Bộ lọc vật tư (WTB.VT) nay nhận cả gói nha khoa / răng (trước bị loại).
    botGoodsScan {key, inc, exc, codes, re, from}
@@ -18,12 +18,32 @@
      hoặc 1 mã trong codes (so không dấu, theo nguyên từ) và không chứa cụm trong exc ⇒ trả từng dòng (chỉ đọc).
    ════════════════════════════════════════════════════════════════════ */
 const WTB = { MAX: 3000, WANT_DEF: ['tbmt', 'hsmt', 'mo', 'kq', 'nt', 'hh', 'qd'],
-  // bộ lọc TÊN GÓI "vật tư y tế" (GIỐNG tools/msc/knife-extra.json — sửa 1 nơi chép nơi kia)
-  VT: { inc: 'vật tư|vtyt|dụng cụ|phẫu thuật|mắt|nhãn|tiêu hao|chỉ khâu|\\bdao\\b|kim|thủy tinh thể|thuỷ tinh thể|dịch kính|trang thiết bị y tế|thiết bị y tế|nha khoa|răng|nội nha|composite',
-    exc: 'kiểm định|hiệu chuẩn|thuốc|dược liệu|vị thuốc|hóa chất|hoá chất|xét nghiệm|sửa chữa|bảo dưỡng|bảo trì|xây dựng|xây lắp|cải tạo|dịch vụ|\\bthuê|phần mềm|in ấn|văn phòng phẩm|thực phẩm|suất ăn|khí y tế|\\boxy|lọc máu|chạy thận|thận nhân tạo|x-quang|x quang|\\bphim|máy|hệ thống|vắc xin|vaccine|sinh phẩm',
-    strong: 'phẫu thuật|mắt|nhãn khoa|chỉ khâu|thủy tinh thể|thuỷ tinh thể|dịch kính|vật tư y tế|vật tư nha khoa|vật liệu nha khoa|răng hàm mặt|nội nha' },
+  // bộ lọc TÊN GÓI "vật tư y tế" v2 (21/11/2026, người dùng yêu cầu) — xét TỪNG VẾ của tên gói (tách ở "và", dấu phẩy, ; + / ( ) " - "):
+  //   1 vế đạt khi: không có từ LOẠI HẲN (hard) VÀ (có từ CHẮC CHẮN (strong) HOẶC (có từ VẬT TƯ (inc) và không có từ LOẠI MỀM (exc)))
+  //   ⇒ "Hóa chất xét nghiệm và vật tư tiêu hao", "Thuốc và vật tư tiêu hao" vẫn nhận; "Thuốc generic … Bệnh viện Mắt" bị bỏ.
+  //   Hóa chất / xét nghiệm (weak) KHÔNG còn loại khi vế có từ vật tư; chỉ dùng cho địa bàn MMH (nameIncOpt: vế không có từ vật tư nào
+  //   thì cả tên phải sạch hard + exc + weak). GIỐNG tools/msc/knife-extra.json (sửa 1 nơi chép nơi kia).
+  VT: {
+    inc: ['vật tư', 'vật liệu', 'vtyt', 'vtth', 'tbyt', 'dụng cụ', 'y cụ', 'phẫu thuật', 'phẫu', 'mổ', '(?<!viện |bv |tâm )mắt', 'nhãn khoa', 'nhãn cầu',
+      'tiêu hao', 'dùng một lần', 'sử dụng một lần', '(?:^|[^a-zà-ỹđ])chỉ(?![a-zà-ỹđ])(?!\\s+(?:định|số|đạo|tiêu|thị|huy|dẫn|có|được|là|riêng|cần|mới|còn|cho phép))',
+      'khâu', '\\bdao\\b(?! động)', 'lưỡi', '\\bkim\\b(?! loại)', 'kéo(?! dài)', 'kẹp', 'kìm', '\\bpanh', 'nhíp', 'ghim', 'trocar', 'catheter', 'sonde', 'ống thông',
+      'dẫn lưu', 'stent', 'găng', 'băng gạc', 'băng dính', 'băng keo', '\\bgạc', 'bông y tế', 'bông gòn', 'bông hút', 'thủy tinh thể', 'thuỷ tinh thể', '\\biol\\b',
+      'dịch kính', 'phaco', 'dịch nhầy', 'nội soi', 'can thiệp', 'chỉnh hình', 'implant', 'thiết bị y tế', 'nha khoa', 'răng', 'nội nha', 'trâm',
+      'mũi khoan', 'kim cương', 'composite', '\\btrám', 'keo dán', 'tẩy trắng', 'chỉnh nha'].join('|'),
+    hard: 'thuốc|dược liệu|dược phẩm|vắc xin|vaccine|sinh phẩm|châm cứu|kiểm định|hiệu chuẩn|sửa chữa|bảo dưỡng|bảo trì|xây dựng|xây lắp|cải tạo|dịch vụ|\\bthuê|phần mềm|' +
+      'in ấn|văn phòng phẩm|thực phẩm|suất ăn|bảo hiểm|tư vấn|giám sát|đồng phục|xăng|nhiên liệu|điện năng|thu gom|rác thải|bảo vệ|ô tô',
+    exc: 'khí y tế|\\boxy|lọc máu|chạy thận|thận nhân tạo|x-quang|x quang|\\bphim|máy|hệ thống|vệ sinh|mua sắm tài sản|\\bxe ',
+    weak: 'hóa chất|hoá chất|xét nghiệm',
+    strong: 'phẫu thuật|(?<!viện |bv |tâm )mắt|phaco|nhãn khoa|chỉ khâu|thủy tinh thể|thuỷ tinh thể|dịch kính|vật tư y tế|vật tư nha khoa|vật liệu nha khoa|' +
+      'nha khoa|răng hàm mặt|nội nha' },
+  SPLIT: /\s+và\s+|\s+&\s+|\s+[-–]\s+|[,;+()\/]/,
   // tự đặt tải hằng ngày (wtbAuto_): Kết quả ⇒ bot cloud (KQ + 2 Excel; QĐ chỉ ghi tên cho Agent) · TBMT / KHLCNT ⇒ CHỈ máy có Agent (ag)
   AUTO: { kqdt: ['kq', 'nt', 'hh', 'qd'], tbmt: ['tbmt', 'hsmt', 'mo'], khmt: ['kh'], BACK_DAYS: 3, PRI: 1 } };
+
+/** tham số lọc tên gói vật tư (WTB.VT) cho wtbPick_; incOpt = địa bàn MMH (không bắt buộc từ vật tư) */
+function wtbVtP_(incOpt) {
+  return { nameInc: WTB.VT.inc, nameExc: WTB.VT.exc, nameStrong: WTB.VT.strong, nameHard: WTB.VT.hard, nameWeak: WTB.VT.weak, nameIncOpt: incOpt ? 1 : '' };
+}
 
 function wtbList_(v) {
   if (Array.isArray(v)) return v.map(wtS_).filter(String);
@@ -33,21 +53,34 @@ function wtbList_(v) {
   return s.split(/[,;\n]/).map(wtS_).filter(String);
 }
 
+/** hàm lọc tên gói theo vế (dùng ở wtbPick_ + thử nghiệm): p.nameInc / nameExc / nameStrong / nameHard / nameWeak / nameIncOpt */
+function wtbNameFn_(p, rx) {
+  rx = rx || function (v) { const t = wtS_(v); return t ? new RegExp(t.normalize('NFC').toLowerCase()) : null; };
+  const NI = rx(p.nameInc), NE = rx(p.nameExc), NS = rx(p.nameStrong), NH = rx(p.nameHard), NW = rx(p.nameWeak), opt = wtTrue_(p.nameIncOpt);
+  if (!NI && !NE && !NS && !NH && !NW) return function () { return true; };
+  return function (nm) {
+    const t = wtS_(nm).normalize('NFC').toLowerCase().replace(/\s+/g, ' ');
+    const seg = t.split(WTB.SPLIT).map(function (x) { return x.trim(); }).filter(String);
+    for (let i = 0; i < seg.length; i++) {
+      const g = seg[i];
+      if (NH && NH.test(g)) continue;
+      if (NS && NS.test(g)) return true;
+      if (NI && NI.test(g) && !(NE && NE.test(g))) return true;
+    }
+    if (NI && !opt) return false;
+    // không có vế vật tư rõ ràng: (địa bàn MMH / bộ lọc không có từ vật tư) ⇒ nhận khi cả tên sạch từ loại
+    return !(NH && NH.test(t)) && !(NE && NE.test(t)) && !(NW && NW.test(t));
+  };
+}
+
 function wtbPick_(p, data0) {
   const re = new RegExp(wtS_(p.re) || 'mắt', 'i');
   // invs = danh sách TÊN CHỦ ĐẦU TƯ đúng y như Báo Đấu Thầu (bulk.mjs đã đối chiếu, vd. bệnh viện từng có KQTT dao nhãn khoa) ⇒ thay cho re
   const IV = {}; wtbList_(p.invs).forEach(function (n) { IV[n.normalize('NFC').replace(/\s+/g, ' ').trim()] = 1; });
   const useIv = Object.keys(IV).length > 0;
-  // lọc theo TÊN GÓI (v1.1): nameInc = phải chứa · nameExc = bỏ nếu chứa, trừ khi chứa nameStrong (so chữ thường, có dấu)
+  // lọc theo TÊN GÓI v2 (21/11/2026): xét từng vế — xem WTB.VT
   const rx = function (v) { const t = wtS_(v); return t ? new RegExp(t.normalize('NFC').toLowerCase()) : null; };
-  const NI = rx(p.nameInc), NE = rx(p.nameExc), NS = rx(p.nameStrong);
-  const nameOk = function (nm) {
-    const t = wtS_(nm).normalize('NFC').toLowerCase();
-    if (NS && NS.test(t)) return true;
-    if (NI && !NI.test(t)) return false;
-    if (NE && NE.test(t)) return false;
-    return true;
-  };
+  const nameOk = wtbNameFn_(p, rx);
   const from = wtS_(p.from) || '2026-01-01', to = wtS_(p.to) || '9999-12-31';
   const types = wtbList_(p.types).filter(function (t) { return t === 'kqdt' || t === 'tbmt' || t === 'khmt'; });
   const T = types.length ? types : ['kqdt', 'tbmt'];
@@ -248,7 +281,7 @@ function wtbAuto_(data, o) {
   if (!mark) mark = Utilities.formatDate(new Date(Date.now() - 2 * 864e5), tz, 'yyyy-MM-dd');   // lần đầu: chỉ tin 2 ngày gần nhất (tồn đọng đặt riêng)
   const from = wtS_(o.from) || Utilities.formatDate(new Date(new Date(mark + 'T00:00:00+07:00').getTime() - WTB.AUTO.BACK_DAYS * 864e5), tz, 'yyyy-MM-dd');
   data = data || wtLoad_(wtBook_());
-  const base = { re: '.', from: from, to: today, nameInc: WTB.VT.inc, nameExc: WTB.VT.exc, nameStrong: WTB.VT.strong };
+  const base = Object.assign({ re: '.', from: from, to: today }, wtbVtP_());
   // v1.3 (20/11/2026): ĐỊA BÀN MMH (MMH_WatchTarget.gs — BV mắt, Răng Hàm Mặt / nha khoa, khách CRM Surgical + Dental, BV có KQTT dao) ⇒ TBMT + Kết quả qua bot cloud, ưu tiên 0
   const TG = wttTargets_(), isT = function (r) { return wttLabels_(TG, r.inv).length > 0; };
   const LT = { kqdt: wttPick_(data, 'kqdt', from, today, TG), tbmt: wttPick_(data, 'tbmt', from, today, TG) };

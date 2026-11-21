@@ -5,7 +5,7 @@
       · tên có chữ "mắt" (bệnh viện mắt) · tên có chữ "răng" / "nha khoa" (Răng Hàm Mặt, nha khoa)
       · khách CRM Surgical + CRM Dental đã khớp tên chủ đầu tư (sheet "TÊN CHUNG · ĐỐI CHIẾU": Tự khớp / Đã xác nhận)
       · sheet ẩn "THEO DÕI · ĐỊA BÀN MMH" (botTargets, nguồn kqtt-dao = bệnh viện từng có KQTT dao nhãn khoa — bulk.mjs mode targets / knife)
-      Gói của địa bàn MMH: lấy mọi gói trừ gói rõ ràng không phải vật tư (WTT.EXC) — không cần tên gói chứa "vật tư".
+      Gói của địa bàn MMH: lấy mọi gói trừ gói rõ ràng không phải vật tư (WTB.VT xét từng vế, nameIncOpt) — không cần tên gói chứa "vật tư".
       Gói của chủ đầu tư khác: như cũ (WTB.VT, Kết quả ⇒ bot cloud ưu tiên 1, TBMT / KHLCNT ⇒ chỉ máy có Agent).
    ② TỔNG HỢP GÓI THẦU = tab "Tổng hợp gói thầu" trong Sheet "Tổng hợp tài liệu thầu đã tải" (1 dòng / số TBMT):
       nguồn vốn · loại hợp đồng · trọn gói? · hình thức / phương thức · số lô · giá gói / giá trúng · nhà thầu trúng · chuyên khoa ·
@@ -18,9 +18,7 @@ const WTT = {
   HEAD: ['Tên chủ đầu tư (Báo Đấu Thầu)', 'Khoá', 'Nguồn', 'Ghi chú', 'Cập nhật lúc'],
   SRC: { 'kqtt-dao': 'Có KQTT dao nhãn khoa', tay: 'Thêm tay' },
   RE_EYE: /mắt/i, RE_DENT: /răng|nha khoa/i,
-  // gói của địa bàn MMH: bỏ gói rõ ràng không phải vật tư / dụng cụ (thuốc, hoá chất, xây dựng, dịch vụ, máy…) — trừ khi tên có WTT.STRONG
-  EXC: 'kiểm định|hiệu chuẩn|thuốc|dược liệu|vị thuốc|hóa chất|hoá chất|xét nghiệm|sửa chữa|bảo dưỡng|bảo trì|xây dựng|xây lắp|cải tạo|dịch vụ|\\bthuê|phần mềm|in ấn|văn phòng phẩm|thực phẩm|suất ăn|khí y tế|\\boxy|lọc máu|chạy thận|thận nhân tạo|x-quang|x quang|\\bphim|máy|hệ thống|vắc xin|vaccine|sinh phẩm|bảo hiểm|tư vấn|giám sát|đồng phục|xăng|nhiên liệu|điện năng|vệ sinh|thu gom|rác thải|bảo vệ|mua sắm tài sản|ô tô|xe ',
-  STRONG: 'phẫu thuật|mắt|phaco|nhãn khoa|chỉ khâu|thủy tinh thể|thuỷ tinh thể|dịch kính|vật tư y tế|vật tư nha khoa|vật liệu nha khoa|nha khoa|răng hàm mặt|nội nha',
+  // gói của địa bàn MMH: bộ lọc tên gói WTB.VT xét từng vế (v2 21/11/2026), không bắt buộc từ vật tư (nameIncOpt) — xem MMH_WatchBulk.gs
   WANT: { kqdt: ['kq', 'nt', 'hh', 'qd'], tbmt: ['tbmt', 'hsmt', 'mo'] },   // TBMT: bot cloud đọc trang + "Tải TBMT"; HSMT / biên bản mở thầu ghi tên cho máy Agent tải
   TBMT_DAYS: 45,   // đặt tải tồn đọng (op=targets): TBMT chỉ lấy tin ≤ 45 ngày (gói cũ hơn đã / sắp có kết quả)
   SUM_SHEET: 'Tổng hợp gói thầu',
@@ -175,10 +173,10 @@ function wttStat_() {
   Object.keys(T).forEach(function (k) { T[k].forEach(function (lb) { st[lb] = (st[lb] || 0) + 1; }); });
   return st;
 }
-/** gói của địa bàn MMH trong [from, to] (đã lọc WTT.EXC) */
+/** gói của địa bàn MMH trong [from, to] (đã lọc tên gói WTB.VT, không bắt buộc từ vật tư) */
 function wttPick_(data, types, from, to, T) {
   T = T || wttTargets_();
-  return wtbPick_({ re: '.', types: types, from: from, to: to, nameExc: WTT.EXC, nameStrong: WTT.STRONG }, data)
+  return wtbPick_(Object.assign({ re: '.', types: types, from: from, to: to }, wtbVtP_(true)), data)
     .filter(function (r) { return wttLabels_(T, r.inv).length > 0; });
 }
 /** đặt tải gói địa bàn MMH (giữ khoá ghi ngoài): Kết quả + TBMT ⇒ bot cloud ưu tiên 0 (gói đang chờ cho máy Agent ⇒ chuyển sang cloud) */

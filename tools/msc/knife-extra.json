@@ -30,7 +30,9 @@
   "Trung tâm Y tế khu vực Tam Đảo"
  ],
  "_bo": "Bỏ (mơ hồ): Quảng Yên ⇒ Ý Yên / Yên Thành · GTVT Vĩnh Phúc ⇒ công ty CP BV GTVT · BQLDA An Giang · Tân Bình ⇒ Bình Tân (đã thêm đúng tên Tân Bình).",
- "nameInc": "vật tư|vtyt|dụng cụ|phẫu thuật|mắt|nhãn|tiêu hao|chỉ khâu|\\bdao\\b|kim|thủy tinh thể|thuỷ tinh thể|dịch kính|trang thiết bị y tế|thiết bị y tế|nha khoa|răng|nội nha|composite",
- "nameExc": "kiểm định|hiệu chuẩn|thuốc|dược liệu|vị thuốc|hóa chất|hoá chất|xét nghiệm|sửa chữa|bảo dưỡng|bảo trì|xây dựng|xây lắp|cải tạo|dịch vụ|\\bthuê|phần mềm|in ấn|văn phòng phẩm|thực phẩm|suất ăn|khí y tế|\\boxy|lọc máu|chạy thận|thận nhân tạo|x-quang|x quang|\\bphim|máy|hệ thống|vắc xin|vaccine|sinh phẩm",
- "nameStrong": "phẫu thuật|mắt|nhãn khoa|chỉ khâu|thủy tinh thể|thuỷ tinh thể|dịch kính|vật tư y tế|vật tư nha khoa|vật liệu nha khoa|răng hàm mặt|nội nha"
+ "nameInc": "vật tư|vật liệu|vtyt|vtth|tbyt|dụng cụ|y cụ|phẫu thuật|phẫu|mổ|(?<!viện |bv |tâm )mắt|nhãn khoa|nhãn cầu|tiêu hao|dùng một lần|sử dụng một lần|(?:^|[^a-zà-ỹđ])chỉ(?![a-zà-ỹđ])(?!\\s+(?:định|số|đạo|tiêu|thị|huy|dẫn|có|được|là|riêng|cần|mới|còn|cho phép))|khâu|\\bdao\\b(?! động)|lưỡi|\\bkim\\b(?! loại)|kéo(?! dài)|kẹp|kìm|\\bpanh|nhíp|ghim|trocar|catheter|sonde|ống thông|dẫn lưu|stent|găng|băng gạc|băng dính|băng keo|\\bgạc|bông y tế|bông gòn|bông hút|thủy tinh thể|thuỷ tinh thể|\\biol\\b|dịch kính|phaco|dịch nhầy|nội soi|can thiệp|chỉnh hình|implant|thiết bị y tế|nha khoa|răng|nội nha|trâm|mũi khoan|kim cương|composite|\\btrám|keo dán|tẩy trắng|chỉnh nha",
+ "nameExc": "khí y tế|\\boxy|lọc máu|chạy thận|thận nhân tạo|x-quang|x quang|\\bphim|máy|hệ thống|vệ sinh|mua sắm tài sản|\\bxe ",
+ "nameStrong": "phẫu thuật|(?<!viện |bv |tâm )mắt|phaco|nhãn khoa|chỉ khâu|thủy tinh thể|thuỷ tinh thể|dịch kính|vật tư y tế|vật tư nha khoa|vật liệu nha khoa|nha khoa|răng hàm mặt|nội nha",
+ "nameHard": "thuốc|dược liệu|dược phẩm|vắc xin|vaccine|sinh phẩm|châm cứu|kiểm định|hiệu chuẩn|sửa chữa|bảo dưỡng|bảo trì|xây dựng|xây lắp|cải tạo|dịch vụ|\\bthuê|phần mềm|in ấn|văn phòng phẩm|thực phẩm|suất ăn|bảo hiểm|tư vấn|giám sát|đồng phục|xăng|nhiên liệu|điện năng|thu gom|rác thải|bảo vệ|ô tô",
+ "nameWeak": "hóa chất|hoá chất|xét nghiệm"
 }

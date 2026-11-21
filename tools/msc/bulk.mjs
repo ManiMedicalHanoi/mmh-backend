@@ -75,7 +75,7 @@ if (MODE === 'knife' || MODE === 'knife-dry' || MODE === 'targets' || MODE === '
     fs.writeFileSync('bulk-report.json', JSON.stringify({ how, pick: [...pick], ask, none, r }, null, 1));
     process.exit(r.ok ? 0 : 1);
   }
-  const r = await post({ action: 'botGrabInv', op: MODE === 'knife' ? 'run' : 'dry', invs: [...pick], nameInc: X.nameInc, nameExc: X.nameExc, nameStrong: X.nameStrong, from: FROM, want: process.env.BULK_WANT || 'kq,nt,hh,qd', mail: MAIL, max: 5000, types: process.env.BULK_TYPES || 'kqdt' });
+  const r = await post({ action: 'botGrabInv', op: MODE === 'knife' ? 'run' : 'dry', invs: [...pick], nameInc: X.nameInc, nameExc: X.nameExc, nameStrong: X.nameStrong, nameHard: X.nameHard || '', nameWeak: X.nameWeak || '', from: FROM, want: process.env.BULK_WANT || 'kq,nt,hh,qd', mail: MAIL, max: 5000, types: process.env.BULK_TYPES || 'kqdt' });
   if (!r.ok) { console.log('Lỗi:', JSON.stringify(r).slice(0, 500)); process.exit(1); }
   console.log(`\nGói từ ${FROM}: ${r.total} (có kết quả ${r.byType.kqdt} · mới mời thầu ${r.byType.tbmt}) · tài liệu: ${r.want.join(', ')}`);
   console.log('Theo tháng:', JSON.stringify(r.byMonth));
@@ -120,8 +120,8 @@ if (MODE === 'dry' || MODE === 'run') {
   // BULK_NAMEF=vt ⇒ chỉ gói vật tư / dụng cụ (bộ lọc tên gói của tools/msc/knife-extra.json)
   const NF = process.env.BULK_NAMEF === 'vt' ? JSON.parse(fs.readFileSync('tools/msc/knife-extra.json', 'utf8')) : {};
   const r = await post({ action: 'botGrabInv', op: MODE, re: RE, from: FROM, to: process.env.BULK_TO || '', want: WANT, mail: MAIL, max: 8000, types: process.env.BULK_TYPES || 'kqdt', pri: process.env.BULK_PRI || '',
-    nameInc: NF.nameInc || '', nameExc: NF.nameExc || '', nameStrong: NF.nameStrong || '' });
-  if (process.env.BULK_NAMEF === 'vt') console.log('Lọc tên gói: chỉ vật tư / dụng cụ (bỏ thuốc, hóa chất, máy, sửa chữa, dịch vụ…)');
+    nameInc: NF.nameInc || '', nameExc: NF.nameExc || '', nameStrong: NF.nameStrong || '', nameHard: NF.nameHard || '', nameWeak: NF.nameWeak || '' });
+  if (process.env.BULK_NAMEF === 'vt') console.log('Lọc tên gói: chỉ vật tư / dụng cụ (xét từng vế: bỏ thuốc, máy, sửa chữa, dịch vụ…; hóa chất xét nghiệm đi kèm vật tư vẫn nhận)');
   if (!r.ok) { console.log('Lỗi:', JSON.stringify(r).slice(0, 500)); process.exit(1); }
   console.log(`Chủ đầu tư khớp "${RE}" · từ ${FROM} · ${r.total} gói (có kết quả ${r.byType.kqdt} · mới mời thầu ${r.byType.tbmt}) · tài liệu: ${r.want.join(', ')}`);
   console.log('Theo tháng:', JSON.stringify(r.byMonth));
