@@ -16,13 +16,14 @@
  * Lệnh có khoá: pqDiag {key, b} ⇒ số lượt, link Sheet kết quả.
  * Đáp án đúng KHÔNG gửi xuống trước khi trả lời; máy chủ tự đo thời gian từng câu (CacheService, 2 giờ / lượt).
  * Điểm: đúng = 500 + tới 500 theo thời gian còn lại (tối đa 1.000 / câu); sai / hết giờ = 0. Đạt khi đúng ≥ pass.
+ * v1.5 (21/11/2026, người dùng yêu cầu): top 5 mỗi bài (đạt từ pass) nhận túi cói — bank prizeN (mặc định 3), trả prizeN ở pqMeta / pqBoard / pqBoardAll, tab TỔNG HỢP đánh dấu theo prizeN.
  * v1.4 (21/11/2026, người dùng yêu cầu): kết quả theo NPP — Sheet kết quả có tab cố định Meci · SPI · Nam Dũng · Việt Thái (PQ_OUT.TABS), cột đầu "Ngày đào tạo".
  *   Bài có out = [{ npp, date, to? }] (MMH_PartnerQuizBank.gs) ⇒ mỗi lượt / góp ý ghi thêm vào tab NPP của buổi tương ứng (pqOutSync_, chép lượt còn thiếu theo Mã lượt).
  *   Tab KET_QUA + TỔNG HỢP giữ nguyên (nguồn xếp hạng). pqDiag &out=1 ⇒ pqOutInit_: tạo đủ tab, xoá tab tạm rỗng, chép lại mọi bài; lỗi ⇒ Script Property PQ_OUT_ERR.
  * Kết quả: Google Sheet "MMH · Bài kiểm tra đối tác · Kết quả" (thư mục SV.FOLDER, tab KET_QUA) + email tóm tắt mỗi lượt
  * về chủ thư mục (= tài khoản chạy máy chủ; đổi bằng Script Property PQ_NOTIFY, "-" = tắt email). Ngân hàng câu hỏi: MMH_PartnerQuizBank.gs.
  */
-var PQ = { VER: '1.4', SUM_TAB: 'TỔNG HỢP', BOOK_PROP: 'PQ_BOOK', BOOK: 'MMH · Bài kiểm tra đối tác · Kết quả', TAB: 'KET_QUA', FB: 3500, TTL: 7200,
+var PQ = { VER: '1.5', SUM_TAB: 'TỔNG HỢP', BOOK_PROP: 'PQ_BOOK', BOOK: 'MMH · Bài kiểm tra đối tác · Kết quả', TAB: 'KET_QUA', FB: 3500, TTL: 7200,
   PAGE: 'https://manimedicalhanoi.github.io/MMH-Survey/training-quiz/doi-tac/',
   HEAD: ['Thời gian nộp', 'Mã bài', 'Bài', 'Họ tên', 'Đại lý / NPP', 'Số điện thoại', 'Số câu đúng', 'Số câu', 'Điểm', 'Đạt', 'Thời gian làm (giây)', 'Chi tiết', 'Mã lượt', 'Góp ý sản phẩm (không tính điểm)'] };
 
@@ -41,7 +42,7 @@ function pqQuiz_(b) { return (typeof PQ_BANK !== 'undefined' && PQ_BANK[String(b
 function pqMeta_(b) {
   var z = pqQuiz_(b);
   if (!z) return { ok: false, code: 'QUIZ', error: 'Link bài kiểm tra không đúng.' };
-  return { ok: true, v: PQ.VER, b: b, title: z.title, sub: z.sub, n: z.n, perQ: z.perQ, pass: z.pass, prize: z.prize || '', bank: z.qs.length };
+  return { ok: true, v: PQ.VER, b: b, title: z.title, sub: z.sub, n: z.n, perQ: z.perQ, pass: z.pass, prize: z.prize || '', prizeN: z.prizeN || 3, bank: z.qs.length };
 }
 
 function pqShuffle_(a) { for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
@@ -217,7 +218,7 @@ function pqBoard_(b) {
   try { pqSumMaybe_(); } catch (x) {}
   var rows = pqRows_(b), best = pqBest_(rows);
   var d0 = new Date(); d0.setHours(0, 0, 0, 0);
-  var o = { ok: true, b: b, title: z.title, sub: z.sub, n: z.n, players: best.length, attempts: rows.length,
+  var o = { ok: true, b: b, title: z.title, sub: z.sub, n: z.n, pass: z.pass, prizeN: z.prizeN || 3, players: best.length, attempts: rows.length,
     today: rows.filter(function (r) { return r.at >= d0.getTime(); }).length,
     passed: best.filter(function (r) { return r.right >= z.pass; }).length, top: pqTop_(best), at: Date.now() };
   try { c.put(k, JSON.stringify(o), 6); } catch (x) {}
@@ -258,7 +259,7 @@ function pqAll_() {
   var parts = [], people = {}, order = Object.keys(PQ_BANK);
   order.forEach(function (b, pi) {
     var z = PQ_BANK[b], rows = pqRows_(b), best = pqBest_(rows);
-    parts.push({ b: b, title: z.title, sub: z.sub, n: z.n, pass: z.pass, prize: z.prize || '', rows: rows, best: best });
+    parts.push({ b: b, title: z.title, sub: z.sub, n: z.n, pass: z.pass, prize: z.prize || '', prizeN: z.prizeN || 3, rows: rows, best: best });
     best.forEach(function (r) {
       var o = people[r.phone] || (people[r.phone] = { phone: r.phone, name: r.name, dealer: r.dealer, at: 0, sc: {}, rt: {}, sec: 0 });
       if (r.at >= o.at) { o.at = r.at; o.name = r.name; o.dealer = r.dealer; }
@@ -278,7 +279,7 @@ function pqBoardAll_() {
   var A = pqAll_(), d0 = new Date(); d0.setHours(0, 0, 0, 0);
   var o = { ok: true, v: PQ.VER, at: Date.now(), players: A.all.length,
     parts: A.parts.map(function (p) {
-      return { b: p.b, title: p.title, sub: p.sub, n: p.n, pass: p.pass, prize: p.prize, players: p.best.length, attempts: p.rows.length,
+      return { b: p.b, title: p.title, sub: p.sub, n: p.n, pass: p.pass, prize: p.prize, prizeN: p.prizeN, players: p.best.length, attempts: p.rows.length,
         today: p.rows.filter(function (r) { return r.at >= d0.getTime(); }).length,
         passed: p.best.filter(function (r) { return r.right >= p.pass; }).length, top: pqTop_(p.best) };
     }),
@@ -324,11 +325,11 @@ function pqSummary_() {
   row(['Tham gia ít nhất 1 phần', A.all.length, '', '', '', '', '', '']);
   A.parts.forEach(function (p, pi) {
     row([]);
-    bold.push(row([(pi + 2) + '. TOP 10 · ' + pqPart_(p).toUpperCase() + ': ' + p.title.toUpperCase() + ' (QUÀ: TOP 3 ĐẠT TỪ ' + p.pass + '/' + p.n + ' CÂU)']));
+    bold.push(row([(pi + 2) + '. TOP 10 · ' + pqPart_(p).toUpperCase() + ': ' + p.title.toUpperCase() + ' (QUÀ: TOP ' + p.prizeN + ' ĐẠT TỪ ' + p.pass + '/' + p.n + ' CÂU)']));
     head.push(row(['Hạng', 'Họ tên', 'Đại lý / NPP', 'Số điện thoại', 'Câu đúng', 'Điểm', 'Thời gian làm (giây)', 'Quà']));
     if (!p.best.length) row(['Chưa có lượt làm bài']);
     p.best.slice(0, 10).forEach(function (r, i) {
-      row([i + 1, r.name, r.dealer, "'" + r.phone, r.right + '/' + r.n, r.score, r.sec, i < 3 && r.right >= p.pass ? 'Túi cói MANI' : '']);
+      row([i + 1, r.name, r.dealer, "'" + r.phone, r.right + '/' + r.n, r.score, r.sec, i < p.prizeN && r.right >= p.pass ? 'Túi cói MANI' : '']);
     });
   });
   var k = A.parts.length + 2;
