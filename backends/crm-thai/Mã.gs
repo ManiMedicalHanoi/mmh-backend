@@ -1235,7 +1235,7 @@ function sendReport_(user, p, kind){
     if(!to.length) throw new Error('No e-mail address for ' + user.pic);
     mmhMail_({ to: to.join(','), cc: cc.join(','), replyTo: (USERS[pic] || {}).email || '', subject: R.subject,
       htmlBody: R.html, attachments: [blob], name: 'MMH CRM — ' + CFG.TEAM });
-    if(kind === 'week' && option !== 'self' && typeof rplAdd_ === 'function') rplAdd_('week', pic, iso_(p.from), { to: iso_(p.to), by: user.pic, opt: option, cal: 'TH' });   /* ⭐ MMH_ReportLog.gs */
+    if(kind === 'week' && option !== 'self') mmhSelfLog_('rplAdd_', ['week', pic, iso_(p.from), { to: iso_(p.to), by: user.pic, opt: option, cal: 'TH' }]);   /* ⭐ MMH_ReportLog.gs */
     sent.push(pic + ' → ' + to.join(', ') + (cc.length ? ' (cc ' + cc.join(', ') + ')' : ''));
   });
   if(!_tt) log_(user.pic, 'report', 'report', (kind === 'week' ? 'Weekly report ' : 'Monthly report ') + (kind === 'week' ? dmy_(p.from) : p.month), option + ' · ' + pics.join(', '), '');
@@ -1294,7 +1294,7 @@ function route_(p){
     case 'rpLog': return rplApi_(p);                                      /* ⭐ 23/10/2026: thống kê gửi báo cáo (MMH_ReportLog.gs) */
     case 'kpiPush': return { ok: true, kpiPush: k68PushQuick_() };       /* v1.9 */
     case 'kpiLate': return kpiLate_(user, p);                            /* v1.12 */
-    case 'ping': return { ok: true, team: CFG.TEAM, cors: true, ver: '1.19', dateFix: props_().getProperty('CRM_DATEFIX_LOG') || '', trip2: true, kpi68: true, tenderPrice: true, custLog: true, delAccount: true, na: true, kr: true, idem: true, kpiPush: true };
+    case 'ping': return { ok: true, team: CFG.TEAM, cors: true, ver: '1.19', dateFix: props_().getProperty('CRM_DATEFIX_LOG') || '', trip2: true, kpi68: true, tenderPrice: true, custLog: true, delAccount: true, na: true, kr: true, idem: true, kpiPush: true, selfMail: true };
     case 'sheetInfo': return { ok: true, id: ss_().getId(), name: ss_().getName(), team: CFG.TEAM };
     case 'version': { var vv = vers_(); return { ok: true, ver: vv._all, vers: vv }; }
     case 'bumpCache': bump_(); return { ok: true, ver: vers_()._all, message: 'Cache refreshed' };
@@ -1346,8 +1346,9 @@ function route_(p){
     case 'deleteRow': return deleteRow_(user, p);
     case 'uploadPhoto': case 'deletePhoto': return { ok: false, error: 'Photos are not used by the Thailand CRM.' };
     case 'saveOrders': return { ok: false, error: 'Sales orders are not used by the Thailand CRM.' };
-    case 'weeklyReport': return sendReport_(user, p, 'week');
-    case 'monthlyReport': return sendReport_(user, p, 'month');
+    case 'weeklyReport': return mmhSelfRun_(p, function(){ return sendReport_(user, p, 'week'); });    /* ⭐ 22/11/2026 — selfMail=1 ⇒ the app sends from the user's own Gmail */
+    case 'monthlyReport': return mmhSelfRun_(p, function(){ return sendReport_(user, p, 'month'); });
+    case 'selfAck': return mmhSelfAck_(p);
     /* ALL TASK — same actions as the Report Hub */
     case 'weekly': case 'boot': { var at = atRead_(); return { ok: true, keyTasks: at.keys, v: vers_().alltask, source: 'thai',
       picList: picList_(), statusOptions: ['To Do','In Progress','Completed','Cancelled'] }; }
