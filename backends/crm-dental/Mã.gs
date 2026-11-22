@@ -508,6 +508,7 @@ function handle(e, method){
       if (_rid && WRITE_ACTIONS[action]) idemEnd_(_rid, out);
       return reply(out, callback);
     }
+    if (action === 'selfAck') return reply(mmhSelfAck_(p), callback);   /* ⭐ 22/11/2026 — app đã gửi báo cáo bằng Gmail của mình ⇒ ghi nhận đã gửi (rpMark_ / rplAdd_) */
     if (action === 'mtaRun') return reply(mtaRun_(p), callback);   /* 21/11/2026 — MMH_MeetAuto.gs: email biên bản Họp nhóm tự gửi 16:00 thứ Bảy (status / dry / send, cần key) */
     if (action === 'k68Diag') return reply(k68Diag_(p), callback);   /* 17/10/2026 — chẩn đoán ô #ERROR! KPI viếng thăm (chỉ đọc; fix=1 chạy lại bản vá) */
     if (action === 'ordDiag') return reply(ordDiag_(p), callback);   /* 05/11/2026 — chẩn đoán đơn hàng (chỉ đọc, cần key) — MMH_OrderDiag.gs */
@@ -515,7 +516,7 @@ function handle(e, method){
     if (action === 'kpiLate') return reply(kpiLate_(user, p), callback);               /* ⭐ v10.4 */
 
     switch (action) {
-      case 'ping'            : out = { ok:true, pong:true, source:TEAM(), app:appName_(), pic:user.pic, ver:'10.27', photoShot:true, orderSafe:true, orderDelete:true, cbcEnsure:true, suppApproved:true, orderNotes:true, orderHeal:true, orderLink:true, orderEdit:true, rpStatus:true, sandbox:true, careGate:true, visitDone:true, rate:K68_RATE_DEF, dateFix:props_().getProperty('CRM_DATEFIX_LOG') || '', orderApproval:true, presentTpl:true, migrate:props_().getProperty('CRM_LAYOUT_V') || '', meeting:true, trip2:true, kpi68:true, tenderPrice:true, custLog:true, deleteAccount:true, na:true, kr:true, idem:true, kpiPush:true }; break;
+      case 'ping'            : out = { ok:true, pong:true, source:TEAM(), app:appName_(), pic:user.pic, ver:'10.27', photoShot:true, orderSafe:true, orderDelete:true, cbcEnsure:true, suppApproved:true, orderNotes:true, orderHeal:true, orderLink:true, orderEdit:true, rpStatus:true, selfMail:true, sandbox:true, careGate:true, visitDone:true, rate:K68_RATE_DEF, dateFix:props_().getProperty('CRM_DATEFIX_LOG') || '', orderApproval:true, presentTpl:true, migrate:props_().getProperty('CRM_LAYOUT_V') || '', meeting:true, trip2:true, kpi68:true, tenderPrice:true, custLog:true, deleteAccount:true, na:true, kr:true, idem:true, kpiPush:true }; break;
       case 'boot'            : out = boot(user); break;
       case 'master'          : out = { ok:true, master: readMaster() }; break;
       case 'customerIndex'   : out = { ok:true, rows: customerIndex() }; break;
@@ -559,10 +560,10 @@ function handle(e, method){
       case 'kpiSync'         : out = kpiSyncApi(user, p); break;
       case 'saveRates'       : out = saveRates(user, p); break;               /* ⭐ v10.1 */
 
-      case 'weeklyReport'    : out = sendWeeklyReport(user, p); break;
+      case 'weeklyReport'    : out = mmhSelfRun_(p, function(){ return sendWeeklyReport(user, p); }); break;   /* ⭐ 22/11/2026 — selfMail=1 ⇒ app tự gửi bằng Gmail của người bấm (MMH_MailDomain.gs) */
       case 'rpStatus'        : out = rpStatus_(); break;
       case 'rpLog'           : out = rplApi_(p); break;   /* ⭐ 23/10/2026: thống kê gửi báo cáo (MMH_ReportLog.gs) */
-      case 'monthlyReport'   : out = sendMonthlyReport(user, p); break;
+      case 'monthlyReport'   : out = mmhSelfRun_(p, function(){ return sendMonthlyReport(user, p); }); break;
       default: out = { ok:false, error:'Unknown action: ' + action };
     }
     /* ⭐ v9.7 — lưu xong trên app ⇒ đẩy ngay số KPI lên file KPI tổng
@@ -2954,7 +2955,7 @@ function sendWeeklyReport(user, p){
     var blob  = HtmlService.createHtmlOutput(html).getBlob().getAs('application/pdf')
                   .setName('MMH_' + teamLabel_() + '_Weekly_' + t.pic.replace(/\s+/g, '') + '_' + thisFrom + '.pdf');
     if (!t.test) { var sv = savePdfToDrive_(blob); if (!sv.ok) pdfErrs.push(t.pic + ': ' + sv.error); }
-    if (!t.test) rpMark_(t.pic, thisFrom);
+    if (!t.test) mmhSelfLog_('rpMark_', [t.pic, thisFrom]);
     var subject = 'RE: Weekly Report (' + teamLabel_() + ') ' + t.pic + ' — Week ' + fmtVN(thisFrom) + '–' + fmtVN(thisTo) + (t.test ? ' (test)' : '');
     var toField, ccField;
     if (t.test){ toField = t.email; ccField = ''; }
@@ -2969,7 +2970,7 @@ function sendWeeklyReport(user, p){
       htmlBody: phHtml + buildCombinedEmailBody(recipient, thisFrom, thisTo, tKeys, nextFrom, nextTo, nKeys, oCur, oNext),
       attachments: [blob], name: appName_()
     });
-    if (!t.test && typeof rplAdd_ === 'function') rplAdd_('week', t.pic, thisFrom, { to:thisTo, by:user.pic, opt:option });   /* ⭐ MMH_ReportLog.gs */
+    if (!t.test) mmhSelfLog_('rplAdd_', ['week', t.pic, thisFrom, { to:thisTo, by:user.pic, opt:option }]);   /* ⭐ MMH_ReportLog.gs */
     sent.push(t.pic);
   });
 
