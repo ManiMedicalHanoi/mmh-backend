@@ -833,6 +833,9 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   thêm / đổi chữ ⇒ áp dụng từ NGÀY HÔM SAU; xoá = người thêm hoặc quản lý (từ khoá Mặc định chỉ tạm tắt).
   Chạy thử / mẫu: workflow **Theo dõi gói thầu — tải hàng loạt** mode `route` (ô `re` = tham số): `op=status` · `op=find` (gói đủ 4 bước) · `op=pkg&no=<IB…>&preview=1` (lưu bản email HTML + PDF vào "Báo cáo gói thầu hằng ngày/Mẫu email", KHÔNG gửi) ·
   `op=sample&preview=1&days=3[&pic=<PIC>]` (báo cáo sáng mẫu từng PIC, không gửi) · `op=dry` · `op=moq` · `op=on|off`; mode `text` = `botText op=status|run|one&id=<fileId>`.
+- **24/11/2026 — Training Hub v3.49: số MMH Daily Podcast mỗi sáng đúng giờ (`training/RH_DailyKick.gs`)**: lịch cron GitHub của daily.yml (hẹn 05:45 VN) chạy trễ 4–5 giờ ⇒ `dkTick_` trong trigger `hwWarm`
+  (05:40–11:00 VN): `data/index.json` (raw GitHub) chưa có số hôm nay + không có lượt daily.yml đang chạy / chờ ⇒ `workflow_dispatch` (kind=daily, by "Tự động lúc sáng"), ≤ 3 lần / ngày, cách ≥ 25 phút; token DAILY_GH_TOKEN.
+  Workflow MMH-Daily có chốt: lượt cron trễ thấy đã có số hôm nay ⇒ bỏ qua. Lượt cuối: Script Property `DK_LAST` (trả ở `dailyStatus ▸ auto`).
 - **24/11/2026 — Training Hub v3.48: điểm học + bảng xếp hạng app MMH Daily Podcast (`training/RH_DailyScore.gs`, người dùng yêu cầu thi đua)**: sheet **DAILY_SCORES** (Training Master; 1 dòng / người / số podcast,
   làm lại ⇒ giữ lần cao nhất, Plays + 1). Điểm = câu nghe đúng × 10 + % nói theo ÷ 5 (tối đa 20, khi có nói) + 10 hoàn thành. `dailyScore` (phiên `tk`, date · show · quiz · quizN · speak · spoken · words · rid) ⇒ `{points, best, rank}`;
   `dailyBoard` (phiên `tk`, `period=week|month`) ⇒ bảng xếp hạng (tuần = thứ Hai → Chủ nhật giờ VN, tính theo NGÀY LÀM BÀI) + 25 lượt làm bài gần nhất; mọi người đăng nhập đều thấy. Đệm 2 phút.
