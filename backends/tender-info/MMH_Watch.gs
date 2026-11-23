@@ -17,7 +17,7 @@
    Lần đầu theo dõi 1 chủ đầu tư: hiện gói trong WT.BASE_DAYS ngày gần nhất (không báo), tự tải gói trong WT.DL_BASE_DAYS ngày.
    ════════════════════════════════════════════════════════════════════ */
 const WT = {
-  VER: '1.10',
+  VER: '1.11',
   MASTER_ID: '1byCL6NjhqBuEcd-K5pxYRrQj2XXs6GMIvR79x45mHRQ',   // Training Master (RH_Users, RH_Secret, RH_Notify)
   APP_URL: 'https://manimedicalhanoi.github.io/Tender-Result/theo-doi/',
   SH_W: 'THEO DÕI · DANH SÁCH',
@@ -88,6 +88,8 @@ function wtDo_(a, p) {
     }
     if (a === 'botNameSync') return wnSync_(p);   // lượt đối chiếu tên (MMH_WatchNames.gs)
     if (a === 'botDigest') { if (p._ext) return { ok: false, code: 'KEY', error: 'Cần khoá bot.' }; return wtzAction_(p); }   // MMH_WatchDigest.gs
+    if (a === 'botRoute') { if (p._ext) return { ok: false, code: 'KEY', error: 'Cần khoá bot.' }; return wtrAction_(p); }   // MMH_WatchRoute.gs
+    if (a === 'botText') { if (p._ext) return { ok: false, code: 'KEY', error: 'Cần khoá bot.' }; return wteAction_(p); }   // MMH_WatchText.gs
     if (a === 'botSuspect') { if (p._ext) return { ok: false, code: 'KEY', error: 'Cần khoá bot.' }; return wtqAction_(p); }   // MMH_WatchSuspect.gs
     if (a === 'botMerge') return Object.assign({ ok: true }, wtmMerge_({ force: wtTrue_(p.force) }));
     if (a === 'botPing') { wtBotSeen_(p.bot); return { ok: true, v: WT.VER }; }
@@ -591,7 +593,7 @@ function wtNotifyNew_(news) {
 /* ══════════ TRIGGER ══════════ */
 function wtTick() {
   try { wtEnsureTrig_(); } catch (e) {}   // tự cài trigger gộp 15 phút (wtmTick) dù chưa ai mở app
-  try { const data = wtLoad_(wtBook_()); try { wtdInvBuild_(data); } catch (e) { Logger.log('wtdInvBuild_: ' + e.message); } try { wtdPkgBuild_(data); } catch (e) { Logger.log('wtdPkgBuild_: ' + e.message); } try { wtdRecentBuild_(data); } catch (e) { Logger.log('wtdRecentBuild_: ' + e.message); } try { wtdAllBuild_(data); } catch (e) { Logger.log('wtdAllBuild_: ' + e.message); } wtScan_({ data: data }); try { wtbAuto_(data); } catch (e) { Logger.log('wtbAuto_: ' + e.message); } try { wtzTick_(); } catch (e) { Logger.log('wtzTick_: ' + e.message); } } catch (e) { Logger.log('wtTick: ' + e.message); PropertiesService.getScriptProperties().setProperty('WT_LAST_SCAN', wtNow_() + ' · lỗi: ' + e.message); }
+  try { const data = wtLoad_(wtBook_()); try { wtdInvBuild_(data); } catch (e) { Logger.log('wtdInvBuild_: ' + e.message); } try { wtdPkgBuild_(data); } catch (e) { Logger.log('wtdPkgBuild_: ' + e.message); } try { wtdRecentBuild_(data); } catch (e) { Logger.log('wtdRecentBuild_: ' + e.message); } try { wtdAllBuild_(data); } catch (e) { Logger.log('wtdAllBuild_: ' + e.message); } wtScan_({ data: data }); try { wtbAuto_(data); } catch (e) { Logger.log('wtbAuto_: ' + e.message); } try { wtzTick_(); } catch (e) { Logger.log('wtzTick_: ' + e.message); } try { wtrTick_(); } catch (e) { Logger.log('wtrTick_: ' + e.message); } } catch (e) { Logger.log('wtTick: ' + e.message); PropertiesService.getScriptProperties().setProperty('WT_LAST_SCAN', wtNow_() + ' · lỗi: ' + e.message); }
 }
 function wtEnsureTrig_() {
   const P = PropertiesService.getScriptProperties();
@@ -710,7 +712,8 @@ function wtBotFile_(p) {
 
 function wtBotDone_(p) {
   wtBotSeen_(p.bot);
-  const ss = wtBook_(), st = { done: WT.ST.DONE, nofile: WT.ST.NOFILE, error: WT.ST.ERR }[wtS_(p.status)] || WT.ST.ERR;
+  const ss = wtBook_();
+  let st = { done: WT.ST.DONE, nofile: WT.ST.NOFILE, error: WT.ST.ERR }[wtS_(p.status)] || WT.ST.ERR;
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) return { ok: false, code: 'BUSY' };
   let h;
@@ -723,6 +726,12 @@ function wtBotDone_(p) {
     const prevAg = {}; ((h.info || {}).agentFiles || []).forEach(function (a) { if (a && a.done) prevAg[a.name] = a; });
     if (info.agentFiles) info.agentFiles = info.agentFiles.map(function (a) { return prevAg[a.name] ? Object.assign({}, a, { done: prevAg[a.name].done, url: prevAg[a.name].url, file: prevAg[a.name].file }) : a; });
     p._agDone = prevAg;
+    // lượt tải lại CHỈ biên bản mở thầu (MMH_WatchRoute ▸ wtrMoQueue_): giữ danh sách file cần Agent của lượt trước (TBMT / HSMT)
+    if (((h.info || {}).want || []).join() === 'mo' && Array.isArray((h.info || {}).agentFiles)) {
+      const have = {}; (info.agentFiles || []).forEach(function (a) { if (a) have[a.name] = 1; });
+      info.agentFiles = (info.agentFiles || []).concat(h.info.agentFiles.filter(function (a) { return a && !have[a.name]; }));
+    }
+    if (st === WT.ST.NOFILE && ((h.info || {}).want || []).join() === 'mo' && (h.files || []).length) st = WT.ST.DONE;   // chưa có biên bản: giữ trạng thái đã tải TBMT
     sh.getRange(h.row, 7).setValue(JSON.stringify(info));
     if (info.investor && (!h.investor || h.investor === '(đang tra)')) sh.getRange(h.row, 4, 1, 2).setValues([[wtS_(info.investor), wtNorm_(info.investor)]]);
     if (info.bidName && (!h.name || h.name === h.no)) sh.getRange(h.row, 6).setValue(wtS_(info.bidName).slice(0, 300));

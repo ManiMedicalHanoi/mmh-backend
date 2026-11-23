@@ -263,6 +263,7 @@ function wtmTick() {
   if (Date.now() - t0 < 200000) { try { wtqTick_({}); } catch (e) { Logger.log('wtqTick_: ' + e.message); } }
   // tab "Tổng hợp gói thầu" (MMH_WatchTarget.gs) — ≤ 1 lần / 30 phút, chỉ khi lượt gộp còn đủ thời gian
   if (Date.now() - t0 < 150000) { try { wttSumBuild_(false); } catch (e) { Logger.log('wttSumBuild_: ' + e.message); } }
+  if (Date.now() - t0 < 170000) { try { wteRun_({ budget: Math.min(90000, 230000 - (Date.now() - t0)) }); } catch (e) { Logger.log('wteRun_: ' + e.message); } }   // MMH_WatchText.gs: đọc chữ HSMT / QĐ để quét từ khoá
 }
 /** chạy tay trong trình soạn: gộp lại tất cả */
 function wtmMergeAll() { return wtmMerge_({ force: true }); }

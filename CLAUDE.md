@@ -812,3 +812,15 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   1 email / người (PDF đính kèm) + RH_Notify kind `digest`. Người nhận: Script Property `WTZ_TO` (email, cách dấu phẩy) hoặc mọi người có mục theo dõi bật Báo email. Kết quả chưa gộp kịp hàng hóa ⇒ báo cáo hôm sau (`WTZ_CARRY`, ≤ 3 ngày). Tắt: `WTZ_OFF = 1`.
   Kiểm tra: ping `tender-info?action=botDigest&key=<WT_BOT_KEY>&op=status|dry|pdf|send&full=1` · `botSuspect … op=status|dry|run` (app: `wDigest` / `wSuspect`, quản lý).
   **Tải trùng giữa nhiều trình duyệt**: `botNext` giữ chỗ gói 30 phút dưới ScriptLock (không trùng); file "cần Agent" (`wtaList_`) nay giữ chỗ TỪNG FILE 15 phút cho máy đã nhận (CacheService `wtaL:`) — trước đây 2 trình duyệt có Agent có thể tải cùng file.
+- **23/11/2026 — BÁO CÁO THẦU BUỔI SÁNG THEO PIC + EMAIL 1 GÓI ĐỦ 4 BƯỚC (tender-info `MMH_WatchRoute.gs` + `MMH_WatchText.gs`, MMH_Watch v1.11, người dùng yêu cầu)**:
+  người nhận theo NHÓM SẢN PHẨM + địa bàn (`WTR.PEOPLE`): Nha khoa Viet = Miền Bắc · Vinh = Miền Trung · Phuong = Miền Nam (miền theo `WTD_REGION`); Ngoại khoa & Nhãn khoa Viet Ha = miền Bắc → hết Đà Nẵng cũ ·
+  Khang = từ Quảng Nam cũ (cùng luật `FU.TERR_N_PROV` / `QNAM_RE` của Theo dõi thầu). Chia theo TỈNH của tin thầu ⇒ mọi bệnh viện, trung tâm y tế, sở y tế trong địa bàn (không cần khớp tên CRM);
+  + chủ đầu tư ngoài địa bàn người đó tự thêm trong app Theo dõi gói thầu (mục theo dõi cùng email). Email tra RH_Users theo PIC, ghi đè: Script Property `WTR_TO` = {"PIC":"email"}. Mỗi người chỉ thấy sản phẩm nhóm mình
+  (từ khoá + quy tắc của MMH_WatchSuspect; tên gói đã khớp quy tắc nhóm kia ⇒ không báo vì từ chung như "chỉ").
+  1 email / người / ngày (06:30 T2–T7, `wtrTick_` trong wtTick) theo 4 bước: 1 KHLCNT · 2 TBMT (đoạn HSMT có từ khoá — `MMH_WatchText.gs`) · 3 Mở thầu (Excel "Nhà thầu tham dự": giá sau giảm, % so giá gói, NPP của MMH `WTR.NPP`) ·
+  4 Kết quả = bảng hàng hóa gộp mọi bệnh viện, 2 cột trái Bệnh viện · Gói thầu (+ hãng, SL, đơn giá, thành tiền, nhà thầu trúng, nhà thầu không trúng · giá · lý do; MANI tô vàng) + nhận xét. Từ khoá tô vàng; PDF đầy đủ đính kèm
+  (thư mục "Báo cáo gói thầu hằng ngày"). **TẮT mặc định** — bật: `botRoute op=on` (Script Property `WTR_ON = 1`; khi bật, báo cáo 17:30 của MMH_WatchDigest tự tắt để không gửi 2 lần).
+  Mở thầu: TBMT đã tải, đã qua giờ đóng thầu 2 giờ – 20 ngày ⇒ `wtrMoQueue_` xếp tải lại CHỈ phần mở thầu (`info.want=['mo']`, ≤ 3 lần cách 1 ngày; botDone giữ trạng thái + file cần Agent cũ).
+  Đọc chữ tài liệu (`MMH_WatchText.gs`, cuối `wtmTick`): Sheet / Docs / docx / PDF (Drive OCR, bản tạm xoá ngay) ⇒ sheet ẩn **THEO DÕI · TỪ KHOÁ TÀI LIỆU** (từ khoá + đoạn trích theo nhóm); rar / > 15 MB bỏ qua.
+  Kiểm tra (khoá bot, workflow Kiểm tra): `tender-info?action=botRoute&key=…&op=status|find|dry|moq&full=1` · `op=pkg&no=<TBMT>&to=<PIC>` (email MẪU 1 gói đủ 4 bước, `&dry=1` chỉ đếm) · `op=sample&pic=<PIC>&days=3&to=<PIC>` (báo cáo sáng MẪU, tiêu đề "[MẪU]") ·
+  `botText&op=status|run|one&id=<fileId>`.

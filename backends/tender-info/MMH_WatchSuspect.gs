@@ -1,5 +1,5 @@
 /* ════════════════════════════════════════════════════════════════════
-   MMH_WatchSuspect.gs v1.1 (23/11/2026, người dùng yêu cầu) — MẶT HÀNG LIÊN QUAN NHÓM SẢN PHẨM MMH + EMAIL KẾT QUẢ CHỈ KHI CÓ TỪ KHOÁ
+   MMH_WatchSuspect.gs v1.2 (23/11/2026, người dùng yêu cầu) — MẶT HÀNG LIÊN QUAN NHÓM SẢN PHẨM MMH + EMAIL KẾT QUẢ CHỈ KHI CÓ TỪ KHOÁ
 
    ① Bộ từ khoá + nhóm sản phẩm = ĐÚNG 2 file người dùng đã dùng để tải KQTT trên muasamcong (kho Tender-Result ▸ raw/KQTT/keywords.csv,
       product_groups.csv) + bộ quy tắc làm sạch (Tender-Result ▸ rules/kqtt_rules.csv, cùng cách của tools/kqtt_merge.py).
@@ -16,7 +16,7 @@
    Chạy ngay / xem: action botSuspect {key, op: status|run|dry} (khoá bot) · wSuspect (quản lý, app). Chạy tay: wtqRunNow().
    ════════════════════════════════════════════════════════════════════ */
 const WTQ = {
-  VER: '1.1',
+  VER: '1.2',
   KW_SHEET: 'Từ khoá sản phẩm MMH',
   GR_SHEET: 'Nhóm sản phẩm MMH',
   TABS: { dent: 'SP liên quan · Nha khoa', surg: 'SP liên quan · Ngoại khoa & Nhãn khoa' },
@@ -289,6 +289,11 @@ function wtqBuild_(opt) {
     });
     const P0 = per[bare] = per[bare] || { n: 0, mail: [], inv: wtS_(g(r, 'inv')), pkg: wtS_(g(r, 'pkg')), prov: wtS_(g(r, 'prov')), no: wtS_(g(r, 'no')) || bare };
     P0.n++;
+    const at0 = g(r, 'at'), atv = at0 instanceof Date ? Utilities.formatDate(at0, 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd HH:mm:ss') : wtS_(at0); if (atv > (P0.at || '')) P0.at = atv;
+    // v1.2 — đủ chi tiết cho báo cáo sáng theo PIC / email 1 gói (MMH_WatchRoute.gs): mọi dòng liên quan (≤ 80) + nhóm nha khoa / ngoại khoa
+    if ((P0.lines = P0.lines || []).length < 80) P0.lines.push({ name: name, brand: wtS_(g(r, 'brand')), maker: wtS_(g(r, 'maker')), win: wtS_(g(r, 'win')),
+      qty: g(r, 'qty'), unit: wtS_(g(r, 'unit')), price: g(r, 'price'), amt: g(r, 'amt'), lot: [wtS_(g(r, 'lot')), wtS_(g(r, 'lotN'))].filter(String).join(' · '),
+      kw: kwTxt, grp: best || grpTxt, high: !!rh.length, mani: !!mani, tabs: Object.keys(tabs) });
     if ((P0.top = P0.top || []).length < 6) P0.top.push({ name: name, brand: [wtS_(g(r, 'brand')), wtS_(g(r, 'maker'))].filter(String).join(' / '), kw: kwTxt, grp: best || grpTxt, high: !!rh.length });
     if (rh.length || kh.some(function (k) { return k.mail; })) {
       P0.mail.push({ name: name, brand: [wtS_(g(r, 'brand')), wtS_(g(r, 'maker'))].filter(String).join(' / '), win: wtS_(g(r, 'win')), qty: g(r, 'qty'), unit: wtS_(g(r, 'unit')),

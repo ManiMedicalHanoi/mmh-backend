@@ -199,7 +199,7 @@ function wtzRun_(opt) {
 /** wtTick: đúng 1 lần / ngày làm việc, sau giờ hẹn */
 function wtzTick_() {
   const P = PropertiesService.getScriptProperties(), d = new Date();
-  if (P.getProperty('WTZ_OFF') === '1' || P.getProperty('WTZ_DAY') === wtzDay_(d)) return null;
+  if (P.getProperty('WTZ_OFF') === '1' || P.getProperty('WTR_ON') === '1' || P.getProperty('WTZ_DAY') === wtzDay_(d)) return null;
   const hm = +Utilities.formatDate(d, 'Asia/Ho_Chi_Minh', 'H') * 60 + +Utilities.formatDate(d, 'Asia/Ho_Chi_Minh', 'm');
   const wd = +Utilities.formatDate(d, 'Asia/Ho_Chi_Minh', 'u');   // 1 = thứ Hai … 7 = Chủ nhật
   if (wd === 7 || hm < WTZ.HOUR * 60 + WTZ.MIN) return null;
