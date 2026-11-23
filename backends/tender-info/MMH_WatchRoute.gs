@@ -35,6 +35,7 @@ const WTR = {
   ATT_MAX: 5,   // số PDF phân tích gói tối đa / email
   CAP: { kh: 30, tb: 30, mo: 20, kq: 120 },       // số dòng trong email (PDF đầy đủ)
   CAP_PDF: { kh: 200, tb: 200, mo: 80, kq: 400 },
+  BID_MAX: 25,                                       // số file "Nhà thầu tham dự" đọc / PIC / lượt (mở thầu)
   MO_AFTER_H: 2, MO_WITHIN_D: 20, MO_MAX: 40,
   C: { navy: '#2C4A5E', steel: '#5A84A6', line: '#BCD4E6', cream: '#FBE9B7', ink: '#1F2937', mute: '#6B7280', soft: '#F4F8FB' }
 };
@@ -214,7 +215,9 @@ function wtrData_() {
   });
   return out;
 }
-var WTR_T = null;
+var WTR_T = null, WTR_T0 = 0;
+/** đã chạy quá sec giây kể từ đầu lượt (Apps Script dừng ở 6 phút) */
+function wtrLate_(sec) { return !!WTR_T0 && Date.now() - WTR_T0 > sec * 1000; }
 function wtrT_(k) { if (!WTR_T) return; const n = Date.now(); WTR_T[k] = (WTR_T[k] || 0) + (n - WTR_T._); WTR_T._ = n; }
 /** tin trong cửa sổ: ngày (Báo Đấu Thầu) ∈ (fromDay, toDay] hoặc mốc giờ (tải xong / gộp) ≥ fromAt */
 function wtrGather_(fromDay, toDay, fromAt) {
@@ -420,7 +423,14 @@ function wtrPersonReport_(p, G, range) {
       .sort(function (a, b) { return (b.rel.high ? 2 : b.rel.hit ? 1 : 0) - (a.rel.high ? 2 : a.rel.hit ? 1 : 0) || String(b.day).localeCompare(String(a.day)); });
   };
   const kh = pick(G.kh), tb = pick(G.tb), kq = pick(G.kq);
-  const mo = pick(G.mo).map(function (x) { const b = wtrBidders_(x.hits); return Object.assign(x, { bid: b, npp: b ? b.list.some(function (y) { return wtrNpp_(y.name); }) : false }); });
+  // mở file Excel "Nhà thầu tham dự" tốn 1–3 giây / gói ⇒ chỉ đọc ≤ WTR.BID_MAX gói (liên quan trước), dùng chung giữa các PIC, dừng khi gần hết giờ
+  G.bidC = G.bidC || {};
+  let nb = 0;
+  const mo = pick(G.mo).map(function (x) {
+    let b = G.bidC[x.bare];
+    if (b === undefined && nb < WTR.BID_MAX && !wtrLate_(150)) { nb++; b = G.bidC[x.bare] = wtrBidders_(x.hits); }
+    return Object.assign(x, { bid: b || null, npp: b ? b.list.some(function (y) { return wtrNpp_(y.name); }) : false });
+  });
   const cnt = function (a) { return a.filter(function (x) { return x.rel.hit; }).length; };
   const sum = [['1. ' + WTR_STAGE.kh, kh.length, cnt(kh)], ['2. ' + WTR_STAGE.tb, tb.length, cnt(tb)], ['3. ' + WTR_STAGE.mo, mo.length, cnt(mo)], ['4. ' + WTR_STAGE.kq, kq.length, cnt(kq)]];
   const head = function (S) {
@@ -465,11 +475,11 @@ function wtrPkgPdfHtml_(D) {
 /** báo cáo sáng: PDF phân tích các gói kết quả có hàng cùng nhóm SP MMH (dựng 1 lần / gói / lượt, không lưu Drive) */
 function wtrAttach_(bares, G, cache) {
   return bares.map(function (b) {
-    if (!cache[b]) {
-      try { const D = wtrPkgData_(b, G.ctx); cache[b] = { no: b, blob: wtrPdf_(wtrPkgPdfHtml_(D), 'Phân tích gói thầu ' + b + ' - ' + String(D.inv).replace(/[\\/:*?"<>|]/g, ' ').slice(0, 60), false).blob }; }
+    if (!cache[b] && !wtrLate_(260)) {
+      try { const D = wtrPkgData_(b, Object.assign({ bidC: G.bidC }, G.ctx)); cache[b] = { no: b, blob: wtrPdf_(wtrPkgPdfHtml_(D), 'Phân tích gói thầu ' + b + ' - ' + String(D.inv).replace(/[\\/:*?"<>|]/g, ' ').slice(0, 60), false).blob }; }
       catch (e) { Logger.log('wtrAttach_ ' + b + ': ' + e.message); cache[b] = { no: b, err: 1 }; }
     }
-    return cache[b];
+    return cache[b] || {};
   }).filter(function (a) { return a.blob; });
 }
 
@@ -482,7 +492,7 @@ function wtrRun_(opt) {
   const fromDay = opt.days ? wtrDay_(new Date(now.getTime() - (days + 1) * 864e5)) : (P.getProperty('WTR_LAST_DAY') || wtrDay_(new Date(now.getTime() - 2 * 864e5)));
   const toDay = opt.days ? today : yest;
   const fromAt = opt.days ? now.getTime() - days * 864e5 : (+(P.getProperty('WTR_LAST_AT') || 0) || now.getTime() - 864e5);
-  WTR_T = { _: Date.now() }; const t0 = Date.now();
+  WTR_T = { _: Date.now() }; const t0 = Date.now(); WTR_T0 = t0;
   const G = wtrGather_(fromDay, toDay, fromAt);
   const range = 'từ ' + wtrVn_(wtrDay_(new Date(new Date(fromDay + 'T00:00:00+07:00').getTime() + 864e5))) + ' đến ' + wtrVn_(toDay);
   const people = wtrPeople_().filter(function (p) { return !opt.pic || p.pic.toLowerCase() === wtS_(opt.pic).toLowerCase(); });
@@ -494,13 +504,13 @@ function wtrRun_(opt) {
     res.people.push(row);
     if (opt.op === 'dry') return;
     if (!R.rel) { row.skip = 'không có gói liên quan — không gửi email'; return; }   // người dùng chốt: ngày không có gói liên quan ⇒ không gửi
-    const att = wtrAttach_(R.pkgs || [], G, cache);   // kết quả có hàng cùng nhóm SP MMH ⇒ đính kèm PDF phân tích gói
+    const att = wtrLate_(230) ? [] : wtrAttach_(R.pkgs || [], G, cache); wtrT_('attach');   // kết quả có hàng cùng nhóm SP MMH ⇒ đính kèm PDF phân tích gói
     row.att = att.map(function (a) { return a.no; });
     if (opt.preview) { if (R.n) row.preview = wtrPreview_('Mẫu báo cáo sáng ' + today.replace(/-/g, '') + ' - ' + p.pic + ' - ' + WTR.LINE[p.line], R.html, R.pdfHtml); return; }
     const to = opt.to ? wtrMailOf_(opt.to) : p.mail;
     if (!to) { row.skip = 'không có email'; return; }
     const day = wtrVn_(today);
-    const pdf = wtrPdf_(R.pdfHtml, 'Báo cáo thầu ' + today.replace(/-/g, '') + ' - ' + p.pic + ' - ' + WTR.LINE[p.line]);
+    wtrT_('pre'); const pdf = wtrPdf_(R.pdfHtml, 'Báo cáo thầu ' + today.replace(/-/g, '') + ' - ' + p.pic + ' - ' + WTR.LINE[p.line]);
     mmhMail_({ to: to, subject: (opt.to ? '[MẪU] ' : '') + '[MMH · Thông tin thầu] Báo cáo ngày ' + day + ' – ' + WTR.LINE[p.line] + ' – ' + p.area + (R.rel ? ' – ' + R.rel + ' gói có sản phẩm liên quan' : ''),
       htmlBody: R.html, attachments: [pdf.blob].concat(att.map(function (a) { return a.blob; })), name: CFG.EMAIL_FROM_NAME });
     row.sent = to.split('@')[0]; row.pdf = pdf.url;
@@ -578,7 +588,7 @@ function wtrPkgData_(b, C) {
   const name = I.bidName || (tbRow || kqRow || {}).name || (hs[0] || {}).name || b;
   const pr = wtrProv_(I.prov || (tbRow || {}).prov || (kqRow || {}).prov, inv, name);
   const price = wtrNum_(F['Giá gói thầu'] || I.price || (tbRow || {}).price || (kqRow || {}).price);
-  const bid = wtrBidders_(hs), P0 = B.per[b] || null;
+  const bid = C.bidC && C.bidC[b] !== undefined ? C.bidC[b] : wtrBidders_(hs), P0 = B.per[b] || null;
   const loseAll = L[b] ? wtrUniq_([].concat.apply([], Object.keys(L[b]).map(function (k) { return L[b][k]; }))) : [];
   const hasF = function (re) { return hs.some(function (h) { return (h.files || []).some(function (f) { return re.test(wtS_(f.kind) + ' ' + wtS_(f.name)); }); }); };
   const missing = [];
