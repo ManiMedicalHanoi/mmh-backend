@@ -561,6 +561,19 @@ function grepPic(raw, pic) {
   return `  grep "${pic}": ${rows.length} mục · theo tháng bắt đầu: ${Object.keys(months).sort().map((m) => m + '=' + months[m]).join(' ')}\n` +
     rows.slice(0, 60).map((r) => `    ${r[0]} · ${r[1]} → ${r[2]}${r[3] ? ' (' + r[3] + ')' : ''} · ${r[4]} · ${r[5]}`).join('\n');
 }
+function dumpKeys(raw, o) {
+  let j; try { j = JSON.parse(raw.replace(/^[^{]*?\(/, '').replace(/\);?\s*$/, '')); } catch (e) { return '  dump: không đọc được JSON (' + e.message + ')'; }
+  const keys = j.keyTasks || j.keys || (j.data && j.data.keyTasks) || [], out = [], cl = (x) => String(x || '').replace(/\s+/g, ' ').trim();
+  let n = 0, ns = 0;
+  keys.forEach((k) => {
+    const subs = (k.subs || []).filter((s) => !o.pic || o.pic.test(s.pic || k.pic));
+    if (o.pic && !o.pic.test(k.pic || '') && !subs.length) return;
+    n++; ns += subs.length;
+    out.push(`K | ${(k.start || '').slice(0, 7)} | ${cl(k.pic)} | ${cl(k.type)} | ${cl(k.status)} | ${cl(k.keyTask).slice(0, 120)} | subs=${subs.length}`);
+    subs.forEach((s) => out.push(`  S | ${(s.start || '').slice(0, 10)} | ${cl(s.pic)} | ${cl(s.status)} | ${cl(s.subTask || s.name).slice(0, 140)} | ${cl(s.result).slice(0, 80)}`));
+  });
+  return '```\n  dump: ' + n + ' key · ' + ns + ' sub\n' + out.join('\n') + '\n```';
+}
 async function cmdPing(arg) {
   /* nhiều lệnh cách nhau bằng " ; " ⇒ gọi lần lượt (đo thời gian / dung lượng từng lệnh) */
   const parts = String(arg || '').split(/\s+;\s+/).filter(Boolean);
@@ -572,7 +585,9 @@ async function cmdPing(arg) {
   let q = qi >= 0 ? String(arg).slice(qi) : '';
   if (qi >= 0) arg = String(arg).slice(0, qi);
   /* "&grep=<PIC>" (chỉ ở công cụ, không gửi lên máy chủ) ⇒ đếm + liệt kê việc có "pic":"<PIC>" trong dữ liệu trả về (no · start · planned · status · tên) */
-  let grep = '';
+  let grep = '', dump = null;
+  /* "&dump=1[&dpic=<regex PIC>]" (chỉ ở công cụ) ⇒ in gọn mọi Key task / Sub task trong keyTasks (tháng · PIC · trạng thái · tên) */
+  q = q.replace(/[?&]dump=1/, (m) => { dump = dump || {}; return m[0] === '?' ? '?' : ''; }).replace(/[?&]dpic=([^&]*)/, (m, v) => { dump = dump || {}; dump.pic = new RegExp(decodeURIComponent(v.replace(/\+/g, ' ')), 'i'); return m[0] === '?' ? '?' : ''; }).replace(/^\?&/, '?').replace(/^\?$/, '');
   q = q.replace(/[?&]grep=([^&]*)/, (m, v) => { grep = decodeURIComponent(v.replace(/\+/g, ' ')); return m[0] === '?' ? '?' : ''; }).replace(/^\?&/, '?').replace(/^\?$/, '');
   for (const k of pickKeys(cfg, arg)) {
     const b = cfg[k];
@@ -589,6 +604,7 @@ async function cmdPing(arg) {
         const t = raw.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
         say(`- ${b.name}${q ? ' ' + q.slice(0, 60) : ''}: ${hops.join(' → ')} · ${r.headers.get('content-type') || ''} · ${ms} ms · ${Math.round(raw.length / 1024)} KB · «${t.slice(0, /[?&]full=1/.test(q) ? 6000 : 300)}»`);
         if (grep) say(grepPic(raw, grep));
+        if (dump) say(dumpKeys(raw, dump));
         break;
       }
     } catch (e) { say(`- ${b.name}: ${hops.join(' → ')} ✗ ${e.message}`); }
