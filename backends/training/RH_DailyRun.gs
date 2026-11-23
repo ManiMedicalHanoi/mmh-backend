@@ -108,6 +108,7 @@ function apiDailyStatus(p) {
     out.run = {id: run.id, status: run.status, conclusion: run.conclusion || '', step: step, event: run.event,
                created: run.created_at, updated: run.updated_at, url: run.html_url};
   }
+  try { out.auto = JSON.parse(drProps_().getProperty('DK_LAST') || 'null'); } catch (e) {}   // ★ v3.49 — lượt tự tạo số buổi sáng (RH_DailyKick.gs)
   cache.put('drst', JSON.stringify(out), 10);
   return out;
 }
