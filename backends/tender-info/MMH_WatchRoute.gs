@@ -720,6 +720,19 @@ function wtrAction_(p) {
   if (op === 'pkg') return wtrPkg_(p, null);
   if (op === 'dry') return wtrRun_({ op: 'dry', days: +p.days || 0, pic: p.pic });
   if (op === 'sample') return wtS_(p.preview) === '1' ? wtrRun_({ op: 'sample', days: +p.days || 3, pic: wtS_(p.pic), preview: 1 }) : wtrRun_({ op: 'sample', days: +p.days || 3, pic: wtS_(p.pic) || 'Viet Ha', to: wtS_(p.to) || 'Giang' });
+  if (op === 'prof') {   // đo thời gian từng bước gom dữ liệu (dừng trước 250 giây)
+    const T = {}, t0 = Date.now(); let t = t0; const m = function (k) { const n = Date.now(); T[k] = n - t; t = n; return n - t0 < 250000; };
+    const ss = wtBook_(); if (!m('book')) return { ok: true, t: T };
+    const D = wtrData_(); T.dataRows = D.kqdt.length + D.tbmt.length + D.khmt.length; if (!m('data')) return { ok: true, t: T };
+    const H = wtHits_(ss); T.hitRows = H.length; if (!m('hits')) return { ok: true, t: T };
+    const only = {}, since = Utilities.formatDate(new Date(Date.now() - 864e5 * (+p.days || 1)), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd HH:mm:ss');
+    H.forEach(function (h) { if (h.done >= since) only[wtBare_(h.no)] = 1; }); T.only = Object.keys(only).length;
+    const B = wtqBuild_({ dry: true, only: only }); T.goodsPkgs = Object.keys(B.per).length; if (!m('goods')) return { ok: true, t: T };
+    wtrLose_(only); if (!m('bidders')) return { ok: true, t: T };
+    wteHitsBy_(); if (!m('docs')) return { ok: true, t: T };
+    wttTargets_(); m('targets'); T.total = Date.now() - t0;
+    return { ok: true, t: T };
+  }
   if (op === 'moq') return Object.assign({ ok: true }, wtrMoQueue_());
   if (op === 'on') { P.setProperty('WTR_ON', '1'); return { ok: true, on: true }; }
   if (op === 'off') { P.deleteProperty('WTR_ON'); return { ok: true, on: false }; }
