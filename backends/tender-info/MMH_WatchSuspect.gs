@@ -247,6 +247,7 @@ function wtqBuild_(opt) {
   const B = wtmBook_('hh'), book = B.book, KL = wtqKwLoad_(book), KW = KL.list, G = wtqGroups_();
   const last = B.sh.getLastRow(), nRows = Math.max(last - 1, 0);
   const sig = [nRows, KL.sig, WTQ.VER].join('|');   // + cờ WTQ_DIRTY (wtmMerge_ ghi dòng hàng hóa mới / wtqPend_)
+  if (opt.only || opt.since) opt.dry = true;   // dựng 1 phần ⇒ không bao giờ ghi tab
   if (!opt.force && !opt.dry && P.getProperty('WTQ_DIRTY') !== '1' && P.getProperty('WTQ_SIG') === sig) return { skip: 'unchanged' };
   const H = B.head, ix = function (n) { return H.indexOf(n); };
   const I = { reg: ix('Khu vực'), prov: ix('Tỉnh thành'), inv: ix('Chủ đầu tư'), pkg: ix('Tên gói thầu'), no: ix('Số TBMT'), lot: ix('Mã phần/lô'), lotN: ix('Tên phần/lô'),
@@ -260,6 +261,11 @@ function wtqBuild_(opt) {
   V.forEach(function (r) {
     const bare = wtmBare_(g(r, 'key') || g(r, 'no')); if (!bare) return;
     bares[bare] = 1;
+    // chỉ một số gói (MMH_WatchRoute: báo cáo sáng / phân tích 1 gói) ⇒ bỏ qua dòng khác TRƯỚC khi dò từ khoá (dò toàn file mất ~5 phút)
+    if (opt.only || opt.since) {
+      const a0 = g(r, 'at'), at1 = a0 instanceof Date ? Utilities.formatDate(a0, 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd HH:mm:ss') : wtS_(a0);
+      if (!((opt.only && opt.only[bare]) || (opt.since && at1 >= opt.since))) return;
+    }
     const name = wtS_(g(r, 'item')) || wtS_(g(r, 'bid')), nameAll = name + (wtS_(g(r, 'bid')) && wtS_(g(r, 'bid')) !== name ? ' · ' + wtS_(g(r, 'bid')) : '');
     if (!name) return;
     const kh = wtqKwHits_(KW, nameAll);
