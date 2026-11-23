@@ -373,26 +373,33 @@ function wtrPersonReport_(p, G, range) {
   const cnt = function (a) { return a.filter(function (x) { return x.rel.hit; }).length; };
   const sum = [['1. ' + WTR_STAGE.kh, kh.length, cnt(kh)], ['2. ' + WTR_STAGE.tb, tb.length, cnt(tb)], ['3. ' + WTR_STAGE.mo, mo.length, cnt(mo)], ['4. ' + WTR_STAGE.kq, kq.length, cnt(kq)]];
   const head = function (S) {
-    return '<p>Hệ thống Theo dõi gói thầu xin gửi anh/chị tổng hợp tin đấu thầu mới tại địa bàn <b>' + wtH_(p.area) + '</b>, nhóm sản phẩm <b>' + WTR.LINE[line] + '</b>, cập nhật ' + wtH_(range) + '.</p>' +
+    return '<p>Em xin gửi anh/chị tổng hợp tin đấu thầu mới tại địa bàn <b>' + wtH_(p.area) + '</b>, nhóm sản phẩm <b>' + WTR.LINE[line] + '</b>, ' + wtH_(range) + '.</p>' +
       wtrTable_(['Bước', 'Số gói trong địa bàn', 'Có sản phẩm liên quan'], sum.map(function (r) { return [r[0], r[1], r[2] ? '<b>' + r[2] + '</b>' : '0']; }), S, ['', '22%', '22%']);
   };
   const body = function (S, pdf) {
     return head(S) + wtrStageHtml_('kh', kh, line, S, pdf) + wtrStageHtml_('tb', tb, line, S, pdf) + wtrMoHtml_(mo, line, S, pdf) + wtrKqHtml_(kq, line, S, pdf, G.L) +
-      '<p style="' + S.mute + ';margin-top:14px">Từ khoá sản phẩm được tô vàng. "Sản phẩm liên quan" = tên gói / đoạn HSMT / mặt hàng chứa từ khoá của nhóm ' + WTR.LINE[line] +
-      ' (bộ từ khoá KQTT); chữ đậm = khớp quy tắc làm sạch (khả năng cao đúng loại sản phẩm). Gói thầu ngoài địa bàn: thêm trong app Theo dõi gói thầu.</p>';
+      '<p style="' + S.mute + ';margin-top:14px">Ghi chú: phần tô vàng là từ khoá sản phẩm; chữ đậm là mặt hàng chắc chắn thuộc nhóm ' + WTR.LINE[line] + '. Anh/chị có thể thêm bệnh viện ngoài địa bàn trong app Theo dõi gói thầu.</p>';
   };
   const n = sum.reduce(function (s, r) { return s + r[1]; }, 0), nrel = sum.reduce(function (s, r) { return s + r[2]; }, 0);
   return { n: n, rel: nrel, sum: sum,
-    html: '<div style="font-family:Aptos,Arial,sans-serif;font-size:14px;color:' + WTR.C.ink + '">Kính gửi anh/chị ' + wtH_(p.pic) + ',' + body(S, false) +
-      '<p>Bản đầy đủ (mọi gói trong địa bàn, link tài liệu) ở file PDF đính kèm.</p><p>Trân trọng,<br>MMH Product Team</p></div>',
+    html: '<div style="font-family:Aptos,Arial,sans-serif;font-size:14px;color:' + WTR.C.ink + '"><p>Kính gửi anh/chị ' + wtH_(p.pic) + ',</p>' + body(S, false) +
+      '<p>Danh sách đầy đủ các gói trong địa bàn và đường dẫn tài liệu có trong file PDF đính kèm.</p><p>Trân trọng,<br>MMH Product Team</p></div>',
     pdfHtml: '<div style="font-family:Aptos,Arial,sans-serif;color:' + WTR.C.ink + '"><div style="font-size:16px;font-weight:bold;color:' + WTR.C.navy + ';text-transform:uppercase">Báo cáo thầu · ' + wtH_(p.pic) + ' · ' + WTR.LINE[line] + '</div>' + body(SP, true) + '</div>' };
 }
-function wtrPdf_(html, name) {
+function wtrPdf_(html, name, keep) {
   const doc = '<html><head><meta charset="utf-8"><style>@page{size:A4 landscape;margin:10mm}body{margin:0}</style></head><body>' + html + '</body></html>';
   const blob = Utilities.newBlob(doc, 'text/html', 'r.html').getAs(MimeType.PDF).setName(name + '.pdf');
   let url = '';
   try { url = wtzFolder_().createFile(blob).getUrl(); } catch (e) { Logger.log('wtrPdf_: ' + e.message); }
   return { blob: blob, url: url };
+}
+
+/** chế độ xem trước: lưu bản email (HTML) + PDF vào thư mục "Báo cáo gói thầu hằng ngày/Mẫu email" — KHÔNG gửi email */
+function wtrPreview_(name, html, pdfHtml) {
+  const dir = wtSub_(wtzFolder_(), 'Mẫu email'), safe = name.replace(/[\\/:*?"<>|]/g, ' ');
+  const pdf = wtrPdf_(pdfHtml, safe);
+  const pf = dir.createFile(pdf.blob), hf = dir.createFile(safe + ' (email).html', '<html><head><meta charset="utf-8"></head><body>' + html + '</body></html>', 'text/html');
+  return { html: hf.getId(), htmlUrl: hf.getUrl(), pdf: pf.getId(), pdfUrl: pf.getUrl() };
 }
 
 /* ══════════ GỬI ══════════ */
@@ -412,6 +419,7 @@ function wtrRun_(opt) {
     const R = wtrPersonReport_(p, G, range), row = { pic: p.pic, area: p.area, mail: p.mail ? p.mail.split('@')[0] : '(chưa có email)', n: R.n, rel: R.rel, sum: R.sum.map(function (x) { return [x[1], x[2]]; }) };
     res.people.push(row);
     if (opt.op === 'dry') return;
+    if (opt.preview) { if (R.n) row.preview = wtrPreview_('Mẫu báo cáo sáng ' + today.replace(/-/g, '') + ' - ' + p.pic + ' - ' + WTR.LINE[p.line], R.html, R.pdfHtml); return; }
     const to = opt.to ? wtrMailOf_(opt.to) : p.mail;
     if (!to || !R.n) { row.skip = !to ? 'không có email' : 'không có tin'; return; }
     const day = wtrVn_(today);
@@ -460,112 +468,161 @@ function wtrFind_(p) {
   out.sort(function (a, b) { return b.score - a.score || b.high - a.high || b.rel - a.rel; });
   return { ok: true, n: out.length, list: out.slice(0, +p.n || 25) };
 }
-/** email 1 gói theo 4 bước + nhận xét */
-function wtrPkg_(p) {
-  const b = wtBare_(p.no); if (!b) return { ok: false, error: 'cần no = số TBMT' };
+/** lý do không trúng ⇒ nhóm: Giá · Kỹ thuật · Năng lực, kinh nghiệm · Hồ sơ, bảo đảm dự thầu · Khác */
+function wtrWhy_(s) {
+  const t = wtmK_(s); if (!t) return '';
+  if (/bao dam du thau|hop le|tu cach|giay phep|uy quyen|chu ky|hieu luc ho so|khong nop|ho so de xuat|hanh chinh|phap ly/.test(t)) return 'Hồ sơ, bảo đảm dự thầu';
+  if (/nang luc|kinh nghiem|tai chinh|doanh thu|hop dong tuong tu|nhan su|thiet bi thi cong/.test(t)) return 'Năng lực, kinh nghiệm';
+  if (/ky thuat|thong so|tieu chuan|cau hinh|xuat xu|chat luong|catalog|tai lieu ky thuat|ky ma hieu|hang san xuat|mau sac|kich thuoc|chung loai/.test(t)) return 'Kỹ thuật';
+  if (/gia du thau|gia chao|gia cao|xep hang|xep thu|khong (phai|duoc) xep|vuot gia|gia danh gia|thap nhat/.test(t)) return 'Giá';
+  return 'Khác';
+}
+function wtrDays_(a, b) { const x = Date.parse(String(a).slice(0, 10)), y = Date.parse(String(b).slice(0, 10)); return isNaN(x) || isNaN(y) ? null : Math.round((y - x) / 864e5); }
+function wtrIso_(s) { const t = wtS_(s), m = t.match(/(\d{2})\/(\d{2})\/(\d{4})/); if (m) return m[3] + '-' + m[2] + '-' + m[1]; const n = t.match(/(\d{4})-(\d{2})-(\d{2})/); return n ? n[0] : ''; }
+
+/** dữ liệu 1 gói từ mọi nguồn đã có (KHLCNT · TBMT · mở thầu · kết quả · hàng hóa · nhà thầu) + phần còn thiếu */
+function wtrPkgData_(b) {
   const ss = wtBook_(), H = wtHits_(ss), data = wtLoad_(ss), B = wtqBuild_({ dry: true });
   let L = {}; try { L = wtgData_().lose || {}; } catch (e) {}
   let DOC = {}; try { DOC = wteHitsBy_(); } catch (e) {}
   const hs = H.filter(function (h) { return wtBare_(h.no) === b; });
-  if (!hs.length) return { ok: false, error: 'chưa có gói ' + b + ' trong danh sách đã tải' };
-  const I = Object.assign({}, ...hs.map(function (h) { return h.info || {}; })), F = Object.assign({}, I.fields || {}), KF = I.kqFields || {}, MF = I.moFields || {};
-  const plan = wtBare_(I.planNo || F['Mã KHLCNT']);
-  const khHits = plan ? H.filter(function (h) { return wtBare_(h.no) === plan; }) : [];
-  const khRow = plan ? data.khmt.filter(function (r) { return wtBare_(r.no) === plan; })[0] : null;
+  const I = Object.assign.apply(null, [{}].concat(hs.map(function (h) { return h.info || {}; })));
+  const F = I.fields || {}, KF = I.kqFields || {}, MF = I.moFields || {};
   const tbRow = data.tbmt.filter(function (r) { return wtBare_(r.no) === b; })[0];
   const kqRow = data.kqdt.filter(function (r) { return wtBare_(r.no) === b; })[0];
-  const inv = I.investor || hs[0].investor, name = I.bidName || hs[0].name;
+  const plan = wtBare_(I.planNo || F['Mã KHLCNT'] || (tbRow || {}).plan || '');
+  const khHits = plan ? H.filter(function (h) { return wtBare_(h.no) === plan; }) : [];
+  const khRow = plan ? data.khmt.filter(function (r) { return wtBare_(r.no) === plan; })[0] : null;
+  const KHF = Object.assign.apply(null, [{}].concat(khHits.map(function (h) { return (h.info || {}).fields || {}; })));
+  const inv = I.investor || (hs[0] || {}).investor || (tbRow || kqRow || {}).inv || '';
+  const name = I.bidName || (tbRow || kqRow || {}).name || (hs[0] || {}).name || b;
   const pr = wtrProv_(I.prov || (tbRow || {}).prov || (kqRow || {}).prov, inv, name);
-  const P0 = B.per[b] || null, tabN = { dent: 0, surg: 0 };
-  (P0 ? P0.lines || [] : []).forEach(function (x) { (x.tabs || []).forEach(function (t) { tabN[t]++; }); });
-  const r0 = wtrRel_(name); tabN.dent += r0.dent.kw.length + r0.dent.rule.length * 3; tabN.surg += r0.surg.kw.length + r0.surg.rule.length * 3;
-  const line = /^(dent|surg)$/.test(wtS_(p.line)) ? wtS_(p.line) : (tabN.dent > tabN.surg ? 'dent' : 'surg');
-  const S = wtrCss_(false), SP = wtrCss_(true), C = WTR.C;
-  const links = wtrLinks_(hs, khHits), price = wtrNum_(F['Giá gói thầu'] || I.price || (tbRow || {}).price || (kqRow || {}).price);
-  const KH = (khHits[0] || {}).info || {}, KHF = KH.fields || {};
-  const docHits = (DOC[b] || []).concat(plan ? DOC[plan] || [] : []);
-  const bid = wtrBidders_(hs);
-  const lose = L[b] ? wtrUniq_([].concat.apply([], Object.keys(L[b]).map(function (k) { return L[b][k]; }))) : [];
-  const kv = function (rows) { return '<table style="border-collapse:collapse;width:100%">' + rows.filter(function (r) { return wtS_(r[1]); }).map(function (r) { return '<tr><td style="' + S.td + ';width:30%;color:' + C.mute + '">' + wtH_(r[0]) + '</td><td style="' + S.td + '">' + r[1] + '</td></tr>'; }).join('') + '</table>'; };
-  const lk = function (re) { return links.filter(function (l) { return re.test(l[0] + ' ' + l[2]); }).map(wtrA_).join(' · '); };
-  const build = function (S, pdf) {
-    let h = '';
-    // 1
-    h += '<h3 style="' + S.h2 + '">1. Kế hoạch lựa chọn nhà thầu</h3>' + kv([
-      ['Số KHLCNT', wtH_(plan)], ['Tên kế hoạch / dự toán', wtH_(KHF['Tên KHLCNT'] || KHF['Tên dự toán mua sắm'] || I.planName || (khRow || {}).proj || '')],
-      ['Ngày đăng tải', wtH_(KHF['Ngày đăng tải'] || (khRow ? wtrVn_(khRow.date) : ''))], ['Giá gói thầu trong kế hoạch', (khRow && khRow.price) ? wtrMoney_(khRow.price) + ' đ' : ''],
-      ['Hình thức · phương thức', wtH_([KHF['Hình thức lựa chọn nhà thầu'] || (khRow || {}).form, KHF['Phương thức lựa chọn nhà thầu']].filter(function (x) { return wtS_(x); }).join(' · '))],
-      ['Nguồn vốn', wtH_(KHF['Chi tiết nguồn vốn'] || F['Chi tiết nguồn vốn'] || F['Nguồn vốn'] || '')], ['Tài liệu', lk(/KHLCNT|kế hoạch/i)]]);
-    // 2
-    const docH = docHits.filter(function (d) { return d.hits && d.hits.length; });
-    h += '<h3 style="' + S.h2 + '">2. Thông báo mời thầu</h3>' + kv([
-      ['Số TBMT · ngày đăng', wtH_([b, F['Ngày đăng tải']].filter(function (x) { return wtS_(x); }).join(' · '))], ['Tên gói thầu', wtrMark_(name, line)], ['Chủ đầu tư', wtH_(inv + (pr[0] ? ' (' + pr[0] + ')' : ''))],
-      ['Giá gói thầu', price ? wtrMoney_(price) + ' đ' : ''], ['Hình thức · phương thức', wtH_([F['Hình thức lựa chọn nhà thầu'], F['Phương thức lựa chọn nhà thầu']].filter(function (x) { return wtS_(x); }).join(' · '))],
-      ['Loại hợp đồng · thời gian', wtH_([F['Loại hợp đồng'], F['Thời gian thực hiện gói thầu']].filter(function (x) { return wtS_(x); }).join(' · '))], ['Đóng thầu', wtH_(F['Thời điểm đóng thầu'] || I.close || '')],
-      ['Bảo đảm dự thầu', wtH_(F['Số tiền đảm bảo dự thầu'] || F['Số tiền bảo đảm dự thầu'] || '')],
-      ['Sản phẩm liên quan trong HSMT', docH.length ? docH.map(function (d) { return d.hits.slice(0, 4).map(function (x) { return '<span style="' + S.mute + '">' + wtH_(d.name) + ':</span> «' + wtrMark_(String(x.snip).slice(0, 260)) + '»'; }).join('<br>'); }).join('<br>') : '<span style="' + S.mute + '">chưa đọc HSMT / không thấy từ khoá</span>'],
-      ['Tài liệu', lk(/TBMT|thông báo|HSMT|hồ sơ mời|chương|yêu cầu|tiêu chuẩn/i)]]);
-    // 3
-    const bl = bid ? bid.list : [];
-    h += '<h3 style="' + S.h2 + '">3. Mở thầu</h3>' + (bl.length ? wtrTable_(['#', 'Nhà thầu', 'Giá dự thầu (sau giảm giá)', 'Giảm giá', 'So với giá gói'], bl.map(function (x, i) {
-      const pv = x.after || x.bid, d = price && pv ? Math.round((1 - pv / price) * 1000) / 10 : null, npp = wtrNpp_(x.name);
-      return [i + 1, (npp ? '<b>' : '') + wtH_(x.name) + (npp ? '</b> <span style="background:' + C.cream + '">NPP của MMH</span>' : '') + (x.lot ? '<br><span style="' + S.mute + '">' + wtH_(x.lot) + '</span>' : ''), wtrMoney_(pv) + ' đ', wtH_(x.disc || '0'), d != null ? (d >= 0 ? 'thấp hơn ' : 'cao hơn ') + Math.abs(d) + '%' : ''];
-    }), S, ['4%', '', '16%', '10%', '14%']) : '<p style="' + S.mute + '">' + (MF['Tổng số nhà thầu tham dự'] ? wtH_(MF['Tổng số nhà thầu tham dự']) + ' nhà thầu tham dự — chưa đọc được danh sách.' : 'Chưa có biên bản mở thầu.') + '</p>') +
-      '<p style="margin:4px 0">' + lk(/mở thầu|nhà thầu tham dự/i) + '</p>';
-    // 4
-    const G = P0 ? (P0.lines || []).slice().sort(function (a, c) { return (c.high ? 1 : 0) - (a.high ? 1 : 0); }) : [];
-    h += '<h3 style="' + S.h2 + '">4. Kết quả lựa chọn nhà thầu</h3>' + kv([
-      ['Nhà thầu trúng', wtH_(KF['Nhà thầu trúng thầu'] || KF['Tên nhà thầu trúng thầu'] || I.winner || (kqRow || {}).winner || '')],
-      ['Giá trúng thầu', wtH_(KF['Giá trúng thầu'] || ((kqRow || {}).win ? wtrMoney_((kqRow || {}).win) + ' đ' : ''))], ['Ngày phê duyệt', wtH_(KF['Ngày phê duyệt'] || (kqRow ? wtrVn_(kqRow.date) : ''))],
-      ['Tài liệu', lk(/kết quả|quyết định phê duyệt kq|báo cáo đánh giá|danh sách/i)]]);
-    if (G.length) h += '<p style="margin:8px 0 4px"><b>Mặt hàng liên quan nhóm sản phẩm MMH (' + G.length + ' dòng):</b></p>' + wtrTable_(['Lô', 'Mặt hàng', 'Nhãn hiệu / hãng', 'Nhà thầu trúng', 'Khối lượng', 'Đơn giá', 'Thành tiền'],
-      G.slice(0, pdf ? 80 : 30).map(function (g) { return [wtH_(g.lot.slice(0, 50)), (g.high ? '<b>' : '') + wtrMark_(g.name) + (g.high ? '</b>' : ''), wtH_([g.brand, g.maker].filter(function (x) { return wtS_(x); }).join(' / ')) + (g.mani ? ' <span style="background:' + C.cream + ';font-weight:bold">MANI</span>' : ''), wtH_(g.win), wtH_(wtrMoney_(g.qty) + (g.unit ? ' ' + g.unit : '')), wtrMoney_(g.price), wtrMoney_(g.amt)]; }), S);
-    const losers = lose.filter(function (e) { return !e[3]; });
-    if (losers.length) h += '<p style="margin:8px 0 4px"><b>Nhà thầu không trúng và lý do:</b></p>' + wtrTable_(['Nhà thầu', 'Giá dự thầu', 'Lý do'], losers.slice(0, 20).map(function (e) { const n = wtrNpp_(e[0]); return [(n ? '<b>' : '') + wtH_(e[0]) + (n ? '</b> (NPP của MMH)' : ''), e[1] ? wtrMoney_(e[1]) + ' đ' : '', wtH_(e[2] || '')]; }), S, ['35%', '15%', '']);
-    // nhận xét
-    const an = [];
-    if (bl.length) {
-      const ps = bl.map(function (x) { return x.after || x.bid; }).filter(Boolean).sort(function (a, c) { return a - c; });
-      an.push(bl.length + ' nhà thầu tham dự' + (ps.length && price ? '; giá dự thầu thấp nhất ' + wtrMoney_(ps[0]) + ' đ, thấp hơn giá gói ' + Math.round((1 - ps[0] / price) * 1000) / 10 + '%' : '') + '.');
+  const price = wtrNum_(F['Giá gói thầu'] || I.price || (tbRow || {}).price || (kqRow || {}).price);
+  const bid = wtrBidders_(hs), P0 = B.per[b] || null;
+  const loseAll = L[b] ? wtrUniq_([].concat.apply([], Object.keys(L[b]).map(function (k) { return L[b][k]; }))) : [];
+  const hasF = function (re) { return hs.some(function (h) { return (h.files || []).some(function (f) { return re.test(wtS_(f.kind) + ' ' + wtS_(f.name)); }); }); };
+  const missing = [];
+  if (!hs.length) missing.push('tbmt');
+  if (hs.length && !hasF(/thông báo mời thầu/i) && !Object.keys(F).length) missing.push('tbmt');
+  if (!bid && !hasF(/nhà thầu tham dự/i)) missing.push('mo');
+  if (!kqRow && !Object.keys(KF).length && !B.bares[b]) missing.push('kq');
+  if (Object.keys(KF).length || kqRow) { if (!loseAll.length && !hasF(/danh sách nhà thầu/i)) missing.push('nt'); if (!B.bares[b] && !hasF(/danh sách hàng hóa/i)) missing.push('hh'); }
+  return { b: b, hs: hs, I: I, F: F, KF: KF, MF: MF, tbRow: tbRow, kqRow: kqRow, plan: plan, khHits: khHits, khRow: khRow, KHF: KHF, inv: inv, name: name, prov: pr[0],
+    price: price, bid: bid, P0: P0, loseAll: loseAll, docs: (DOC[b] || []).concat(plan ? DOC[plan] || [] : []), links: wtrLinks_(hs, khHits), missing: missing, needKh: !!(plan && !khHits.length && !khRow) };
+}
+/** đưa phần còn thiếu của gói vào hàng đợi tải (bot cloud): gói chưa có ⇒ thêm; KHLCNT chưa có ⇒ thêm */
+function wtrPkgQueue_(D, me) {
+  const want = D.missing.filter(function (x, i, a) { return a.indexOf(x) === i; }).concat(D.missing.indexOf('kq') >= 0 ? ['nt', 'hh'] : []);
+  const q = [];
+  if (!want.length && !D.needKh) return q;
+  const c = CacheService.getScriptCache(), ck = 'wtrPq:' + D.b;
+  if (c.get(ck)) return ['đã đặt tải lúc ' + c.get(ck)];   // 1 lần / 6 giờ / gói (kết quả chưa đăng thì không tải đi tải lại)
+  const lock = LockService.getScriptLock(); if (!lock.tryLock(20000)) return ['busy'];
+  try {
+    const ss = wtBook_(), sh = wtSheet_(ss, WT.SH_H, WT.HH), now = wtNow_(), who = me || { mail: '', pic: 'Phân tích gói' };
+    const add = function (no, type) { sh.appendRow(['n:' + no, type, no, '(đang tra)', '', no, wtInfoWant_({ quick: 1, by: who.pic, pri: 0 }, type === 'khmt' ? ['kh'] : want), '', now, who.mail || '', WT.ST.WAIT, '[]', 0, '', '', '', 'phân tích gói']); q.push(no); };
+    if (want.length) {
+      const h = D.hs.filter(function (x) { return x.type === 'tbmt'; })[0] || D.hs[0];
+      if (!h) add(D.b, 'tbmt');
+      else { const r = wtReq_(sh, h, who, want.filter(function (x, i, a) { return a.indexOf(x) === i; }), true, !who.mail); if (!r.skip) q.push(D.b); }
     }
-    const winP = wtrNum_(KF['Giá trúng thầu'] || (kqRow || {}).win);
-    if (winP && price) an.push('Giá trúng ' + wtrMoney_(winP) + ' đ, bằng ' + Math.round(winP / price * 1000) / 10 + '% giá gói.');
-    if (G.length) {
-      const br = {}; G.forEach(function (g) { const k = g.maker || g.brand; if (k) br[k] = (br[k] || 0) + (wtrNum_(g.amt) || 0); });
-      const tb = Object.keys(br).sort(function (a, c) { return br[c] - br[a]; });
-      an.push('Mặt hàng cùng nhóm sản phẩm MMH: ' + G.length + ' dòng' + (tb.length ? ', hãng trúng: ' + tb.slice(0, 4).join(', ') : '') + '.');
-      an.push(G.some(function (g) { return g.mani; }) ? 'Có hàng MANI trúng thầu.' : 'Không có hàng MANI trong danh sách trúng.');
-    } else an.push('Danh sách hàng hóa trúng thầu không có mặt hàng thuộc nhóm sản phẩm MMH.');
-    const nppIn = bl.concat(lose.map(function (e) { return { name: e[0] }; })).map(function (x) { return wtrNpp_(x.name); }).filter(Boolean);
-    if (nppIn.length) {
-      const npl = nppIn.filter(function (x, i, a) { return a.indexOf(x) === i; });
-      const nppLose = losers.filter(function (e) { return wtrNpp_(e[0]); });
-      an.push('NPP của MMH tham dự: ' + npl.join(', ') + (nppLose.length ? ' — không trúng: ' + nppLose.map(function (e) { return wtrNpp_(e[0]) + (e[2] ? ' (' + String(e[2]).slice(0, 120) + ')' : ''); }).join('; ') : ' — có trúng thầu') + '.');
-    } else an.push('Không thấy NPP của MMH trong danh sách nhà thầu tham dự.');
-    if (losers.length) { const why = losers.map(function (e) { return e[2]; }).filter(function (x) { return wtS_(x); }); if (why.length) an.push(losers.length + ' nhà thầu không trúng; lý do thường gặp: ' + why.slice(0, 2).map(function (x) { return String(x).slice(0, 100); }).join(' / ') + '.'); }
-    h += '<h3 style="' + S.h2 + '">Nhận xét</h3><ol style="margin:4px 0 0 18px;padding:0">' + an.map(function (x) { return '<li style="margin:2px 0">' + wtH_(x) + '</li>'; }).join('') + '</ol>';
-    if (pdf) h += '<h3 style="' + S.h2 + '">Tài liệu đã tải</h3><ol style="margin:4px 0 0 18px;padding:0;font-size:9px">' + links.map(function (l) { return '<li>' + wtrA_(l) + '</li>'; }).join('') + '</ol>';
-    return h;
-  };
-  const title = 'Gói thầu ' + b + ' – ' + inv;
-  const html = '<div style="font-family:Aptos,Arial,sans-serif;font-size:14px;color:' + C.ink + '">Kính gửi anh/chị,<p>Hệ thống Theo dõi gói thầu xin gửi anh/chị thông tin đầy đủ của gói thầu <b>' + wtH_(name) + '</b> (' + wtH_(b) + ') của <b>' + wtH_(inv) + '</b>, theo 4 bước: kế hoạch lựa chọn nhà thầu, thông báo mời thầu, mở thầu và kết quả, kèm nhận xét.</p>' +
-    build(S, false) + '<p>File PDF đính kèm có đầy đủ bảng và link tới mọi tài liệu đã tải.</p><p>Trân trọng,<br>MMH Product Team</p></div>';
-  const pdfHtml = '<div style="font-family:Aptos,Arial,sans-serif;color:' + C.ink + '"><div style="font-size:16px;font-weight:bold;color:' + C.navy + ';text-transform:uppercase">' + wtH_(title) + '</div><div style="color:' + C.steel + ';font-size:10px;margin:2px 0 8px">' + wtH_(name) + '</div>' + build(SP, true) + '</div>';
-  const res = { ok: true, no: b, plan: plan, inv: inv, bidders: bid ? bid.list.length : 0, goods: P0 ? (P0.lines || []).length : 0, losers: lose.filter(function (e) { return !e[3]; }).length, docs: links.length, docHits: docHits.length };
+    if (D.needKh) add(D.plan, 'khmt');
+    if (q.length) c.put(ck, Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'HH:mm dd/MM'), 21600);
+  } finally { lock.releaseLock(); }
+  return q;
+}
+/** bản phân tích ngắn 1 gói: dòng thời gian KH ⇒ TBMT ⇒ mở thầu ⇒ kết quả, nhà thầu tham dự + kết quả + lý do, nhận xét */
+function wtrPkgHtml_(D, S, pdf) {
+  const C = WTR.C, b = D.b;
+  const lk = function (re) { return D.links.filter(function (l) { return re.test(l[0] + ' ' + l[2]); }).map(wtrA_).join('<br>'); };
+  const dKh = wtrIso_(D.KHF['Ngày đăng tải'] || D.KHF['Ngày phê duyệt'] || (D.khRow || {}).date);
+  const dTb = wtrIso_(D.F['Ngày đăng tải'] || (D.tbRow || {}).date);
+  const dClose = wtrIso_(D.F['Thời điểm đóng thầu'] || D.I.close || (D.tbRow || {}).open);
+  const dKq = wtrIso_(D.KF['Ngày phê duyệt'] || D.KF['Ngày đăng tải'] || (D.kqRow || {}).date);
+  const gap = function (a, c) { const n = wtrDays_(a, c); return n == null ? '' : ' <span style="' + S.mute + '">(sau ' + n + ' ngày)</span>'; };
+  // nhà thầu: danh sách mở thầu + danh sách nhà thầu (kết quả, lý do)
+  const map = {}, order = [];
+  const put = function (nm, o) { const k = wtmK_(nm); if (!k) return; if (!map[k]) { map[k] = { name: nm }; order.push(k); } Object.keys(o).forEach(function (x) { if (o[x] !== '' && o[x] != null && map[k][x] == null) map[k][x] = o[x]; }); };
+  ((D.bid || {}).list || []).forEach(function (x) { put(x.name, { bid: x.after || x.bid }); });
+  D.loseAll.forEach(function (e) { put(e[0], { bid: e[1] || null, win: !!e[3], why: e[2] || '' }); });
+  const winName = wtS_(D.KF['Nhà thầu trúng thầu'] || D.KF['Tên nhà thầu trúng thầu'] || D.I.winner || (D.kqRow || {}).winner);
+  if (winName) { const wk = wtmK_(winName); order.forEach(function (k) { if (k === wk || k.indexOf(wk) >= 0 || wk.indexOf(k) >= 0) map[k].win = true; }); if (!order.some(function (k) { return map[k].win; })) put(winName, { win: true }); }
+  const winP = wtrNum_(D.KF['Giá trúng thầu'] || (D.kqRow || {}).win);
+  const hasKq = !!(winName || winP);
+  const rows = order.map(function (k) { return map[k]; }).sort(function (a, c) { return (c.win ? 1 : 0) - (a.win ? 1 : 0) || (a.bid || 9e15) - (c.bid || 9e15); });
+  const pct = function (v) { return D.price && v ? Math.round(v / D.price * 1000) / 10 + '%' : ''; };
+  // 1. dòng thời gian
+  let h = '<table style="border-collapse:collapse;width:100%;margin:4px 0 0">' + [
+    ['1', 'Kế hoạch lựa chọn nhà thầu', wtrVn_(dKh), [D.plan, (D.khRow || {}).price ? 'giá gói trong kế hoạch ' + wtrMoney_(D.khRow.price) + ' đ' : '', D.KHF['Hình thức lựa chọn nhà thầu'] || (D.khRow || {}).form, D.KHF['Chi tiết nguồn vốn']].filter(function (x) { return wtS_(x); }).join(' · ') || 'chưa có thông tin', lk(/KHLCNT|kế hoạch/i)],
+    ['2', 'Thông báo mời thầu', wtrVn_(dTb) + (dKh && dTb ? gap(dKh, dTb) : ''), [b, D.price ? 'giá gói ' + wtrMoney_(D.price) + ' đ' : '', [D.F['Hình thức lựa chọn nhà thầu'], D.F['Phương thức lựa chọn nhà thầu']].filter(function (x) { return wtS_(x); }).join(', '), dClose ? 'đóng thầu ' + wtrVn_(dClose) : ''].filter(function (x) { return wtS_(x); }).join(' · '), lk(/TBMT|thông báo|HSMT|hồ sơ mời|chương|yêu cầu/i)],
+    ['3', 'Mở thầu', wtrVn_(dClose) + (dTb && dClose ? gap(dTb, dClose) : ''), rows.length ? rows.length + ' nhà thầu tham dự' + (rows.some(function (r) { return r.bid; }) ? ', giá dự thầu từ ' + wtrMoney_(Math.min.apply(null, rows.filter(function (r) { return r.bid; }).map(function (r) { return r.bid; }))) + ' đ' : '') : (D.MF['Tổng số nhà thầu tham dự'] ? D.MF['Tổng số nhà thầu tham dự'] + ' nhà thầu tham dự' : 'chưa có biên bản mở thầu'), lk(/mở thầu|nhà thầu tham dự/i)],
+    ['4', 'Kết quả lựa chọn nhà thầu', wtrVn_(dKq) + (dClose && dKq ? gap(dClose, dKq) : ''), hasKq ? (winName ? 'trúng: <b>' + wtH_(winName) + '</b>' : '') + (winP ? ', giá trúng ' + wtrMoney_(winP) + ' đ' + (pct(winP) ? ' (' + pct(winP) + ' giá gói)' : '') : '') : 'chưa có kết quả', lk(/kết quả|quyết định phê duyệt kq|báo cáo đánh giá|danh sách/i)]
+  ].map(function (r) { return '<tr><td style="' + S.td + ';width:22px;color:' + C.steel + ';font-weight:bold">' + r[0] + '</td><td style="' + S.td + ';width:24%"><b>' + r[1] + '</b><br>' + r[2] + '</td><td style="' + S.td + '">' + r[3] + '</td><td style="' + S.td + ';width:20%">' + (r[4] || '') + '</td></tr>'; }).join('') + '</table>';
+  // 2. nhà thầu
+  if (rows.length) {
+    h += '<h3 style="' + S.h2 + '">Nhà thầu tham dự và kết quả</h3>' + wtrTable_(['Nhà thầu', 'Giá dự thầu', 'So với giá gói', 'Kết quả', 'Lý do không trúng'], rows.map(function (r) {
+      const npp = wtrNpp_(r.name), grp = r.win ? '' : (wtrWhy_(r.why) || (hasKq ? 'Chưa ghi lý do' : ''));
+      return [(npp || r.win ? '<b>' : '') + wtH_(r.name) + (npp || r.win ? '</b>' : '') + (npp ? ' <span style="background:' + C.cream + '">NPP của MMH</span>' : ''),
+        r.bid ? wtrMoney_(r.bid) + ' đ' : '', pct(r.bid), r.win ? '<b>Trúng</b>' : hasKq ? 'Không trúng' : 'Chờ kết quả',
+        grp ? '<b>' + wtH_(grp) + '</b>' + (r.why ? '<br><span style="' + S.mute + '">' + wtH_(String(r.why).slice(0, 260)) + '</span>' : '') : ''];
+    }), S, ['30%', '14%', '11%', '11%', '']);
+  }
+  // 3. mặt hàng nhóm sản phẩm MMH
+  const G = D.P0 ? (D.P0.lines || []).slice().sort(function (a, c) { return (c.high ? 1 : 0) - (a.high ? 1 : 0); }) : [];
+  if (G.length) h += '<h3 style="' + S.h2 + '">Mặt hàng thuộc nhóm sản phẩm MMH</h3>' + wtrTable_(['Mặt hàng', 'Nhãn hiệu / hãng', 'Nhà thầu trúng', 'Khối lượng', 'Đơn giá', 'Thành tiền'],
+    G.slice(0, pdf ? 80 : 20).map(function (g) { return [(g.high ? '<b>' : '') + wtrMark_(g.name) + (g.high ? '</b>' : '') + (g.lot ? '<br><span style="' + S.mute + '">' + wtH_(g.lot.slice(0, 60)) + '</span>' : ''), wtH_([g.brand, g.maker].filter(function (x) { return wtS_(x); }).join(' / ')) + (g.mani ? ' <span style="background:' + C.cream + ';font-weight:bold">MANI</span>' : ''), wtH_(g.win), wtH_(wtrMoney_(g.qty) + (g.unit ? ' ' + g.unit : '')), wtrMoney_(g.price), wtrMoney_(g.amt)]; }), S, ['32%', '16%', '18%', '10%', '11%', '']);
+  const docH = D.docs.filter(function (d) { return d.hits && d.hits.length; });
+  if (!G.length && docH.length) h += '<h3 style="' + S.h2 + '">Sản phẩm liên quan trong hồ sơ mời thầu</h3>' + docH.map(function (d) { return d.hits.slice(0, 4).map(function (x) { return '<p style="margin:3px 0">«' + wtrMark_(String(x.snip).slice(0, 260)) + '» <span style="' + S.mute + '">— ' + wtH_(d.name) + '</span></p>'; }).join(''); }).join('');
+  // 4. nhận xét
+  const an = [];
+  if (dKh && dTb) an.push('Từ kế hoạch đến mời thầu mất ' + wtrDays_(dKh, dTb) + ' ngày' + (dClose && dTb ? '; thời gian chuẩn bị hồ sơ dự thầu ' + wtrDays_(dTb, dClose) + ' ngày' : '') + (dClose && dKq ? '; từ mở thầu đến có kết quả ' + wtrDays_(dClose, dKq) + ' ngày' : '') + '.');
+  const bids = rows.filter(function (r) { return r.bid; }).map(function (r) { return r.bid; }).sort(function (a, c) { return a - c; });
+  if (rows.length) an.push(rows.length + ' nhà thầu tham dự' + (bids.length > 1 ? ', chênh lệch giá dự thầu giữa thấp nhất và cao nhất ' + Math.round((bids[bids.length - 1] / bids[0] - 1) * 1000) / 10 + '%' : '') + '.');
+  const wr = rows.filter(function (r) { return r.win; })[0];
+  if (winP && D.price) an.push('Giá trúng bằng ' + pct(winP) + ' giá gói' + (wr && wr.bid && bids.length && bids[0] < wr.bid * 0.999 ? '; nhà thầu trúng không phải đơn vị chào giá thấp nhất (có nhà thầu giá thấp hơn bị loại)' : wr && wr.bid && bids.length ? '; nhà thầu trúng là đơn vị chào giá thấp nhất' : '') + '.');
+  const lost = rows.filter(function (r) { return !r.win && hasKq; });
+  if (lost.length) {
+    const cnt = {}; lost.forEach(function (r) { const g = wtrWhy_(r.why) || 'Chưa ghi lý do'; cnt[g] = (cnt[g] || 0) + 1; });
+    an.push(lost.length + ' nhà thầu không trúng: ' + Object.keys(cnt).map(function (k) { return k.toLowerCase() + ' ' + cnt[k]; }).join(', ') + '.');
+  }
+  const nppR = rows.filter(function (r) { return wtrNpp_(r.name); });
+  if (nppR.length) an.push('NPP của MMH: ' + nppR.map(function (r) { return wtrNpp_(r.name) + ' ' + (r.win ? 'trúng thầu' : hasKq ? 'không trúng' + (r.why ? ' (' + (wtrWhy_(r.why) || '').toLowerCase() + ')' : '') : 'đã tham dự'); }).join('; ') + '.');
+  else if (rows.length) an.push('Không có NPP của MMH tham dự.');
+  if (G.length) { const br = {}; G.forEach(function (g) { const k = g.maker || g.brand; if (k) br[k] = (br[k] || 0) + (wtrNum_(g.amt) || 0); }); const tb = Object.keys(br).sort(function (a, c) { return br[c] - br[a]; }); an.push('Mặt hàng cùng nhóm sản phẩm MMH: ' + G.length + ' dòng' + (tb.length ? ', hãng trúng ' + tb.slice(0, 4).join(', ') : '') + (G.some(function (g) { return g.mani; }) ? '; có hàng MANI' : '; không có hàng MANI') + '.'); }
+  if (D.missing.length || D.needKh) an.push('Còn thiếu: ' + [D.needKh ? 'kế hoạch lựa chọn nhà thầu' : ''].concat(D.missing.map(function (x) { return { tbmt: 'thông báo mời thầu', mo: 'biên bản mở thầu', kq: 'kết quả', nt: 'danh sách nhà thầu (lý do không trúng)', hh: 'danh sách hàng hóa' }[x]; })).filter(function (x) { return wtS_(x); }).filter(function (x, i, a) { return a.indexOf(x) === i; }).join(', ') + ' (đang tải bổ sung).');
+  if (an.length) h += '<h3 style="' + S.h2 + '">Nhận xét</h3><ol style="margin:4px 0 0 18px;padding:0">' + an.map(function (x) { return '<li style="margin:3px 0">' + wtH_(x) + '</li>'; }).join('') + '</ol>';
+  if (pdf) h += '<h3 style="' + S.h2 + '">Tài liệu đã tải</h3><ol style="margin:4px 0 0 18px;padding:0;font-size:9px">' + D.links.map(function (l) { return '<li>' + wtrA_(l) + '</li>'; }).join('') + '</ol>';
+  return h;
+}
+/** phân tích 1 gói theo số TBMT: thiếu phần nào ⇒ đặt tải; trả HTML (app) · gửi email mẫu (to) · xem trước (preview) */
+function wtrPkg_(p, me) {
+  const b = wtBare_(String(p.no || '').toUpperCase().match(/IB\d{8,12}(-\d+)?/) ? String(p.no).toUpperCase().match(/IB\d{8,12}(-\d+)?/)[0] : '');
+  if (!b) return { ok: false, error: 'Nhập số thông báo mời thầu (IB…).' };
+  const D = wtrPkgData_(b), C = WTR.C, S = wtrCss_(false), SP = wtrCss_(true);
+  const queued = wtS_(p.fetch) === '0' ? [] : wtrPkgQueue_(D, me);
+  const head = function (S) { return '<p style="margin:0 0 6px"><b>' + wtH_(D.name) + '</b><br><span style="' + S.mute + '">' + wtH_([b, D.inv + (D.prov ? ' (' + D.prov + ')' : ''), D.price ? 'giá gói ' + wtrMoney_(D.price) + ' đ' : ''].filter(function (x) { return wtS_(x); }).join(' · ')) + '</span></p>'; };
+  const body = head(S) + wtrPkgHtml_(D, S, false);
+  const res = { ok: true, no: b, plan: D.plan, inv: D.inv, name: D.name, prov: D.prov, missing: D.missing, needKh: D.needKh, queued: queued, bidders: D.bid ? D.bid.list.length : 0, losers: D.loseAll.filter(function (e) { return !e[3]; }).length, goods: D.P0 ? (D.P0.lines || []).length : 0, docs: D.links.length };
+  if (!D.hs.length && !D.tbRow && !D.kqRow) return Object.assign(res, { html: '', note: 'Chưa có dữ liệu gói này — đã đưa vào hàng đợi tải, mở lại sau ít phút.' });
+  if (wtS_(p.html) === '1' || me) return Object.assign(res, { html: body });
   if (wtS_(p.dry) === '1') return res;
-  const to = wtrMailOf_(p.to || 'Giang');
-  if (!to) return Object.assign(res, { ok: false, error: 'không tìm thấy email của ' + (p.to || 'Giang') });
+  const html = '<div style="font-family:Aptos,Arial,sans-serif;font-size:14px;color:' + C.ink + '"><p>Kính gửi anh/chị,</p><p>Em xin gửi anh/chị phân tích ngắn gói thầu dưới đây, từ kế hoạch lựa chọn nhà thầu đến kết quả.</p>' +
+    body + '<p>Bản PDF đính kèm có đầy đủ đường dẫn tới các tài liệu của gói.</p><p>Trân trọng,<br>MMH Product Team</p></div>';
+  const pdfHtml = '<div style="font-family:Aptos,Arial,sans-serif;color:' + C.ink + '"><div style="font-size:15px;font-weight:bold;color:' + C.navy + ';text-transform:uppercase">Phân tích gói thầu ' + wtH_(b) + '</div>' + head(SP) + wtrPkgHtml_(D, SP, true) + '</div>';
+  const title = 'Phân tích gói thầu ' + b + ' – ' + String(D.inv).slice(0, 60);
+  if (wtS_(p.preview) === '1') return Object.assign(res, { preview: wtrPreview_('Mẫu ' + title, html, pdfHtml) });
+  const to = wtrMailOf_(p.to || ''); if (!to) return Object.assign(res, { ok: false, error: 'cần to = tên PIC có email' });
   const pdf = wtrPdf_(pdfHtml, title.replace(/[\\/:*?"<>|]/g, ' '));
-  mmhMail_({ to: to, subject: '[MẪU] [MMH · Thông tin thầu] ' + title, htmlBody: html, attachments: [pdf.blob], name: CFG.EMAIL_FROM_NAME });
+  mmhMail_({ to: to, subject: '[MMH · Thông tin thầu] ' + title, htmlBody: html, attachments: [pdf.blob], name: CFG.EMAIL_FROM_NAME });
   return Object.assign(res, { sent: to.split('@')[0], pdf: pdf.url });
 }
 function wtrAction_(p) {
   const op = wtS_(p.op) || 'status', P = PropertiesService.getScriptProperties();
   if (op === 'status') return { ok: true, v: WTR.VER, on: P.getProperty('WTR_ON') === '1', last: wtJson_(P.getProperty('WTR_LAST'), null), lastDay: P.getProperty('WTR_LAST_DAY') || '', people: wtrPeople_().map(function (x) { return [x.pic, x.area, x.mail ? x.mail.split('@')[0] : '', Object.keys(x.addon).length]; }) };
   if (op === 'find') return wtrFind_(p);
-  if (op === 'pkg') return wtrPkg_(p);
+  if (op === 'pkg') return wtrPkg_(p, null);
   if (op === 'dry') return wtrRun_({ op: 'dry', days: +p.days || 0, pic: p.pic });
-  if (op === 'sample') return wtrRun_({ op: 'sample', days: +p.days || 3, pic: wtS_(p.pic) || 'Viet Ha', to: wtS_(p.to) || 'Giang' });
+  if (op === 'sample') return wtS_(p.preview) === '1' ? wtrRun_({ op: 'sample', days: +p.days || 3, pic: wtS_(p.pic), preview: 1 }) : wtrRun_({ op: 'sample', days: +p.days || 3, pic: wtS_(p.pic) || 'Viet Ha', to: wtS_(p.to) || 'Giang' });
   if (op === 'moq') return Object.assign({ ok: true }, wtrMoQueue_());
   if (op === 'on') { P.setProperty('WTR_ON', '1'); return { ok: true, on: true }; }
   if (op === 'off') { P.deleteProperty('WTR_ON'); return { ok: true, on: false }; }

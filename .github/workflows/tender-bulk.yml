@@ -7,7 +7,7 @@ on:
     - cron: '37 23 * * *'   # 06:37 giờ Việt Nam: rà hàng hóa (goods) mỗi sáng trên file tổng đã gộp
   workflow_dispatch:
     inputs:
-      mode: { description: 'dry = chỉ đếm · run = đặt tải · narrow = chỉ giữ KQ + 2 Excel · goods = rà hàng hóa + ghi tab LỌC trong file tổng · knife = mọi bệnh viện từng có KQTT dao nhãn khoa · targets = lưu BV có KQTT dao làm địa bàn MMH + xem tồn đọng (backlog=1 ⇒ đặt tải) · sum = ghi ngay tab Tổng hợp gói thầu', default: 'dry', type: choice, options: [dry, run, goods, narrow, narrow-dry, knife-dry, knife, auto-dry, auto, auto-status, targets-dry, targets, sum, sumheal, errs, refind-dry, refind, vtcmp, scan] }
+      mode: { description: 'dry = chỉ đếm · run = đặt tải · narrow = chỉ giữ KQ + 2 Excel · goods = rà hàng hóa + ghi tab LỌC trong file tổng · knife = mọi bệnh viện từng có KQTT dao nhãn khoa · targets = lưu BV có KQTT dao làm địa bàn MMH + xem tồn đọng (backlog=1 ⇒ đặt tải) · sum = ghi ngay tab Tổng hợp gói thầu · route / text = báo cáo theo PIC, phân tích 1 gói / đọc chữ tài liệu (ô re = tham số, vd. op=find)', default: 'dry', type: choice, options: [dry, run, goods, narrow, narrow-dry, knife-dry, knife, auto-dry, auto, auto-status, targets-dry, targets, sum, sumheal, errs, refind-dry, refind, vtcmp, scan, route, text] }
       re: { description: 'Chủ đầu tư chứa (regex, có dấu)', default: 'mắt' }
       from: { description: 'Từ ngày (yyyy-mm-dd)', default: '2026-01-01' }
       want: { description: 'Loại tài liệu (kq = KQLCNT, nt / hh = 2 Excel, qd = quyết định qua Agent)', default: 'kq,nt,hh,qd' }

@@ -85,6 +85,14 @@ if (MODE === 'knife' || MODE === 'knife-dry' || MODE === 'targets' || MODE === '
   fs.writeFileSync('bulk-report.json', JSON.stringify({ how, pick: [...pick], ask, none, r }, null, 1));
   process.exit(0);
 }
+if (MODE === 'route' || MODE === 'text') {   // MMH_WatchRoute.gs / MMH_WatchText.gs — BULK_RE = tham số dạng "op=find&min=3" / "op=pkg&no=IB…&preview=1"
+  const q = Object.fromEntries(new URLSearchParams(RE === 'mắt' ? 'op=status' : RE));
+  const r = await post(Object.assign({ action: MODE === 'route' ? 'botRoute' : 'botText' }, q));
+  const out = JSON.stringify(r, null, 1);
+  console.log(out.length > 60000 ? out.slice(0, 60000) + '\n…(cắt bớt)' : out);
+  fs.writeFileSync('bulk-report.json', JSON.stringify(r));
+  process.exit(r.ok ? 0 : 1);
+}
 if (MODE === 'sum') {
   const r = await post({ action: 'botGrabInv', op: 'sum' });
   console.log('TỔNG HỢP GÓI THẦU:', JSON.stringify(r, null, 1));
