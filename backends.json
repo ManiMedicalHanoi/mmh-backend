@@ -331,7 +331,8 @@
     "scriptId": "1KIN3rmIA5BcqBkYT2mZVC1xewDwANY7jIW4cIQCBKZ9tTrr8TQzP7D0v",
     "sheetId": "152o_AWQa50oQ4t9krDTNeXOFGu_lKz-Xw7w268Cd4J4",
     "smoke": false,
-    "newWebapp": true,
-    "note": "Script gắn Sheet kết quả khảo sát WG. Mỗi quý 1 Google Form (wgCreate) — câu trả lời vào tab mới của CHÍNH Sheet này; danh sách ở tab WG SURVEYS. Lần deploy đầu tạo web app ⇒ chủ script chạy wgCapQuyen 1 lần trong trình soạn."
+    "note": "Script gắn Sheet kết quả khảo sát WG. Mỗi quý 1 Google Form (wgCreate) — câu trả lời vào tab mới của CHÍNH Sheet này; danh sách ở tab WG SURVEYS. Lần deploy đầu tạo web app ⇒ chủ script chạy wgCapQuyen 1 lần trong trình soạn.",
+    "deploymentId": "AKfycbyogy30cMVmrwUJzMr8lC95Cwbtc0_sFUriiORplNJupHm9w-bje86KQlK0sK-JhGMuEA",
+    "url": "https://script.google.com/macros/s/AKfycbyogy30cMVmrwUJzMr8lC95Cwbtc0_sFUriiORplNJupHm9w-bje86KQlK0sK-JhGMuEA/exec"
   }
 }
