@@ -596,6 +596,7 @@ var HUB_ROUTES = {
   'rhAdminList'     : {fn:'apiRhAdminList',     auth:0},
   'rhAdminSave'     : {fn:'apiRhAdminSave',     auth:0},
   'rhAdminKick'     : {fn:'apiRhAdminKick',     auth:0},
+  'dailyAuto'       : {fn:'apiDailyAuto',       auth:0},   // ★ v3.49 — chẩn đoán tự tạo số MMH Daily buổi sáng (RH_DailyKick.gs, cần key, chỉ đọc)
   'rhUsersDiag'     : {fn:'apiRhUsersDiag',     auth:0},   // ★ v3.42 — rà soát RH_Users + cấp lại quyền nhóm Thái (RH_UsersFix.gs, cần key)
   'teDiag'          : {fn:'apiTeDiag',          auth:0},
   'rhExtTrain'      : {fn:'apiRhExtTrain',      auth:0},   // ★ v3.46 — ghi buổi đào tạo đại lý 17/11/2026 (RH_ExtTrain.gs, cần key)   // ★ v3.44 — chẩn đoán đào tạo khách hàng T&E (RH_TeDiag.gs, chỉ đọc, cần key)

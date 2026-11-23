@@ -41,3 +41,20 @@ function dkTick_() {
   P.setProperty('DK_LAST', JSON.stringify(out));
   return out;
 }
+
+/** Chẩn đoán (chỉ đọc, cần key = 8 ký tự cuối Script ID): trigger hwWarm có chạy, lượt tự gọi cuối, token GitHub đọc được kho MMH-Daily không, số mới nhất.
+    op=run ⇒ chạy dkTick_ ngay (vẫn chỉ gọi GitHub trong khung 05:40–11:00 và khi chưa có số hôm nay). Gọi: workflow Kiểm tra ▸ ping `training?action=dailyAuto&key=…&full=1`. */
+function apiDailyAuto(p) {
+  if (hubNorm(p.key) !== ScriptApp.getScriptId().slice(-8)) return { ok: false, code: 'KEY' };
+  var P = PropertiesService.getScriptProperties();
+  var J = function (k) { var v = P.getProperty(k); try { return JSON.parse(v || 'null'); } catch (e) { return v; } };
+  var hw = J('HW_LAST');
+  var out = { ok: true, now: Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd HH:mm'),
+    hwTriggers: ScriptApp.getProjectTriggers().filter(function (t) { return t.getHandlerFunction() === 'hwWarm'; }).length,
+    hwLast: hw ? { at: hw.at, dk: hw.r && hw.r.dk, errors: hw.r && hw.r.errors } : null,
+    dkLast: J('DK_LAST'), dkState: J('DK_STATE'), dkDone: P.getProperty('DK_DONE') || '', hasToken: !!P.getProperty('DAILY_GH_TOKEN') };
+  if (out.hasToken) { var g = drGh_('get', '/actions/workflows/' + DR.WF + '/runs?per_page=1'); out.ghRead = g.code; }
+  try { var r = UrlFetchApp.fetch(DK.INDEX + '?t=' + Date.now(), { muteHttpExceptions: true }); out.lastEdition = JSON.parse(r.getContentText()).editions[0].date; } catch (e) { out.lastEdition = '?'; }
+  if (hubNorm(p.op) === 'run') out.run = dkTick_();
+  return out;
+}
