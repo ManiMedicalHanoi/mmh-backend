@@ -202,18 +202,36 @@ function wtrMoQueue_() {
 }
 
 /* ══════════ GOM DỮ LIỆU ══════════ */
+/** tin thầu 90 ngày gần nhất từ bản tóm tắt wtTick dựng sẵn (đệm wt_rec / sheet GÓI GẦN ĐÂY) — KHÔNG đọc lại 3 tab Báo Đấu Thầu (getDisplayValues cả nước ~ vài phút) */
+function wtrData_() {
+  let R = null; try { R = wtdRecent_({}, {}); } catch (e) { Logger.log('wtrData_: ' + e.message); }
+  if (!R || !R.rows || !R.rows.length) return wtLoad_(wtBook_());
+  const out = { khmt: [], tbmt: [], kqdt: [] };
+  R.rows.forEach(function (r) {
+    const t = r[0]; if (!out[t]) return;
+    out[t].push({ type: t, no: wtS_(r[1]), name: wtS_(r[2]), inv: wtS_(r[3]), invKey: wtNorm_(r[3]), date: wtS_(r[4]), upd: wtS_(r[5]), price: +r[6] || 0, win: +r[7] || 0,
+      form: wtS_(r[8]), prov: wtS_(r[9]), open: wtS_(r[10]), winner: wtS_(r[12]), proj: '' });
+  });
+  return out;
+}
+var WTR_T = null;
+function wtrT_(k) { if (!WTR_T) return; const n = Date.now(); WTR_T[k] = (WTR_T[k] || 0) + (n - WTR_T._); WTR_T._ = n; }
 /** tin trong cửa sổ: ngày (Báo Đấu Thầu) ∈ (fromDay, toDay] hoặc mốc giờ (tải xong / gộp) ≥ fromAt */
 function wtrGather_(fromDay, toDay, fromAt) {
-  const ss = wtBook_(), data = wtLoad_(ss), H = wtHits_(ss), hb = {};
+  WTR_T = WTR_T || { _: Date.now() };
+  const ss = wtBook_(); wtrT_('book');
+  const data = wtrData_(); wtrT_('data');
+  const H = wtHits_(ss), hb = {}; wtrT_('hits');
   H.forEach(function (h) { const b = wtBare_(h.no); if (b) (hb[b] = hb[b] || []).push(h); });
   const inDay0 = function (d) { return d && d > fromDay && d <= toDay; }, fromTs0 = Utilities.formatDate(new Date(fromAt), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd HH:mm:ss'), only = {};
   data.kqdt.forEach(function (r) { if (inDay0(r.upd || r.date)) only[wtBare_(r.no)] = 1; });
   H.forEach(function (h) { if (h.done >= fromTs0) only[wtBare_(h.no)] = 1; });
   const B = wtqBuild_({ dry: true, only: only, since: fromTs0 });   // chỉ dò từ khoá các gói trong cửa sổ
+  wtrT_('goods');
   Object.keys(B.per).forEach(function (b) { only[b] = 1; });
-  let L = {}; try { L = wtrLose_(only); } catch (e) { Logger.log('wtrLose_: ' + e.message); }
-  let DOC = {}; try { DOC = wteHitsBy_(); } catch (e) {}
-  let T = {}; try { T = wttTargets_(); } catch (e) {}
+  let L = {}; try { L = wtrLose_(only); } catch (e) { Logger.log('wtrLose_: ' + e.message); } wtrT_('bidders');
+  let DOC = {}; try { DOC = wteHitsBy_(); } catch (e) {} wtrT_('docs');
+  let T = {}; try { T = wttTargets_(); } catch (e) {} wtrT_('targets');
   const inDay = function (d) { return d && d > fromDay && d <= toDay; };
   const fromTs = Utilities.formatDate(new Date(fromAt), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd HH:mm:ss');
   const mk = function (stage, r, extra) {
@@ -243,6 +261,7 @@ function wtrGather_(fromDay, toDay, fromAt) {
     const I = h.info || {};
     out.mo.push(mk('mo', { no: h.no, inv: I.investor || h.investor, invKey: h.invKey, name: I.bidName || h.name, prov: I.prov, price: I.price || (I.fields || {})['Giá gói thầu'], date: wtS_(h.done).slice(0, 10) }, { mo: I.moFields || {} }));
   });
+  wtrT_('gather');
   return out;
 }
 /** độ liên quan của 1 tin với 1 nhóm SP */
@@ -461,12 +480,15 @@ function wtrRun_(opt) {
   const fromDay = opt.days ? wtrDay_(new Date(now.getTime() - (days + 1) * 864e5)) : (P.getProperty('WTR_LAST_DAY') || wtrDay_(new Date(now.getTime() - 2 * 864e5)));
   const toDay = opt.days ? today : yest;
   const fromAt = opt.days ? now.getTime() - days * 864e5 : (+(P.getProperty('WTR_LAST_AT') || 0) || now.getTime() - 864e5);
+  WTR_T = { _: Date.now() }; const t0 = Date.now();
   const G = wtrGather_(fromDay, toDay, fromAt);
   const range = 'từ ' + wtrVn_(wtrDay_(new Date(new Date(fromDay + 'T00:00:00+07:00').getTime() + 864e5))) + ' đến ' + wtrVn_(toDay);
   const people = wtrPeople_().filter(function (p) { return !opt.pic || p.pic.toLowerCase() === wtS_(opt.pic).toLowerCase(); });
   const res = { ok: true, range: range, total: { kh: G.kh.length, tb: G.tb.length, mo: G.mo.length, kq: G.kq.length }, people: [] }, cache = {};
   people.forEach(function (p) {
-    const R = wtrPersonReport_(p, G, range), row = { pic: p.pic, area: p.area, mail: p.mail ? p.mail.split('@')[0] : '(chưa có email)', n: R.n, rel: R.rel, sum: R.sum.map(function (x) { return [x[1], x[2]]; }) };
+    if (Date.now() - t0 > 300000) { res.people.push({ pic: p.pic, skip: 'hết thời gian lượt chạy' }); return; }
+    const R = wtrPersonReport_(p, G, range); wtrT_('report');
+    const R0 = R, row = { pic: p.pic, area: p.area, mail: p.mail ? p.mail.split('@')[0] : '(chưa có email)', n: R.n, rel: R.rel, sum: R.sum.map(function (x) { return [x[1], x[2]]; }) };
     res.people.push(row);
     if (opt.op === 'dry') return;
     if (!R.rel) { row.skip = 'không có gói liên quan — không gửi email'; return; }   // người dùng chốt: ngày không có gói liên quan ⇒ không gửi
@@ -481,6 +503,7 @@ function wtrRun_(opt) {
       htmlBody: R.html, attachments: [pdf.blob].concat(att.map(function (a) { return a.blob; })), name: CFG.EMAIL_FROM_NAME });
     row.sent = to.split('@')[0]; row.pdf = pdf.url;
   });
+  res.t = WTR_T; res.ms = Date.now() - t0;
   if (opt.op === 'send' && !opt.to && !opt.pic) {
     P.setProperty('WTR_LAST_DAY', yest); P.setProperty('WTR_LAST_AT', String(now.getTime())); P.setProperty('WTR_DAY', today);
     P.setProperty('WTR_LAST', JSON.stringify({ at: wtNow_(), people: res.people.map(function (x) { return [x.pic, x.n, x.rel, x.sent ? 1 : 0]; }) }));
