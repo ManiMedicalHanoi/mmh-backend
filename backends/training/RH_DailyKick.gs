@@ -6,6 +6,8 @@
    Workflow có chốt: lượt cron trễ thấy đã có số hôm nay ⇒ bỏ qua (không tạo trùng, không tốn ElevenLabs).
    Token: DAILY_GH_TOKEN (RH_DailyRun.gs). Kết quả lượt cuối: Script Property DK_LAST (trả trong dailyStatus ▸ auto).
    ════════════════════════════════════════════════════════════════════ */
+/* token: DAILY_GH_TOKEN (Admin ▸ Tổng hợp ngay ▸ Thiết lập); chưa có ⇒ thử WT_GH_TOKEN (bot tải hồ sơ thầu) nếu token đó cũng được cấp quyền Actions kho MMH-Daily */
+function dkTok_() { var P = PropertiesService.getScriptProperties(); return P.getProperty('DAILY_GH_TOKEN') || P.getProperty('WT_GH_TOKEN') || ''; }
 var DK = { FROM: '05:40', TO: '11:00', MAX: 3, GAP_MIN: 25,
   INDEX: 'https://raw.githubusercontent.com/ManiMedicalHanoi/MMH-Daily/main/data/index.json' };
 function dkTick_() {
@@ -22,16 +24,16 @@ function dkTick_() {
     var last = j && j.editions && j.editions[0] && j.editions[0].date;
     out.last = last || '?';
     if (last === today) { P.setProperty('DK_DONE', today); out.skip = 'đã có số hôm nay'; }
-    else if (!P.getProperty('DAILY_GH_TOKEN')) out.skip = 'chưa có token GitHub (Admin ▸ Tổng hợp ngay ▸ Thiết lập)';
+    else if (!dkTok_()) out.skip = 'chưa có token GitHub (Admin ▸ Tổng hợp ngay ▸ Thiết lập)';
     else if (st.n >= DK.MAX) out.skip = 'đã gọi ' + st.n + ' lần hôm nay';
     else if (now.getTime() - st.at < DK.GAP_MIN * 60e3) out.skip = 'vừa gọi, chờ lượt đang chạy';
     else {
       var busy = 0;
-      ['in_progress', 'queued'].forEach(function (s) { var g = drGh_('get', '/actions/workflows/' + DR.WF + '/runs?per_page=1&status=' + s); if (g.code === 200 && g.json) busy += +g.json.total_count || 0; else out.err = 'GitHub ' + g.code; });
+      ['in_progress', 'queued'].forEach(function (s) { var g = drGh_('get', '/actions/workflows/' + DR.WF + '/runs?per_page=1&status=' + s, null, dkTok_()); if (g.code === 200 && g.json) busy += +g.json.total_count || 0; else out.err = 'GitHub ' + g.code; });
       if (out.err) out.skip = out.err;
       else if (busy) out.skip = 'GitHub đang chạy một lượt';
       else {
-        var d = drGh_('post', '/actions/workflows/' + DR.WF + '/dispatches', { ref: 'main', inputs: { kind: 'daily', by: 'Tự động lúc sáng' } });
+        var d = drGh_('post', '/actions/workflows/' + DR.WF + '/dispatches', { ref: 'main', inputs: { kind: 'daily', by: 'Tự động lúc sáng' } }, dkTok_());
         out.kick = d.code;
         if (d.code === 204) { st.n++; st.at = now.getTime(); } else out.skip = 'không gọi được workflow (' + d.code + ')';
       }
@@ -52,8 +54,9 @@ function apiDailyAuto(p) {
   var out = { ok: true, now: Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd HH:mm'),
     hwTriggers: ScriptApp.getProjectTriggers().filter(function (t) { return t.getHandlerFunction() === 'hwWarm'; }).length,
     hwLast: hw ? { at: hw.at, dk: hw.r && hw.r.dk, errors: hw.r && hw.r.errors } : null,
-    dkLast: J('DK_LAST'), dkState: J('DK_STATE'), dkDone: P.getProperty('DK_DONE') || '', hasToken: !!P.getProperty('DAILY_GH_TOKEN') };
-  if (out.hasToken) { var g = drGh_('get', '/actions/workflows/' + DR.WF + '/runs?per_page=1'); out.ghRead = g.code; }
+    dkLast: J('DK_LAST'), dkState: J('DK_STATE'), dkDone: P.getProperty('DK_DONE') || '', hasToken: !!P.getProperty('DAILY_GH_TOKEN'), hasWtToken: !!P.getProperty('WT_GH_TOKEN') };
+  // thử quyền từng token với kho MMH-Daily (chỉ đọc danh sách lượt chạy — 200 = đọc được; 403 / 404 = token không có quyền kho này)
+  ['DAILY_GH_TOKEN', 'WT_GH_TOKEN'].forEach(function (k) { var t = P.getProperty(k); if (t) out['read_' + k] = drGh_('get', '/actions/workflows/' + DR.WF + '/runs?per_page=1', null, t).code; });
   try { var r = UrlFetchApp.fetch(DK.INDEX + '?t=' + Date.now(), { muteHttpExceptions: true }); out.lastEdition = JSON.parse(r.getContentText()).editions[0].date; } catch (e) { out.lastEdition = '?'; }
   if (hubNorm(p.op) === 'run') out.run = dkTick_();
   return out;
