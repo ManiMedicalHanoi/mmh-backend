@@ -373,7 +373,7 @@ function wtrPersonReport_(p, G, range) {
   const cnt = function (a) { return a.filter(function (x) { return x.rel.hit; }).length; };
   const sum = [['1. ' + WTR_STAGE.kh, kh.length, cnt(kh)], ['2. ' + WTR_STAGE.tb, tb.length, cnt(tb)], ['3. ' + WTR_STAGE.mo, mo.length, cnt(mo)], ['4. ' + WTR_STAGE.kq, kq.length, cnt(kq)]];
   const head = function (S) {
-    return '<p>Hệ thống gửi lại tổng hợp tin đấu thầu mới tại địa bàn <b>' + wtH_(p.area) + '</b>, nhóm sản phẩm <b>' + WTR.LINE[line] + '</b>, ' + wtH_(range) + '.</p>' +
+    return '<p>Hệ thống Theo dõi thầu thông báo tin đấu thầu mới tại địa bàn <b>' + wtH_(p.area) + '</b>, nhóm sản phẩm <b>' + WTR.LINE[line] + '</b>, ' + wtH_(range) + '.</p>' +
       wtrTable_(['Bước', 'Số gói trong địa bàn', 'Có sản phẩm liên quan'], sum.map(function (r) { return [r[0], r[1], r[2] ? '<b>' + r[2] + '</b>' : '0']; }), S, ['', '22%', '22%']);
   };
   const body = function (S, pdf) {
@@ -383,7 +383,7 @@ function wtrPersonReport_(p, G, range) {
   const n = sum.reduce(function (s, r) { return s + r[1]; }, 0), nrel = sum.reduce(function (s, r) { return s + r[2]; }, 0);
   return { n: n, rel: nrel, sum: sum,
     html: '<div style="font-family:Aptos,Arial,sans-serif;font-size:14px;color:' + WTR.C.ink + '"><p>Kính gửi ' + wtH_(p.pic) + ',</p>' + body(S, false) +
-      '<p>Danh sách đầy đủ các gói trong địa bàn và đường dẫn tài liệu có trong file PDF đính kèm.</p><p>Trân trọng,<br>Hệ thống Theo dõi gói thầu MMH</p></div>',
+      '<p>Danh sách đầy đủ các gói trong địa bàn và đường dẫn tài liệu có trong file PDF đính kèm.</p><p>Trân trọng,<br>Hệ thống Theo dõi thầu MMH</p></div>',
     pdfHtml: '<div style="font-family:Aptos,Arial,sans-serif;color:' + WTR.C.ink + '"><div style="font-size:16px;font-weight:bold;color:' + WTR.C.navy + ';text-transform:uppercase">Báo cáo thầu · ' + wtH_(p.pic) + ' · ' + WTR.LINE[line] + '</div>' + body(SP, true) + '</div>' };
 }
 function wtrPdf_(html, name, keep) {
@@ -606,8 +606,8 @@ function wtrPkg_(p, me) {
   if (!D.hs.length && !D.tbRow && !D.kqRow) return Object.assign(res, { html: '', note: 'Chưa có dữ liệu gói này — đã đưa vào hàng đợi tải, mở lại sau ít phút.' });
   if (wtS_(p.html) === '1' || me) return Object.assign(res, { html: body });
   if (wtS_(p.dry) === '1') return res;
-  const html = '<div style="font-family:Aptos,Arial,sans-serif;font-size:14px;color:' + C.ink + '"><p>Hệ thống gửi lại phân tích ngắn gói thầu dưới đây, từ kế hoạch lựa chọn nhà thầu đến kết quả.</p>' +
-    body + '<p>Bản PDF đính kèm có đầy đủ đường dẫn tới các tài liệu của gói.</p><p>Trân trọng,<br>Hệ thống Theo dõi gói thầu MMH</p></div>';
+  const html = '<div style="font-family:Aptos,Arial,sans-serif;font-size:14px;color:' + C.ink + '"><p>Hệ thống Theo dõi thầu thông báo phân tích ngắn gói thầu dưới đây, từ kế hoạch lựa chọn nhà thầu đến kết quả.</p>' +
+    body + '<p>Bản PDF đính kèm có đầy đủ đường dẫn tới các tài liệu của gói.</p><p>Trân trọng,<br>Hệ thống Theo dõi thầu MMH</p></div>';
   const pdfHtml = '<div style="font-family:Aptos,Arial,sans-serif;color:' + C.ink + '"><div style="font-size:15px;font-weight:bold;color:' + C.navy + ';text-transform:uppercase">Phân tích gói thầu ' + wtH_(b) + '</div>' + head(SP) + wtrPkgHtml_(D, SP, true) + '</div>';
   const title = 'Phân tích gói thầu ' + b + ' – ' + String(D.inv).slice(0, 60);
   if (wtS_(p.preview) === '1') return Object.assign(res, { preview: wtrPreview_('Mẫu ' + title, html, pdfHtml) });
