@@ -262,9 +262,24 @@ function wtqBuild_(opt) {
     win: ix('Nhà thầu trúng thầu'), item: ix('Danh mục hàng hóa'), code: ix('Ký mã hiệu'), brand: ix('Nhãn hiệu'), maker: ix('Hãng sản xuất'), bid: ix('Mặt hàng dự thầu'),
     origin: ix('Xuất xứ'), unit: ix('Đơn vị tính'), qty: ix('Khối lượng'), cfg: ix('Cấu hình, tính năng kỹ thuật cơ bản'), model: ix('Chủng loại (Models)'),
     price: ix('Đơn giá trúng thầu'), amt: ix('Thành tiền (đã bao gồm thuế, phí, lệ phí)'), at: ix('Gộp lúc'), key: ix('Khoá') };
-  const V = nRows ? B.sh.getRange(2, 1, nRows, H.length).getValues() : [];
+  let V = [];
+  const bares = {};
+  if (nRows && (opt.only || opt.since)) {
+    // v1.3.1: đọc 1 phần (báo cáo sáng / phân tích gói) — file tổng rất lớn, đọc cả bảng mất vài phút ⇒ chỉ đọc cột Khoá / Số TBMT + Gộp lúc, rồi đọc đúng các khối dòng cần
+    const kc = I.key >= 0 ? I.key : I.no, K = B.sh.getRange(2, kc + 1, nRows, 1).getValues(), A = I.at >= 0 ? B.sh.getRange(2, I.at + 1, nRows, 1).getValues() : null, want = [];
+    K.forEach(function (r, i) {
+      const b = wtmBare_(r[0]); if (!b) return; bares[b] = 1;
+      let ok = opt.only && opt.only[b];
+      if (!ok && opt.since && A) { const a0 = A[i][0], at1 = a0 instanceof Date ? Utilities.formatDate(a0, 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd HH:mm:ss') : wtS_(a0); ok = at1 >= opt.since; }
+      if (ok) want.push(i);
+    });
+    let s0 = -1, e0 = -1;
+    const flush = function () { if (s0 >= 0) V = V.concat(B.sh.getRange(2 + s0, 1, e0 - s0 + 1, H.length).getValues()); };
+    want.forEach(function (i) { if (s0 >= 0 && i - e0 <= 40) e0 = i; else { flush(); s0 = i; e0 = i; } });
+    flush();
+  } else if (nRows) V = B.sh.getRange(2, 1, nRows, H.length).getValues();
   const g = function (r, k) { return I[k] >= 0 ? r[I[k]] : ''; };
-  const out = { dent: [], surg: [] }, per = {}, bares = {}, occ = {};
+  const out = { dent: [], surg: [] }, per = {}, occ = {};
   const RE_MANI = /(?<![\p{L}\p{N}])mani(?![\p{L}\p{N}])/iu;
   V.forEach(function (r) {
     const bare = wtmBare_(g(r, 'key') || g(r, 'no')); if (!bare) return;

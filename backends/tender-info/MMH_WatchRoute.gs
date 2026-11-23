@@ -226,7 +226,7 @@ function wtrGather_(fromDay, toDay, fromAt) {
   const inDay0 = function (d) { return d && d > fromDay && d <= toDay; }, fromTs0 = Utilities.formatDate(new Date(fromAt), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd HH:mm:ss'), only = {};
   data.kqdt.forEach(function (r) { if (inDay0(r.upd || r.date)) only[wtBare_(r.no)] = 1; });
   H.forEach(function (h) { if (h.done >= fromTs0) only[wtBare_(h.no)] = 1; });
-  const B = wtqBuild_({ dry: true, only: only, since: fromTs0 });   // chỉ dò từ khoá các gói trong cửa sổ
+  const B = wtqBuild_({ dry: true, only: only });   // chỉ dò từ khoá các gói trong cửa sổ (tin KQ mới + gói tải xong trong cửa sổ)
   wtrT_('goods');
   Object.keys(B.per).forEach(function (b) { only[b] = 1; });
   let L = {}; try { L = wtrLose_(only); } catch (e) { Logger.log('wtrLose_: ' + e.message); } wtrT_('bidders');
@@ -720,6 +720,19 @@ function wtrAction_(p) {
   if (op === 'pkg') return wtrPkg_(p, null);
   if (op === 'dry') return wtrRun_({ op: 'dry', days: +p.days || 0, pic: p.pic });
   if (op === 'sample') return wtS_(p.preview) === '1' ? wtrRun_({ op: 'sample', days: +p.days || 3, pic: wtS_(p.pic), preview: 1 }) : wtrRun_({ op: 'sample', days: +p.days || 3, pic: wtS_(p.pic) || 'Viet Ha', to: wtS_(p.to) || 'Giang' });
+  if (op === 'prof') {   // đo thời gian từng bước gom dữ liệu (dừng trước 250 giây)
+    const T = {}, t0 = Date.now(); let t = t0; const m = function (k) { const n = Date.now(); T[k] = n - t; t = n; return n - t0 < 250000; };
+    const ss = wtBook_(); if (!m('book')) return { ok: true, t: T };
+    const D = wtrData_(); T.dataRows = D.kqdt.length + D.tbmt.length + D.khmt.length; if (!m('data')) return { ok: true, t: T };
+    const H = wtHits_(ss); T.hitRows = H.length; if (!m('hits')) return { ok: true, t: T };
+    const only = {}, since = Utilities.formatDate(new Date(Date.now() - 864e5 * (+p.days || 1)), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd HH:mm:ss');
+    H.forEach(function (h) { if (h.done >= since) only[wtBare_(h.no)] = 1; }); T.only = Object.keys(only).length;
+    const B = wtqBuild_({ dry: true, only: only }); T.goodsPkgs = Object.keys(B.per).length; if (!m('goods')) return { ok: true, t: T };
+    wtrLose_(only); if (!m('bidders')) return { ok: true, t: T };
+    wteHitsBy_(); if (!m('docs')) return { ok: true, t: T };
+    wttTargets_(); m('targets'); T.total = Date.now() - t0;
+    return { ok: true, t: T };
+  }
   if (op === 'moq') return Object.assign({ ok: true }, wtrMoQueue_());
   if (op === 'on') { P.setProperty('WTR_ON', '1'); return { ok: true, on: true }; }
   if (op === 'off') { P.deleteProperty('WTR_ON'); return { ok: true, on: false }; }
