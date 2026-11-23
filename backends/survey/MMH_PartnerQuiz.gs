@@ -20,19 +20,35 @@
  * v1.4 (21/11/2026, người dùng yêu cầu): kết quả theo NPP — Sheet kết quả có tab cố định Meci · SPI · Nam Dũng · Việt Thái (PQ_OUT.TABS), cột đầu "Ngày đào tạo".
  *   Bài có out = [{ npp, date, to? }] (MMH_PartnerQuizBank.gs) ⇒ mỗi lượt / góp ý ghi thêm vào tab NPP của buổi tương ứng (pqOutSync_, chép lượt còn thiếu theo Mã lượt).
  *   Tab KET_QUA + TỔNG HỢP giữ nguyên (nguồn xếp hạng). pqDiag &out=1 ⇒ pqOutInit_: tạo đủ tab, xoá tab tạm rỗng, chép lại mọi bài; lỗi ⇒ Script Property PQ_OUT_ERR.
+ * v1.6 (23/11/2026, người dùng yêu cầu): SỔ KẾT QUẢ RIÊNG theo bài — bank book: 'sales' ⇒ lượt làm bài ghi vào Google Sheet riêng
+ *   "MMH · Bài kiểm tra Sales team · Kết quả" (Script Property PQ_BOOK_SALES, tự tạo lần đầu trong thư mục SV.FOLDER), có tab KET_QUA + TỔNG HỢP riêng;
+ *   bảng xếp hạng chung (?v=top&g=sales) và tab TỔNG HỢP chỉ gộp các bài cùng sổ ⇒ kết quả nội bộ không lẫn vào bảng của đối tác.
+ *   pqMeta trả g / who (nhãn ô "Đại lý / NPP" ⇒ "Nhóm / bộ phận") / whoHint / fbAsk / brand để trang đổi chữ. Sổ mặc định ('') giữ nguyên như cũ.
  * Kết quả: Google Sheet "MMH · Bài kiểm tra đối tác · Kết quả" (thư mục SV.FOLDER, tab KET_QUA) + email tóm tắt mỗi lượt
  * về chủ thư mục (= tài khoản chạy máy chủ; đổi bằng Script Property PQ_NOTIFY, "-" = tắt email). Ngân hàng câu hỏi: MMH_PartnerQuizBank.gs.
  */
-var PQ = { VER: '1.5', SUM_TAB: 'TỔNG HỢP', BOOK_PROP: 'PQ_BOOK', BOOK: 'MMH · Bài kiểm tra đối tác · Kết quả', TAB: 'KET_QUA', FB: 3500, TTL: 7200,
+var PQ = { VER: '1.6', SUM_TAB: 'TỔNG HỢP', BOOK_PROP: 'PQ_BOOK', BOOK: 'MMH · Bài kiểm tra đối tác · Kết quả', TAB: 'KET_QUA', FB: 3500, TTL: 7200,
   PAGE: 'https://manimedicalhanoi.github.io/MMH-Survey/training-quiz/doi-tac/',
   HEAD: ['Thời gian nộp', 'Mã bài', 'Bài', 'Họ tên', 'Đại lý / NPP', 'Số điện thoại', 'Số câu đúng', 'Số câu', 'Điểm', 'Đạt', 'Thời gian làm (giây)', 'Chi tiết', 'Mã lượt', 'Góp ý sản phẩm (không tính điểm)'] };
+
+/* sổ kết quả (v1.6): '' = đối tác (NPP, đại lý) · 'sales' = nội bộ Sales team */
+var PQ_BOOKS = {
+  '': { prop: 'PQ_BOOK', name: 'MMH · Bài kiểm tra đối tác · Kết quả', who: 'Đại lý / NPP', whoAsk: 'Tên đại lý / nhà phân phối',
+    head: 'TỔNG HỢP KẾT QUẢ BÀI KIỂM TRA ĐỐI TÁC', mail: 'Bài kiểm tra đối tác', brand: 'Đào tạo đối tác' },
+  'sales': { prop: 'PQ_BOOK_SALES', name: 'MMH · Bài kiểm tra Sales team · Kết quả', who: 'Nhóm / bộ phận', whoAsk: 'Nhóm / bộ phận',
+    head: 'TỔNG HỢP KẾT QUẢ BÀI KIỂM TRA SALES TEAM', mail: 'Bài kiểm tra Sales', brand: 'Đào tạo nội bộ' }
+};
+function pqG_(b) { var z = pqQuiz_(b); return z && z.book && PQ_BOOKS[z.book] ? z.book : ''; }
+function pqGk_(g) { return PQ_BOOKS[g] ? (g || '') : ''; }
+function pqSfx_(g) { return g ? '_' + g : ''; }
+function pqHead_(g) { var h = PQ.HEAD.slice(); h[4] = PQ_BOOKS[pqGk_(g)].who; if (g) h[13] = 'Góp ý (không tính điểm)'; return h; }
 
 function pqRoute_(a, p) {
   if (a === 'pqMeta') return pqMeta_(p.b);
   if (a === 'pqStart') return pqStart_(p.b, p.info || {});
   if (a === 'pqAnswer') return pqAnswer_(p.tk, Number(p.i), Number(p.pick), Number(p.ms));
   if (a === 'pqBoard') return pqBoard_(p.b);
-  if (a === 'pqBoardAll') return pqBoardAll_();
+  if (a === 'pqBoardAll') return pqBoardAll_(pqGk_(p.g));
   if (a === 'pqFeedback') return pqFeedback_(p.tk, p.text);
   return { ok: false, error: 'ACTION' };
 }
@@ -42,7 +58,9 @@ function pqQuiz_(b) { return (typeof PQ_BANK !== 'undefined' && PQ_BANK[String(b
 function pqMeta_(b) {
   var z = pqQuiz_(b);
   if (!z) return { ok: false, code: 'QUIZ', error: 'Link bài kiểm tra không đúng.' };
-  return { ok: true, v: PQ.VER, b: b, title: z.title, sub: z.sub, n: z.n, perQ: z.perQ, pass: z.pass, prize: z.prize || '', prizeN: z.prizeN || 3, bank: z.qs.length };
+  var g = pqG_(b), B = PQ_BOOKS[g];
+  return { ok: true, v: PQ.VER, b: b, title: z.title, sub: z.sub, n: z.n, perQ: z.perQ, pass: z.pass, prize: z.prize || '', prizeN: z.prizeN || 3, bank: z.qs.length,
+    g: g, who: B.whoAsk, whoHint: z.whoHint || '', fbAsk: z.fbAsk || '', brand: B.brand };
 }
 
 function pqShuffle_(a) { for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
@@ -85,7 +103,7 @@ function pqStart_(b, info) {
   if (!z) return { ok: false, code: 'QUIZ', error: 'Link bài kiểm tra không đúng.' };
   var name = pqClean_(info.name, 60), dealer = pqClean_(info.dealer, 80), phone = pqPhone_(info.phone);
   if (name.length < 2) return { ok: false, code: 'NAME', error: 'Vui lòng nhập họ tên.' };
-  if (dealer.length < 2) return { ok: false, code: 'DEALER', error: 'Vui lòng nhập tên đại lý / nhà phân phối.' };
+  if (dealer.length < 2) return { ok: false, code: 'DEALER', error: 'Vui lòng nhập ' + PQ_BOOKS[pqG_(b)].whoAsk.toLowerCase() + '.' };
   if (!phone) return { ok: false, code: 'PHONE', error: 'Số điện thoại chưa đúng (10 số, bắt đầu bằng 0).' };
   if (!info.agree) return { ok: false, code: 'AGREE', error: 'Vui lòng tick đồng ý trước khi làm bài.' };
   var ids = pqDraw_(z);
@@ -122,24 +140,26 @@ function pqAnswer_(tk, i, pick, cms) {
 }
 
 /* ---------- Sheet kết quả + xếp hạng ---------- */
-function pqBook_() {
-  var P = PropertiesService.getScriptProperties(), id = P.getProperty(PQ.BOOK_PROP), ss = null;
+function pqBook_(g) {
+  g = pqGk_(g); var B = PQ_BOOKS[g];
+  var P = PropertiesService.getScriptProperties(), id = P.getProperty(B.prop), ss = null;
   if (id) { try { ss = SpreadsheetApp.openById(id); } catch (x) { ss = null; } }
   if (!ss) {
-    ss = SpreadsheetApp.create(PQ.BOOK);
+    var H = pqHead_(g);
+    ss = SpreadsheetApp.create(B.name);
     var sh = ss.getSheets()[0].setName(PQ.TAB);
-    sh.appendRow(PQ.HEAD); sh.setFrozenRows(1); sh.getRange(1, 1, 1, PQ.HEAD.length).setFontWeight('bold');
-    P.setProperty(PQ.BOOK_PROP, ss.getId());
+    sh.appendRow(H); sh.setFrozenRows(1); sh.getRange(1, 1, 1, H.length).setFontWeight('bold').setBackground('#EEF3F8').setFontColor('#22384F');
+    P.setProperty(B.prop, ss.getId());
     try { DriveApp.getFileById(ss.getId()).moveTo(svFolder_()); } catch (x) {}
   }
   return ss;
 }
-function pqSheet_() { var ss = pqBook_(); return ss.getSheetByName(PQ.TAB) || ss.getSheets()[0]; }
+function pqSheet_(g) { var ss = pqBook_(g); return ss.getSheetByName(PQ.TAB) || ss.getSheets()[0]; }
 
 function pqRows_(b) {
   var c = CacheService.getScriptCache(), k = 'pq_rows_' + b, hit = c.get(k);
   if (hit) return JSON.parse(hit);
-  var sh = pqSheet_(), last = sh.getLastRow(), out = [];
+  var sh = pqSheet_(pqG_(b)), last = sh.getLastRow(), out = [];
   if (last > 1) {
     sh.getRange(2, 1, last - 1, 11).getValues().forEach(function (r) {
       if (String(r[1]) !== b) return;
@@ -166,12 +186,12 @@ function pqTop_(best) { return best.slice(0, 10).map(function (r, i) { return { 
 function pqFinish_(z, s) {
   var now = new Date(), sec = Math.round((now.getTime() - s.t0) / 1000), passed = s.right >= z.pass;
   var row = [now, s.b, z.title, s.name, s.dealer, "'" + s.phone, s.right, s.ids.length, s.score, passed ? 'Đạt' : 'Chưa đạt', sec, s.det.join(' · '), s.tk];
-  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  var g = pqG_(s.b), lock = LockService.getScriptLock(); lock.waitLock(20000);
   var rows;
   try {
-    pqSheet_().appendRow(row);
-    CacheService.getScriptCache().removeAll(['pq_rows_' + s.b, 'pq_board_' + s.b, 'pq_all']);
-    PropertiesService.getScriptProperties().setProperty('PQ_SUM_DIRTY', String(Date.now()));
+    pqSheet_(g).appendRow(row);
+    CacheService.getScriptCache().removeAll(['pq_rows_' + s.b, 'pq_board_' + s.b, 'pq_all' + pqSfx_(g)]);
+    PropertiesService.getScriptProperties().setProperty('PQ_SUM_DIRTY' + pqSfx_(g), String(Date.now()));
     rows = pqRows_(s.b);
   } finally { lock.releaseLock(); }
   var best = pqBest_(rows), rank = 0;
@@ -181,7 +201,7 @@ function pqFinish_(z, s) {
     best: mine ? mine.score : s.score, top: pqTop_(best) };
   try { pqMail_(z, s, fin); } catch (x) {}
   try { pqOutSync_(s.b); } catch (x) {}
-  try { pqSumMaybe_(); } catch (x) {}
+  try { pqSumMaybe_(g); } catch (x) {}
   return fin;
 }
 
@@ -195,11 +215,12 @@ function pqNotify_() {
 
 function pqMail_(z, s, fin) {
   var to = pqNotify_(); if (!to) return;
-  var url = ''; try { url = pqBook_().getUrl(); } catch (x) {}
-  var body = ['Một lượt làm bài kiểm tra đối tác vừa hoàn thành.', '',
+  var g = pqG_(s.b), B = PQ_BOOKS[g];
+  var url = ''; try { url = pqBook_(g).getUrl(); } catch (x) {}
+  var body = ['Một lượt làm ' + B.mail.toLowerCase() + ' vừa hoàn thành.', '',
     'Bài: ' + z.title,
     'Họ tên: ' + s.name,
-    'Đại lý / NPP: ' + s.dealer,
+    B.who + ': ' + s.dealer,
     'Số điện thoại: ' + s.phone,
     'Kết quả: ' + fin.nRight + '/' + fin.n + ' câu đúng · ' + fin.score + ' điểm · ' + (fin.passed ? 'Đạt' : 'Chưa đạt'),
     'Thời gian làm: ' + fin.sec + ' giây',
@@ -207,7 +228,7 @@ function pqMail_(z, s, fin) {
     'File tổng hợp kết quả: ' + url,
     'Màn xếp hạng: ' + PQ.PAGE + '?b=' + encodeURIComponent(s.b) + '&v=board', '',
     'Email tự động từ hệ thống bài kiểm tra MMH.'].join('\n');
-  mmhMail_({ to: to, subject: '[Bài kiểm tra đối tác] ' + s.name + ' · ' + s.dealer + ' · ' + fin.nRight + '/' + fin.n + ' · ' + (fin.passed ? 'Đạt' : 'Chưa đạt'), body: body });
+  mmhMail_({ to: to, subject: '[' + B.mail + '] ' + s.name + ' · ' + s.dealer + ' · ' + fin.nRight + '/' + fin.n + ' · ' + (fin.passed ? 'Đạt' : 'Chưa đạt'), body: body });
 }
 
 function pqBoard_(b) {
@@ -215,7 +236,7 @@ function pqBoard_(b) {
   if (!z) return { ok: false, code: 'QUIZ', error: 'Link bài kiểm tra không đúng.' };
   var c = CacheService.getScriptCache(), k = 'pq_board_' + b, hit = c.get(k);
   if (hit) return JSON.parse(hit);
-  try { pqSumMaybe_(); } catch (x) {}
+  try { pqSumMaybe_(pqG_(b)); } catch (x) {}
   var rows = pqRows_(b), best = pqBest_(rows);
   var d0 = new Date(); d0.setHours(0, 0, 0, 0);
   var o = { ok: true, b: b, title: z.title, sub: z.sub, n: z.n, pass: z.pass, prizeN: z.prizeN || 3, players: best.length, attempts: rows.length,
@@ -234,8 +255,8 @@ function pqFeedback_(tk, text) {
   var lock = LockService.getScriptLock(); lock.waitLock(20000);
   var row = 0;
   try {
-    var sh = pqSheet_(), col = PQ.HEAD.length, last = sh.getLastRow();
-    if (!sh.getRange(1, col).getValue()) sh.getRange(1, col).setValue(PQ.HEAD[col - 1]).setFontWeight('bold');
+    var g = pqG_(s.b), sh = pqSheet_(g), col = PQ.HEAD.length, last = sh.getLastRow();
+    if (!sh.getRange(1, col).getValue()) sh.getRange(1, col).setValue(pqHead_(g)[col - 1]).setFontWeight('bold');
     var from = Math.max(2, last - 1500);
     if (last >= from) {
       var ids = sh.getRange(from, 13, last - from + 1, 1).getValues();
@@ -247,16 +268,18 @@ function pqFeedback_(tk, text) {
   try { pqOutSync_(s.b); } catch (x) {}
   try {
     var to = pqNotify_(), z = pqQuiz_(s.b);
-    if (to) mmhMail_({ to: to, subject: '[Góp ý sản phẩm] ' + s.name + ' · ' + s.dealer, body: ['Góp ý sau bài kiểm tra đối tác (không tính điểm).', '',
-      'Bài: ' + (z ? z.title : s.b), 'Họ tên: ' + s.name, 'Đại lý / NPP: ' + s.dealer, 'Số điện thoại: ' + s.phone, '', 'Góp ý:', t, '',
+    var B = PQ_BOOKS[pqG_(s.b)];
+    if (to) mmhMail_({ to: to, subject: '[Góp ý · ' + B.mail + '] ' + s.name + ' · ' + s.dealer, body: ['Góp ý sau ' + B.mail.toLowerCase() + ' (không tính điểm).', '',
+      'Bài: ' + (z ? z.title : s.b), 'Họ tên: ' + s.name, B.who + ': ' + s.dealer, 'Số điện thoại: ' + s.phone, '', 'Góp ý:', t, '',
       'Email tự động từ hệ thống bài kiểm tra MMH.'].join('\n') });
   } catch (x) {}
   return { ok: true };
 }
 
 /* ---------- bảng xếp hạng chung (trang ?v=top) ---------- */
-function pqAll_() {
-  var parts = [], people = {}, order = Object.keys(PQ_BANK);
+function pqAll_(g) {
+  g = pqGk_(g);
+  var parts = [], people = {}, order = Object.keys(PQ_BANK).filter(function (b) { return pqG_(b) === g; });
   order.forEach(function (b, pi) {
     var z = PQ_BANK[b], rows = pqRows_(b), best = pqBest_(rows);
     parts.push({ b: b, title: z.title, sub: z.sub, n: z.n, pass: z.pass, prize: z.prize || '', prizeN: z.prizeN || 3, rows: rows, best: best });
@@ -272,12 +295,13 @@ function pqAll_() {
   return { order: order, parts: parts, all: all };
 }
 
-function pqBoardAll_() {
-  var c = CacheService.getScriptCache(), hit = c.get('pq_all');
-  try { pqSumMaybe_(); } catch (x) {}
+function pqBoardAll_(g) {
+  g = pqGk_(g);
+  var c = CacheService.getScriptCache(), hit = c.get('pq_all' + pqSfx_(g));
+  try { pqSumMaybe_(g); } catch (x) {}
   if (hit) return JSON.parse(hit);
-  var A = pqAll_(), d0 = new Date(); d0.setHours(0, 0, 0, 0);
-  var o = { ok: true, v: PQ.VER, at: Date.now(), players: A.all.length,
+  var A = pqAll_(g), d0 = new Date(); d0.setHours(0, 0, 0, 0);
+  var o = { ok: true, v: PQ.VER, at: Date.now(), g: g, who: PQ_BOOKS[g].who, players: A.all.length,
     parts: A.parts.map(function (p) {
       return { b: p.b, title: p.title, sub: p.sub, n: p.n, pass: p.pass, prize: p.prize, prizeN: p.prizeN, players: p.best.length, attempts: p.rows.length,
         today: p.rows.filter(function (r) { return r.at >= d0.getTime(); }).length,
@@ -287,31 +311,33 @@ function pqBoardAll_() {
       return { rank: i + 1, name: o.name, dealer: o.dealer, total: o.total, done: o.done,
         sc: A.order.map(function (b) { return o.sc[b] == null ? null : o.sc[b]; }) };
     }) };
-  try { c.put('pq_all', JSON.stringify(o), 8); } catch (x) {}
+  try { c.put('pq_all' + pqSfx_(g), JSON.stringify(o), 8); } catch (x) {}
   return o;
 }
 
 /* ---------- tab TỔNG HỢP trong Sheet kết quả ---------- */
-function pqSumMaybe_() {
-  var P = PropertiesService.getScriptProperties();
-  var dirty = Number(P.getProperty('PQ_SUM_DIRTY') || 0), done = Number(P.getProperty('PQ_SUM_AT') || 0);
+function pqSumMaybe_(g) {
+  g = pqGk_(g);
+  var P = PropertiesService.getScriptProperties(), x = pqSfx_(g);
+  var dirty = Number(P.getProperty('PQ_SUM_DIRTY' + x) || 0), done = Number(P.getProperty('PQ_SUM_AT' + x) || 0);
   if (!dirty || dirty <= done) return false;
   var c = CacheService.getScriptCache();
-  if (c.get('pq_sum_busy')) return false;
-  c.put('pq_sum_busy', '1', 45);
-  pqSummary_();
+  if (c.get('pq_sum_busy' + x)) return false;
+  c.put('pq_sum_busy' + x, '1', 45);
+  pqSummary_(g);
   return true;
 }
 
 function pqPart_(p) { return String(p.sub || p.b).replace(/^Bài kiểm tra · /, ''); }
 
-function pqSummary_() {
-  var P = PropertiesService.getScriptProperties(), t0 = Date.now();
+function pqSummary_(g) {
+  g = pqGk_(g);
+  var P = PropertiesService.getScriptProperties(), t0 = Date.now(), BK = PQ_BOOKS[g];
   CacheService.getScriptCache().removeAll(Object.keys(PQ_BANK).map(function (b) { return 'pq_rows_' + b; }));
-  var A = pqAll_(), W = 8, out = [], bold = [], head = [];
+  var A = pqAll_(g), W = 8, out = [], bold = [], head = [];
   var row = function (a) { var r = a.slice(0, W); while (r.length < W) r.push(''); out.push(r); return out.length; };
   var tz = Session.getScriptTimeZone();
-  bold.push(row(['TỔNG HỢP KẾT QUẢ BÀI KIỂM TRA ĐỐI TÁC']));
+  bold.push(row([BK.head]));
   row(['Cập nhật lúc ' + Utilities.formatDate(new Date(), tz, 'HH:mm dd/MM/yyyy') + ' · tự cập nhật sau mỗi lượt làm bài (chậm nhất khoảng 1 phút). Không sửa tay tab này; dữ liệu gốc ở tab ' + PQ.TAB + '.']);
   row([]);
   bold.push(row(['1. TÌNH HÌNH CHUNG']));
@@ -325,24 +351,26 @@ function pqSummary_() {
   row(['Tham gia ít nhất 1 phần', A.all.length, '', '', '', '', '', '']);
   A.parts.forEach(function (p, pi) {
     row([]);
-    bold.push(row([(pi + 2) + '. TOP 10 · ' + pqPart_(p).toUpperCase() + ': ' + p.title.toUpperCase() + ' (QUÀ: TOP ' + p.prizeN + ' ĐẠT TỪ ' + p.pass + '/' + p.n + ' CÂU)']));
-    head.push(row(['Hạng', 'Họ tên', 'Đại lý / NPP', 'Số điện thoại', 'Câu đúng', 'Điểm', 'Thời gian làm (giây)', 'Quà']));
+    bold.push(row([(pi + 2) + '. TOP 10 · ' + pqPart_(p).toUpperCase() + ': ' + p.title.toUpperCase()
+      + (p.prize ? ' (QUÀ: TOP ' + p.prizeN + ' ĐẠT TỪ ' + p.pass + '/' + p.n + ' CÂU)' : ' (ĐẠT TỪ ' + p.pass + '/' + p.n + ' CÂU)')]));
+    head.push(row(['Hạng', 'Họ tên', BK.who, 'Số điện thoại', 'Câu đúng', 'Điểm', 'Thời gian làm (giây)', p.prize ? 'Quà' : 'Kết quả']));
     if (!p.best.length) row(['Chưa có lượt làm bài']);
     p.best.slice(0, 10).forEach(function (r, i) {
-      row([i + 1, r.name, r.dealer, "'" + r.phone, r.right + '/' + r.n, r.score, r.sec, i < p.prizeN && r.right >= p.pass ? 'Túi cói MANI' : '']);
+      row([i + 1, r.name, r.dealer, "'" + r.phone, r.right + '/' + r.n, r.score, r.sec,
+        p.prize ? (i < p.prizeN && r.right >= p.pass ? 'Túi cói MANI' : '') : (r.right >= p.pass ? 'Đạt' : 'Chưa đạt')]);
     });
   });
   var k = A.parts.length + 2;
   row([]);
   bold.push(row([k + '. XẾP HẠNG CHUNG (TỔNG ĐIỂM CÁC PHẦN, MỖI PHẦN TÍNH LƯỢT CAO NHẤT)']));
-  head.push(row(['Hạng', 'Họ tên', 'Đại lý / NPP', 'Số điện thoại'].concat(A.parts.map(function (p) { return 'Điểm ' + pqPart_(p); })).concat(['Tổng điểm'])));
+  head.push(row(['Hạng', 'Họ tên', BK.who, 'Số điện thoại'].concat(A.parts.map(function (p) { return 'Điểm ' + pqPart_(p); })).concat(['Tổng điểm'])));
   if (!A.all.length) row(['Chưa có lượt làm bài']);
   A.all.slice(0, 30).forEach(function (o, i) {
     row([i + 1, o.name, o.dealer, "'" + o.phone].concat(A.order.map(function (b) { return o.sc[b] == null ? '' : o.sc[b]; })).concat([o.total]));
   });
   row([]);
-  bold.push(row([(k + 1) + '. THEO ĐẠI LÝ / NHÀ PHÂN PHỐI']));
-  head.push(row(['Đại lý / NPP', 'Số người', 'Số lượt làm', 'Lượt đạt', 'Tỷ lệ lượt đạt', 'Điểm TB mỗi lượt', '', '']));
+  bold.push(row([(k + 1) + '. THEO ' + BK.who.toUpperCase()]));
+  head.push(row([BK.who, 'Số người', 'Số lượt làm', 'Lượt đạt', 'Tỷ lệ lượt đạt', 'Điểm TB mỗi lượt', '', '']));
   var dl = {};
   A.parts.forEach(function (p) {
     p.rows.forEach(function (r) {
@@ -355,7 +383,7 @@ function pqSummary_() {
     .forEach(function (o) { row([o.name, Object.keys(o.ph).length, o.n, o.ok, o.n ? Math.round(o.ok / o.n * 100) + '%' : '', o.n ? Math.round(o.sc / o.n) : '']); });
   var lock = LockService.getScriptLock(); lock.waitLock(15000);
   try {
-    var ss = pqBook_(), sh = ss.getSheetByName(PQ.SUM_TAB), fresh = !sh;
+    var ss = pqBook_(g), sh = ss.getSheetByName(PQ.SUM_TAB), fresh = !sh;
     if (fresh) sh = ss.insertSheet(PQ.SUM_TAB, 0);
     sh.clear();
     if (sh.getMaxColumns() < W) sh.insertColumnsAfter(sh.getMaxColumns(), W - sh.getMaxColumns());
@@ -369,7 +397,7 @@ function pqSummary_() {
       [70, 190, 210, 120, 100, 110, 130, 110].forEach(function (w, i) { sh.setColumnWidth(i + 1, w); });
       sh.setColumnWidth(1, 230); sh.setHiddenGridlines(true);
     }
-    P.setProperty('PQ_SUM_AT', String(t0));
+    P.setProperty('PQ_SUM_AT' + pqSfx_(g), String(t0));
   } finally { lock.releaseLock(); }
   return { rows: out.length, ms: Date.now() - t0 };
 }
@@ -456,12 +484,14 @@ function pqOutSync_(b) {
 }
 
 function pqDiag_(b, sum, doOut) {
-  var out = { ok: true, v: PQ.VER, quizzes: Object.keys(PQ_BANK).map(function (k) { return { b: k, title: PQ_BANK[k].title, bank: PQ_BANK[k].qs.length, n: PQ_BANK[k].n }; }) };
-  try { var ss = pqBook_(); out.sheet = ss.getUrl(); } catch (x) { out.sheetErr = x.message; }
+  var g = b ? pqG_(b) : '';
+  var out = { ok: true, v: PQ.VER, g: g, quizzes: Object.keys(PQ_BANK).map(function (k) { return { b: k, title: PQ_BANK[k].title, bank: PQ_BANK[k].qs.length, n: PQ_BANK[k].n, book: pqG_(k) }; }) };
+  try { var ss = pqBook_(g); out.sheet = ss.getUrl(); out.sheetName = ss.getName(); } catch (x) { out.sheetErr = x.message; }
   if (b) { var rows = pqRows_(b); out.attempts = rows.length; out.players = pqBest_(rows).length; }
   out.notify = pqNotify_() ? 'có' : 'tắt';
-  if (sum) { try { out.summary = pqSummary_(); var t = pqBook_().getSheetByName(PQ.SUM_TAB); if (t) out.summaryUrl = out.sheet + '#gid=' + t.getSheetId(); } catch (x) { out.sumErr = x.message; } }
-  out.top = PQ.PAGE + '?v=top';
+  if (sum) { try { out.summary = pqSummary_(g); var t = pqBook_(g).getSheetByName(PQ.SUM_TAB); if (t) out.summaryUrl = out.sheet + '#gid=' + t.getSheetId(); } catch (x) { out.sumErr = x.message; } }
+  out.top = PQ.PAGE + '?v=top' + (g ? '&g=' + g : '');
+  if (b) { out.play = PQ.PAGE + '?b=' + encodeURIComponent(b); out.board = out.play + '&v=board'; }
   if (doOut) { try { out.out = pqOutInit_(); } catch (x) { out.out = { ok: false, error: x.message }; } }
   var P = PropertiesService.getScriptProperties();
   out.outErr = P.getProperty('PQ_OUT_ERR') || ''; out.outLast = P.getProperty('PQ_OUT_LAST') || '';

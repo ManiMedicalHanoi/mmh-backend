@@ -1,5 +1,8 @@
 /**
  * Ngân hàng câu hỏi — bài kiểm tra đối tác (NPP, đại lý) sau buổi đào tạo nha khoa.
+ * v4.0 (23/11/2026, người dùng yêu cầu): bài 'sales-kim-moc' cho buổi đào tạo SALES TEAM (nội bộ) về Kìm vi phẫu MANI + Móc mở vùng bè MANI
+ *   (deck "Kìm vi phẫu & Móc mở vùng bè MANI · Đào tạo Sales Team"). book: 'sales' ⇒ kết quả ghi Sheet riêng "MMH · Bài kiểm tra Sales team · Kết quả"
+ *   (không lẫn bảng xếp hạng đối tác). 5 nhóm: c1 chỉ định · c2 thủ thuật · c3 dụng cụ, tương thích cỡ · c4 BHYT · c5 lợi ích; mỗi lượt 2 câu / nhóm.
  * v3.5 (21/11/2026, người dùng yêu cầu): kết quả theo NPP — mỗi bài có out = [{ npp, date, to? }] (buổi đào tạo dùng bài này) ⇒ lượt làm bài ghi thêm vào tab
  *   của NPP trong Sheet kết quả (PQ_OUT.TABS: Meci · SPI · Nam Dũng · Việt Thái), cột "Ngày đào tạo" = date. Lượt thuộc buổi có from (= date) gần nhất trước giờ nộp
  *   (tới to, nếu có). Buổi mới: thêm 1 phần tử vào out của bài dùng cho buổi đó (bài mới thì tạo bài mới).
@@ -18,6 +21,34 @@
  * Không đưa kế hoạch sản phẩm sắp ra mắt / thông tin thị trường vào đây (người dùng yêu cầu).
  */
 var PQ_BANK = {
+  'sales-kim-moc': {
+    title: 'Kìm vi phẫu & Móc mở vùng bè MANI',
+    sub: 'Bài kiểm tra · Sales team',
+    book: 'sales', whoHint: 'VD: Surgical, Dental, Eyeless, Marketing', fbAsk: 'Câu hỏi hoặc góp ý về bài đào tạo',
+    perQ: 20, n: 10, pass: 8,
+    qs: [
+      { c: 1, q: 'Kìm vi phẫu MANI dùng ở bước nào trong phẫu thuật?', o: ['Bóc màng trước võng mạc, màng giới hạn trong (ILM) khi cắt dịch kính', 'Rạch vùng bè khi mổ glôcôm', 'Tạo đường rạch chính khi mổ Phaco', 'Khâu đóng cổng củng mạc'], a: 0, x: 'Kìm làm việc trong buồng dịch kính, trên bề mặt võng mạc: bóc màng trước võng mạc, ILM.' },
+      { c: 1, q: 'Nhóm bệnh nào cần cắt dịch kính CÓ bóc màng, nơi kìm vi phẫu được dùng?', o: ['Đục thủy tinh thể', 'Lỗ hoàng điểm, màng trước võng mạc', 'Mộng thịt', 'Glôcôm góc đóng'], a: 1, x: 'Bệnh hoàng điểm (lỗ hoàng điểm, màng trước võng mạc), võng mạc đái tháo đường tăng sinh, bong võng mạc có rách.' },
+      { c: 1, q: 'Móc mở vùng bè MANI phù hợp với bệnh nhân nào?', o: ['Glôcôm góc đóng nguyên phát', 'Glôcôm góc mở nguyên phát', 'Bong võng mạc', 'Lỗ hoàng điểm'], a: 1, x: 'Glôcôm góc mở nguyên phát, glôcôm nhãn áp bình thường. Glôcôm góc đóng cần cách khác.' },
+      { c: 1, q: 'Trong bậc thang điều trị glôcôm góc mở, mở vùng bè bằng móc thuộc nhóm nào?', o: ['Thuốc nhỏ hạ nhãn áp', 'Laser tạo hình vùng bè chọn lọc (SLT)', 'Phẫu thuật glôcôm xâm lấn tối thiểu (MIGS)', 'Van dẫn lưu glôcôm'], a: 2, x: 'Bậc 3 · MIGS: không tạo vạt, không bọng thấm, dùng lại cổng bên của ca Phaco.' },
+      { c: 2, q: 'Cắt dịch kính qua pars plana thường dùng mấy cổng trocar?', o: ['2 cổng', '3 cổng', '4 cổng', '5 cổng'], a: 1, x: '3 cổng: cổng dụng cụ, cổng truyền dịch, cổng đèn nội nhãn.' },
+      { c: 2, q: 'Kìm vi phẫu được đưa vào và rút ra khỏi mắt khi nào?', o: ['Khi đầu kìm mở', 'Khi đầu kìm đóng', 'Sau khi đã rút cannula', 'Lúc nào cũng được'], a: 1, x: 'Theo IFU: đưa vào và rút ra qua cannula / cổng khi đầu kìm đóng.' },
+      { c: 2, q: 'Mở vùng bè bằng móc thường làm ngay sau thủ thuật nào, đưa móc qua đường nào?', o: ['Sau cắt dịch kính, qua cổng pars plana', 'Sau Phaco, qua đường rạch cổng bên', 'Sau cắt bè, qua vạt củng mạc', 'Trước Phaco, qua đường rạch chính'], a: 1, x: 'Thường làm cùng ca Phaco, đưa móc qua đường rạch cổng bên từ 1 mm.' },
+      { c: 2, q: 'Khi mở vùng bè bằng móc, bác sĩ thường rạch vùng bè khoảng bao nhiêu độ?', o: ['10 đến 20°', 'Khoảng 45°', '90 đến 120°', 'Trọn 360°'], a: 2, x: 'Rạch vùng bè 90 đến 120°, nhìn trực tiếp qua kính soi góc phẫu thuật.' },
+      { c: 3, q: 'Kìm vi phẫu 25G có dùng với hệ trocar 23G được không?', o: ['Được, kìm nhỏ hơn nên đi qua dễ', 'Không: dùng cannula / cổng cùng gauge với kìm', 'Được nếu bác sĩ đồng ý', 'Chỉ dùng được với trocar 27G'], a: 1, x: 'IFU kìm MANI: dùng canuyn / cổng cùng gauge với kìm. Bệnh viện dùng hệ 23G ⇒ chuyển sang Trocar Kit 25G + kìm 25G.' },
+      { c: 3, q: 'Kìm vi phẫu MANI có những cỡ nào?', o: ['20G và 23G', '23G và 25G', '25G và 27G', '23G, 25G và 27G'], a: 2, x: 'Chỉ có 25G và 27G, không có 23G.' },
+      { c: 3, q: 'Để mở vùng bè bằng móc, ngoài bộ dụng cụ Phaco sẵn có, bệnh viện thường cần thêm thiết bị nào?', o: ['Máy cắt dịch kính', 'Kính soi góc phẫu thuật', 'Laser nội nhãn', 'Đèn chandelier'], a: 1, x: 'Kính soi góc phẫu thuật để nhìn trực tiếp vùng bè trong mổ.' },
+      { c: 3, q: 'Nắp van MANI Trocar 25G có màu gì?', o: ['Cam', 'Xanh dương', 'Hồng', 'Xanh lá'], a: 1, x: 'Mã màu theo cỡ: 23G cam · 25G xanh dương · 27G hồng.' },
+      { c: 4, q: 'Văn bản nào quy định danh mục và điều kiện thanh toán thiết bị y tế thuộc phạm vi BHYT?', o: ['Thông tư 23/2024/TT-BYT', 'Thông tư 22/2023/TT-BYT', 'Thông tư 04/2017/TT-BYT', 'Luật Đấu thầu'], a: 2, x: 'TT 04/2017 (hợp nhất VBHN 14/2025). TT 23/2024: danh mục kỹ thuật; TT 22/2023: giá dịch vụ.' },
+      { c: 4, q: 'Kìm vi phẫu có tên trong danh mục thiết bị y tế BHYT không?', o: ['Không có', 'Có: STT 246 và 251, nhóm 7.3 Mắt', 'Chỉ có trong danh mục thuốc', 'Chỉ áp dụng cho bệnh viện tư nhân'], a: 1, x: 'STT 246 (kẹp bóc màng ngăn trong) và STT 251 (pince bóc màng). Móc mở vùng bè không có dòng riêng.' },
+      { c: 4, q: 'Theo bảng giá chung, chi phí kìm, móc được BHYT thanh toán thế nào?', o: ['Thanh toán riêng theo giá trúng thầu', 'Tính trong giá dịch vụ kỹ thuật, không thanh toán riêng', 'Bệnh nhân luôn tự trả', 'BHYT trả 50%'], a: 1, x: 'Cột Ghi chú của giá cắt dịch kính, cắt bè, rạch góc không tách kìm, móc ⇒ nằm trong giá dịch vụ. Luôn kiểm tra bảng giá riêng của từng bệnh viện.' },
+      { c: 4, q: 'Thiết bị y tế CHƯA tính vào giá dịch vụ kỹ thuật thì BHYT thanh toán thế nào?', o: ['Không thanh toán', 'Theo số lượng thực dùng và giá mua theo kết quả đấu thầu', 'Theo giá niêm yết của hãng', 'Khoán cố định mỗi ca'], a: 1, x: 'TT 04/2017, Điều 3, khoản 2.' },
+      { c: 5, q: 'Ống gia cố giúp kìm 25G, 27G có độ cứng tương đương mức nào?', o: ['20G', '23G', '25G', '30G'], a: 1, x: 'Tương đương mức 23G: kìm cỡ nhỏ mà thân vẫn vững, dễ kiểm soát.' },
+      { c: 5, q: 'Mắt có trục nhãn cầu dài: chọn dòng kìm nào?', o: ['Tay cầm bản rộng, thân kìm 28 mm', 'Tay cầm mảnh, thân kìm 33 mm', 'Dạng ILM 23G', 'Dòng nào cũng được'], a: 1, x: 'Tay cầm mảnh, thân 33 mm cho trục dài; tay cầm bản rộng, thân 28 mm cho trục bình thường.' },
+      { c: 5, q: 'Đầu móc mở vùng bè MANI được bo cong để làm gì?', o: ['Để cắt sâu vào củng mạc', 'Nâng đầu móc khỏi thành ngoài ống Schlemm khi di chuyển dọc vùng bè', 'Để khâu vùng bè', 'Để dễ tiệt trùng lại'], a: 1, x: 'Thiết kế riêng của MANI: rạch vùng bè an toàn, nhẹ nhàng, chính xác.' },
+      { c: 5, q: 'Vì sao móc mở vùng bè MANI mở được một dải rạch đủ rộng?', o: ['Vì đầu móc rất nhọn', 'Vì đầu móc có bề rộng nhất định', 'Vì thân móc dài 33 mm', 'Vì phải dùng kèm máy cắt dịch kính'], a: 1, x: 'Dụng cụ đầu nhọn chỉ cắt một đường mảnh; đầu móc có bề rộng nên khi đẩy dọc vùng bè sẽ mở ra một dải rạch.' }
+    ]
+  },
   'nha-khoa-1': {
     title: 'Dụng cụ nội nha và mũi khoan MANI',
     sub: 'Bài kiểm tra · Phần 1',
