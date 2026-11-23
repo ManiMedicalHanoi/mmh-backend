@@ -16,11 +16,12 @@
    Chạy ngay / xem: action botSuspect {key, op: status|run|dry} (khoá bot) · wSuspect (quản lý, app). Chạy tay: wtqRunNow().
    ════════════════════════════════════════════════════════════════════ */
 const WTQ = {
-  VER: '1.2',
+  VER: '1.3',
   KW_SHEET: 'Từ khoá sản phẩm MMH',
   GR_SHEET: 'Nhóm sản phẩm MMH',
   TABS: { dent: 'SP liên quan · Nha khoa', surg: 'SP liên quan · Ngoại khoa & Nhãn khoa' },
-  KW_HEAD: ['Từ khoá', 'Chuyên khoa', 'Nhóm sản phẩm MMH', 'Mức liên quan', 'Sản phẩm MMH có thể gặp', 'Nhiễu chính', 'Báo email (Có / Không)'],
+  KW_HEAD: ['Từ khoá', 'Chuyên khoa', 'Nhóm sản phẩm MMH', 'Mức liên quan', 'Sản phẩm MMH có thể gặp', 'Nhiễu chính', 'Báo email (Có / Không)',
+    'Áp dụng từ', 'Người thêm', 'Thêm / sửa lúc', 'Trạng thái'],   // v1.3: 4 cột cuối (app ▸ Từ khoá, MMH_WatchKw.gs)
   GR_HEAD: ['Mã nhóm', 'Chuyên khoa', 'Tên nhóm', 'Sản phẩm MMH'],
   HEAD: ['Khu vực', 'Tỉnh thành', 'Chủ đầu tư', 'Tên gói thầu', 'Số TBMT', 'Chuyên khoa', 'Mã phần/lô', 'Tên phần/lô', 'Nhà thầu trúng thầu',
     'Danh mục hàng hóa', 'Ký mã hiệu', 'Nhãn hiệu', 'Hãng sản xuất', 'Xuất xứ', 'Đơn vị tính', 'Khối lượng', 'Đơn giá trúng thầu', 'Thành tiền',
@@ -209,7 +210,7 @@ function wtqKwLoad_(book) {
   if (!sh) {
     sh = book.insertSheet(WTQ.KW_SHEET);
     sh.getRange(1, 1, 1, WTQ.KW_HEAD.length).setValues([WTQ.KW_HEAD]).setFontWeight('bold').setBackground('#2C4A5E').setFontColor('#FFFFFF').setWrap(true);
-    sh.getRange(2, 1, WTQ_KWDEF.length, WTQ.KW_HEAD.length).setValues(WTQ_KWDEF.map(function (k) { return k.concat([(WTQ.LEVEL[k[3]] || 0) >= 2 ? 'Có' : 'Không']); }))
+    sh.getRange(2, 1, WTQ_KWDEF.length, WTQ.KW_HEAD.length).setValues(WTQ_KWDEF.map(function (k) { return k.concat([(WTQ.LEVEL[k[3]] || 0) >= 2 ? 'Có' : 'Không', '', 'Mặc định', '', 'Đang dùng']); }))
       .setWrap(true).setVerticalAlignment('top');
     sh.setFrozenRows(1); [130, 150, 230, 100, 260, 340, 110].forEach(function (w, i) { sh.setColumnWidth(i + 1, w); });
     sh.getRange(1, 1).setNote('Khớp NGUYÊN TỪ trong tên hàng, không phân biệt hoa thường.\n* = mọi đuôi (vd. Composit*).\nTừ viết không dấu từ 4 ký tự (Glocom, Phaco) khớp cả chữ có dấu.\n' +
@@ -225,8 +226,15 @@ function wtqKwLoad_(book) {
     g.getRange(2, 1, WTQ_GROUPS.length, WTQ.GR_HEAD.length).setValues(WTQ_GROUPS).setWrap(true).setVerticalAlignment('top');
     g.setFrozenRows(1); [130, 100, 240, 560].forEach(function (w, i) { g.setColumnWidth(i + 1, w); });
   }
+  if (wtS_(sh.getRange(1, 8).getValue()) !== WTQ.KW_HEAD[7]) sh.getRange(1, 1, 1, WTQ.KW_HEAD.length).setValues([WTQ.KW_HEAD]).setFontWeight('bold').setBackground('#2C4A5E').setFontColor('#FFFFFF').setWrap(true);
   const V = sh.getLastRow() > 1 ? sh.getRange(2, 1, sh.getLastRow() - 1, WTQ.KW_HEAD.length).getValues() : [];
-  const K = V.filter(function (r) { return wtS_(r[0]); }).map(function (r) { return r.map(wtS_); });
+  // v1.3: chỉ dùng từ khoá "Đang dùng" (trống = đang dùng) có "Áp dụng từ" ≤ hôm nay — từ khoá thêm trên app áp dụng từ ngày hôm sau
+  const today = Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
+  const K = V.filter(function (r) {
+    if (!wtS_(r[0]) || /tạm tắt|đã xoá|ngừng/i.test(wtS_(r[10]))) return false;
+    const ap = r[7] instanceof Date ? Utilities.formatDate(r[7], 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd') : wtS_(r[7]);
+    return !ap || ap <= today;
+  }).map(function (r) { return r.slice(0, 7).map(wtS_); });
   WTQ_KW = wtqKwCompile_(K.length ? K : WTQ_KWDEF);
   return { list: WTQ_KW, sig: wtqHash_(JSON.stringify(K)) };
 }
