@@ -180,7 +180,10 @@ function wtrMoQueue_() {
 function wtrGather_(fromDay, toDay, fromAt) {
   const ss = wtBook_(), data = wtLoad_(ss), H = wtHits_(ss), hb = {};
   H.forEach(function (h) { const b = wtBare_(h.no); if (b) (hb[b] = hb[b] || []).push(h); });
-  const B = wtqBuild_({ dry: true });
+  const inDay0 = function (d) { return d && d > fromDay && d <= toDay; }, fromTs0 = Utilities.formatDate(new Date(fromAt), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd HH:mm:ss'), only = {};
+  data.kqdt.forEach(function (r) { if (inDay0(r.upd || r.date)) only[wtBare_(r.no)] = 1; });
+  H.forEach(function (h) { if (h.done >= fromTs0) only[wtBare_(h.no)] = 1; });
+  const B = wtqBuild_({ dry: true, only: only, since: fromTs0 });   // chỉ dò từ khoá các gói trong cửa sổ
   let L = {}; try { L = wtgData_().lose || {}; } catch (e) {}
   let DOC = {}; try { DOC = wteHitsBy_(); } catch (e) {}
   let T = {}; try { T = wttTargets_(); } catch (e) {}
@@ -482,7 +485,7 @@ function wtrIso_(s) { const t = wtS_(s), m = t.match(/(\d{2})\/(\d{2})\/(\d{4})/
 
 /** dữ liệu 1 gói từ mọi nguồn đã có (KHLCNT · TBMT · mở thầu · kết quả · hàng hóa · nhà thầu) + phần còn thiếu */
 function wtrPkgData_(b) {
-  const ss = wtBook_(), H = wtHits_(ss), data = wtLoad_(ss), B = wtqBuild_({ dry: true });
+  const ss = wtBook_(), H = wtHits_(ss), data = wtLoad_(ss), B = wtqBuild_({ dry: true, only: (function (o) { o[b] = 1; return o; })({}) });
   let L = {}; try { L = wtgData_().lose || {}; } catch (e) {}
   let DOC = {}; try { DOC = wteHitsBy_(); } catch (e) {}
   const hs = H.filter(function (h) { return wtBare_(h.no) === b; });
