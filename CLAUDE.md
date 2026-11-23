@@ -826,6 +826,11 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   phần nào thiếu ⇒ tự đặt tải (`wtrPkgQueue_`, ưu tiên 0, ≤ 1 lần / 6 giờ / gói; KHLCNT chưa có ⇒ thêm dòng `n:PL…`). Bản phân tích NGẮN: dòng thời gian 4 bước (ngày + số ngày giữa các bước) · bảng nhà thầu tham dự
   (giá dự thầu, % giá gói, Trúng / Không trúng, lý do xếp nhóm `wtrWhy_`: Giá · Kỹ thuật · Năng lực, kinh nghiệm · Hồ sơ, bảo đảm dự thầu · Khác) · mặt hàng nhóm SP MMH · nhận xét (có NPP của MMH / MANI không).
   Lời văn email (người dùng chốt 23/11/2026): trang trọng, KHÔNG xưng "em" / "anh/chị" — "Kính gửi <PIC>," + "Hệ thống Theo dõi thầu thông báo …" (KHÔNG "xin gửi" / "gửi lại"), ký "Hệ thống Theo dõi thầu MMH".
+  Báo cáo sáng (người dùng chốt 23/11/2026): ngày KHÔNG có gói liên quan ⇒ KHÔNG gửi email; gói không liên quan chỉ ghi số lượng (danh sách ở PDF); gói KẾT QUẢ có mặt hàng cùng nhóm SP MMH (khớp quy tắc)
+  ⇒ đính kèm PDF phân tích gói (`wtrAttach_`, ≤ `WTR.ATT_MAX` 5 / email, dùng chung dữ liệu lượt chạy `G.ctx`). Tốc độ: `wtqBuild_({only, since})` chỉ dò từ khoá gói cần; `wtrLose_` chỉ đọc file nhà thầu (không `wtgData_`).
+  **Từ khoá trên app (`MMH_WatchKw.gs`, MMH_WatchSuspect v1.3)**: tab "Từ khoá sản phẩm MMH" thêm 4 cột Áp dụng từ · Người thêm · Thêm / sửa lúc · Trạng thái (Đang dùng / Tạm tắt);
+  `wtqKwLoad_` chỉ dùng từ khoá Đang dùng có Áp dụng từ ≤ hôm nay. App `wKw` (danh sách + nhóm SP) · `wKwSave {op: add|edit|off|on|del, key, kw, spec, groups, level, sp, noise, mail}` —
+  thêm / đổi chữ ⇒ áp dụng từ NGÀY HÔM SAU; xoá = người thêm hoặc quản lý (từ khoá Mặc định chỉ tạm tắt).
   Chạy thử / mẫu: workflow **Theo dõi gói thầu — tải hàng loạt** mode `route` (ô `re` = tham số): `op=status` · `op=find` (gói đủ 4 bước) · `op=pkg&no=<IB…>&preview=1` (lưu bản email HTML + PDF vào "Báo cáo gói thầu hằng ngày/Mẫu email", KHÔNG gửi) ·
   `op=sample&preview=1&days=3[&pic=<PIC>]` (báo cáo sáng mẫu từng PIC, không gửi) · `op=dry` · `op=moq` · `op=on|off`; mode `text` = `botText op=status|run|one&id=<fileId>`.
 - **24/11/2026 — Training Hub v3.48: điểm học + bảng xếp hạng app MMH Daily Podcast (`training/RH_DailyScore.gs`, người dùng yêu cầu thi đua)**: sheet **DAILY_SCORES** (Training Master; 1 dòng / người / số podcast,
