@@ -111,6 +111,7 @@ function wtDo_(a, p) {
   if (a === 'wScan') { const r = wtScan_({}); return { ok: true, scan: r }; }
   if (a === 'wBotKey') return wtBotKey_(me, p);
   if (a === 'wQuick') return wtQuick_(me, p);
+  if (a === 'wPkg') return wtrPkg_(p, me);   // MMH_WatchRoute.gs: phân tích 1 gói theo số TBMT (thiếu phần nào ⇒ tự đặt tải)
   if (a === 'wAgentReq') return wtaReq_(me, p);
   if (a === 'wDocs') return wtdDocs_(me, p);
   if (a === 'wPkgs') return wtdPkgs_(me, p);

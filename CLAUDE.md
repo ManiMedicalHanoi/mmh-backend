@@ -822,5 +822,9 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   (thư mục "Báo cáo gói thầu hằng ngày"). **TẮT mặc định** — bật: `botRoute op=on` (Script Property `WTR_ON = 1`; khi bật, báo cáo 17:30 của MMH_WatchDigest tự tắt để không gửi 2 lần).
   Mở thầu: TBMT đã tải, đã qua giờ đóng thầu 2 giờ – 20 ngày ⇒ `wtrMoQueue_` xếp tải lại CHỈ phần mở thầu (`info.want=['mo']`, ≤ 3 lần cách 1 ngày; botDone giữ trạng thái + file cần Agent cũ).
   Đọc chữ tài liệu (`MMH_WatchText.gs`, cuối `wtmTick`): Sheet / Docs / docx / PDF (Drive OCR, bản tạm xoá ngay) ⇒ sheet ẩn **THEO DÕI · TỪ KHOÁ TÀI LIỆU** (từ khoá + đoạn trích theo nhóm); rar / > 15 MB bỏ qua.
-  Kiểm tra (khoá bot, workflow Kiểm tra): `tender-info?action=botRoute&key=…&op=status|find|dry|moq&full=1` · `op=pkg&no=<TBMT>&to=<PIC>` (email MẪU 1 gói đủ 4 bước, `&dry=1` chỉ đếm) · `op=sample&pic=<PIC>&days=3&to=<PIC>` (báo cáo sáng MẪU, tiêu đề "[MẪU]") ·
-  `botText&op=status|run|one&id=<fileId>`.
+  **Phân tích 1 gói theo số TBMT** (`wtrPkg_`, người dùng 23/11/2026: "nhập số TBMT, hệ thống biết bắt từ đâu"): app `wPkg {no}` (phiên email) / bot `botRoute op=pkg&no=…` ⇒ gom KHLCNT (theo Mã KHLCNT của TBMT) · TBMT · mở thầu · kết quả · danh sách nhà thầu · hàng hóa;
+  phần nào thiếu ⇒ tự đặt tải (`wtrPkgQueue_`, ưu tiên 0, ≤ 1 lần / 6 giờ / gói; KHLCNT chưa có ⇒ thêm dòng `n:PL…`). Bản phân tích NGẮN: dòng thời gian 4 bước (ngày + số ngày giữa các bước) · bảng nhà thầu tham dự
+  (giá dự thầu, % giá gói, Trúng / Không trúng, lý do xếp nhóm `wtrWhy_`: Giá · Kỹ thuật · Năng lực, kinh nghiệm · Hồ sơ, bảo đảm dự thầu · Khác) · mặt hàng nhóm SP MMH · nhận xét (có NPP của MMH / MANI không).
+  Lời văn email: tự nhiên, trang trọng ("Kính gửi anh/chị… Em xin gửi…"), KHÔNG viết kiểu "hệ thống gửi" (người dùng yêu cầu).
+  Chạy thử / mẫu: workflow **Theo dõi gói thầu — tải hàng loạt** mode `route` (ô `re` = tham số): `op=status` · `op=find` (gói đủ 4 bước) · `op=pkg&no=<IB…>&preview=1` (lưu bản email HTML + PDF vào "Báo cáo gói thầu hằng ngày/Mẫu email", KHÔNG gửi) ·
+  `op=sample&preview=1&days=3[&pic=<PIC>]` (báo cáo sáng mẫu từng PIC, không gửi) · `op=dry` · `op=moq` · `op=on|off`; mode `text` = `botText op=status|run|one&id=<fileId>`.
