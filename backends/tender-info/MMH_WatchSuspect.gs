@@ -246,6 +246,44 @@ function wtqTab_(book, k) {
   return sh;
 }
 /**
+ * v1.3.2 — đọc nhanh từ 2 tab SP liên quan đã dựng sẵn (báo cáo sáng MMH_WatchRoute): file tổng hàng hóa ~250 nghìn dòng,
+ * dò lại từ khoá cho vài nghìn gói tải hàng loạt mất > 4 phút; 2 tab chỉ chứa dòng đã khớp, xếp mới gộp trước.
+ * only = {số TBMT gốc: 1} ⇒ cùng dạng kết quả wtqBuild_({dry}) ({per, bares}); null nếu chưa có tab.
+ */
+function wtqFromTabs_(only) {
+  const book = wtmBook_('hh').book, W = WTQ.HEAD.length, per = {}, seen = {}, t0 = Date.now();
+  let nTab = 0;
+  ['dent', 'surg'].forEach(function (t) {
+    const sh = book.getSheetByName(WTQ.TABS[t]); if (!sh) return;
+    const n = sh.getLastRow() - 1; if (n < 1 || wtS_(sh.getRange(1, W).getValue()) !== WTQ.HEAD[W - 1]) return;
+    nTab++;
+    const K = sh.getRange(2, 5, n, 1).getValues(), want = [];
+    K.forEach(function (r, i) { if (only[wtmBare_(r[0])]) want.push(i); });
+    let V = [], s0 = -1, e0 = -1;
+    const flush = function () { if (s0 >= 0) V = V.concat(sh.getRange(2 + s0, 1, e0 - s0 + 1, W).getValues()); };
+    want.forEach(function (i) { if (s0 >= 0 && i - e0 <= 40) e0 = i; else { flush(); s0 = i; e0 = i; } });
+    flush();
+    V.forEach(function (r) {
+      const bare = wtmBare_(r[4]); if (!bare || !only[bare]) return;
+      const rk = wtS_(r[W - 1]);
+      if (rk && seen[rk]) { if (seen[rk].tabs.indexOf(t) < 0) seen[rk].tabs.push(t); return; }
+      const P0 = per[bare] = per[bare] || { n: 0, mail: [], inv: wtS_(r[2]), pkg: wtS_(r[3]), prov: wtS_(r[1]), no: wtS_(r[4]) || bare };
+      P0.n++;
+      const a0 = r[25], atv = a0 instanceof Date ? Utilities.formatDate(a0, 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd HH:mm:ss') : wtS_(a0); if (atv > (P0.at || '')) P0.at = atv;
+      const best = wtS_(r[22]), high = !!best, mani = wtS_(r[24]) === 'Có', kwTxt = wtS_(r[19]), grp = best || wtS_(r[20]);
+      const brand = [wtS_(r[11]), wtS_(r[12])].filter(String).join(' / ');
+      const ln = { name: wtS_(r[9]), brand: wtS_(r[11]), maker: wtS_(r[12]), win: wtS_(r[8]), qty: r[15], unit: wtS_(r[14]), price: r[16], amt: r[17],
+        lot: [wtS_(r[6]), wtS_(r[7])].filter(String).join(' · '), kw: kwTxt, grp: grp, high: high, mani: mani, tabs: [t] };
+      if (rk) seen[rk] = ln;
+      if ((P0.lines = P0.lines || []).length < 80) P0.lines.push(ln);
+      if ((P0.top = P0.top || []).length < 6) P0.top.push({ name: ln.name, brand: brand, kw: kwTxt, grp: grp, high: high });
+      if (high || /^(Cao|Trung bình)/.test(wtS_(r[21]))) P0.mail.push({ name: ln.name, brand: brand, win: ln.win, qty: ln.qty, unit: ln.unit, price: ln.price, kw: kwTxt, grp: grp, high: high, mani: mani });
+    });
+  });
+  if (!nTab) return null;
+  return { per: per, bares: only, rows: {}, tabs: true, ms: Date.now() - t0 };
+}
+/**
  * Đọc file tổng hàng hóa ⇒ dựng lại 2 tab (giữ Đánh giá / Ghi chú theo Khoá dòng).
  * Trả { per: {số TBMT: {n, mail:[dòng đáng báo]}}, bares: {số TBMT có trong file tổng: 1}, rows: {dent, surg} } hoặc { skip }
  */
