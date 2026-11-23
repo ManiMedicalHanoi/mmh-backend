@@ -226,10 +226,12 @@ function wtrGather_(fromDay, toDay, fromAt) {
   const inDay0 = function (d) { return d && d > fromDay && d <= toDay; }, fromTs0 = Utilities.formatDate(new Date(fromAt), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd HH:mm:ss'), only = {};
   data.kqdt.forEach(function (r) { if (inDay0(r.upd || r.date)) only[wtBare_(r.no)] = 1; });
   H.forEach(function (h) { if (h.done >= fromTs0) only[wtBare_(h.no)] = 1; });
-  const B = wtqBuild_({ dry: true, only: only });   // chỉ dò từ khoá các gói trong cửa sổ (tin KQ mới + gói tải xong trong cửa sổ)
+  // gói trong cửa sổ (tin KQ mới + gói tải xong trong cửa sổ) ⇒ dòng SP liên quan đọc từ 2 tab đã dựng sẵn (nhanh); chưa có tab ⇒ dò file tổng
+  let B = null; try { B = wtqFromTabs_(only); } catch (e) { Logger.log('wtqFromTabs_: ' + e.message); }
+  if (!B) B = wtqBuild_({ dry: true, only: only });
   wtrT_('goods');
-  Object.keys(B.per).forEach(function (b) { only[b] = 1; });
-  let L = {}; try { L = wtrLose_(only); } catch (e) { Logger.log('wtrLose_: ' + e.message); } wtrT_('bidders');
+  const rel = {}; Object.keys(B.per).forEach(function (b) { rel[b] = 1; });
+  let L = {}; try { L = wtrLose_(rel); } catch (e) { Logger.log('wtrLose_: ' + e.message); } wtrT_('bidders');   // nhà thầu không trúng: chỉ gói có SP liên quan
   let DOC = {}; try { DOC = wteHitsBy_(); } catch (e) {} wtrT_('docs');
   let T = {}; try { T = wttTargets_(); } catch (e) {} wtrT_('targets');
   const inDay = function (d) { return d && d > fromDay && d <= toDay; };
@@ -727,8 +729,10 @@ function wtrAction_(p) {
     const H = wtHits_(ss); T.hitRows = H.length; if (!m('hits')) return { ok: true, t: T };
     const only = {}, since = Utilities.formatDate(new Date(Date.now() - 864e5 * (+p.days || 1)), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd HH:mm:ss');
     H.forEach(function (h) { if (h.done >= since) only[wtBare_(h.no)] = 1; }); T.only = Object.keys(only).length;
-    const B = wtqBuild_({ dry: true, only: only }); T.goodsPkgs = Object.keys(B.per).length; if (!m('goods')) return { ok: true, t: T };
-    wtrLose_(only); if (!m('bidders')) return { ok: true, t: T };
+    T.wtqLast = P.getProperty('WTQ_LAST') || ''; T.wtqDirty = P.getProperty('WTQ_DIRTY') || '';
+    const B = wtqFromTabs_(only) || wtqBuild_({ dry: true, only: only }); T.tabs = !!B.tabs; T.goodsPkgs = Object.keys(B.per).length; if (!m('goods')) return { ok: true, t: T };
+    const rel = {}; Object.keys(B.per).forEach(function (b) { rel[b] = 1; });
+    wtrLose_(rel); if (!m('bidders')) return { ok: true, t: T };
     wteHitsBy_(); if (!m('docs')) return { ok: true, t: T };
     wttTargets_(); m('targets'); T.total = Date.now() - t0;
     return { ok: true, t: T };
