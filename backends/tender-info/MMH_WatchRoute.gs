@@ -226,7 +226,7 @@ function wtrGather_(fromDay, toDay, fromAt) {
   const inDay0 = function (d) { return d && d > fromDay && d <= toDay; }, fromTs0 = Utilities.formatDate(new Date(fromAt), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd HH:mm:ss'), only = {};
   data.kqdt.forEach(function (r) { if (inDay0(r.upd || r.date)) only[wtBare_(r.no)] = 1; });
   H.forEach(function (h) { if (h.done >= fromTs0) only[wtBare_(h.no)] = 1; });
-  const B = wtqBuild_({ dry: true, only: only, since: fromTs0 });   // chỉ dò từ khoá các gói trong cửa sổ
+  const B = wtqBuild_({ dry: true, only: only });   // chỉ dò từ khoá các gói trong cửa sổ (tin KQ mới + gói tải xong trong cửa sổ)
   wtrT_('goods');
   Object.keys(B.per).forEach(function (b) { only[b] = 1; });
   let L = {}; try { L = wtrLose_(only); } catch (e) { Logger.log('wtrLose_: ' + e.message); } wtrT_('bidders');
