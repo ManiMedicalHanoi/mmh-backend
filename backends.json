@@ -324,5 +324,14 @@
     "note": "File đề xuất chi phí của Giang + Minh Trang (tab Expense Approval: PIC đề xuất ⇒ HOD ⇒ Giám đốc). Web app MMH_ExpenseApi.gs: Claude tạo đề xuất thay PIC (exInfo / exAdd / exPropose, key = 8 ký tự cuối ID Sheet).",
     "deploymentId": "AKfycbwjghjkKWjyNORU7u39KV6AFKKpSJOlf96rdiRmjiUVzHzrl-KyQdc7EXZvXKt-wClX",
     "url": "https://script.google.com/macros/s/AKfycbwjghjkKWjyNORU7u39KV6AFKKpSJOlf96rdiRmjiUVzHzrl-KyQdc7EXZvXKt-wClX/exec"
+  },
+  "wg-survey": {
+    "name": "WG Market Information Management — khảo sát cuối quý (Google Form tiếng Anh, kết quả vào Sheet WG Survey)",
+    "apps": [],
+    "scriptId": "1KIN3rmIA5BcqBkYT2mZVC1xewDwANY7jIW4cIQCBKZ9tTrr8TQzP7D0v",
+    "sheetId": "152o_AWQa50oQ4t9krDTNeXOFGu_lKz-Xw7w268Cd4J4",
+    "smoke": false,
+    "newWebapp": true,
+    "note": "Script gắn Sheet kết quả khảo sát WG. Mỗi quý 1 Google Form (wgCreate) — câu trả lời vào tab mới của CHÍNH Sheet này; danh sách ở tab WG SURVEYS. Lần deploy đầu tạo web app ⇒ chủ script chạy wgCapQuyen 1 lần trong trình soạn."
   }
 }
