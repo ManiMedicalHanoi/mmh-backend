@@ -1,12 +1,12 @@
 /* ════════════════════════════════════════════════════════════════════
-   MMH_WatchSuspect.gs v1.0 (23/11/2026, người dùng yêu cầu) — MẶT HÀNG NGHI NGỜ TRÙNG NHÓM SẢN PHẨM MMH + EMAIL KẾT QUẢ CHỈ KHI CÓ TỪ KHOÁ
+   MMH_WatchSuspect.gs v1.1 (23/11/2026, người dùng yêu cầu) — MẶT HÀNG LIÊN QUAN NHÓM SẢN PHẨM MMH + EMAIL KẾT QUẢ CHỈ KHI CÓ TỪ KHOÁ
 
    ① Bộ từ khoá + nhóm sản phẩm = ĐÚNG 2 file người dùng đã dùng để tải KQTT trên muasamcong (kho Tender-Result ▸ raw/KQTT/keywords.csv,
       product_groups.csv) + bộ quy tắc làm sạch (Tender-Result ▸ rules/kqtt_rules.csv, cùng cách của tools/kqtt_merge.py).
       Mặc định chép vào đây (WTQ_KWDEF / WTQ_GROUPS / WTQ_RULES — sinh từ 3 file CSV, đổi CSV ⇒ sinh lại). Người dùng sửa / thêm từ khoá ở
-      tab "Từ khoá nghi ngờ" của file tổng "Kết quả trúng thầu - Tổng hợp danh mục hàng hóa" (lượt sau dùng ngay).
+      tab "Từ khoá sản phẩm MMH" của file tổng "Kết quả trúng thầu - Tổng hợp danh mục hàng hóa" (lượt sau dùng ngay).
    ② Mọi dòng của file tổng hàng hóa (MMH_WatchMerge.gs) có TÊN HÀNG (Danh mục hàng hóa / Mặt hàng dự thầu) chứa từ khoá ⇒ tab
-      "Nghi ngờ · Nha khoa" (Dental) hoặc "Nghi ngờ · Ngoại khoa & Nhãn khoa" (Surgical) theo chuyên khoa của từ khoá — CHƯA làm sạch.
+      "SP liên quan · Nha khoa" (Dental) hoặc "SP liên quan · Ngoại khoa & Nhãn khoa" (Surgical) theo chuyên khoa của từ khoá — CHƯA làm sạch.
       Cột thêm: từ khoá khớp · nhóm SP MMH · mức liên quan · "Khả năng cao" (khớp bộ quy tắc làm sạch) · hãng MANI · 2 cột người dùng điền
       (Đánh giá · Ghi chú) — GIỮ NGUYÊN khi dựng lại (theo Khoá dòng ẩn). Dựng lại sau mỗi lượt gộp có dữ liệu mới / đổi từ khoá (wtmTick).
    ③ Email Kết quả LCNT: wtScan_ KHÔNG gửi email ngay cho tin Kết quả nữa — ghi sheet ẩn "THEO DÕI · CHỜ BÁO KẾT QUẢ" (+ tự tải Danh sách
@@ -16,22 +16,22 @@
    Chạy ngay / xem: action botSuspect {key, op: status|run|dry} (khoá bot) · wSuspect (quản lý, app). Chạy tay: wtqRunNow().
    ════════════════════════════════════════════════════════════════════ */
 const WTQ = {
-  VER: '1.0',
-  KW_SHEET: 'Từ khoá nghi ngờ',
+  VER: '1.1',
+  KW_SHEET: 'Từ khoá sản phẩm MMH',
   GR_SHEET: 'Nhóm sản phẩm MMH',
-  TABS: { dent: 'Nghi ngờ · Nha khoa', surg: 'Nghi ngờ · Ngoại khoa & Nhãn khoa' },
+  TABS: { dent: 'SP liên quan · Nha khoa', surg: 'SP liên quan · Ngoại khoa & Nhãn khoa' },
   KW_HEAD: ['Từ khoá', 'Chuyên khoa', 'Nhóm sản phẩm MMH', 'Mức liên quan', 'Sản phẩm MMH có thể gặp', 'Nhiễu chính', 'Báo email (Có / Không)'],
   GR_HEAD: ['Mã nhóm', 'Chuyên khoa', 'Tên nhóm', 'Sản phẩm MMH'],
   HEAD: ['Khu vực', 'Tỉnh thành', 'Chủ đầu tư', 'Tên gói thầu', 'Số TBMT', 'Chuyên khoa', 'Mã phần/lô', 'Tên phần/lô', 'Nhà thầu trúng thầu',
     'Danh mục hàng hóa', 'Ký mã hiệu', 'Nhãn hiệu', 'Hãng sản xuất', 'Xuất xứ', 'Đơn vị tính', 'Khối lượng', 'Đơn giá trúng thầu', 'Thành tiền',
-    'Cấu hình, tính năng kỹ thuật (trích)', 'Từ khoá khớp', 'Nhóm sản phẩm MMH (theo từ khoá)', 'Mức liên quan', 'Khả năng cao (khớp quy tắc nhóm SP)',
+    'Cấu hình, tính năng kỹ thuật (trích)', 'Từ khoá khớp', 'Nhóm sản phẩm MMH (theo từ khoá)', 'Mức liên quan', 'Cùng nhóm SP MMH (khớp quy tắc)',
     'Nhóm khác cũng khớp', 'Hãng MANI?', 'Gộp lúc', 'Đánh giá (bạn điền)', 'Ghi chú (bạn điền)', 'Khoá dòng'],
   EVAL: ['Đúng sản phẩm MMH', 'Sản phẩm tương tự (đối thủ)', 'Không liên quan', 'Cần xem lại'],
   PEND: 'THEO DÕI · CHỜ BÁO KẾT QUẢ',
-  PEND_HEAD: ['Số TBMT', 'Khoá tin', 'Email', 'Người theo dõi', 'Chủ đầu tư', 'Tên gói', 'Thêm lúc', 'Trạng thái', 'Xử lý lúc', 'Số dòng nghi ngờ', 'Ghi chú'],
-  ST: { WAIT: 'Chờ danh sách hàng hóa', SENT: 'Đã gửi email', NONE: 'Không có từ khoá', OLD: 'Hết hạn chờ (chưa có danh sách hàng hóa)' },
+  PEND_HEAD: ['Số TBMT', 'Khoá tin', 'Email', 'Người theo dõi', 'Chủ đầu tư', 'Tên gói', 'Thêm lúc', 'Trạng thái', 'Xử lý lúc', 'Số dòng liên quan', 'Ghi chú'],
+  ST: { WAIT: 'Chờ danh sách hàng hóa', SENT: 'Đã gửi email', DIGEST: 'Có SP liên quan · vào báo cáo ngày', NONE: 'Không có từ khoá', OLD: 'Hết hạn chờ (chưa có danh sách hàng hóa)' },
   WAIT_DAYS: 21,
-  MAX_ROWS: 40000,      // mỗi tab nghi ngờ (mới gộp trước)
+  MAX_ROWS: 40000,      // mỗi tab SP liên quan (mới gộp trước)
   MAIL_LINES: 12,       // số dòng / gói trong email
   LEVEL: { 'Cao': 3, 'Trung bình': 2, 'Thấp': 1 },
   TONE: { 'uỷ': 'ủy', 'uý': 'úy', 'uỳ': 'ùy', 'uỹ': 'ũy', 'uỵ': 'ụy', 'oà': 'òa', 'oá': 'óa', 'oả': 'ỏa', 'oã': 'õa', 'oạ': 'ọa', 'oè': 'òe', 'oé': 'óe', 'oẻ': 'ỏe', 'oẽ': 'õe', 'oẹ': 'ọe' }
@@ -272,7 +272,7 @@ function wtqBuild_(opt) {
     if (!rh.length) kh.forEach(function (k) { k.spec.forEach(function (s) { const t = wtqTabOf_(s); if (t) { tabs[t] = 1; specs[s] = 1; } }); });
     rh.slice(0, 1).forEach(function (c) { const s = (G[c] || {}).spec || ''; const t = wtqTabOf_(s); if (t) { tabs[t] = 1; specs[s] = 1; } });
     const lvl = kh.reduce(function (m, k) { return Math.max(m, WTQ.LEVEL[k.level] || 0); }, 0);
-    const lvlTxt = rh.length ? 'Cao (khớp quy tắc)' : ['', 'Thấp', 'Trung bình', 'Cao'][lvl];
+    const lvlTxt = rh.length ? 'Cao · cùng nhóm SP MMH' : ['', 'Thấp', 'Trung bình', 'Cao'][lvl];
     const id0 = bare + '|' + [g(r, 'lot'), name, g(r, 'brand'), g(r, 'maker'), g(r, 'qty'), g(r, 'price')].map(wtS_).join('|');
     occ[id0] = (occ[id0] || 0) + 1;
     const rowKey = bare + '|' + wtqHash_(id0) + '#' + occ[id0];
@@ -289,6 +289,7 @@ function wtqBuild_(opt) {
     });
     const P0 = per[bare] = per[bare] || { n: 0, mail: [], inv: wtS_(g(r, 'inv')), pkg: wtS_(g(r, 'pkg')), prov: wtS_(g(r, 'prov')), no: wtS_(g(r, 'no')) || bare };
     P0.n++;
+    if ((P0.top = P0.top || []).length < 6) P0.top.push({ name: name, brand: [wtS_(g(r, 'brand')), wtS_(g(r, 'maker'))].filter(String).join(' / '), kw: kwTxt, grp: best || grpTxt, high: !!rh.length });
     if (rh.length || kh.some(function (k) { return k.mail; })) {
       P0.mail.push({ name: name, brand: [wtS_(g(r, 'brand')), wtS_(g(r, 'maker'))].filter(String).join(' / '), win: wtS_(g(r, 'win')), qty: g(r, 'qty'), unit: wtS_(g(r, 'unit')),
         price: g(r, 'price'), kw: kwTxt, grp: best || grpTxt, high: !!rh.length, mani: !!mani });
@@ -356,12 +357,15 @@ function wtqPend_(list, w) {
 function wtqPendRun_(B) {
   const sh = wtqPendSheet_(), V = wtRows_(sh, WTQ.PEND_HEAD.length), now = wtNow_(), today = Date.now();
   const mails = {}, upd = [], res = { sent: 0, none: 0, old: 0, wait: 0 };
+  // 23/11/2026 (người dùng: "trong một ngày thì tổng hợp hết") — mặc định KHÔNG email từng gói, gói có SP liên quan vào báo cáo ngày (MMH_WatchDigest.gs); WTQ_INSTANT = 1 ⇒ email ngay như v1.0
+  const instant = PropertiesService.getScriptProperties().getProperty('WTQ_INSTANT') === '1';
   V.forEach(function (r, i) {
     if (wtS_(r[7]) !== WTQ.ST.WAIT) return;
     const bare = wtS_(r[0]);
     if (B.bares[bare]) {
       const x = B.per[bare] || { n: 0, mail: [] };
-      if (x.mail.length) {
+      if (x.mail.length && !instant) { upd.push([i + 2, WTQ.ST.DIGEST, x.n]); res.digest = (res.digest || 0) + 1; }
+      else if (x.mail.length) {
         const m = wtS_(r[2]).toLowerCase(), M = mails[m] = mails[m] || { pic: wtS_(r[3]), list: [], rows: [] };
         M.list.push({ key: wtS_(r[1]), bare: bare, inv: x.inv || wtS_(r[4]), pkg: x.pkg || wtS_(r[5]), prov: x.prov, no: x.no || bare, n: x.n, lines: x.mail });
         M.rows.push(i + 2);
@@ -376,7 +380,7 @@ function wtqPendRun_(B) {
   Object.keys(mails).forEach(function (m) {
     const M = mails[m];
     try { wtqMail_(m, M, url); } catch (e) { Logger.log('wtqMail_ ' + m + ': ' + e.message); M.rows.forEach(function (row) { upd.forEach(function (u) { if (u[0] === row) { u[1] = WTQ.ST.WAIT; u[3] = 'lỗi gửi: ' + e.message; } }); }); res.sent -= M.list.length; return; }
-    const t = M.list.length + ' kết quả trúng thầu có mặt hàng nghi ngờ trùng nhóm sản phẩm MMH';
+    const t = M.list.length + ' kết quả trúng thầu có sản phẩm liên quan nhóm sản phẩm MMH';
     feed.push(wtFeedRow_(M.pic, 'result', t, M.list.slice(0, 10).map(function (p) { return '• ' + p.inv + ' · ' + p.pkg + ' (' + p.lines.length + ' dòng)'; }).join('\n'),
       WT.APP_URL + (M.list.length === 1 ? '#g=' + encodeURIComponent(M.list[0].key) : '#moi')));
   });
@@ -395,17 +399,17 @@ function wtqMail_(to, M, url) {
     }).join('');
     const more = L.length > WTQ.MAIL_LINES ? '<div style="color:#6B7280;font-size:12px;margin-top:4px">+ ' + (L.length - WTQ.MAIL_LINES) + ' dòng khác</div>' : '';
     return '<div style="margin:14px 0 4px"><a href="' + WT.APP_URL + '#g=' + encodeURIComponent(p.key) + '" style="color:#2C4A5E;text-decoration:none"><b>' + wtH_(p.inv) + '</b> · ' + wtH_(p.pkg) + '</a>' +
-      '<br><span style="color:#6B7280;font-size:12px">' + wtH_([p.no, p.prov].filter(String).join(' · ')) + ' · ' + p.lines.length + ' dòng nghi ngờ</span></div>' +
+      '<br><span style="color:#6B7280;font-size:12px">' + wtH_([p.no, p.prov].filter(String).join(' · ')) + ' · ' + p.lines.length + ' dòng liên quan</span></div>' +
       '<table style="border-collapse:collapse;font-size:13px"><tr>' + th + 'Mặt hàng</th>' + th + 'Nhãn hiệu / hãng</th>' + th + 'Nhà thầu trúng</th>' + th + 'Khối lượng</th>' + th + 'Đơn giá</th>' + th + 'Nhóm SP MMH</th></tr>' + rows + '</table>' + more;
   }).join('');
-  const links = [url.dent ? '<a href="' + url.dent + '">Nghi ngờ · Nha khoa</a>' : '', url.surg ? '<a href="' + url.surg + '">Nghi ngờ · Ngoại khoa & Nhãn khoa</a>' : ''].filter(String).join(' · ');
-  const subj = '[Theo dõi gói thầu] ' + (M.list.length === 1 ? 'Kết quả trúng thầu ' + M.list[0].inv + ' có mặt hàng nghi ngờ trùng nhóm SP MMH' : M.list.length + ' kết quả trúng thầu có mặt hàng nghi ngờ trùng nhóm SP MMH');
+  const links = [url.dent ? '<a href="' + url.dent + '">' + WTQ.TABS.dent + '</a>' : '', url.surg ? '<a href="' + url.surg + '">' + WTQ.TABS.surg + '</a>' : ''].filter(String).join(' · ');
+  const subj = '[Theo dõi gói thầu] ' + (M.list.length === 1 ? 'Kết quả trúng thầu ' + M.list[0].inv + ' có sản phẩm liên quan nhóm SP MMH' : M.list.length + ' kết quả trúng thầu có sản phẩm liên quan nhóm SP MMH');
   mmhMail_({
     to: to, subject: subj, name: CFG.EMAIL_FROM_NAME,
     htmlBody: '<div style="font-family:Aptos,Arial,sans-serif;font-size:14px;color:#1F2937">Dear ' + wtH_(M.pic || '') + ',<br><br>' +
-      'Kết quả lựa chọn nhà thầu của ' + (M.list.length === 1 ? 'gói' : M.list.length + ' gói') + ' bạn đang theo dõi có mặt hàng chứa từ khoá nghi ngờ trùng nhóm sản phẩm MMH. ' +
-      'Dòng in đậm khớp quy tắc làm sạch (khả năng cao là đúng loại sản phẩm); các dòng khác mới khớp từ khoá, cần xem lại.' + blocks +
-      '<br>Toàn bộ dòng nghi ngờ (chưa làm sạch, có cột Đánh giá để bạn điền): ' + (links || 'file tổng hàng hóa') + '.<br><br>Best regards,<br>MMH Product Team</div>'
+      'Kết quả lựa chọn nhà thầu của ' + (M.list.length === 1 ? 'gói' : M.list.length + ' gói') + ' bạn đang theo dõi có mặt hàng chứa từ khoá sản phẩm MMH. ' +
+      'Dòng in đậm cùng nhóm sản phẩm MMH (khớp quy tắc làm sạch); các dòng khác mới khớp từ khoá, cần xem lại.' + blocks +
+      '<br>Toàn bộ dòng liên quan (chưa làm sạch, có cột Đánh giá để bạn điền): ' + (links || 'file tổng hàng hóa') + '.<br><br>Best regards,<br>MMH Product Team</div>'
   });
 }
 

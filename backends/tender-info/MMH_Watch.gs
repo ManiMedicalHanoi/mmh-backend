@@ -87,6 +87,7 @@ function wtDo_(a, p) {
         watches: wtWatches_(wtBook_()).map(function (w) { return w.investor; }), dec: wnDecisions_() };
     }
     if (a === 'botNameSync') return wnSync_(p);   // lượt đối chiếu tên (MMH_WatchNames.gs)
+    if (a === 'botDigest') { if (p._ext) return { ok: false, code: 'KEY', error: 'Cần khoá bot.' }; return wtzAction_(p); }   // MMH_WatchDigest.gs
     if (a === 'botSuspect') { if (p._ext) return { ok: false, code: 'KEY', error: 'Cần khoá bot.' }; return wtqAction_(p); }   // MMH_WatchSuspect.gs
     if (a === 'botMerge') return Object.assign({ ok: true }, wtmMerge_({ force: wtTrue_(p.force) }));
     if (a === 'botPing') { wtBotSeen_(p.bot); return { ok: true, v: WT.VER }; }
@@ -114,6 +115,7 @@ function wtDo_(a, p) {
   if (a === 'wRecent') return wtdRecent_(me, p);
   if (a === 'wAll') return wtdAll_(me, p);
   if (a === 'wMerge') { if (!me.boss) return { ok: false, error: 'Chỉ quản lý chạy gộp tay được.' }; return Object.assign({ ok: true }, wtmMerge_({ force: wtTrue_(p.force) })); }
+  if (a === 'wDigest') { if (!me.boss && wtS_(p.op || 'status') !== 'status') return { ok: false, error: 'Chỉ quản lý chạy được.' }; return wtzAction_(p); }
   if (a === 'wSuspect') { if (!me.boss && wtS_(p.op || 'status') !== 'status') return { ok: false, error: 'Chỉ quản lý chạy được.' }; return wtqAction_(p); }
   if (a === 'wUpload') return wtdUpload_(me, p);
   if (a === 'wGrab') return wtdGrab_(me, p);
@@ -589,7 +591,7 @@ function wtNotifyNew_(news) {
 /* ══════════ TRIGGER ══════════ */
 function wtTick() {
   try { wtEnsureTrig_(); } catch (e) {}   // tự cài trigger gộp 15 phút (wtmTick) dù chưa ai mở app
-  try { const data = wtLoad_(wtBook_()); try { wtdInvBuild_(data); } catch (e) { Logger.log('wtdInvBuild_: ' + e.message); } try { wtdPkgBuild_(data); } catch (e) { Logger.log('wtdPkgBuild_: ' + e.message); } try { wtdRecentBuild_(data); } catch (e) { Logger.log('wtdRecentBuild_: ' + e.message); } try { wtdAllBuild_(data); } catch (e) { Logger.log('wtdAllBuild_: ' + e.message); } wtScan_({ data: data }); try { wtbAuto_(data); } catch (e) { Logger.log('wtbAuto_: ' + e.message); } } catch (e) { Logger.log('wtTick: ' + e.message); PropertiesService.getScriptProperties().setProperty('WT_LAST_SCAN', wtNow_() + ' · lỗi: ' + e.message); }
+  try { const data = wtLoad_(wtBook_()); try { wtdInvBuild_(data); } catch (e) { Logger.log('wtdInvBuild_: ' + e.message); } try { wtdPkgBuild_(data); } catch (e) { Logger.log('wtdPkgBuild_: ' + e.message); } try { wtdRecentBuild_(data); } catch (e) { Logger.log('wtdRecentBuild_: ' + e.message); } try { wtdAllBuild_(data); } catch (e) { Logger.log('wtdAllBuild_: ' + e.message); } wtScan_({ data: data }); try { wtbAuto_(data); } catch (e) { Logger.log('wtbAuto_: ' + e.message); } try { wtzTick_(); } catch (e) { Logger.log('wtzTick_: ' + e.message); } } catch (e) { Logger.log('wtTick: ' + e.message); PropertiesService.getScriptProperties().setProperty('WT_LAST_SCAN', wtNow_() + ' · lỗi: ' + e.message); }
 }
 function wtEnsureTrig_() {
   const P = PropertiesService.getScriptProperties();
