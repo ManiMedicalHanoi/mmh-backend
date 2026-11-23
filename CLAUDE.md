@@ -825,6 +825,6 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   **Phân tích 1 gói theo số TBMT** (`wtrPkg_`, người dùng 23/11/2026: "nhập số TBMT, hệ thống biết bắt từ đâu"): app `wPkg {no}` (phiên email) / bot `botRoute op=pkg&no=…` ⇒ gom KHLCNT (theo Mã KHLCNT của TBMT) · TBMT · mở thầu · kết quả · danh sách nhà thầu · hàng hóa;
   phần nào thiếu ⇒ tự đặt tải (`wtrPkgQueue_`, ưu tiên 0, ≤ 1 lần / 6 giờ / gói; KHLCNT chưa có ⇒ thêm dòng `n:PL…`). Bản phân tích NGẮN: dòng thời gian 4 bước (ngày + số ngày giữa các bước) · bảng nhà thầu tham dự
   (giá dự thầu, % giá gói, Trúng / Không trúng, lý do xếp nhóm `wtrWhy_`: Giá · Kỹ thuật · Năng lực, kinh nghiệm · Hồ sơ, bảo đảm dự thầu · Khác) · mặt hàng nhóm SP MMH · nhận xét (có NPP của MMH / MANI không).
-  Lời văn email: tự nhiên, trang trọng ("Kính gửi anh/chị… Em xin gửi…"), KHÔNG viết kiểu "hệ thống gửi" (người dùng yêu cầu).
+  Lời văn email (người dùng chốt 23/11/2026): trang trọng, KHÔNG xưng "em" / "anh/chị" — "Kính gửi <PIC>," + "Hệ thống gửi lại …", ký "Hệ thống Theo dõi gói thầu MMH".
   Chạy thử / mẫu: workflow **Theo dõi gói thầu — tải hàng loạt** mode `route` (ô `re` = tham số): `op=status` · `op=find` (gói đủ 4 bước) · `op=pkg&no=<IB…>&preview=1` (lưu bản email HTML + PDF vào "Báo cáo gói thầu hằng ngày/Mẫu email", KHÔNG gửi) ·
   `op=sample&preview=1&days=3[&pic=<PIC>]` (báo cáo sáng mẫu từng PIC, không gửi) · `op=dry` · `op=moq` · `op=on|off`; mode `text` = `botText op=status|run|one&id=<fileId>`.
