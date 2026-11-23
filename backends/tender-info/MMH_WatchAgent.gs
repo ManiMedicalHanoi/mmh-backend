@@ -35,16 +35,29 @@ function wtaStatus_() {
 
 function wtaList_(p) {
   wtaSeen_(p);
-  const items = [];
-  let n = 0;
+  // 23/11/2026 (người dùng mở nhiều Chrome / nhiều tài khoản, mỗi trình duyệt cài tiện ích): giữ chỗ TỪNG FILE 15 phút cho máy đã nhận
+  // (CacheService, khoá = gói | tên file) ⇒ máy khác không nhận trùng; máy đó tải xong (done) / báo lỗi thì file tự ra khỏi danh sách.
+  const C = CacheService.getScriptCache(), who = wtS_(p.worker || p.bot) || 'agent', cand = [];
   wtHits_(wtBook_()).forEach(function (h) {
-    if (n >= WTA.MAX_ITEMS || h.status === WT.ST.WORK) return;
+    if (cand.length >= WTA.MAX_ITEMS * 3 || h.status === WT.ST.WORK) return;
     const I = h.info || {}, fs = (I.agentFiles || []).filter(function (a) { return a && typeof a === 'object' && !a.done && a.fileId && (+a.tries || 0) < WTA.MAX_TRY; });
+    if (fs.length) cand.push({ h: h, I: I, fs: fs });
+  });
+  const lk = function (h, a) { return 'wtaL:' + wtqHash_(h.key + '|' + a.name); };
+  const keys = []; cand.forEach(function (c) { c.fs.forEach(function (a) { keys.push(lk(c.h, a)); }); });
+  let held = {}; try { held = keys.length ? C.getAll(keys) : {}; } catch (e) { held = {}; }
+  const items = [], put = {};
+  let n = 0, skip = 0;
+  cand.forEach(function (c) {
+    if (n >= WTA.MAX_ITEMS) return;
+    const fs = c.fs.filter(function (a) { const o = held[lk(c.h, a)]; if (o && o !== who) { skip++; return false; } return true; });
     if (!fs.length) return;
-    items.push({ hit: h.key, no: h.no, inv: h.investor, url: wtS_(I.url), files: fs.map(function (a) { return { name: a.name, fileId: a.fileId, tab: a.tab || '', type: a.type || '', tries: +a.tries || 0 }; }) });
+    fs.forEach(function (a) { put[lk(c.h, a)] = who; });
+    items.push({ hit: c.h.key, no: c.h.no, inv: c.h.investor, url: wtS_(c.I.url), files: fs.map(function (a) { return { name: a.name, fileId: a.fileId, tab: a.tab || '', type: a.type || '', tries: +a.tries || 0 }; }) });
     n += fs.length;
   });
-  return { ok: true, items: items, n: n, pkgs: wtaPkgs_() };
+  try { if (Object.keys(put).length) C.putAll(put, 900); } catch (e) {}
+  return { ok: true, items: items, n: n, held: skip, pkgs: wtaPkgs_() };
 }
 
 function wtaPut_(p) {
