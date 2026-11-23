@@ -366,7 +366,7 @@ function picList_(){
 }
 function bundle_(p){
   var fyC = fyToday_();
-  return cached_('bundle', ['customer', 'cbc', 'master', 'kpi', 'weekly', 'present', 'log'], function(){
+  return cached_('bundle', ['customer', 'cbc', 'master', 'kpi', 'weekly', 'present'], function(){
     var m = master_();
     var fyList = (m.fy || []).slice(); [fyC].forEach(function(f){ if(fyList.indexOf(f) < 0) fyList.push(f); });
     fyList.sort().reverse();
@@ -485,7 +485,7 @@ function k68FixLockedV10(){ var s = ss_().getSheetByName(CFG.SH_KPI); if(!s) ret
 function k68PushQuick_(){
   try{
     var s = ss_().getSheetByName(CFG.SH_KPI); if(!s) return { ok: false, error: 'No KPI tab' };
-    var lock = LockService.getScriptLock();
+    var lock = k68QLock_();   /* ⭐ 23/11/2026 — MMH_KpiQuick.gs: không chặn lệnh lưu */
     if(!lock.tryLock(5000)) return { ok: false, error: 'Another sync is running, the KPI file updates within about 1 minute' };
     try{
       SpreadsheetApp.flush();
@@ -594,7 +594,7 @@ function saveWeekly_(user, p){
   bump_(['weekly']);
   log_(user.pic, isNew ? 'add' : 'update', 'weekly', parseAcc_(d.account || '').name || ('row ' + row), (d.typeAction || '') + (d.status ? ' · ' + d.status : ''), row);
   try{ var tg = menNotify_(user, d, cur, row); if(tg.length) out.tagged = tg; }catch(eM){ out.tagError = String(eM && eM.message || eM); }   /* 17/11/2026 — TH_Mention.gs: @tag ⇒ notice */
-  try{ out.sync = vsSync_(false); }catch(e){ out.syncError = e.message; }
+  try{ out.sync = thsSyncSoon_(); }catch(e){ out.syncError = e.message; }   /* ⭐ 23/11/2026 — TH_Speed.gs: chép sang ALL TASK ở nền */
   out.ok = true; out.row = row; out.message = isNew ? 'Task added to sheet 6. CUSTOMER VISITING' : 'Task updated';
   return out;
 }
@@ -737,7 +737,7 @@ function deleteRow_(user, p){
   bump_(tab === 'customer' || tab === 'cbc' ? ['customer', 'cbc'] : [tab]);
   log_(user.pic, 'delete', tab, parseAcc_(hit.account || hit.name || hit.contact || '').name || ('row ' + row), '', row);
   var out = { ok: true, message: 'Row deleted from ' + TABS[tab].sh, photosDeleted: 0 };
-  if(tab === 'weekly'){ try{ out.sync = vsSync_(false); }catch(e){} }
+  if(tab === 'weekly'){ try{ out.sync = thsSyncSoon_(); }catch(e){} }   /* ⭐ 23/11/2026 — TH_Speed.gs */
   return out;
 }
 
@@ -1003,7 +1003,8 @@ function vsBuild_(){
   return out;
 }
 function vsSig_(o){ return [o.E || '', o.F || '', o.G || '', o.H || '', o.I || '', o.J || '', o.K || '', o.N || '', Math.round(num_(o.O) * 100), o.U || '', o.V || ''].join('\u0001'); }
-function vsSync_(dry){
+/* ⭐ 23/11/2026 — TH_Speed.gs: vsSync_ (dưới DocumentLock) gọi bản gốc này */
+function vsSyncRaw_(dry){
   var want = vsBuild_(), s = sh_(CFG.SH_ALL), last = s.getLastRow();
   var v = last >= CFG.AT_DATA ? s.getRange(CFG.AT_DATA, 2, last - CFG.AT_DATA + 1, AT_W).getValues() : [];
   /* existing synced blocks */
@@ -1298,7 +1299,7 @@ function route_(p){
     case 'sheetInfo': return { ok: true, id: ss_().getId(), name: ss_().getName(), team: CFG.TEAM };
     case 'version': { var vv = vers_(); return { ok: true, ver: vv._all, vers: vv }; }
     case 'bumpCache': bump_(); return { ok: true, ver: vers_()._all, message: 'Cache refreshed' };
-    case 'bundle': return withVer_(p, ['customer','cbc','master','kpi','weekly','present','log'], function(){ return JSON.parse(JSON.stringify(bundle_(p))); });
+    case 'bundle': return withVer_(p, ['customer','cbc','master','kpi','weekly','present'], function(){ return JSON.parse(JSON.stringify(bundle_(p))); });   /* ⭐ 23/11/2026 — bỏ 'log': mỗi lần lưu ghi nhật ký không còn bắt cả app tải lại bundle */
     case 'customerIndex': return withVer_(p, ['customer','cbc'], function(){ return { ok: true, rows: customers_() }; });
     case 'list': {
       var tab = String(p.tab || '');
@@ -1350,7 +1351,7 @@ function route_(p){
     case 'monthlyReport': return mmhSelfRun_(p, function(){ return sendReport_(user, p, 'month'); });
     case 'selfAck': return mmhSelfAck_(p);
     /* ALL TASK — same actions as the Report Hub */
-    case 'weekly': case 'boot': { var at = atRead_(); return { ok: true, keyTasks: at.keys, v: vers_().alltask, source: 'thai',
+    case 'weekly': case 'boot': { var at = { keys: cached_('atkeys', ['alltask'], function(){ return atRead_().keys; }) }; return { ok: true, keyTasks: at.keys,   /* ⭐ 23/11/2026 — đệm theo phiên bản OTHERS TASK (không mở sheet khi chưa đổi) */ v: vers_().alltask, source: 'thai',
       picList: picList_(), statusOptions: ['To Do','In Progress','Completed','Cancelled'] }; }
     case 'addKey': return atAddKey_(user, p);
     case 'addSub': return atAddSub_(user, p);

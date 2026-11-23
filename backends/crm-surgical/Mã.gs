@@ -2411,7 +2411,7 @@ var K68_PUSH_ACTIONS = { saveOrders:1, saveOrder:1, saveCustomer:1, saveCBC:1, s
 function k68PushQuick_(){
   try {
     var s = kpiTab_(); if (!s) return { ok:false, error:'Chưa có tab KPI' };
-    var lock = LockService.getScriptLock();
+    var lock = k68QLock_();   /* ⭐ 23/11/2026 — MMH_KpiQuick.gs: không chặn lệnh lưu */
     if (!lock.tryLock(5000)) return { ok:false, error:'Đang có lượt đồng bộ khác, file KPI tổng sẽ cập nhật trong khoảng 1 phút' };
     try {
       SpreadsheetApp.flush();                                          // công thức tab 9 tính lại theo dòng vừa lưu
