@@ -17,7 +17,7 @@
    Lần đầu theo dõi 1 chủ đầu tư: hiện gói trong WT.BASE_DAYS ngày gần nhất (không báo), tự tải gói trong WT.DL_BASE_DAYS ngày.
    ════════════════════════════════════════════════════════════════════ */
 const WT = {
-  VER: '1.9',
+  VER: '1.10',
   MASTER_ID: '1byCL6NjhqBuEcd-K5pxYRrQj2XXs6GMIvR79x45mHRQ',   // Training Master (RH_Users, RH_Secret, RH_Notify)
   APP_URL: 'https://manimedicalhanoi.github.io/Tender-Result/theo-doi/',
   SH_W: 'THEO DÕI · DANH SÁCH',
@@ -87,6 +87,7 @@ function wtDo_(a, p) {
         watches: wtWatches_(wtBook_()).map(function (w) { return w.investor; }), dec: wnDecisions_() };
     }
     if (a === 'botNameSync') return wnSync_(p);   // lượt đối chiếu tên (MMH_WatchNames.gs)
+    if (a === 'botSuspect') { if (p._ext) return { ok: false, code: 'KEY', error: 'Cần khoá bot.' }; return wtqAction_(p); }   // MMH_WatchSuspect.gs
     if (a === 'botMerge') return Object.assign({ ok: true }, wtmMerge_({ force: wtTrue_(p.force) }));
     if (a === 'botPing') { wtBotSeen_(p.bot); return { ok: true, v: WT.VER }; }
     if (a === 'botAgentList') return wtaList_(p);
@@ -113,6 +114,7 @@ function wtDo_(a, p) {
   if (a === 'wRecent') return wtdRecent_(me, p);
   if (a === 'wAll') return wtdAll_(me, p);
   if (a === 'wMerge') { if (!me.boss) return { ok: false, error: 'Chỉ quản lý chạy gộp tay được.' }; return Object.assign({ ok: true }, wtmMerge_({ force: wtTrue_(p.force) })); }
+  if (a === 'wSuspect') { if (!me.boss && wtS_(p.op || 'status') !== 'status') return { ok: false, error: 'Chỉ quản lý chạy được.' }; return wtqAction_(p); }
   if (a === 'wUpload') return wtdUpload_(me, p);
   if (a === 'wGrab') return wtdGrab_(me, p);
   if (a === 'wGoods') return wtgGoods_(me, p);
@@ -503,9 +505,11 @@ function wtScan_(opt) {
           if (base && !ago(r.upd || r.date, WT.BASE_DAYS)) return;
           // lượt sau: gói cũ (cập nhật trước lần quét đầu − 3 ngày) mà chưa có trong danh sách = đã bị bỏ ở lượt đầu ⇒ không coi là mới
           if (!base && (r.upd || r.date) && (r.upd || r.date) < firstDay) return;
-          const dl = w.dl && !!r.no && (!base || ago(r.upd || r.date, WT.DL_BASE_DAYS));
+          let dl = w.dl && !!r.no && (!base || ago(r.upd || r.date, WT.DL_BASE_DAYS));
           const name = g.names.length > 1 ? g.names[0] + ' (+' + (g.names.length - 1) + ' gói)' : g.names[0];
           const info = { proj: r.proj, price: r.price, win: r.win, winner: r.winner, form: r.form, open: r.open, prov: r.prov, n: g.names.length };
+          // v1.10 — email Kết quả chỉ gửi khi danh sách hàng hóa có từ khoá nghi ngờ (MMH_WatchSuspect.gs) ⇒ người bật email mà không bật tự tải: vẫn tải 2 file Excel
+          if (!dl && type === 'kqdt' && w.email && !base && !!r.no) { dl = true; info.want = ['hh', 'nt']; }
           if (g.names.length > 1) info.names = g.names.slice(0, 30);
           const h = { key: key, type: type, no: r.no, investor: w.investor, invKey: r.invKey, name: name, info: info, date: r.date, found: now,
             watchers: [w.mail], status: dl ? WT.ST.WAIT : WT.ST.OFF, src: type + '!' + r.row };
@@ -547,13 +551,19 @@ function wtH_(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function
 function wtNotifyNew_(news) {
   const feed = []; let n = 0;
   Object.keys(news).forEach(function (mail) {
-    const x = news[mail], list = x.list;
+    const x = news[mail];
+    let list = x.list;
     if (!list.length) return;
     const lines = list.map(function (h) { return '• ' + WT.TYPES[h.type] + ' · ' + h.investor + ' · ' + h.name + (h.no ? ' (' + h.no + ')' : ''); });
-    const title = list.length + ' tin thầu mới — ' + (list.length === 1 ? list[0].investor : 'các chủ đầu tư bạn theo dõi');
+    let title = list.length + ' tin thầu mới — ' + (list.length === 1 ? list[0].investor : 'các chủ đầu tư bạn theo dõi');
     feed.push(wtFeedRow_(x.w.pic, 'new', title, lines.slice(0, 12).join('\n'), WT.APP_URL + (list.length === 1 ? '#g=' + encodeURIComponent(list[0].key) : '#moi')));
     n++;
     if (!x.w.email) return;
+    // v1.10 (23/11/2026, người dùng yêu cầu): tin Kết quả LCNT KHÔNG email ngay — chờ danh sách hàng hóa, chỉ email khi có mặt hàng nghi ngờ (MMH_WatchSuspect.gs)
+    const kq = list.filter(function (h) { return h.type === 'kqdt'; });
+    if (kq.length) { try { wtqPend_(kq, x.w); } catch (e) { Logger.log('wtqPend_: ' + e.message); } }
+    list = list.filter(function (h) { return h.type !== 'kqdt'; });
+    if (!list.length) return;
     try {
       const td = '<td style="padding:5px 8px;border-bottom:1px solid #E6EAEF;vertical-align:top">';
       const rows = list.map(function (h) {
@@ -562,6 +572,7 @@ function wtNotifyNew_(news) {
         return '<tr>' + td + wtH_(WT.TYPES[h.type]) + '</td>' + td + wtH_(h.investor) + (I.prov ? '<br><span style="color:#6B7280">' + wtH_(I.prov) + '</span>' : '') + '</td>' + td +
           '<a href="' + WT.APP_URL + '#g=' + encodeURIComponent(h.key) + '" style="color:#3A5CAA;text-decoration:none"><b>' + wtH_(h.name) + '</b></a>' + (meta ? '<br><span style="color:#4B5563;font-size:12px">' + wtH_(meta) + '</span>' : '') + '</td>' + td + wtH_(h.no) + '</td></tr>';
       }).join('');
+      title = list.length + ' tin thầu mới — ' + (list.length === 1 ? list[0].investor : 'các chủ đầu tư bạn theo dõi');
       const kw = (x.w.keywords || []).length ? '<br>Từ khoá đang lọc: <b>' + wtH_(x.w.keywords.join(', ')) + '</b>' : '';
       mmhMail_({
         to: mail, subject: '[Theo dõi gói thầu] ' + title, name: CFG.EMAIL_FROM_NAME,

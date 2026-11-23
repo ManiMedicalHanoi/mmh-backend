@@ -243,6 +243,7 @@ function wtmMerge_(opt) {
     }
   } catch (e) { res.err = String(e.message || e); }
   finally { sc.remove('wtm:run'); }
+  if (res.hh) PropertiesService.getScriptProperties().setProperty('WTQ_DIRTY', '1');   // có hàng hóa mới ⇒ dựng lại tab nghi ngờ (MMH_WatchSuspect.gs)
   res.ms = Date.now() - t0;
   PropertiesService.getScriptProperties().setProperty('WT_MG_LAST', JSON.stringify({ at: wtNow_(), hh: res.hh, nt: res.nt, rows: res.rows, left: res.left, skip: res.skip.length, err: res.err || '' }));
   return Object.assign(res, { urls: wtmUrls_() });
@@ -258,6 +259,8 @@ function wtmReg_(B, reg, bare, s, n, note) {
 function wtmTick() {
   const t0 = Date.now();
   try { wtmMerge_({}); } catch (e) { Logger.log('wtmTick: ' + e.message); }
+  // mặt hàng nghi ngờ trùng nhóm SP MMH + email Kết quả chờ danh sách hàng hóa (MMH_WatchSuspect.gs) — chỉ khi có dữ liệu mới / đổi từ khoá
+  if (Date.now() - t0 < 200000) { try { wtqTick_({}); } catch (e) { Logger.log('wtqTick_: ' + e.message); } }
   // tab "Tổng hợp gói thầu" (MMH_WatchTarget.gs) — ≤ 1 lần / 30 phút, chỉ khi lượt gộp còn đủ thời gian
   if (Date.now() - t0 < 150000) { try { wttSumBuild_(false); } catch (e) { Logger.log('wttSumBuild_: ' + e.message); } }
 }
