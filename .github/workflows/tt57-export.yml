@@ -1,6 +1,7 @@
 name: TT57 — xuất dữ liệu rà soát
 # Rà soát áp dụng TT 57/2025/TT-BYT (24/11/2026): đọc tracker Theo dõi gói thầu qua tender-info ▸ botTT57 (MMH_WatchTT57.gs, chỉ đọc)
-# theo danh sách việc research/tt57/jobs.json ⇒ ghi research/tt57/data/ rồi commit lên CHÍNH nhánh đang chạy (nhánh claude/…, không gộp vào main).
+# theo danh sách việc research/tt57/jobs.json ⇒ work/ ⇒ MÃ HOÁ (khoá công khai research/tt57/pub.pem; kho này công khai) ⇒ research/tt57/enc/
+# rồi commit lên CHÍNH nhánh đang chạy (nhánh claude/…, không gộp vào main).
 on:
   workflow_dispatch:
   push:
@@ -11,10 +12,10 @@ permissions: { contents: write, actions: write }
 jobs:
   export:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 150
     env:
       WT_BOT_KEY: ${{ secrets.WT_BOT_KEY }}
-      TT57_MIN: '45'
+      TT57_MIN: '100'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -24,10 +25,16 @@ jobs:
         if: ${{ !cancelled() && github.ref_name != 'main' }}
         run: |
           git config user.name "mmh-bot"; git config user.email "mmh-bot@users.noreply.github.com"
-          git add research/tt57/data
+          if [ -d work ] && [ -n "$(ls -A work)" ]; then
+            mkdir -p research/tt57/enc; TS=$(date -u +%Y%m%d-%H%M%S)
+            tar -czf /tmp/w.tgz work; openssl rand -out /tmp/k.bin 32
+            openssl enc -aes-256-cbc -pbkdf2 -salt -in /tmp/w.tgz -out research/tt57/enc/$TS.tgz.enc -pass file:/tmp/k.bin
+            openssl pkeyutl -encrypt -pubin -inkey research/tt57/pub.pem -pkeyopt rsa_padding_mode:oaep -in /tmp/k.bin -out research/tt57/enc/$TS.key.enc
+          fi
+          git add -A research/tt57
           git commit -m "TT57: dữ liệu xuất $(date -u +%F' '%H:%M)" || exit 0
           for i in 1 2 3 4; do git pull --rebase origin "$GITHUB_REF_NAME" && git push origin "HEAD:$GITHUB_REF_NAME" && break; sleep $((i*5)); done
       - name: Còn việc ⇒ chạy tiếp
-        if: ${{ !cancelled() && hashFiles('research/tt57/data/.more') != '' }}
+        if: ${{ !cancelled() && hashFiles('research/tt57/.more') != '' }}
         env: { GH_TOKEN: '${{ github.token }}' }
         run: gh workflow run tt57-export.yml --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME" || true

@@ -1,5 +1,6 @@
 // XUẤT DỮ LIỆU TRACKER CHO RÀ SOÁT TT 57/2025/TT-BYT (24/11/2026). Chạy trong workflow "TT57 — xuất dữ liệu" (WT_BOT_KEY).
-// Đọc danh sách việc ở research/tt57/jobs.json ⇒ gọi tender-info botTT57 (MMH_WatchTT57.gs, chỉ đọc) ⇒ ghi research/tt57/data/ (gzip).
+// Đọc danh sách việc ở research/tt57/jobs.json ⇒ gọi tender-info botTT57 (MMH_WatchTT57.gs, chỉ đọc) ⇒ ghi work/ (gzip);
+// workflow MÃ HOÁ work/ bằng khoá công khai research/tt57/pub.pem rồi mới commit (kho công khai) ⇒ research/tt57/enc/.
 //   { "type": "status" }
 //   { "type": "rows", "book": "hh|nt|sum|tender", "tab": "...", "cols": "A|B|C", "out": "x.jsonl.gz", "n": 3000 }
 //   { "type": "hits", "out": "hits.json.gz" }
@@ -10,7 +11,7 @@ import zlib from 'node:zlib';
 import path from 'node:path';
 const B = JSON.parse(fs.readFileSync('backends.json', 'utf8'));
 const URL = B['tender-info'].url, KEY = process.env.WT_BOT_KEY;
-const ROOT = 'research/tt57', OUT = ROOT + '/data', T0 = Date.now(), BUDGET = (+process.env.TT57_MIN || 45) * 60000;
+const ROOT = 'research/tt57', OUT = 'work', T0 = Date.now(), BUDGET = (+process.env.TT57_MIN || 45) * 60000;
 if (!KEY) { console.log('Thiếu secret WT_BOT_KEY.'); process.exit(1); }
 fs.mkdirSync(OUT + '/text', { recursive: true });
 const post = async (b, tries = 4) => {
@@ -26,10 +27,14 @@ const post = async (b, tries = 4) => {
 };
 const gz = (file, s) => fs.writeFileSync(path.join(OUT, file), zlib.gzipSync(Buffer.from(s, 'utf8')));
 const jobs = JSON.parse(fs.readFileSync(ROOT + '/jobs.json', 'utf8'));
-const log = [];
+const log = [], jdF = ROOT + '/done_jobs.txt';
+const jdone = new Set(fs.existsSync(jdF) ? fs.readFileSync(jdF, 'utf8').split('\n').filter(Boolean) : []);
 let more = false;
 for (const j of jobs) {
   if (Date.now() - T0 > BUDGET) { more = true; break; }
+  const jid = j.id || (j.type + ':' + (j.out || j.re || ''));
+  if (jdone.has(jid)) { log.push('bỏ qua (đã xong) ' + jid); continue; }
+  const moreBefore = more;
   if (j.type === 'status') {
     const r = await post({ op: 'status' });
     fs.writeFileSync(OUT + '/status.json', JSON.stringify(r, null, 1));
@@ -59,9 +64,11 @@ for (const j of jobs) {
     gz(j.out || 'hits.json.gz', JSON.stringify(all));
     log.push('hits ' + all.length + '/' + total);
   } else if (j.type === 'texts') {
-    const hits = JSON.parse(zlib.gunzipSync(fs.readFileSync(OUT + '/' + (j.hits || 'hits.json.gz'))).toString('utf8'));
-    const re = new RegExp(j.re, 'i'), idxF = OUT + '/text/index.jsonl';
-    const have = new Set(fs.existsSync(idxF) ? fs.readFileSync(idxF, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l).id) : []);
+    let hf = OUT + '/' + (j.hits || 'hits.json.gz');
+    if (!fs.existsSync(hf)) { const r0 = []; let o = 0; do { const r = await post({ op: 'hits', off: o, n: 1500 }); if (!r.ok) break; r0.push(...r.hits); o = r.next; } while (o); fs.writeFileSync(hf, zlib.gzipSync(Buffer.from(JSON.stringify(r0)))); }
+    const hits = JSON.parse(zlib.gunzipSync(fs.readFileSync(hf)).toString('utf8'));
+    const re = new RegExp(j.re, 'i'), idxF = OUT + '/text/index.jsonl', doneF = ROOT + '/done_ids.txt';
+    const have = new Set(fs.existsSync(doneF) ? fs.readFileSync(doneF, 'utf8').split('\n').filter(Boolean) : []);
     const only = j.nos ? new Set(j.nos) : null, seen = new Set(), todo = [];
     for (const h of hits) {
       const bare = String(h.no || '').toUpperCase().replace(/-\d+$/, '');
@@ -82,7 +89,7 @@ for (const j of jobs) {
         const rec = Object.assign({}, d, { how: r.how || '', chars: r.chars || 0, skip: r.skip || '', err: r.ok ? '' : (r.error || 'lỗi'), mime: r.mime || '', size: r.size || 0, ms: r.ms || 0 });
         if (r.ok && r.text) fs.writeFileSync(OUT + '/text/' + d.id + '.txt.gz', zlib.gzipSync(Buffer.from(r.text, 'utf8')));
         if (!r.ok) bad++;
-        fs.appendFileSync(idxF, JSON.stringify(rec) + '\n'); done++;
+        fs.appendFileSync(idxF, JSON.stringify(rec) + '\n'); fs.appendFileSync(doneF, d.id + '\n'); done++;
         if (done % 10 === 0) console.log('texts', done, '/', Math.min(todo.length, max), '· lỗi', bad);
       }
     };
@@ -93,7 +100,8 @@ for (const j of jobs) {
     const r = await post({ op: 'prio', keys: (j.keys || []).join(','), pri: j.pri == null ? '' : j.pri });
     log.push('prio ' + JSON.stringify(r));
   }
+  if (!more || moreBefore) { if (j.type !== 'status') fs.appendFileSync(jdF, jid + '\n'); }
 }
 fs.writeFileSync(OUT + '/last-run.txt', new Date().toISOString() + '\n' + log.join('\n') + '\n' + (more ? 'CÒN VIỆC' : 'XONG') + '\n');
 console.log(log.join('\n'));
-if (more) fs.writeFileSync(OUT + '/.more', '1'); else { try { fs.unlinkSync(OUT + '/.more'); } catch (e) {} }
+if (more) fs.writeFileSync(ROOT + '/.more', String(Date.now())); else { try { fs.unlinkSync(ROOT + '/.more'); } catch (e) {} }

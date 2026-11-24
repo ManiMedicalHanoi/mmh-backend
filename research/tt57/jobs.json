@@ -1,0 +1,9 @@
+[
+ { "type": "status" },
+ { "type": "hits", "out": "hits.json.gz" },
+ { "type": "rows", "book": "sum", "tab": "Tổng hợp gói thầu", "out": "sum_goi.jsonl.gz", "n": 4000 },
+ { "type": "rows", "book": "sum", "tab": "Tài liệu", "out": "sum_tailieu.jsonl.gz", "n": 6000 },
+ { "type": "rows", "book": "nt", "tab": "Nhà thầu tham dự", "out": "nt.jsonl.gz", "n": 8000 },
+ { "type": "rows", "book": "hh", "tab": "Hàng hóa trúng thầu", "out": "hh.jsonl.gz", "n": 8000,
+   "cols": "Khu vực|Tỉnh thành|Chủ đầu tư|Tên gói thầu|Số TBMT|Mã phần/lô|Tên phần/lô|Nhà thầu trúng thầu|Danh mục hàng hóa|Nhãn hiệu|Hãng sản xuất|Mặt hàng dự thầu|Phân nhóm|Đơn vị tính|Khối lượng|Xuất xứ|Số lưu hành hoặc số giấy phép nhập khẩu|Năm sản xuất|Cấu hình, tính năng kỹ thuật cơ bản|Chủng loại (Models)|Đơn giá trúng thầu|Thành tiền (đã bao gồm thuế, phí, lệ phí)|Gộp lúc" }
+]
