@@ -96,6 +96,23 @@ for (const j of jobs) {
     await Promise.all(Array.from({ length: conc }, worker));
     if (todo.length > max) more = true;
     log.push('texts đọc ' + done + ' · lỗi ' + bad + ' · còn ' + Math.max(0, todo.length - done));
+  } else if (j.type === 'blobs') {   // nguyên file ⇒ work/raw/<id>__<tên> (bước sau: tools/msc/tt57_text.py đọc chữ)
+    const dF = ROOT + '/done_blobs.txt', have = new Set(fs.existsSync(dF) ? fs.readFileSync(dF, 'utf8').split('\n').filter(Boolean) : []);
+    fs.mkdirSync(OUT + '/raw', { recursive: true });
+    const todo = (j.files || []).filter(f => !have.has(f.id)); let i = 0, done = 0, bad = 0;
+    const worker = async () => {
+      while (i < todo.length) {
+        if (Date.now() - T0 > BUDGET) { more = true; return; }
+        const d = todo[i++];
+        const r = await post({ op: 'blob', id: d.id, maxMb: 40 }, 2);
+        const meta = Object.assign({}, d, { name: r.name || d.name, mime: r.mime || '', size: r.size || 0, skip: r.skip || '', err: r.ok ? '' : (r.error || 'lỗi') });
+        if (r.ok && r.b64) { const nm = d.id + '__' + String(r.name || 'file').replace(/[\/\\:*?"<>|]+/g, '_').slice(-120); fs.writeFileSync(OUT + '/raw/' + nm, Buffer.from(r.b64, 'base64')); meta.raw = nm; } else bad++;
+        fs.appendFileSync(OUT + '/raw/_meta.jsonl', JSON.stringify(meta) + '\n'); fs.appendFileSync(dF, d.id + '\n'); done++;
+        if (done % 10 === 0) console.log('blobs', done, '/', todo.length, '· lỗi', bad);
+      }
+    };
+    await Promise.all(Array.from({ length: j.conc || 4 }, worker));
+    log.push('blobs tải ' + done + ' · lỗi ' + bad + ' · còn ' + Math.max(0, todo.length - done));
   } else if (j.type === 'prio') {
     const r = await post({ op: 'prio', keys: (j.keys || []).join(','), pri: j.pri == null ? '' : j.pri });
     log.push('prio ' + JSON.stringify(r));
