@@ -57,7 +57,8 @@ function hwWarm() {
   } finally { try { sc.remove('hw:run'); } catch (e) {} }
   try { out.wtk = wtkTick_(false); } catch (e) { out.errors.push('wtk: ' + e); }   // ★ v3.47 — đánh thức bot tải hồ sơ thầu
   try { out.dk = dkTick_(); } catch (e) { out.errors.push('dk: ' + e); }
-  try { out.dy = dyTick_(); } catch (e) { out.errors.push('dy: ' + e); }             // ★ v3.50 — Chíp nhắc học (RH_DailyAcct.gs)            // ★ v3.49 — số MMH Daily Podcast mỗi sáng đúng giờ (RH_DailyKick.gs)
+  try { out.dy = dyTick_(); } catch (e) { out.errors.push('dy: ' + e); }
+  try { out.dyp = dypTick_(); } catch (e) { out.errors.push('dyp: ' + e); }        // ★ v3.51 — báo số podcast mới (RH_DailySocial.gs)             // ★ v3.50 — Chíp nhắc học (RH_DailyAcct.gs)            // ★ v3.49 — số MMH Daily Podcast mỗi sáng đúng giờ (RH_DailyKick.gs)
   out.ms = Date.now() - t0;
   try { PropertiesService.getScriptProperties().setProperty('HW_LAST', JSON.stringify({ at: new Date().toISOString(), r: out })); } catch (e) {}
   if (out.errors.length) try { console.error('[hwWarm] ' + out.errors.join(' | ')); } catch (e) {}
