@@ -7,7 +7,8 @@
  *   - writer=claude ⇒ Routine Claude Code (API trigger `/fire`) — DAILY_RT_URL + DAILY_RT_TOKEN (tin tức), DAILY_RT_URL_IN + DAILY_RT_TOKEN_IN (nội bộ).
  *                      Chưa cấu hình ⇒ tự chạy bản tự động.
  *
- *   action dailyRun    (tk, kind=daily|weekly, writer=auto|claude, sources, topics, voice=edge|eleven, voices, show) ⇒ {ok, mode, session?}
+ *   action dailyRun    (tk, kind=daily|weekly, writer=auto|claude, sources, topics, voice=edge|eleven, voices, show, deep) ⇒ {ok, mode, session?}
+ *     deep (v3.53, 25/11/2026) = mã chuyên đề (deep.json của MMH-Daily: dauthau, phapquy, glaucoma…) ⇒ số đi sâu chuyên đề đó
  *   action dailyStatus (tk) ⇒ {ok, run:{status, conclusion, step, created, updated, url, by}}
  *   action dailySetup  (tk Admin; ghToken / rtUrl / rtToken / rtUrlIn / rtTokenIn / elevenMax; remove=gh|rt|rtIn) ⇒ cờ đã cấu hình (KHÔNG trả token)
  *   Giới hạn: mỗi người 1 lượt / 3 phút (Admin không giới hạn); ElevenLabs tối đa DAILY_ELEVEN_MAX lượt / ngày (mặc định 6).
@@ -49,7 +50,7 @@ function apiDailyRun(p) {
   var writer = p.writer === 'claude' ? 'claude' : 'auto';
   var voice = p.voice === 'eleven' ? 'eleven' : 'edge';
   var sel = {sources: drClean_(p.sources, /[^a-z0-9.,\-]/g, 1500), topics: drClean_(p.topics, /[^a-z,]/g, 200),
-             voices: drClean_(p.voices, /[^a-z0-9\-]/g, 40), show: drClean_(p.show, /[^a-z]/g, 20)};
+             voices: drClean_(p.voices, /[^a-z0-9\-]/g, 40), show: drClean_(p.show, /[^a-z]/g, 20), deep: drClean_(p.deep, /[^a-z]/g, 20)};
   if (!admin) {
     var last = cache.get('drun:' + u.local);
     if (last) return {ok: false, code: 'BUSY', error: 'Bạn vừa bấm cập nhật. Đợi khoảng 3 phút rồi thử lại nhé.'};
@@ -65,8 +66,8 @@ function apiDailyRun(p) {
   var rtUrl = drProps_().getProperty(kind === 'weekly' ? 'DAILY_RT_URL_IN' : 'DAILY_RT_URL');
   var rtTok = drProps_().getProperty(kind === 'weekly' ? 'DAILY_RT_TOKEN_IN' : 'DAILY_RT_TOKEN');
   if (writer === 'claude' && rtUrl && rtTok) {
-    var text = 'MMH Daily — yêu cầu từ app (' + by + '): ' + JSON.stringify({kind: kind, sources: sel.sources, topics: sel.topics, voice: voice, voices: sel.voices, show: sel.show}) +
-      '. Làm theo CLAUDE.md của kho MMH-Daily (mục ' + (kind === 'weekly' ? 'B' : 'A') + '); khi chạy workflow / apply truyền DAILY_SOURCES, DAILY_TOPICS, DAILY_VOICE, DAILY_VOICES theo lựa chọn trên.';
+    var text = 'MMH Daily — yêu cầu từ app (' + by + '): ' + JSON.stringify({kind: kind, sources: sel.sources, topics: sel.topics, voice: voice, voices: sel.voices, show: sel.show, deep: sel.deep}) +
+      '. Làm theo CLAUDE.md của kho MMH-Daily (mục ' + (kind === 'weekly' ? 'B' : 'A') + '); khi chạy workflow / apply truyền DAILY_SOURCES, DAILY_TOPICS, DAILY_VOICE, DAILY_VOICES (và input deep nếu có) theo lựa chọn trên.';
     var fr = drFire_(rtUrl, rtTok, text);
     if (fr.code >= 300) return {ok: false, code: 'RT', error: 'Không mở được phiên Claude (mã ' + fr.code + '). Admin kiểm tra lại token Routine.'};
     out = {ok: true, mode: 'claude', session: (fr.json && fr.json.claude_code_session_url) || ''};
@@ -74,6 +75,7 @@ function apiDailyRun(p) {
     if (!f.gh) return {ok: false, code: 'NOSETUP', error: 'Admin chưa kết nối GitHub cho MMH Daily (Nội bộ ▸ Thiết lập).'};
     var inputs = {kind: kind, sources: sel.sources, topics: sel.topics, voice: voice, voices: sel.voices, by: by};
     if (sel.show) inputs.show = sel.show;
+    if (sel.deep) inputs.deep = sel.deep;
     var g = drGh_('post', '/actions/workflows/' + DR.WF + '/dispatches', {ref: 'main', inputs: inputs});
     if (g.code >= 300) {
       var why = (g.json && g.json.message) || ('mã ' + g.code);
