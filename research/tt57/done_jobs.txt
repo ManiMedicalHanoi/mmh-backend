@@ -1,0 +1,5 @@
+hits:hits.json.gz
+rows:sum_goi.jsonl.gz
+rows:sum_tailieu.jsonl.gz
+rows:nt.jsonl.gz
+rows:hh.jsonl.gz
