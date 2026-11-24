@@ -39,10 +39,14 @@ function wtaList_(p) {
   // (CacheService, khoá = gói | tên file) ⇒ máy khác không nhận trùng; máy đó tải xong (done) / báo lỗi thì file tự ra khỏi danh sách.
   const C = CacheService.getScriptCache(), who = wtS_(p.worker || p.bot) || 'agent', cand = [];
   wtHits_(wtBook_()).forEach(function (h) {
-    if (cand.length >= WTA.MAX_ITEMS * 3 || h.status === WT.ST.WORK) return;
+    if (h.status === WT.ST.WORK) return;   // 24/11/2026: lấy đủ ứng viên rồi mới xếp theo ưu tiên (agPri)
     const I = h.info || {}, fs = (I.agentFiles || []).filter(function (a) { return a && typeof a === 'object' && !a.done && a.fileId && (+a.tries || 0) < WTA.MAX_TRY; });
     if (fs.length) cand.push({ h: h, I: I, fs: fs });
   });
+  // 24/11/2026 (MMH_WatchTT57.gs ▸ op=prio): gói có info.agPri (số nhỏ trước) được tải trước, còn lại giữ thứ tự cũ
+  cand.forEach(function (c, i) { c.i = i; });
+  cand.sort(function (a, b) { const x = a.I.agPri == null ? 99 : +a.I.agPri, y = b.I.agPri == null ? 99 : +b.I.agPri; return x - y || a.i - b.i; });
+  if (cand.length > WTA.MAX_ITEMS * 3) cand.length = WTA.MAX_ITEMS * 3;
   const lk = function (h, a) { return 'wtaL:' + wtqHash_(h.key + '|' + a.name); };
   const keys = []; cand.forEach(function (c) { c.fs.forEach(function (a) { keys.push(lk(c.h, a)); }); });
   let held = {}; try { held = keys.length ? C.getAll(keys) : {}; } catch (e) { held = {}; }
