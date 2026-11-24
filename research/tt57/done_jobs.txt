@@ -3,7 +3,6 @@ rows:sum_goi.jsonl.gz
 rows:sum_tailieu.jsonl.gz
 rows:nt.jsonl.gz
 rows:hh.jsonl.gz
-texts-r2
 prio-0-0
 prio-1-0
 prio-1-150
