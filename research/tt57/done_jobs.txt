@@ -1,0 +1,15 @@
+hits:hits.json.gz
+rows:sum_goi.jsonl.gz
+rows:sum_tailieu.jsonl.gz
+rows:nt.jsonl.gz
+rows:hh.jsonl.gz
+prio-0-0
+prio-1-0
+prio-1-150
+prio-1-300
+prio-1-450
+prio-1-600
+prio-1-750
+prio-2-0
+prio-2-150
+prio-2-300
