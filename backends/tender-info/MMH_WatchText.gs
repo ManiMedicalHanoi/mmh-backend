@@ -1,5 +1,5 @@
 /* ════════════════════════════════════════════════════════════════════
-   MMH_WatchText.gs v1.0 (23/11/2026, người dùng yêu cầu) — ĐỌC CHỮ TÀI LIỆU THẦU ĐỂ QUÉT TỪ KHOÁ SẢN PHẨM MMH (miễn phí, không AI)
+   MMH_WatchText.gs v1.1 (23/11/2026, người dùng yêu cầu; 24/11/2026 sửa OCR PDF + xuất chữ Google Docs, tự đọc lại dòng lỗi cũ) — ĐỌC CHỮ TÀI LIỆU THẦU ĐỂ QUÉT TỪ KHOÁ SẢN PHẨM MMH (miễn phí, không AI)
    Tài liệu: chương HSMT (yêu cầu kỹ thuật, phạm vi cung cấp…), Quyết định phê duyệt KHLCNT, Báo cáo đánh giá E-HSDT đã tải về Drive.
    · .docx ⇒ giải nén, đọc word/document.xml (không cần quyền mới)
    · .pdf / .doc ⇒ Google Drive đổi sang Google Docs có nhận dạng chữ (OCR — đọc được cả bản scan) ⇒ xuất chữ ⇒ xoá bản tạm
@@ -9,7 +9,7 @@
    Chạy: cuối wtmTick (15 phút) trong thời gian còn lại · action botText {key, op: status|run|one, id} (one = đọc thử 1 file, trả cách đọc + 600 ký tự đầu).
    ════════════════════════════════════════════════════════════════════ */
 const WTE = {
-  VER: '1.0',
+  VER: '1.1',
   SH: 'THEO DÕI · TỪ KHOÁ TÀI LIỆU',
   HEAD: ['File ID', 'Số gói', 'Phần', 'Loại tài liệu', 'Tên file', 'Đọc lúc', 'Trạng thái', 'Số ký tự', 'Từ khoá (JSON)', 'Link', 'Cách đọc'],
   DOC_RE: /hồ sơ mời thầu|hsmt|yêu cầu.{0,12}kỹ thuật|chương\s*v\b|phạm vi cung cấp|danh mục hàng|quyết định phê duyệt khlcnt|kế hoạch lựa chọn|báo cáo đánh giá|biên bản mở thầu/i,
@@ -33,6 +33,7 @@ function wteDocx_(blob) {
 /** Google Docs ⇒ chữ (thử lần lượt các cách Apps Script cho phép, không thêm quyền) */
 function wteExport_(id) {
   const tries = [
+    ['export-media', function () { const r = Drive.Files.export(id, 'text/plain', { alt: 'media' }); return typeof r === 'string' ? r : (r && r.getDataAsString ? r.getDataAsString('UTF-8') : ''); }],   // 24/11/2026: thiếu alt=media ⇒ "Export requires alt=media"
     ['export', function () { const r = Drive.Files.export(id, 'text/plain'); return typeof r === 'string' ? r : (r && r.getDataAsString ? r.getDataAsString('UTF-8') : ''); }],
     ['getAs', function () { return DriveApp.getFileById(id).getAs('text/plain').getDataAsString('UTF-8'); }]
   ];
@@ -59,7 +60,13 @@ function wteRead_(fileId) {
     return { skip: 'zip không có .docx' };
   }
   if (!/\.(pdf|doc|rtf|odt)$/i.test(name) && !/pdf|msword/.test(mt)) return { skip: 'loại file ' + mt };
-  const tmp = Drive.Files.insert({ title: '_mmh_doc_text_' + name, mimeType: MimeType.GOOGLE_DOCS }, blob, { convert: true, ocr: /\.pdf$/i.test(name) || /pdf/.test(mt), ocrLanguage: 'vi' });
+  // 24/11/2026: ghi mimeType Google Docs vào tài nguyên + ocr ⇒ "OCR is not supported for files of type application/vnd.google-apps.document" (mọi PDF đều lỗi).
+  // Đúng cách Drive v2: KHÔNG ghi mimeType đích, blob mang đúng loại gốc, convert + ocr ⇒ Google Docs; OCR lỗi ⇒ thử đổi không OCR.
+  const isPdf = /\.pdf$/i.test(name) || /pdf/.test(mt);
+  if (isPdf) blob.setContentType('application/pdf');
+  let tmp;
+  try { tmp = Drive.Files.insert({ title: '_mmh_doc_text_' + name }, blob, isPdf ? { convert: true, ocr: true, ocrLanguage: 'vi' } : { convert: true }); }
+  catch (e1) { tmp = Drive.Files.insert({ title: '_mmh_doc_text_' + name }, blob, { convert: true }); }
   try { const r = wteExport_(tmp.id); r.how = 'ocr+' + r.how; return r; }
   finally { try { Drive.Files.remove(tmp.id); } catch (e) { try { DriveApp.getFileById(tmp.id).setTrashed(true); } catch (x) {} } }
 }
@@ -103,8 +110,9 @@ function wteTodo_(H, done) {
 function wteRun_(opt) {
   opt = opt || {};
   const t0 = Date.now(), budget = opt.budget || 90000, ss = wtBook_(), sh = wteSheet_(ss);
-  const V = wtRows_(sh, WTE.HEAD.length), done = {};
-  V.forEach(function (r) { if (wtS_(r[0])) done[wtS_(r[0])] = 1; });
+  const V = wtRows_(sh, WTE.HEAD.length), done = {}, redo = {};
+  // 24/11/2026: dòng lỗi do bug OCR / export cũ ⇒ đọc lại, ghi đè đúng dòng đó
+  V.forEach(function (r, i) { const id = wtS_(r[0]); if (!id) return; if (/^Lỗi: .*(OCR is not supported|alt=media)/.test(wtS_(r[6]))) redo[id] = i + 2; else done[id] = 1; });
   const todo = wteTodo_(wtHits_(ss), done), res = { todo: todo.length, read: 0, skip: 0, err: 0, hits: 0 };
   const add = [];
   for (let i = 0; i < todo.length; i++) {
@@ -120,6 +128,7 @@ function wteRun_(opt) {
         res.read++; if (s.hits.length) res.hits++;
       }
     } catch (e) { row = [d.id, d.bare, d.sec, d.kind, d.name, wtNow_(), 'Lỗi: ' + String(e.message || e).slice(0, 200), 0, '', d.url, '']; res.err++; }
+    if (redo[d.id]) { sh.getRange(redo[d.id], 1, 1, WTE.HEAD.length).setValues([row]); continue; }
     add.push(row);
     if (add.length >= 5) { sh.getRange(sh.getLastRow() + 1, 1, add.length, WTE.HEAD.length).setValues(add); add.length = 0; }
   }
