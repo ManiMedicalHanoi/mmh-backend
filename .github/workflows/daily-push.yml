@@ -1,0 +1,23 @@
+name: MMH Daily — thông báo số mới
+# Training Hub (hwWarm ▸ dypTick_) gọi khi MMH-Daily có số podcast hôm nay ⇒ gửi Web Push tới máy đã bật thông báo (tools/push/daily-push.mjs).
+on:
+  workflow_dispatch:
+    inputs:
+      date: { description: 'Ngày số podcast (chỉ để ghi nhật ký)', required: false, default: '' }
+permissions: { contents: read }
+concurrency: { group: daily-push, cancel-in-progress: false }
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            backends.json
+            tools/push
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm i --no-save --no-audit --no-fund --prefix tools/push web-push@3.6.7
+      - run: node tools/push/daily-push.mjs

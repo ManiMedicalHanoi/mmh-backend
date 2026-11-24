@@ -35,7 +35,7 @@
 var DYA = {
   USERS: 'DAILY_USERS', LOG: 'DAILY_LOG', TZ: 'Asia/Ho_Chi_Minh',
   H: ['Email', 'Nick', 'Avatar', 'Theme', 'Goal', 'Notify', 'Lang', 'Created', 'LastSeen', 'Logins', 'Salt', 'Hash', 'Session',
-      'XP', 'Streak', 'Best', 'LastDay', 'Freeze', 'League', 'LeagueWk', 'Lessons', 'Right', 'Asked', 'Words', 'Mailed', 'Source'],
+      'XP', 'Streak', 'Best', 'LastDay', 'Freeze', 'League', 'LeagueWk', 'Lessons', 'Right', 'Asked', 'Words', 'Mailed', 'Source', 'Topics'],
   LH: ['At', 'Email', 'Kind', 'Date', 'Show', 'XP', 'Detail', 'Rid'],
   ADMIN: ['mmh.product'],
   TOKEN_DAYS: 365, OTP_SEC: 900, GAP_MS: 60000, HOUR_MAX: 6, DAY_MAX: 200, ITER: 800,
@@ -161,7 +161,7 @@ function dyPublic_(o) {
     xp: xp, lvl: lvl, lvlFrom: dyLvlFloor_(lvl), lvlTo: dyLvlFloor_(lvl + 1), streak: streak, best: Number(o.Best) || 0, studiedToday: String(o.LastDay).slice(0, 10) === today,
     gap: o.LastDay ? gap : null, freeze: Number(o.Freeze) || 0, league: Number(o.League) || 0, leagueName: DYA.LEAGUES[Number(o.League) || 0],
     lessons: Number(o.Lessons) || 0, right: Number(o.Right) || 0, asked: Number(o.Asked) || 0, words: Number(o.Words) || 0,
-    created: o.Created, admin: dyIsAdmin_(o.Email), company: dyCompany_(o.Email) };
+    created: o.Created, admin: dyIsAdmin_(o.Email), company: dyCompany_(o.Email), id: dyId_(o.Email), topics: String(o.Topics || '').split(',').filter(String) };
 }
 
 /* ── giải đấu: sang tuần mới ⇒ lên / xuống hạng theo XP tuần trước ── */
@@ -253,7 +253,7 @@ function apiDyVerify(p) {
     var o = dyFind_(email), isNew = !o;
     if (!o) o = dyNew_(email, p.nick);
     if (p.nick) o.Nick = dyClean_(p.nick, 24) || o.Nick;
-    if (DYA.AVATARS.indexOf(p.avatar) >= 0) o.Avatar = p.avatar;
+    if (dyAvOk_(p.avatar, email)) o.Avatar = p.avatar;
     if (!isNew) o.Session = (Number(o.Session) || 1) + 1;                         // đặt lại mật khẩu ⇒ đăng xuất máy khác
     dySetPw_(o, p.pw);
     o.Logins = (Number(o.Logins) || 0) + 1; o.LastSeen = new Date().toISOString();
@@ -306,7 +306,8 @@ function apiDyProfile(p) {
   var o = hubWithLock(function () {
     delete HUB_MEM.dyRows; var x = dyFind_(a.o.Email);
     if (p.nick != null) { var n = dyClean_(p.nick, 24); if (n.length < 2) throw new Error('Biệt danh cần ít nhất 2 ký tự.'); x.Nick = n; }
-    if (DYA.AVATARS.indexOf(p.avatar) >= 0) x.Avatar = p.avatar;
+    if (dyAvOk_(p.avatar, x.Email)) x.Avatar = p.avatar;
+    if (p.topics != null) x.Topics = dyTopics_(p.topics);
     if (p.theme) x.Theme = dyClean_(p.theme, 20).replace(/[^a-z0-9\-]/g, '');
     if (p.goal && DYA.GOALS.indexOf(Number(p.goal)) >= 0) x.Goal = Number(p.goal);
     if (p.notify != null) x.Notify = String(p.notify) === '1' || p.notify === true ? 1 : 0;
@@ -394,17 +395,17 @@ function apiDyBoard(p) {
     log.forEach(function (x) { var o = by[x.email] || (by[x.email] = { xp: 0, lessons: 0 }); o.xp += x.xp; if (x.kind === 'lesson') o.lessons++; });
     var users = dyRows_();
     var rows = users.filter(function (o) { return by[o.Email] && by[o.Email].xp > 0; }).map(function (o) {
-      var pu = dyPublic_(o); return { k: rhSha(o.Email).slice(0, 10), nick: pu.nick, avatar: pu.avatar, xp: by[o.Email].xp, lessons: by[o.Email].lessons, streak: pu.streak, league: pu.league, lvl: pu.lvl };
+      var pu = dyPublic_(o); return { k: dyId_(o.Email), nick: pu.nick, avatar: pu.avatar, xp: by[o.Email].xp, lessons: by[o.Email].lessons, streak: pu.streak, league: pu.league, lvl: pu.lvl };
     }).sort(function (x, y) { return y.xp - x.xp || y.streak - x.streak; });
     var nick = {}; users.forEach(function (o) { nick[o.Email] = { n: o.Nick, a: o.Avatar }; });
     var recent = log.filter(function (x) { return x.xp > 0 && x.kind !== 'login'; }).slice(0, 30)
-      .map(function (x) { var u = nick[x.email] || { n: '?', a: 'chip' }; return { nick: u.n, avatar: u.a, kind: x.kind, date: x.date, show: x.show, xp: x.xp, at: x.at }; });
+      .map(function (x) { var u = nick[x.email] || { n: '?', a: 'chip' }; return { id: dyId_(x.email), nick: u.n, avatar: u.a, kind: x.kind, date: x.date, show: x.show, xp: x.xp, at: x.at }; });
     b = { from: from, to: today, rows: rows, recent: recent };
     try { c.put(key, JSON.stringify(b), 90); } catch (e) {}
   }
-  var me = rhSha(a.o.Email).slice(0, 10), rows = b.rows;
+  var me = dyId_(a.o.Email), rows = b.rows;
   if (per === 'league') { var lg = Number(a.o.League) || 0; rows = rows.filter(function (r) { return r.league === lg; }); }
-  return { ok: true, period: per, from: b.from, to: b.to, rows: rows.map(function (r) { return { nick: r.nick, avatar: r.avatar, xp: r.xp, lessons: r.lessons, streak: r.streak, league: r.league, lvl: r.lvl, me: r.k === me }; }),
+  return { ok: true, period: per, from: b.from, to: b.to, rows: rows.map(function (r) { return { id: r.k, nick: r.nick, avatar: r.avatar, xp: r.xp, lessons: r.lessons, streak: r.streak, league: r.league, lvl: r.lvl, me: r.k === me }; }),
     recent: b.recent, league: Number(a.o.League) || 0, leagues: DYA.LEAGUES, promo: DYA.PROMO };
 }
 
