@@ -5,6 +5,7 @@
    · op=rows {book, tab, off, n, cols} — đọc 1 đoạn dòng (book: hh = file tổng hàng hóa · nt = file tổng nhà thầu · sum = "Tổng hợp tài liệu thầu đã tải" · tender = file Báo Đấu Thầu);
                                       off = dòng bắt đầu (1 = dòng tiêu đề), cols = tên cột cần lấy (cách dấu |, trống = mọi cột)
    · op=hits {off, n}               — GÓI TÌM THẤY dạng gọn (số, loại, CĐT, ngày, trạng thái, file đã tải, file cần Agent)
+   · op=blob {id, maxMb}            — nguyên file (base64), Google Docs ⇒ PDF; workflow tự đọc chữ
    · op=text {id, max}              — chữ của 1 tài liệu Drive (cách đọc như MMH_WatchText.gs: docx / OCR pdf / sheet), KHÔNG ghi gì
    · op=prio {keys, pri}            — đặt ưu tiên tải file "cần Agent" (info.agPri: số nhỏ tải trước) cho các gói (khoá GÓI TÌM THẤY, cách dấu phẩy); pri trống = bỏ ưu tiên
    Chỉ ĐỌC, trừ op=prio (ghi 1 trường trong cột thông tin gói, dưới ScriptLock).
@@ -75,6 +76,16 @@ function wt57Action_(p) {
       return { ok: true, id: id, name: f.getName(), mime: f.getMimeType(), size: f.getSize(), how: r.how, chars: r.text.length, text: r.text.slice(0, max), ms: Date.now() - t0 };
     } catch (e) { return { ok: false, id: id, error: String(e.message || e), ms: Date.now() - t0 }; }
   }
+  if (op === 'blob') {   // tải nguyên file (base64) ⇒ workflow tự đọc chữ (pdftotext / OCR tesseract / giải nén .rar) — Drive chỉ xuất ~1.000 ký tự sau OCR
+    const id = wtS_(p.id); if (!id) return { ok: false, error: 'thiếu id' };
+    try {
+      const f = DriveApp.getFileById(id), mt = f.getMimeType(), size = f.getSize();
+      if (/google-apps\.spreadsheet/.test(mt)) return { ok: true, id: id, name: f.getName(), skip: 'Google Sheet' };
+      if (size > (parseInt(p.maxMb, 10) || 30) * 1048576) return { ok: true, id: id, name: f.getName(), size: size, skip: 'file lớn' };
+      const b = /google-apps\.document/.test(mt) ? f.getAs('application/pdf') : f.getBlob();
+      return { ok: true, id: id, name: f.getName(), mime: mt, size: size, b64: Utilities.base64Encode(b.getBytes()) };
+    } catch (e) { return { ok: false, id: id, error: String(e.message || e) }; }
+  }
   if (op === 'prio') {
     const keys = wtS_(p.keys).split(',').map(function (x) { return x.trim(); }).filter(String);
     if (!keys.length) return { ok: false, error: 'thiếu keys' };
@@ -98,5 +109,5 @@ function wt57Action_(p) {
     } finally { lock.releaseLock(); }
     return Object.assign({ ok: true }, res);
   }
-  return { ok: false, error: 'op = status | rows | hits | text | prio' };
+  return { ok: false, error: 'op = status | rows | hits | text | blob | prio' };
 }
