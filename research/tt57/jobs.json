@@ -1,7 +1,7 @@
 [
 {
 "type": "texts",
-"id": "texts-r4",
+"id": "texts-r5",
 "re": "HSMT|sửa đổi|Quyết định phê duyệt HSMT|Quyết định phê duyệt KQLCNT|Báo cáo đánh giá|Báo cáo thẩm định|Yêu cầu về kỹ thuật|Tiêu chuẩn đánh giá|Phạm vi cung cấp",
 "max": 600,
 "conc": 5
