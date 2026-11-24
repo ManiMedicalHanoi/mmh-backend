@@ -39,6 +39,7 @@ function wteMoji_(s) {
 /** Google Docs ⇒ chữ (thử lần lượt các cách Apps Script cho phép, không thêm quyền) */
 function wteExport_(id) {
   const tries = [
+    ['markdown', function () { return DriveApp.getFileById(id).getAs('text/markdown').getDataAsString('UTF-8'); }],   // 24/11/2026: Google Docs ⇒ Markdown (getAs cho phép, không cần quyền mới); export-media chỉ trả ~1.000 ký tự đầu
     ['export-media', function () {   // 24/11/2026: thiếu alt=media ⇒ "Export requires alt=media"; có alt=media thì Drive v2 trả chữ trong lỗi "Response Code: 200. Message: <chữ>" (UTF-8 đọc thành Latin-1)
       try { const r = Drive.Files.export(id, 'text/plain', { alt: 'media' }); return typeof r === 'string' ? r : (r && r.getDataAsString ? r.getDataAsString('UTF-8') : ''); }
       catch (e) { const m = String((e && e.message) || e).match(/Response Code: 200\. Message: ([\s\S]*)$/); if (m) return wteMoji_(m[1]); throw e; }
@@ -121,7 +122,7 @@ function wteRun_(opt) {
   const t0 = Date.now(), budget = opt.budget || 90000, ss = wtBook_(), sh = wteSheet_(ss);
   const V = wtRows_(sh, WTE.HEAD.length), done = {}, redo = {};
   // 24/11/2026: dòng lỗi do bug OCR / export cũ ⇒ đọc lại, ghi đè đúng dòng đó
-  V.forEach(function (r, i) { const id = wtS_(r[0]); if (!id) return; if (/^Lỗi: .*(OCR is not supported|alt=media|Response Code: 200)/.test(wtS_(r[6]))) redo[id] = i + 2; else done[id] = 1; });
+  V.forEach(function (r, i) { const id = wtS_(r[0]); if (!id) return; if (/^Lỗi: .*(OCR is not supported|alt=media|Response Code: 200)/.test(wtS_(r[6])) || /export-media/.test(wtS_(r[10]))) redo[id] = i + 2; else done[id] = 1; });
   const todo = wteTodo_(wtHits_(ss), done), res = { todo: todo.length, read: 0, skip: 0, err: 0, hits: 0 };
   const add = [];
   for (let i = 0; i < todo.length; i++) {
