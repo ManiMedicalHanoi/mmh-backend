@@ -326,6 +326,92 @@ function wtrRelCell_(rel, line, S) {
   if (rel.doc.length > 3) parts.push('<span style="' + S.mute + '">+ ' + (rel.doc.length - 3) + ' đoạn khác trong HSMT</span>');
   return parts.join('<br>') || '<span style="' + S.mute + '">—</span>';
 }
+/* ══════════ THỐNG KÊ NHANH (đầu email + PDF, người dùng 24/11/2026: "thêm bảng biểu thống kê cho rõ") ══════════ */
+function wtrMil_(v) { const n = +v || 0; if (!n) return '–'; const m = n / 1e6; return m < 1 ? '< 1' : String(Math.round(m)).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+function wtrPct_(a, b) { return b ? (Math.round(a / b * 1000) / 10).toString().replace('.', ',') + '%' : '–'; }
+/** gom theo khoá: add(k, {pkg, n, amt, …}) ⇒ list() xếp giảm dần theo trường sort */
+function wtrAgg_() {
+  const M = {};
+  return {
+    add: function (k, o) { k = wtS_(k); if (!k) return; const r = M[wtmK_(k)] = M[wtmK_(k)] || { name: k, pkgs: {}, n: 0, amt: 0, x: {} };
+      if (o.pkg) r.pkgs[o.pkg] = 1; r.n += o.n || 0; r.amt += +o.amt || 0; Object.keys(o.x || {}).forEach(function (q) { r.x[q] = (r.x[q] || 0) + o.x[q]; }); if (o.flag) r.flag = 1; },
+    list: function (by) { return Object.keys(M).map(function (k) { const r = M[k]; r.np = Object.keys(r.pkgs).length; return r; })
+      .sort(function (a, b) { return (b[by] || 0) - (a[by] || 0) || b.np - a.np || b.n - a.n; }); }
+  };
+}
+function wtrStatsHtml_(st, line, S, pdf) {
+  const C = WTR.C, cap = pdf ? 25 : 8;
+  const h3 = 'color:' + C.navy + ';font-size:' + (pdf ? '10px' : '13px') + ';font-weight:bold;margin:12px 0 4px';
+  const tag = function (t) { return ' <span style="background:' + C.cream + ';font-weight:bold;padding:0 3px">' + t + '</span>'; };
+  const num = function (v) { return '<div style="text-align:right">' + v + '</div>'; };
+  const more = function (L) { return L.length > cap ? '<p style="' + S.mute + ';margin:2px 0 0">+ ' + (L.length - cap) + (pdf ? '' : ' — xem file PDF') + '</p>' : ''; };
+  let h = '<h3 style="' + S.h2 + '">Thống kê nhanh</h3>';
+  // 1. theo tỉnh
+  const P = st.prov.list('all');
+  if (P.length) {
+    h += '<div style="' + h3 + '">Gói thầu theo tỉnh</div>' + wtrTable_(['Tỉnh', 'Kế hoạch', 'Mời thầu', 'Mở thầu', 'Kết quả', 'Có SP liên quan', 'Tổng giá gói (triệu đ)'],
+      P.slice(0, cap).map(function (r) { return [wtH_(r.name), num(r.x.kh || 0), num(r.x.tb || 0), num(r.x.mo || 0), num(r.x.kq || 0), num(r.x.rel ? '<b>' + r.x.rel + '</b>' : 0), num(wtrMil_(r.amt))]; }),
+      S, ['', '10%', '10%', '10%', '10%', '14%', '18%']) + more(P);
+  }
+  // 2. kết quả: nhóm sản phẩm MMH
+  const G = st.grp.list('amt'), tot = G.reduce(function (s, r) { return s + r.amt; }, 0);
+  if (G.length) {
+    h += '<div style="' + h3 + '">Kết quả · mặt hàng theo nhóm sản phẩm ' + WTR.LINE[line] + '</div>' + wtrTable_(['Nhóm sản phẩm', 'Số gói', 'Số dòng hàng', 'Thành tiền (triệu đ)', 'Tỉ trọng'],
+      G.slice(0, cap).map(function (r) { return [wtH_(r.name), num(r.np), num(r.n), num(wtrMil_(r.amt)), num(wtrPct_(r.amt, tot))]; }), S, ['', '10%', '13%', '18%', '11%']) + more(G);
+  }
+  // 3. hãng trúng
+  const B = st.brand.list('amt'), totB = B.reduce(function (s, r) { return s + r.amt; }, 0);
+  if (B.length) {
+    h += '<div style="' + h3 + '">Kết quả · hãng sản xuất trúng thầu</div>' + wtrTable_(['Hãng / nhãn hiệu', 'Số gói', 'Số dòng hàng', 'Thành tiền (triệu đ)', 'Thị phần'],
+      B.slice(0, cap).map(function (r) { return [wtH_(r.name.slice(0, 60)) + (r.flag ? tag('MANI') : ''), num(r.np), num(r.n), num(wtrMil_(r.amt)), num(wtrPct_(r.amt, totB))]; }), S, ['', '10%', '13%', '18%', '11%']) + more(B);
+    const mani = B.filter(function (r) { return r.flag; }).reduce(function (s, r) { return s + r.amt; }, 0);
+    if (totB) h += '<p style="margin:4px 0 0">Hàng MANI: <b>' + wtrPct_(mani, totB) + '</b> thành tiền các mặt hàng thuộc nhóm (' + wtrMil_(mani) + ' / ' + wtrMil_(totB) + ' triệu đ).</p>';
+  }
+  // 4. nhà thầu trúng
+  const W = st.win.list('amt');
+  if (W.length) {
+    h += '<div style="' + h3 + '">Kết quả · nhà thầu trúng (mặt hàng thuộc nhóm)</div>' + wtrTable_(['Nhà thầu', 'Số gói', 'Số dòng hàng', 'Thành tiền (triệu đ)'],
+      W.slice(0, cap).map(function (r) { return [wtH_(r.name.slice(0, 80)) + (r.flag ? tag('NPP của MMH') : ''), num(r.np), num(r.n), num(wtrMil_(r.amt))]; }), S, ['', '10%', '13%', '18%']) + more(W);
+  }
+  // 5. mở thầu: nhà thầu tham dự
+  const Q = st.bid.list('np');
+  if (Q.length) {
+    h += '<div style="' + h3 + '">Mở thầu · nhà thầu tham dự nhiều gói nhất</div>' + wtrTable_(['Nhà thầu', 'Số gói tham dự', 'Tổng giá dự thầu (triệu đ)'],
+      Q.slice(0, cap).map(function (r) { return [wtH_(r.name.slice(0, 80)) + (r.flag ? tag('NPP của MMH') : ''), num(r.np), num(wtrMil_(r.amt))]; }), S, ['', '16%', '22%']) + more(Q) +
+      '<p style="' + S.mute + ';margin:2px 0 0">Theo ' + st.nbid + ' biên bản mở thầu đã đọc.</p>';
+  }
+  // 6. chủ đầu tư có nhiều gói liên quan
+  const I = st.inv.list('rel').filter(function (r) { return r.x.rel; });
+  if (I.length) {
+    h += '<div style="' + h3 + '">Chủ đầu tư có nhiều gói liên quan nhất</div>' + wtrTable_(['Chủ đầu tư', 'Tỉnh', 'Kế hoạch', 'Mời thầu', 'Mở thầu', 'Kết quả', 'Tổng giá gói (triệu đ)'],
+      I.slice(0, cap).map(function (r) { return [wtH_(r.name.slice(0, 80)), wtH_(r.prov || ''), num(r.x.rkh || 0), num(r.x.rtb || 0), num(r.x.rmo || 0), num(r.x.rkq || 0), num(wtrMil_(r.amt))]; }),
+      S, ['', '13%', '9%', '9%', '9%', '9%', '16%']) + more(I);
+  }
+  return h;
+}
+/** số liệu cho bảng thống kê: theo tỉnh · nhóm SP · hãng · nhà thầu trúng · nhà thầu tham dự · chủ đầu tư */
+function wtrStats_(S4) {
+  const st = { prov: wtrAgg_(), grp: wtrAgg_(), brand: wtrAgg_(), win: wtrAgg_(), bid: wtrAgg_(), inv: wtrAgg_(), nbid: 0 };
+  const RE_MANI = /(?<![\p{L}\p{N}])mani(?![\p{L}\p{N}])/iu;
+  Object.keys(S4).forEach(function (k) {
+    S4[k].forEach(function (x) {
+      const rel = x.rel.hit ? 1 : 0, o = { pkg: x.bare, amt: x.price || 0, x: {} };
+      o.x[k] = 1; o.x.rel = rel; st.prov.add(x.prov || 'Chưa rõ tỉnh', o);
+      const oi = { pkg: x.bare, amt: rel ? x.price || 0 : 0, x: { rel: rel } }; oi.x['r' + k] = rel; st.inv.add(x.inv, oi);
+      if (k === 'kq') x.rel.goods.forEach(function (g) {
+        const amt = wtrNum_(g.amt) || wtrNum_(g.qty) * wtrNum_(g.price);   // thiếu Thành tiền ⇒ khối lượng × đơn giá
+        st.grp.add(g.grp || 'Khớp theo từ khoá', { pkg: x.bare, n: 1, amt: amt });
+        const br = g.maker || g.brand; if (br) st.brand.add(br, { pkg: x.bare, n: 1, amt: amt, flag: g.mani || RE_MANI.test(br) });
+        if (g.win) st.win.add(g.win, { pkg: x.bare, n: 1, amt: amt, flag: !!wtrNpp_(g.win) });
+      });
+      if (k === 'mo' && x.bid && x.bid.list) { st.nbid++; x.bid.list.forEach(function (b) { st.bid.add(b.name, { pkg: x.bare, n: 1, amt: b.after || b.bid, flag: !!wtrNpp_(b.name) }); }); }
+    });
+  });
+  // tỉnh của chủ đầu tư (lấy lần đầu gặp)
+  const pv = {}; Object.keys(S4).forEach(function (k) { S4[k].forEach(function (x) { const kk = wtmK_(x.inv); if (kk && !pv[kk]) pv[kk] = x.prov; }); });
+  const L0 = st.inv.list; st.inv.list = function (by) { return L0(by).map(function (r) { r.prov = pv[wtmK_(r.name)] || ''; return r; }); };
+  return st;
+}
 /** 1 khối bước (kh / tb): bảng tin có sản phẩm liên quan + tin khu vực khác */
 function wtrStageHtml_(key, list, line, S, pdf) {
   const relv = list.filter(function (x) { return x.rel.hit || x.rel.target.length || x.scope === 'addon'; });
@@ -436,19 +522,27 @@ function wtrPersonReport_(p, G, range) {
   });
   const cnt = function (a) { return a.filter(function (x) { return x.rel.hit; }).length; };
   const sum = [['1. ' + WTR_STAGE.kh, kh.length, cnt(kh)], ['2. ' + WTR_STAGE.tb, tb.length, cnt(tb)], ['3. ' + WTR_STAGE.mo, mo.length, cnt(mo)], ['4. ' + WTR_STAGE.kq, kq.length, cnt(kq)]];
+  const val = function (a) { return a.reduce(function (s, x) { return s + (x.price || 0); }, 0); }, valR = function (a) { return val(a.filter(function (x) { return x.rel.hit; })); };
+  const sumV = [[val(kh), valR(kh)], [val(tb), valR(tb)], [val(mo), valR(mo)], [val(kq), valR(kq)]];
+  const ST = wtrStats_({ kh: kh, tb: tb, mo: mo, kq: kq });
+  const num = function (v) { return '<div style="text-align:right">' + v + '</div>'; };
   const head = function (S) {
     return '<p>Hệ thống Theo dõi thầu thông báo tin đấu thầu mới tại địa bàn <b>' + wtH_(p.area) + '</b>, nhóm sản phẩm <b>' + WTR.LINE[line] + '</b>, ' + wtH_(range) + '.</p>' +
-      wtrTable_(['Bước', 'Số gói trong địa bàn', 'Có sản phẩm liên quan'], sum.map(function (r) { return [r[0], r[1], r[2] ? '<b>' + r[2] + '</b>' : '0']; }), S, ['', '22%', '22%']);
+      wtrTable_(['Bước', 'Số gói trong địa bàn', 'Có sản phẩm liên quan', 'Tỉ lệ', 'Giá gói, tất cả (triệu đ)', 'Giá gói, có SP liên quan (triệu đ)'],
+        sum.map(function (r, i) { return [r[0], num(r[1]), num(r[2] ? '<b>' + r[2] + '</b>' : '0'), num(wtrPct_(r[2], r[1])), num(wtrMil_(sumV[i][0])), num(sumV[i][1] ? '<b>' + wtrMil_(sumV[i][1]) + '</b>' : '–')]; })
+          .concat([['<b>Tổng</b>', num('<b>' + sum.reduce(function (s, r) { return s + r[1]; }, 0) + '</b>'), num('<b>' + sum.reduce(function (s, r) { return s + r[2]; }, 0) + '</b>'), '',
+            num('<b>' + wtrMil_(sumV.reduce(function (s, v) { return s + v[0]; }, 0)) + '</b>'), num('<b>' + wtrMil_(sumV.reduce(function (s, v) { return s + v[1]; }, 0)) + '</b>')]]),
+        S, ['', '13%', '13%', '9%', '16%', '18%']);
   };
   const body = function (S, pdf) {
-    return head(S) + wtrStageHtml_('kh', kh, line, S, pdf) + wtrStageHtml_('tb', tb, line, S, pdf) + wtrMoHtml_(mo, line, S, pdf) + wtrKqHtml_(kq, line, S, pdf, G.L) +
+    return head(S) + wtrStatsHtml_(ST, line, S, pdf) + wtrStageHtml_('kh', kh, line, S, pdf) + wtrStageHtml_('tb', tb, line, S, pdf) + wtrMoHtml_(mo, line, S, pdf) + wtrKqHtml_(kq, line, S, pdf, G.L) +
       '<p style="' + S.mute + ';margin-top:14px">Ghi chú: phần tô vàng là từ khoá sản phẩm; chữ đậm là mặt hàng chắc chắn thuộc nhóm ' + WTR.LINE[line] + '. Bệnh viện ngoài địa bàn có thể thêm trong app Theo dõi gói thầu.</p>';
   };
   const n = sum.reduce(function (s, r) { return s + r[1]; }, 0), nrel = sum.reduce(function (s, r) { return s + r[2]; }, 0);
   const pkgs = kq.filter(function (x) { return x.rel.goods.some(function (g) { return g.high; }); }).map(function (x) { return x.bare; }).slice(0, WTR.ATT_MAX);
   const attTxt = pkgs.length ? '<p>Đính kèm phân tích ' + pkgs.length + ' gói có kết quả với mặt hàng cùng nhóm sản phẩm MMH (' + pkgs.map(wtH_).join(', ') + ').</p>' : '';
   const mail = function () {
-    return '<div style="font-family:Aptos,Arial,sans-serif;font-size:14px;color:' + WTR.C.ink + '"><p>Kính gửi ' + wtH_(p.pic) + ',</p>' + body(S, false) +
+    return '<div style="font-family:Aptos,Arial,sans-serif;font-size:14px;color:' + WTR.C.ink + '"><p>Dear ' + wtH_(p.pic) + ',</p>' + body(S, false) +
       attTxt + '<p>Danh sách đầy đủ các gói trong địa bàn và đường dẫn tài liệu có trong file PDF đính kèm.</p><p>Trân trọng,<br>Hệ thống Theo dõi thầu MMH</p></div>';
   };
   // Gmail chặn thân email > 200 KB ⇒ giảm số dòng mỗi bước tới khi vừa (đầy đủ vẫn ở PDF)
@@ -724,7 +818,8 @@ function wtrPkg_(p, me) {
   if (!D.hs.length && !D.tbRow && !D.kqRow) return Object.assign(res, { html: '', note: 'Chưa có dữ liệu gói này — đã đưa vào hàng đợi tải, mở lại sau ít phút.' });
   if (wtS_(p.html) === '1' || me) return Object.assign(res, { html: body });
   if (wtS_(p.dry) === '1') return res;
-  const html = '<div style="font-family:Aptos,Arial,sans-serif;font-size:14px;color:' + C.ink + '"><p>Hệ thống Theo dõi thầu thông báo phân tích ngắn gói thầu dưới đây, từ kế hoạch lựa chọn nhà thầu đến kết quả.</p>' +
+  const dear = wtS_(p.to) && !/@/.test(wtS_(p.to)) ? '<p>Dear ' + wtH_(p.to) + ',</p>' : '';
+  const html = '<div style="font-family:Aptos,Arial,sans-serif;font-size:14px;color:' + C.ink + '">' + dear + '<p>Hệ thống Theo dõi thầu thông báo phân tích ngắn gói thầu dưới đây, từ kế hoạch lựa chọn nhà thầu đến kết quả.</p>' +
     body + '<p>Bản PDF đính kèm có đầy đủ đường dẫn tới các tài liệu của gói.</p><p>Trân trọng,<br>Hệ thống Theo dõi thầu MMH</p></div>';
   const pdfHtml = '<div style="font-family:Aptos,Arial,sans-serif;color:' + C.ink + '"><div style="font-size:15px;font-weight:bold;color:' + C.navy + ';text-transform:uppercase">Phân tích gói thầu ' + wtH_(b) + '</div>' + head(SP) + wtrPkgHtml_(D, SP, true) + '</div>';
   const title = 'Phân tích gói thầu ' + b + ' – ' + String(D.inv).slice(0, 60);
