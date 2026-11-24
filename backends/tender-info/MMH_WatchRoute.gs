@@ -33,7 +33,8 @@ const WTR = {
   // NPP của MMH (so tên nhà thầu đã bỏ dấu)
   NPP: [['Hùng Vĩ', /hung vi/], ['I-Care', /\bi ?-? ?care\b/], ['Meci', /\bmeci\b/], ['S.P.I', /\bs ?\.? ?p ?\.? ?i\b/], ['Nam Dũng', /nam dung/], ['Việt Thái', /viet thai/]],
   ATT_MAX: 5,   // số PDF phân tích gói tối đa / email
-  CAP: { kh: 30, tb: 30, mo: 20, kq: 120 },       // số dòng trong email (PDF đầy đủ)
+  CAP: { kh: 15, tb: 15, mo: 10, kq: 40 },        // số dòng trong email (PDF đầy đủ); thân email Gmail ≤ 200 KB ⇒ wtrPersonReport_ tự giảm tiếp
+  MAIL_MAX: 180000,                                 // byte thân email tối đa
   CAP_PDF: { kh: 200, tb: 200, mo: 80, kq: 400 },
   BID_MAX: 25,                                       // số file "Nhà thầu tham dự" đọc / PIC / lượt (mở thầu)
   MO_AFTER_H: 2, MO_WITHIN_D: 20, MO_MAX: 40,
@@ -215,7 +216,9 @@ function wtrData_() {
   });
   return out;
 }
-var WTR_T = null, WTR_T0 = 0;
+var WTR_T = null, WTR_T0 = 0, WTR_CAPF = 1;
+/** số dòng tối đa mỗi bước: PDF đầy đủ; email theo WTR.CAP × hệ số rút gọn (thân email quá 180 KB ⇒ giảm dần) */
+function wtrCap_(key, pdf) { return pdf ? WTR.CAP_PDF[key] : Math.max(3, Math.round(WTR.CAP[key] * WTR_CAPF)); }
 /** đã chạy quá sec giây kể từ đầu lượt (Apps Script dừng ở 6 phút) */
 function wtrLate_(sec) { return !!WTR_T0 && Date.now() - WTR_T0 > sec * 1000; }
 function wtrT_(k) { if (!WTR_T) return; const n = Date.now(); WTR_T[k] = (WTR_T[k] || 0) + (n - WTR_T._); WTR_T._ = n; }
@@ -327,7 +330,7 @@ function wtrRelCell_(rel, line, S) {
 function wtrStageHtml_(key, list, line, S, pdf) {
   const relv = list.filter(function (x) { return x.rel.hit || x.rel.target.length || x.scope === 'addon'; });
   const rest = list.filter(function (x) { return relv.indexOf(x) < 0; });
-  const cap = (pdf ? WTR.CAP_PDF : WTR.CAP)[key];
+  const cap = wtrCap_(key, pdf);
   let h = '<h3 style="' + S.h2 + '">' + ({ kh: '1', tb: '2' })[key] + '. ' + WTR_STAGE[key] + ' · ' + list.length + ' gói</h3>';
   if (!list.length) return h + '<p style="' + S.mute + '">Không có tin mới.</p>';
   if (relv.length) {
@@ -346,7 +349,7 @@ function wtrStageHtml_(key, list, line, S, pdf) {
 }
 function wtrMoHtml_(list, line, S, pdf) {
   const relv = list.filter(function (x) { return x.rel.hit || x.rel.target.length || x.scope === 'addon' || x.npp; });
-  const cap = (pdf ? WTR.CAP_PDF : WTR.CAP).mo;
+  const cap = wtrCap_('mo', pdf);
   let h = '<h3 style="' + S.h2 + '">3. ' + WTR_STAGE.mo + ' · ' + list.length + ' gói</h3>';
   if (!list.length) return h + '<p style="' + S.mute + '">Không có biên bản mở thầu mới.</p>';
   const show = (relv.length ? relv : list).slice(0, cap);
@@ -376,7 +379,7 @@ function wtrLosers_(L, bare, lot) {
 function wtrUniq_(A) { const seen = {}; return A.filter(function (e) { const k = wtmK_(e[0]); if (!k || seen[k]) return false; seen[k] = 1; return true; }); }
 /** bước 4: bảng hàng hóa gộp mọi bệnh viện (2 cột trái Bệnh viện · Gói thầu) + nhận xét */
 function wtrKqHtml_(list, line, S, pdf, L) {
-  const cap = (pdf ? WTR.CAP_PDF : WTR.CAP).kq, rows = [], notes = [];
+  const cap = wtrCap_('kq', pdf), rows = [], notes = [];
   let h = '<h3 style="' + S.h2 + '">4. ' + WTR_STAGE.kq + ' · ' + list.length + ' gói</h3>';
   if (!list.length) return h + '<p style="' + S.mute + '">Không có kết quả mới.</p>';
   const withGoods = list.filter(function (x) { return x.rel.goods.length; });
@@ -444,9 +447,15 @@ function wtrPersonReport_(p, G, range) {
   const n = sum.reduce(function (s, r) { return s + r[1]; }, 0), nrel = sum.reduce(function (s, r) { return s + r[2]; }, 0);
   const pkgs = kq.filter(function (x) { return x.rel.goods.some(function (g) { return g.high; }); }).map(function (x) { return x.bare; }).slice(0, WTR.ATT_MAX);
   const attTxt = pkgs.length ? '<p>Đính kèm phân tích ' + pkgs.length + ' gói có kết quả với mặt hàng cùng nhóm sản phẩm MMH (' + pkgs.map(wtH_).join(', ') + ').</p>' : '';
-  return { n: n, rel: nrel, sum: sum, pkgs: pkgs,
-    html: '<div style="font-family:Aptos,Arial,sans-serif;font-size:14px;color:' + WTR.C.ink + '"><p>Kính gửi ' + wtH_(p.pic) + ',</p>' + body(S, false) +
-      attTxt + '<p>Danh sách đầy đủ các gói trong địa bàn và đường dẫn tài liệu có trong file PDF đính kèm.</p><p>Trân trọng,<br>Hệ thống Theo dõi thầu MMH</p></div>',
+  const mail = function () {
+    return '<div style="font-family:Aptos,Arial,sans-serif;font-size:14px;color:' + WTR.C.ink + '"><p>Kính gửi ' + wtH_(p.pic) + ',</p>' + body(S, false) +
+      attTxt + '<p>Danh sách đầy đủ các gói trong địa bàn và đường dẫn tài liệu có trong file PDF đính kèm.</p><p>Trân trọng,<br>Hệ thống Theo dõi thầu MMH</p></div>';
+  };
+  // Gmail chặn thân email > 200 KB ⇒ giảm số dòng mỗi bước tới khi vừa (đầy đủ vẫn ở PDF)
+  WTR_CAPF = 1; let html = mail();
+  for (let k = 0; k < 4 && Utilities.newBlob(html).getBytes().length > WTR.MAIL_MAX; k++) { WTR_CAPF /= 2; html = mail(); }
+  WTR_CAPF = 1;
+  return { n: n, rel: nrel, sum: sum, pkgs: pkgs, html: html,
     pdfHtml: '<div style="font-family:Aptos,Arial,sans-serif;color:' + WTR.C.ink + '"><div style="font-size:16px;font-weight:bold;color:' + WTR.C.navy + ';text-transform:uppercase">Báo cáo thầu · ' + wtH_(p.pic) + ' · ' + WTR.LINE[line] + '</div>' + body(SP, true) + '</div>' };
 }
 function wtrPdf_(html, name, keep) {
