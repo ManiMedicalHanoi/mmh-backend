@@ -16,3 +16,4 @@ prio-2-300
 texts-r3
 texts-r4
 texts-r5
+blobs-r6
