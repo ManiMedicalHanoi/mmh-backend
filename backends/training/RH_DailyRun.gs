@@ -41,8 +41,9 @@ function drFire_(url, token, text) {
 }
 
 function apiDailyRun(p) {
-  var r = rhCheck(p.tk);
+  var r = dyRhCheck_(p.tk);
   if (r.err) return {ok: false, code: 'AUTH', error: r.err + ' Vui lòng đăng nhập bằng email công ty.'};
+  if (DYA.ADMIN.indexOf(r.u.local) < 0) return {ok: false, code: 'ADMIN', error: 'Chỉ tài khoản mmh.product được tạo số mới. Mọi người khác vẫn dùng đủ phần học.'};   // ★ v3.50 — người dùng yêu cầu
   var u = r.u, admin = !!u.admin, f = drFlags_(), cache = CacheService.getScriptCache();
   var kind = p.kind === 'weekly' ? 'weekly' : 'daily';
   var writer = p.writer === 'claude' ? 'claude' : 'auto';
@@ -89,7 +90,7 @@ function apiDailyRun(p) {
 }
 
 function apiDailyStatus(p) {
-  var r = rhCheck(p.tk);
+  var r = dyRhCheck_(p.tk);
   if (r.err) return {ok: false, code: 'AUTH', error: r.err};
   var cache = CacheService.getScriptCache(), c = cache.get('drst');
   if (c) return JSON.parse(c);
@@ -114,7 +115,7 @@ function apiDailyStatus(p) {
 }
 
 function apiDailySetup(p) {
-  var r = rhCheck(p.tk);
+  var r = dyRhCheck_(p.tk);
   if (r.err) return {ok: false, code: 'AUTH', error: r.err};
   if (!r.u.admin) return {ok: false, code: 'ADMIN', error: 'Chỉ Admin cấu hình được.'};
   var props = drProps_(), msg = [];

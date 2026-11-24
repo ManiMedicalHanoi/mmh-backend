@@ -33,8 +33,8 @@ function rhDailyKid_(k) {
 }
 
 function apiRhDailyKey(p) {
-  var r = rhCheck(p.tk);
+  var r = dyRhCheck_(p.tk);
   if (r.err) return { ok: false, code: 'AUTH', error: r.err + ' Vui lòng đăng nhập bằng email công ty.' };
   var k = rhDailyKeyGet_();
-  return { ok: true, key: k, kid: rhDailyKid_(k), admin: !!r.u.admin, pic: r.u.pic || '', run: (typeof drFlags_ === 'function') ? drFlags_() : null };
+  return { ok: true, key: k, kid: rhDailyKid_(k), admin: !!r.u.admin, maker: DYA.ADMIN.indexOf(r.u.local) >= 0, pic: r.u.pic || '', run: (typeof drFlags_ === 'function') ? drFlags_() : null };
 }
