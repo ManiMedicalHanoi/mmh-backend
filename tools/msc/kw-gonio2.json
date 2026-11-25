@@ -1,0 +1,12 @@
+{
+  "_note": "Rà rộng kính / dụng cụ soi góc tiền phòng (gonio) + từ liên quan vùng bè, 25/11/2026. Chỉ đọc (mode find). Phân loại lại bằng tay sau khi rà.",
+  "inc": ["soi goc", "goc tien phong", "goc mong mat", "kinh soi goc", "dung cu soi goc", "guong soi goc", "lang kinh soi goc", "kinh goc", "kinh gonio",
+    "gonio", "goniolens", "goniolenses", "gonio lens", "gonioscope", "gonioscopy", "gonioscopic", "goniotomy", "goniosynechialysis", "gonioprism", "surgical gonio",
+    "kinh 1 guong", "kinh 2 guong", "kinh 3 guong", "kinh 4 guong", "kinh 6 guong", "kinh mot guong", "kinh hai guong", "kinh ba guong", "kinh bon guong",
+    "1 guong", "2 guong", "3 guong", "4 guong", "6 guong", "3 mat guong", "4 mat guong", "ba mat guong", "bon mat guong", "mot mat guong",
+    "goldmann", "zeiss 4", "posner", "sussman", "koeppe", "swan jacob", "khaw", "vision gonio",
+    "three mirror", "four mirror", "single mirror", "two mirror", "3 mirror", "4 mirror", "1 mirror", "2 mirror", "6 mirror",
+    "kinh tiep xuc nhan cau", "thau kinh tiep xuc", "kinh tiep xuc", "tiep xuc nhan cau",
+    "vung be", "trabeculotomy", "trabeculectomy", "trabecular", "schlemm", "cat be", "mo be", "kahook", "istent", "hydrus", "ab interno"],
+  "brands": ["volk", "volk optical", "ocular instruments", "ocular", "haag streit", "katena", "hoskins"]
+}
