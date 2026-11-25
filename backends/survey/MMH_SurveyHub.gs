@@ -294,7 +294,7 @@ function rsSheetData_(e, me, cnt, pii) {
       filled.forEach(function (x) { if (g.cols.indexOf(x) < 0) g.cols.push(x); });
       continue;
     }
-    var q = { k: Q.length, q: H[c], grp: '', sec: '', t: 'text', opts: [], other: false, pii: RS.PII.test(H[c]), _c: c };
+    var q = { k: Q.length, q: H[c], grp: '', sec: '', t: 'text', opts: [], other: false, pii: RS.PII.test(H[c]) || RS.WORK.test(H[c]), _c: c };
     if (!q.pii) {
       var withComma = filled.filter(function (x) { return x.indexOf(', ') > 0; }).length, tok = {};
       if (MULTI.test(H[c]) || withComma >= Math.max(2, filled.length * 0.3)) {
