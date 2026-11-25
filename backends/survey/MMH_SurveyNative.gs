@@ -451,7 +451,7 @@ function nsPeople_(sp, code, rid, name, phone, work, opt, fTxt) {
 function nsRsData_(e, code, cnt, pii) {
   var L = nsLoad_(code, true), st = L.st, sp = st.spec, sh = L.ss.getSheetByName(NS.TAB), lr = sh.getLastRow();
   var Q = [], M = [];
-  sp.info.forEach(function (x) { var pi = x.t === 'phone' || x.id === 'name'; Q.push({ k: Q.length, q: x.q, grp: '', sec: 'Thông tin chung', t: x.t === 'radio' || x.t === 'list' ? 'radio' : 'text', opts: x.options || [], other: false, pii: pi }); M.push({ c: st.cols['info:' + x.id], pii: pi }); });
+  sp.info.forEach(function (x) { var pi = x.t === 'phone' || x.id === 'name' || (x.id === 'work' && x.t === 'text');  /* nơi công tác: tự ghi, không thống kê (v1.3) */ Q.push({ k: Q.length, q: x.q, grp: '', sec: 'Thông tin chung', t: x.t === 'radio' || x.t === 'list' ? 'radio' : 'text', opts: x.options || [], other: false, pii: pi }); M.push({ c: st.cols['info:' + x.id], pii: pi }); });
   if (sp.page !== 'none') { Q.push({ k: Q.length, q: 'Theo dõi page ' + NS.FB[sp.page].name, grp: '', sec: 'Thông tin chung', t: 'text', opts: [], other: false, pii: false }); M.push({ c: st.cols._follow }); }
   Q.push({ k: Q.length, q: 'Đồng ý nhận thông tin từ MMH', grp: '', sec: 'Thông tin chung', t: 'radio', opts: ['Đồng ý'], other: false, pii: false }); M.push({ c: st.cols._opt });
   nsQs_(st).forEach(function (x, i) {

@@ -24,12 +24,14 @@
  * Họ tên / số điện thoại / email chỉ trả cho Admin / Giám đốc / Trưởng bộ phận và người thêm khảo sát.
  */
 var RS = {
-  VER: '1.2', TAB: 'KẾT QUẢ KHẢO SÁT', PUSH_TAB: 'THÔNG BÁO ĐẨY',
+  VER: '1.3', TAB: 'KẾT QUẢ KHẢO SÁT', PUSH_TAB: 'THÔNG BÁO ĐẨY',
   PUSH_HEAD: ['PIC', 'Endpoint', 'p256dh', 'auth', 'Thiết bị', 'Đăng ký lúc'],
   HEAD: ['Id', 'Form ID', 'Sheet ID', 'Tiêu đề', 'Thêm bởi', 'Thêm lúc', 'Theo dõi', 'Đã báo (số câu trả lời)', 'Ẩn', 'Nhóm', 'Sản phẩm', 'Nguồn', 'Số liệu (tự động)'],
   APP: 'https://manimedicalhanoi.github.io/MMH-Survey/customer-survey/',
   SEED: ['1r5CwavKqJMGtPN78QC2Ig92-ByOn7zNZ_2ugq-ZOAZQ', '1c7jwBaP96NVMIQCdpRZ4cZNn9BWjLDatCdCQ0G2p1x8'],
   OWNER: 'mmh.product@manimedicalhanoi.com',
+  /* v1.3 (25/11/2026, người dùng yêu cầu): câu tự ghi tên cơ sở / nơi công tác — mỗi phòng khám 1 lần, thống kê vô nghĩa ⇒ coi như thông tin cá nhân (không vào thống kê / "Ai đã trả lời"; xem ở tab Câu trả lời như họ tên) */
+  WORK: /n[ơo]i\s*(c[ôo]ng\s*t[áa]c|l[àa]m\s*vi[ệe]c)|đ[ơo]n\s*v[ịi]\s*c[ôo]ng\s*t[áa]c|c[ơo]\s*s[ởo]\s*c[ôo]ng\s*t[áa]c|(t[êe]n|b[ệe]nh\s*vi[ệe]n|ph[òo]ng\s*kh[áa]m)[^?]{0,40}c[ôo]ng\s*t[áa]c|^t[êe]n\s*(b[ệe]nh\s*vi[ệe]n|ph[òo]ng\s*kh[áa]m|c[ơo]\s*s[ởo])|workplace/i,
   PII: /h[ọo]\s*(v[àa]\s*)?t[êe]n|s[ốo]\s*đi[ệe]n\s*tho[ạa]i|đi[ệe]n\s*tho[ạa]i|\bsđt\b|e-?mail/i,
   NOTIFY_HEAD: ['Id', 'At', 'To', 'App', 'Kind', 'Title', 'Text', 'Url', 'By', 'EventId', 'TaskId', 'SeenAt']
 };
@@ -206,7 +208,7 @@ function rsNorm_(s) { return rsS_(s).replace(/^\s*Câu\s+\d+\s*[.:]\s*/i, '').re
 function rsClean_(v) { return rsS_(v).replace(/\s*\((?:chuyển sang|hoàn thành)[^)]*\)\s*$/i, ''); }
 function rsData_(e, me) {
   var cnt = rsCount_(e), pii = !!(me.priv || me.pic === e.by);
-  var ck = 'rsd_' + e.id + '_' + cnt.n + '_' + (pii ? 1 : 0), cache = CacheService.getScriptCache();
+  var ck = 'rsd' + RS.VER + '_' + e.id + '_' + cnt.n + '_' + (pii ? 1 : 0), cache = CacheService.getScriptCache();
   var hit = rsCacheGet_(cache, ck); if (hit) return hit;
   var nsc = !e.formId && nsCodeOfSheet_(e.sheetId);  // khảo sát hệ thống MMH (MMH_SurveyNative.gs): loại câu lấy theo bản mô tả
   if (nsc) { var nd = nsRsData_(e, nsc, cnt, pii); rsCachePut_(cache, ck, nd, 21600); return nd; }
@@ -237,7 +239,7 @@ function rsData_(e, me) {
       var o = Q[byKey[key]]; (q.opts || []).forEach(function (v) { if (o.opts.indexOf(v) < 0) o.opts.push(v); }); o.other = o.other || q.other;
       map[it.getId()] = byKey[key]; return;
     }
-    q.k = Q.length; q.q = title; q.grp = grp; q.sec = sec; q.pii = q.t === 'text' && RS.PII.test(title);
+    q.k = Q.length; q.q = title; q.grp = grp; q.sec = sec; q.pii = q.t === 'text' && (RS.PII.test(title) || RS.WORK.test(title));
     byKey[key] = q.k; map[it.getId()] = q.k; Q.push(q);
   });
   var A = form.getResponses().map(function (r) {
