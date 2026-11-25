@@ -1,0 +1,8 @@
+{
+  "_note": "Rà mọi mặt hàng dùng trong phẫu thuật glôcôm (van / ống dẫn lưu, bộ dụng cụ, bấm bè, mở bè, kính soi góc), 25/11/2026. Chỉ đọc (mode find).",
+  "inc": ["glaucom", "glocom", "glo com", "glaucome", "van dan luu", "van ahmed", "ahmed", "dan luu thuy dich", "dan luu tien phong", "ong dan luu khong van",
+    "van dieu tri", "paul glaucoma", "baerveldt", "ex-press", "preserflo", "bam be", "cat be", "mo be", "vung be", "trabeculectomy", "trabeculotomy", "trabecul",
+    "kelly punch", "corneascleral punch", "punch giac", "soi goc", "gonio", "kinh 3 guong", "kinh 4 guong", "3 mat guong", "schlemm", "kahook", "tanito"],
+  "exc": ["dien thoai", "may laser", "laser"],
+  "brands": ["sunningdale", "new world medical", "aurora", "stephens", "rumex", "katena", "glaukos", "volk", "ocular instruments", "inami"]
+}
