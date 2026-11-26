@@ -1,0 +1,6 @@
+[
+  { "id": "cpt-status", "type": "status" },
+  { "id": "cpt-nt", "type": "rows", "book": "nt", "tab": "Nhà thầu tham dự", "out": "nt.jsonl.gz", "n": 4000 },
+  { "id": "cpt-hh", "type": "rows", "book": "hh", "tab": "Hàng hóa trúng thầu", "cols": "Khu vực|Tỉnh thành|Chủ đầu tư|Tên gói thầu|Số TBMT|Mã phần/lô|Tên phần/lô|Nhà thầu trúng thầu|Danh mục hàng hóa|Ký mã hiệu|Nhãn hiệu|Hãng sản xuất|Đơn vị tính|Khối lượng|Xuất xứ|Cấu hình, tính năng kỹ thuật cơ bản|Chủng loại (Models)|Đơn giá trúng thầu|Thành tiền (đã bao gồm thuế, phí, lệ phí)|Khoá", "out": "hh.jsonl.gz", "n": 3000 },
+  { "id": "cpt-hits", "type": "hits", "out": "hits.json.gz" }
+]
