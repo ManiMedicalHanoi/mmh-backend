@@ -239,7 +239,7 @@ const CONFIG = {
   SEGMENT_ORDER : ["Dental", "Eyeless", "MMG", "Surgical"],
 
   CACHE_TTL_SEC  : 600,     // ⭐ v4.1 — 10 phút; sửa Sheet (EditLog trigger) hoặc nút Refresh trên web sẽ làm mới ngay
-  CACHE_VER      : "v12",    // bump to invalidate all caches at once
+  CACHE_VER      : "v13",    // bump to invalidate all caches at once
 
   // ⭐ v4.0 — GOM NƯỚC. "country" = theo cột Country (nước thật, khuyến nghị);
   //   "report" = theo cột "Country report" như bản cũ.
@@ -725,6 +725,7 @@ function getExplanations_(fy) {
   }
 
   const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  try { exsRestore1126_(ss); } catch (eR) { Logger.log("exsRestore1126_: " + eR); }   // ⭐ v6.3.1 — khôi phục 1 lần
   const sh = ss.getSheetByName(CONFIG.EXPL_SHEET_NAME);
   if (!sh) return { ok:false, error:"Tab '" + CONFIG.EXPL_SHEET_NAME + "' not found." };
 
@@ -1985,7 +1986,8 @@ function fxQtrGap_(key, qi, fb) {
 // ═══════════════════════════════════════════════════════════════════
 // MENU
 // ═══════════════════════════════════════════════════════════════════
-function onOpen() {
+function onOpen(e) {
+  try { exsRestore1126_((e && e.source) || SpreadsheetApp.getActiveSpreadsheet()); } catch (eR) {}   // ⭐ v6.3.1 — khôi phục 1 lần (MMH_ExplSave.gs)
   SpreadsheetApp.getUi()
     .createMenu("📊 MMH Report")
     .addItem("📅 Build OVERVIEW & SEGMENT-COUNTRY-DISTRIBUTOR sheets", "buildYearQuarterSheets")   // ⭐ v5.0
