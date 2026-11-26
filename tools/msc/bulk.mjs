@@ -130,6 +130,17 @@ if (MODE === 'auto' || MODE === 'auto-dry' || MODE === 'auto-status') {
   console.log('TỰ ĐẶT TẢI HẰNG NGÀY (gói vật tư: Kết quả ⇒ bot cloud · TBMT / KHLCNT ⇒ máy có Agent):', JSON.stringify(r, null, 1));
   process.exit(r.ok ? 0 : 1);
 }
+if (MODE === 'who' && /^new$/i.test(process.env.BULK_RE || '')) {   // CHỈ ĐỌC: dòng dao nhãn khoa trúng thầu thuộc gói CHƯA có trong file KQTT dao (tools/msc/known-kq-knife.json)
+  const known = new Set(JSON.parse(fs.readFileSync('tools/msc/known-kq-knife.json', 'utf8')));
+  const nz = s => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/\s+/g, ' ').trim();
+  const r = await post({ action: 'botGoodsScan', inc: ['dao', 'knife', 'knives', 'keratome', 'crescent', 'mvr', 'blade'], exc: ['dao động', 'dao cạo', 'dao điện', 'dao mổ điện', 'dao siêu âm', 'dao plasma'], max: 8000 });
+  if (!r.ok) { console.log('Lỗi:', JSON.stringify(r).slice(0, 500)); process.exit(1); }
+  const EYE = /(mat|nhan|phaco|tien phong|cung mac|giac mac|crescent|keratome|mvr|slit|stab|duong ham|15 do|30 do|2[.,]2|2[.,]4|2[.,]75|2[.,]8|3[.,]0|3[.,]2|20 ?g|23 ?g)/;
+  const rows = r.rows.filter(x => EYE.test(nz(x.item + ' ' + x.cfg)) && !/(dao mo so|luoi dao mo cac|can dao|dao cat chi|bao da|lay da|dao mo thuong|dao phau thuat so|giu luoi)/.test(nz(x.item)) && !known.has(String(x.no).slice(0, 12)));
+  console.log(`File tổng: ${r.scanned} dòng · dòng dao nhãn khoa gói mới: ${rows.length}`);
+  rows.forEach(x => console.log(['ROW', String(x.no).slice(0, 12), x.inv, x.prov, x.win, x.item, x.hang, x.qty, x.price].map(v => String(v ?? '').replace(/[|\n\r]+/g, ' ').slice(0, 70)).join('|')));
+  process.exit(0);
+}
 if (MODE === 'who' && /^brand:/i.test(process.env.BULK_RE || '')) {   // CHỈ ĐỌC: mọi dòng hàng hóa của 1 hãng (re = "brand:tecfen,…")
   const bs = process.env.BULK_RE.slice(6).split(',').map(x => x.trim()).filter(Boolean);
   const r = await post({ action: 'botGoodsScan', brands: bs, max: 2000 });
