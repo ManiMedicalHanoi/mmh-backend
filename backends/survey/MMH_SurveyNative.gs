@@ -494,6 +494,8 @@ function nsRoute_(a, p) {
     if (a === 'nsFollow') return nsFollow_(p);
     /* nhân sự đăng nhập email (trang gui.html / tao.html): phiên tk của Training Hub */
     var me = p.tk ? rsWho_(p.tk) : null; if (me && me.err) me = null;
+    /* v1.4 (26/11/2026): Claude / workflow Kiểm tra gửi email Marketing THAY người tạo — khoá SV_KEY + as=<PIC người tạo khảo sát> (nsCanSend_ vẫn kiểm PIC = owner / by) */
+    if (!me && a === 'nsMailSend' && nsS_(p.key) === nsKey_() && nsS_(p.as)) me = { pic: nsS_(p.as) };
     if (a === 'nsInfo' || a === 'nsMailSend') {
       if (!me) return { ok: false, code: 'AUTH', error: 'Cần đăng nhập email công ty (mở Report Hub / CRM / Training Hub trên trình duyệt này rồi tải lại trang).' };
       return a === 'nsInfo' ? nsInfo_(nsS_(p.s), me) : nsMailSend_(nsS_(p.s), me, String(p.force) === '1');
