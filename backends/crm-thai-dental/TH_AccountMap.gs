@@ -1,5 +1,5 @@
 /*************************************************************************************************
- * TH_AccountMap.gs — v1.3 (11/11/2026 · v1.1 district from the address · v1.2 one spelling per district · v1.3 column M Key account) · CRM Thailand Dental — Account tracking + Thailand map (user request)
+ * TH_AccountMap.gs — v1.4 (26/11/2026 · v1.4 acctList ⇒ thkAuto_ of TH_KeyAcc.gs · 11/11/2026 · v1.1 district from the address · v1.2 one spelling per district · v1.3 column M Key account) · CRM Thailand Dental — Account tracking + Thailand map (user request)
  *
  * Sheet "ACCOUNT TRACKING" (English, visible, 1 row per account of CUSTOMER CODE, filled automatically):
  *   A Code · B Account name · C Account type · D Province · E District · F Distributor · G Distributor sales rep ·
@@ -107,7 +107,7 @@ function acmList(user, p){
   var c = CacheService.getScriptCache(), ck = 'acm_sync';
   if(!c.get(ck) || p.force){
     var L = lock_();
-    try{ acmSync_(); } finally { L.releaseLock(); }
+    try{ acmSync_(); try{ if(typeof thkAuto_ === 'function') thkAuto_(); }catch(eK){} } finally { L.releaseLock(); }   /* 26/11/2026 — TH_KeyAcc.gs: new account = DDI key account ⇒ Yes */
     try{ c.put(ck, '1', 600); }catch(e){}
   }
   var rows = acmRead_(acmSheet_());
