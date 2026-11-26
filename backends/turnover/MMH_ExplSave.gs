@@ -337,3 +337,42 @@ function exsSave_(p) {
     return res;
   } finally { lock.releaseLock(); }
 }
+
+/* ── v1.2 (26/11/2026) KHÔI PHỤC 1 LẦN: bản v1.0 lỡ ghi đè 35 ô Explanation của Ver 20261127 (khi app đọc dữ liệu ~12:56).
+   Trả về đúng chữ cũ — CHỈ ô vẫn còn đúng chữ máy ghi (4 mục không ai sửa thêm); ô đã có người sửa ⇒ giữ nguyên, ghi vào báo cáo.
+   Chạy 1 lần (Script Property EXS_RESTORE_1126) ở onOpen (mở Sheet) hoặc lần app đọc dữ liệu kế tiếp. ── */
+var EXS_RS = {
+  PROP: "EXS_RESTORE_1126", VER: "20261127",
+  TPL: "■ Results\nMonthly Result for [Month]: Sales XXXX / YoY ±XX% / vs. Budget ±XX%\nCumulative Result: Sales XXXX / YoY ±XX% / vs. Budget ±XX%\n■ Key Factors\n■ Market and Competitor situation\n■ Outlook and Actions Going Forward\n■ Requests to Other Departments",
+  OLD: { "202611": "TPL", "202612": "", "202701": "keeping information", "202702": "keeping information", "Q2": "" }
+};
+function exsRestore1126_(ss) {
+  var props = PropertiesService.getScriptProperties();
+  if (props.getProperty(EXS_RS.PROP)) return null;
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) return null;
+  try {
+    if (props.getProperty(EXS_RS.PROP)) return null;
+    var sh = ss.getSheetByName(CONFIG.EXPL_SHEET_NAME);
+    if (!sh) return null;
+    var idx = exsIdx_(sh), start = idx._start, last = sh.getLastRow(), ec = idx.explanation + 1;
+    var vals = sh.getRange(start, 1, last - start + 1, idx._lastCol).getValues();
+    var done = [], kept = [];
+    function secs(t) { var o = EXF.parse(t); return JSON.stringify([o.key, o.mkt, o.out, o.req]); }
+    vals.forEach(function (v, i) {
+      var r = exsRow_(v, idx, start + i);
+      if (r.ver !== EXS_RS.VER || /^cu/i.test(r.sc) || !exsIsSegTotal_(r)) return;
+      if (!(r.ft in EXS_RS.OLD)) return;
+      var old = EXS_RS.OLD[r.ft] === "TPL" ? EXS_RS.TPL : EXS_RS.OLD[r.ft];
+      var cur = r.e;
+      if (cur === old) return;
+      var machine = /^■ Results\n(Monthly|Quarterly) Result for /.test(cur) && !/XXXX/.test(cur);   // chữ do bản v1.0 ghi
+      if (machine && secs(cur) === secs(old)) { sh.getRange(r.n, ec).setValue(old); done.push(r.n); }
+      else kept.push(r.n);
+    });
+    var rep = { at: new Date().toISOString(), restored: done.length, rows: done, kept: kept };
+    props.setProperty(EXS_RS.PROP, JSON.stringify(rep));
+    if (done.length) bumpCacheGen_();
+    return rep;
+  } finally { lock.releaseLock(); }
+}
