@@ -6,6 +6,7 @@
 //   BULK_MODE=sum ⇒ ghi ngay tab "Tổng hợp gói thầu" · BULK_MODE=scan ⇒ thử bộ từ khoá trên chữ BULK_RE
 //   BULK_MODE=auto(-dry|-status) ⇒ botGrabInv op=auto (gói vật tư mới hằng ngày — máy chủ tự chạy ở wtTick)
 //   BULK_PRI = mức ưu tiên (0 địa bàn đã trao đổi · 1 gói mới hằng ngày · 3 tồn đọng "tải sau")
+//   BULK_MODE=who ⇒ CHỈ ĐỌC: nhà thầu trúng ⇄ hãng dao nhãn khoa (file tổng hàng hóa), in ra log + goods-report.json
 //   BULK_MODE=goods ⇒ botGoodsScan theo tools/msc/kw-forceps-hook.json ⇒ goods-report.json + goods-report.csv (artifact)
 import fs from 'node:fs';
 const B = JSON.parse(fs.readFileSync('backends.json', 'utf8'));
@@ -128,6 +129,33 @@ if (MODE === 'auto' || MODE === 'auto-dry' || MODE === 'auto-status') {
   const r = await post(MODE === 'auto-status' ? { action: 'botGrabInv', op: 'autoStatus' } : { action: 'botGrabInv', op: 'auto', dry: MODE === 'auto-dry' ? 1 : 0, from: process.env.BULK_AUTO_FROM || (FROM !== '2026-01-01' ? FROM : '') });
   console.log('TỰ ĐẶT TẢI HẰNG NGÀY (gói vật tư: Kết quả ⇒ bot cloud · TBMT / KHLCNT ⇒ máy có Agent):', JSON.stringify(r, null, 1));
   process.exit(r.ok ? 0 : 1);
+}
+if (MODE === 'who') {   // CHỈ ĐỌC: nhà thầu trúng ⇄ hãng dao nhãn khoa trong file tổng hàng hóa (BULK_RE = tên nhà thầu cách dấu phẩy, không dấu)
+  const nz = s => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/\s+/g, ' ').trim();
+  const r = await post({ action: 'botGoodsScan', inc: ['dao', 'knife', 'knives', 'keratome', 'crescent', 'mvr', 'blade'], exc: ['dao động', 'dao cạo', 'dao điện', 'dao mổ điện', 'dao siêu âm', 'dao plasma'], max: 8000 });
+  if (!r.ok) { console.log('Lỗi:', JSON.stringify(r).slice(0, 500)); process.exit(1); }
+  console.log(`File tổng hàng hóa: ${r.scanned} dòng · ${r.pkgs} gói · khớp "dao" ${r.n} dòng${r.cut ? ' (đã cắt)' : ''}`);
+  const EYE = /(mat|nhan|phaco|tien phong|cung mac|giac mac|crescent|keratome|mvr|slit|stab|duong ham|15 do|30 do|2[.,]2|2[.,]4|2[.,]75|2[.,]8|3[.,]0|3[.,]2|lan ?ce|20 ?g|23 ?g)/;
+  const rows = r.rows.filter(x => EYE.test(nz(x.item + ' ' + x.cfg)) && !/(dao mo so|luoi dao mo cac|can dao|dao cat chi|bao da|lay da|dao mo thuong|dao phau thuat so)/.test(nz(x.item)));
+  console.log(`Dòng dao nhãn khoa: ${rows.length}`);
+  const want = (process.env.BULK_RE && process.env.BULK_RE !== 'mắt' ? process.env.BULK_RE : 'bao khanh,bach quang,legatek,minh nhi,viet can,hung vi,icare,thien truong,visionary,nt solutions,nguyen phu,viet long,kim hung,phuc xuan,tam an').split(',').map(nz).filter(Boolean);
+  const agg = {};   // nhà thầu ⇒ hãng ⇒ {n, q, v, inv:Set}
+  rows.forEach(x => {
+    const w = nz(x.win).replace(/^(cong ty|cty)\s*/, '');
+    (agg[w] = agg[w] || {});
+    const b = String(x.hang || '').trim() || '(trống)';
+    const a = (agg[w][b] = agg[w][b] || { n: 0, q: 0, v: 0, inv: new Set() });
+    a.n++; a.q += +x.qty || 0; a.v += (+x.qty || 0) * (+x.price || 0); a.inv.add(x.inv);
+  });
+  const out = [];
+  Object.entries(agg).forEach(([w, bs]) => Object.entries(bs).forEach(([b, a]) => out.push({ win: w, brand: b, n: a.n, qty: a.q, avg: a.q ? Math.round(a.v / a.q) : 0, invs: [...a.inv].slice(0, 8) })));
+  out.sort((p, q) => q.qty - p.qty);
+  console.log('\n=== Nhà thầu cần xem ===');
+  want.forEach(k => { const m = out.filter(o => o.win.includes(k)); console.log(`\n# ${k}: ${m.length ? '' : 'không có dòng dao nhãn khoa nào trúng'}`); m.forEach(o => console.log(`  ${o.brand} | ${o.n} dòng · ${o.qty} cái · BQ ${o.avg} đ | ${o.win.slice(0, 60)} | ${o.invs.join('; ').slice(0, 300)}`)); });
+  console.log('\n=== Top 40 nhà thầu × hãng (theo số lượng dao) ===');
+  out.slice(0, 40).forEach(o => console.log(`  ${o.win.slice(0, 55)} | ${o.brand} | ${o.n} dòng · ${o.qty} cái · BQ ${o.avg}`));
+  fs.writeFileSync('goods-report.json', JSON.stringify({ scanned: r.scanned, pkgs: r.pkgs, n: rows.length, out, rows }, null, 1));
+  process.exit(0);
 }
 if (MODE === 'dry' || MODE === 'run') {
   // BULK_NAMEF=vt ⇒ chỉ gói vật tư / dụng cụ (bộ lọc tên gói của tools/msc/knife-extra.json)
