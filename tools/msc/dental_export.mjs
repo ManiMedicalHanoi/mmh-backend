@@ -16,13 +16,14 @@ const post = async (b) => {
   }
   return { ok: false, error: 'không gọi được máy chủ' };
 };
-const Q = JSON.parse(fs.readFileSync('research/dental/query.json', 'utf8'));
+const Q0 = JSON.parse(fs.readFileSync('research/dental/query.json', 'utf8'));
 fs.mkdirSync('work', { recursive: true });
+for (const Q of (Q0.jobs || [Object.assign({ name: 'rows' }, Q0)])) {
 const out = { at: new Date().toISOString(), q: Q, head: null, allHead: null, dataRows: 0, rows: [], pages: [] };
 let off = 0;
 while (off >= 0) {
   const t0 = Date.now();
-  const r = await post({ action: 'botSheetRead', tab: Q.tab || '', cols: JSON.stringify(Q.cols), re: Q.re, off, n: Q.n || 6000 });
+  const r = await post({ action: 'botSheetRead', file: Q.file || '', tab: Q.tab || '', cols: JSON.stringify(Q.cols || []), re: Q.re, off, n: Q.n || 6000 });
   if (!r.ok) { console.log('Lỗi trang off=' + off + ':', r.error); out.err = r.error; break; }
   out.head = r.head; out.allHead = r.allHead; out.dataRows = r.dataRows;
   out.rows.push(...r.rows);
@@ -30,5 +31,6 @@ while (off >= 0) {
   console.log('off=' + off, 'đọc=' + r.read, 'khớp=' + r.rows.length, 'tổng=' + r.dataRows, ((Date.now() - t0) / 1000).toFixed(1) + 's');
   off = r.next;
 }
-fs.writeFileSync('work/dental-rows.json', JSON.stringify(out));
-console.log('XONG: ' + out.rows.length + ' dòng khớp / ' + out.dataRows);
+fs.writeFileSync('work/dental-' + Q.name + '.json', JSON.stringify(out));
+console.log('XONG ' + Q.name + ': ' + out.rows.length + ' dòng khớp / ' + out.dataRows);
+}

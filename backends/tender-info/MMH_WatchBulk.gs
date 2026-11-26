@@ -225,13 +225,14 @@ function wtbGoodsScan_(p) {
 }
 
 /** botSheetRead {key, tab, off, n, cols, re} (26/11/2026, phân tích thị trường nha khoa — CHỈ ĐỌC) ⇒ đọc 1 tab của file tổng hàng hóa theo trang.
- *  tab: mặc định sheet chính "Hàng hóa trúng thầu"; chỉ nhận sheet chính, "SP liên quan · …", "LỌC · …". cols = tên tiêu đề cần lấy (JSON / phẩy, trống = mọi cột).
+ *  file=nt ⇒ file nhà thầu tham dự. tab: mặc định sheet chính "Hàng hóa trúng thầu"; chỉ nhận sheet chính, "SP liên quan · …", "LỌC · …". cols = tên tiêu đề cần lấy (JSON / phẩy, trống = mọi cột).
  *  re = biểu thức (không phân biệt hoa thường) lọc trên các cột đã chọn ghép lại. off = dòng dữ liệu bắt đầu (0 = dòng ngay sau tiêu đề), n ≤ 20000. */
 function wtbSheetRead_(p) {
-  const id = PropertiesService.getScriptProperties().getProperty(WTM.KIND.hh.prop);
-  if (!id) return { ok: false, error: 'Chưa có file tổng hàng hóa.' };
-  const tab = wtS_(p.tab) || WTM.KIND.hh.sheet;
-  if (tab !== WTM.KIND.hh.sheet && tab.indexOf('SP liên quan') !== 0 && tab.indexOf('LỌC · ') !== 0) return { ok: false, error: 'Tab không được phép.' };
+  const K = WTM.KIND[wtS_(p.file) === 'nt' ? 'nt' : 'hh'];   // file=nt ⇒ "Danh mục nhà thầu tham dự" (chỉ sheet chính)
+  const id = PropertiesService.getScriptProperties().getProperty(K.prop);
+  if (!id) return { ok: false, error: 'Chưa có file tổng.' };
+  const tab = wtS_(p.tab) || K.sheet;
+  if (tab !== K.sheet && (K !== WTM.KIND.hh || (tab.indexOf('SP liên quan') !== 0 && tab.indexOf('LỌC · ') !== 0))) return { ok: false, error: 'Tab không được phép.' };
   const sh = SpreadsheetApp.openById(id).getSheetByName(tab);
   if (!sh) return { ok: false, error: 'Không có tab ' + tab };
   const last = sh.getLastRow(), lc = sh.getLastColumn();
