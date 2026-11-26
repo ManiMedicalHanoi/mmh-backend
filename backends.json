@@ -149,10 +149,11 @@
     "apps": [
       "ManiMedicalHanoi/MMH-CRM"
     ],
-    "deploymentId": "AKfycbz26knlK_GE2mYlszlx947QWSLvfScrHFeB86XkaPWfDhKHi49cnVfCXS_kPUpkX2Fgww",
+    "deploymentId": "AKfycbwuC6gjpSVK5MQ1wVHECCvtmtnD9yed_3nbAzYORR-uPz10_W6HFEGauNLYpI-hXGWZkA",
     "scriptId": "1dpzdCY2_SrSQivHECxvrZ10CteICb2Z02svyV496GDG3Mg47_HSQm-y3",
     "sheetId": "1bujnLrxerjUM1gR3aOoy3r4gvTp4pNyPwJM-ra5iFe8",
-    "url": "https://script.google.com/macros/s/AKfycbz26knlK_GE2mYlszlx947QWSLvfScrHFeB86XkaPWfDhKHi49cnVfCXS_kPUpkX2Fgww/exec"
+    "url": "https://script.google.com/macros/s/AKfycbwuC6gjpSVK5MQ1wVHECCvtmtnD9yed_3nbAzYORR-uPz10_W6HFEGauNLYpI-hXGWZkA/exec",
+    "note": "26/11/2026: quản lý deployment app Turnover đang dùng (AKfycbwuC6…, Code v6.2+). Deployment cũ AKfycbz26knl… (phiên bản 37) vẫn chạy cho CRM / Training Hub rhTurnover — không cập nhật từ repo."
   },
   "thai-mkt": {
     "name": "Thai Surgical Marketing (event nhóm Thái)",
