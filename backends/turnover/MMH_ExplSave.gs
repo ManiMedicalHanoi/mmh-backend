@@ -1,5 +1,5 @@
 /* ════════════════════════════════════════════════════════════════════
-   MMH_ExplSave.gs v1.0 (26/11/2026) — EXPLANATION theo khung MANI HQ
+   MMH_ExplSave.gs v1.1 (26/11/2026) — EXPLANATION theo khung MANI HQ
    ────────────────────────────────────────────────────────────────────
    Dòng "… Total" theo Segment (Single, Ver ≥ EXF.FROM_VER = 20261127, hoặc
    Script Property EXF_FROM_VER) của tab "Forecast Explanation Input" LUÔN có
@@ -9,9 +9,9 @@
      ■ Outlook and Actions Going Forward · ■ Requests to Other Departments
    dù nhập bằng cách nào:
      ① App Turnover ▸ Explanations ▸ Edit ⇒ action exSave (JSONP; chữ dài ⇒ exPart từng khúc).
-     ② Gõ / dán thẳng trên Sheet ⇒ simple trigger onEdit (chạy với mọi người sửa, không cần cài).
-     ③ Đọc dữ liệu cho app (getExplanations_) ⇒ ô còn khác khung (vd. mẫu "Sales XXXX") được ghi lại.
-     ④ Menu 📊 MMH Report ▸ ✍️ Explanations — apply HQ format.
+     ② Gõ / dán thẳng trên Sheet ⇒ GIỮ NGUYÊN (v1.1 — hệ thống không tự sửa ô người dùng đang điền);
+        app vẫn hiển thị ô đó theo khung.
+     ④ Menu 📊 MMH Report ▸ ✍️ Explanations — apply HQ format (chỉ khi người dùng tự bấm).
    Dòng NPP (Distributor) chỉ được chuẩn hoá dấu ✅ ❌ ➡️ (không thêm tiêu đề).
    Số liệu Results: Sales / Budget lấy từ chính dòng Single (cột Forecast/Actual · Budget Mani)
    và dòng Culmulative cùng Ver / tháng / nước / segment (thiếu ⇒ cộng SUM TURNOVER);
@@ -185,16 +185,8 @@ function exsApply_(ss, sh, r1, r2, opt) {
   return { ok: true, changed: changed, rows: list, frames: Object.keys(target).length };
 }
 
-/* ② Simple trigger: mọi người sửa tab Explanation ⇒ ô theo khung ngay (không cần cài trigger) */
-function onEdit(e) {
-  try {
-    if (!e || !e.range) return;
-    var sh = e.range.getSheet();
-    if (sh.getName() !== CONFIG.EXPL_SHEET_NAME) return;
-    var r1 = e.range.getRow(), r2 = Math.min(e.range.getLastRow(), r1 + EXS.MAX_ROWS);
-    exsApply_(e.source, sh, r1, r2, { c1: e.range.getColumn(), c2: e.range.getLastColumn() });
-  } catch (err) { try { Logger.log("onEdit explanation: " + err); } catch (ignore) {} }
-}
+/* ② v1.1 (26/11/2026, người dùng: "các data đang điền thì không được đụng vào") — KHÔNG còn simple trigger onEdit:
+   gõ / dán trên Sheet giữ NGUYÊN chữ người nhập. Chỉ ghi khi người dùng chủ động: bấm Save trên app (exSave) hoặc chạy menu ✍️. */
 
 /* ④ Menu — áp khung cho mọi dòng Ver ≥ mốc */
 function exfFormatAll() {
@@ -235,11 +227,7 @@ function exsDecorate_(ss, sh, idx, list) {
   frames.forEach(function (x) {
     x.num.fr = 1;
     if (/^not\s*requirement\s*$/i.test(x.r.e.trim())) return;
-    var t = exsCanon_(x.r, cumBy[exsKey_(x.r)], agg);
-    x.num.e = t;
-    if (t !== x.r.e && writes < EXS.READ_WRITES) {
-      try { sh.getRange(x.r.n, ec).setValue(t); writes++; } catch (e) {}
-    }
+    x.num.e = exsCanon_(x.r, cumBy[exsKey_(x.r)], agg);     // v1.1: chỉ HIỂN THỊ theo khung trên app — KHÔNG ghi vào Sheet
   });
   return writes;
 }
@@ -254,7 +242,7 @@ function exsRoute_(action, p) {
     if (!sh) return { ok: false, error: "Tab '" + CONFIG.EXPL_SHEET_NAME + "' not found." };
     var lock = LockService.getScriptLock();
     if (!lock.tryLock(20000)) return { ok: false, code: "BUSY", error: "Busy — try again." };
-    try { return exsFormatAllCore_(ss, sh, p.op !== "run"); } finally { lock.releaseLock(); }
+    try { return exsFormatAllCore_(ss, sh, true); } finally { lock.releaseLock(); }   // v1.1: chỉ xem trước, không ghi
   }
   return { ok: false, error: "Unknown action: " + action };
 }
