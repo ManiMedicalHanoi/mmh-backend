@@ -224,6 +224,36 @@ function wtbGoodsScan_(p) {
   return { ok: true, scanned: d.rows.length, pkgs: Object.keys(pk).length, n: rows.length, rows: rows.slice(0, +p.max || 8000), cut: rows.length > (+p.max || 8000), mg: wtmUrls_() };
 }
 
+/** botSheetRead {key, tab, off, n, cols, re} (26/11/2026, phân tích thị trường nha khoa — CHỈ ĐỌC) ⇒ đọc 1 tab của file tổng hàng hóa theo trang.
+ *  tab: mặc định sheet chính "Hàng hóa trúng thầu"; chỉ nhận sheet chính, "SP liên quan · …", "LỌC · …". cols = tên tiêu đề cần lấy (JSON / phẩy, trống = mọi cột).
+ *  re = biểu thức (không phân biệt hoa thường) lọc trên các cột đã chọn ghép lại. off = dòng dữ liệu bắt đầu (0 = dòng ngay sau tiêu đề), n ≤ 20000. */
+function wtbSheetRead_(p) {
+  const id = PropertiesService.getScriptProperties().getProperty(WTM.KIND.hh.prop);
+  if (!id) return { ok: false, error: 'Chưa có file tổng hàng hóa.' };
+  const tab = wtS_(p.tab) || WTM.KIND.hh.sheet;
+  if (tab !== WTM.KIND.hh.sheet && tab.indexOf('SP liên quan') !== 0 && tab.indexOf('LỌC · ') !== 0) return { ok: false, error: 'Tab không được phép.' };
+  const sh = SpreadsheetApp.openById(id).getSheetByName(tab);
+  if (!sh) return { ok: false, error: 'Không có tab ' + tab };
+  const last = sh.getLastRow(), lc = sh.getLastColumn();
+  let hr = 1; const top = sh.getRange(1, 1, Math.min(3, last), lc).getValues();
+  for (let i = 0; i < top.length; i++) { if (top[i].filter(String).length >= 5) { hr = i + 1; break; } }
+  const head = top[hr - 1].map(wtS_);
+  const want = typeof p.cols === 'string' ? (wtS_(p.cols).charAt(0) === '[' ? wtJson_(p.cols, []) : wtbList_(p.cols)) : (p.cols || []);
+  const ix = want.length ? want.map(function (c) { return head.indexOf(c); }) : head.map(function (_, i) { return i; });
+  const off = Math.max(0, +p.off || 0), n = Math.min(20000, Math.max(1, +p.n || 5000));
+  const r0 = hr + 1 + off, cnt = Math.min(n, last - r0 + 1);
+  const re = wtS_(p.re) ? new RegExp(wtS_(p.re), 'i') : null;
+  const rows = [];
+  if (cnt > 0) sh.getRange(r0, 1, cnt, lc).getValues().forEach(function (r) {
+    const v = ix.map(function (j) { const x = j >= 0 ? r[j] : ''; return x instanceof Date ? Utilities.formatDate(x, 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd') : x; });
+    if (re && !re.test(v.join(' | '))) return;
+    if (!v.some(function (x) { return x !== '' && x !== null; })) return;
+    rows.push(v);
+  });
+  return { ok: true, tab: tab, last: last, headRow: hr, dataRows: Math.max(0, last - hr), off: off, read: Math.max(0, cnt), next: cnt > 0 && r0 + cnt <= last ? off + cnt : -1,
+    head: ix.map(function (j) { return j >= 0 ? head[j] : ''; }), allHead: head, rows: rows };
+}
+
 /** botGoodsWrite {key, tab, head:[...], rows:[[...]], note} ⇒ ghi (thay toàn bộ) 1 tab kết quả lọc trong file tổng hàng hóa (tên tab bắt đầu "LỌC · ") */
 function wtbGoodsWrite_(p) {
   const id = PropertiesService.getScriptProperties().getProperty(WTM.KIND.hh.prop);
