@@ -77,6 +77,10 @@
 
 
 /* ════════════════════════════════════════════════════════════════════
+   v6.3 — (26/11/2026) EXPLANATION theo khung MANI HQ (MMH_ExplSave.gs + MMH_ExplFormat.gs):
+          dòng "… Total" (Single, Ver ≥ 20261127) luôn ■ Results / Key Factors / Market and
+          Competitor situation / Outlook and Actions Going Forward / Requests to Other Departments,
+          dù nhập trên app (exSave) hay gõ thẳng trên Sheet (simple trigger onEdit). Menu ✍️.
    v6.0 — (02/10/2026) OVERVIEW / SEGMENT-COUNTRY-DISTRIBUTOR: dropdown F/A SOURCE
           removed. Forecast / Actual always follows one rule: Actual when the
           month is due and Actual is entered, otherwise Forecast (same as the
@@ -235,7 +239,7 @@ const CONFIG = {
   SEGMENT_ORDER : ["Dental", "Eyeless", "MMG", "Surgical"],
 
   CACHE_TTL_SEC  : 600,     // ⭐ v4.1 — 10 phút; sửa Sheet (EditLog trigger) hoặc nút Refresh trên web sẽ làm mới ngay
-  CACHE_VER      : "v11",    // bump to invalidate all caches at once
+  CACHE_VER      : "v12",    // bump to invalidate all caches at once
 
   // ⭐ v4.0 — GOM NƯỚC. "country" = theo cột Country (nước thật, khuyến nghị);
   //   "report" = theo cột "Country report" như bản cũ.
@@ -450,7 +454,9 @@ function doGet(e) {
 
   let payload;
   try {
-    if (action === "getMeta") {
+    if (/^ex(Save|Part|Fmt)$/.test(action)) {          // ⭐ v6.3 — Explanation theo khung HQ (MMH_ExplSave.gs)
+      payload = exsRoute_(action, params);
+    } else if (action === "getMeta") {
       payload = getMeta_();
     } else if (action === "getTurnoverData") {
       payload = getTurnoverData_(fyReq);
@@ -783,6 +789,7 @@ function getExplanations_(fy) {
   }
 
   const versions = {};
+  const exsList  = [];                                // ⭐ v6.3 — dòng để áp khung HQ (MMH_ExplSave.gs)
 
   for (let r=0; r<data.length; r++) {
     const row = data[r];
@@ -869,8 +876,10 @@ function getExplanations_(fy) {
       pct : idx.pctVsb >= 0 ? toPct_(row[idx.pctVsb]) : "",
       lf  : idx.lastestFc >= 0 ? toNumF_(row[idx.lastestFc]) : 0,
       vlf : idx.vsLastestFc >= 0 ? toNumF_(row[idx.vsLastestFc]) : 0,
-      e   : explClean
+      e   : explClean,
+      r   : dataStartRow + r                          // ⭐ v6.3 — số dòng Sheet (app ghi Explanation)
     };
+    exsList.push({ r: exsRow_(row, idx, dataStartRow + r), num: numbers });
 
     if (!versions[vKey].countries[coCode]) {
       versions[vKey].countries[coCode] = {
@@ -896,6 +905,9 @@ function getExplanations_(fy) {
       co.segments[segmentClean].distributors.push(Object.assign({name: distRaw}, numbers));
     }
   }
+
+  // ⭐ v6.3 — dòng "… Total" theo khung HQ: chữ chuẩn (Results tính lại) + ghi lại ô còn khác khung
+  try { exsDecorate_(ss, sh, idx, exsList); } catch (eX) { Logger.log("exsDecorate_: " + eX); }
 
   // Convert object → array
   const COUNTRY_ORDER = ["t", "v", "g"];
@@ -1987,6 +1999,7 @@ function onOpen() {
     .addSeparator()
     .addItem("🔧 Check setup", "checkReportSetup")
     .addItem("🩺 Check data health", "showDataHealth")        // ⭐ v4.0
+    .addItem("✍️ Explanations — apply HQ format", "exfFormatAll")   // ⭐ v6.3
     .addToUi();
 }
 
