@@ -130,6 +130,14 @@ if (MODE === 'auto' || MODE === 'auto-dry' || MODE === 'auto-status') {
   console.log('TỰ ĐẶT TẢI HẰNG NGÀY (gói vật tư: Kết quả ⇒ bot cloud · TBMT / KHLCNT ⇒ máy có Agent):', JSON.stringify(r, null, 1));
   process.exit(r.ok ? 0 : 1);
 }
+if (MODE === 'who' && /^brand:/i.test(process.env.BULK_RE || '')) {   // CHỈ ĐỌC: mọi dòng hàng hóa của 1 hãng (re = "brand:tecfen,…")
+  const bs = process.env.BULK_RE.slice(6).split(',').map(x => x.trim()).filter(Boolean);
+  const r = await post({ action: 'botGoodsScan', brands: bs, max: 2000 });
+  if (!r.ok) { console.log('Lỗi:', JSON.stringify(r).slice(0, 500)); process.exit(1); }
+  console.log(`File tổng hàng hóa: ${r.scanned} dòng · hãng ${bs.join(', ')}: ${r.n} dòng`);
+  r.rows.forEach(x => console.log(`\n- ${x.inv} (${x.prov}) | gói ${x.no} ${x.lot ? '· lô ' + x.lot : ''} | ${String(x.pkg).slice(0, 90)}\n  Hàng: ${x.item} | Hãng: ${x.hang} | ${x.qty} ${x.dvt} × ${x.price} = ${x.amount} | Trúng: ${x.win}\n  Cấu hình: ${String(x.cfg).replace(/\s+/g, ' ').slice(0, 400)}`));
+  process.exit(0);
+}
 if (MODE === 'who') {   // CHỈ ĐỌC: nhà thầu trúng ⇄ hãng dao nhãn khoa trong file tổng hàng hóa (BULK_RE = tên nhà thầu cách dấu phẩy, không dấu)
   const nz = s => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/\s+/g, ' ').trim();
   const r = await post({ action: 'botGoodsScan', inc: ['dao', 'knife', 'knives', 'keratome', 'crescent', 'mvr', 'blade'], exc: ['dao động', 'dao cạo', 'dao điện', 'dao mổ điện', 'dao siêu âm', 'dao plasma'], max: 8000 });
