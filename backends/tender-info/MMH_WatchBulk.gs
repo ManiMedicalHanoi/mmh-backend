@@ -228,7 +228,9 @@ function wtbGoodsScan_(p) {
  *  file=nt ⇒ file nhà thầu tham dự. tab: mặc định sheet chính "Hàng hóa trúng thầu"; chỉ nhận sheet chính, "SP liên quan · …", "LỌC · …". cols = tên tiêu đề cần lấy (JSON / phẩy, trống = mọi cột).
  *  re = biểu thức (không phân biệt hoa thường) lọc trên các cột đã chọn ghép lại. off = dòng dữ liệu bắt đầu (0 = dòng ngay sau tiêu đề), n ≤ 20000. */
 function wtbSheetRead_(p) {
-  const K = WTM.KIND[wtS_(p.file) === 'nt' ? 'nt' : 'hh'];   // file=nt ⇒ "Danh mục nhà thầu tham dự" (chỉ sheet chính)
+  // file=nt ⇒ "Danh mục nhà thầu tham dự" (chỉ sheet chính) · file=sum ⇒ tab "Tổng hợp gói thầu" của Sheet "Tổng hợp tài liệu thầu đã tải"
+  const isSum = wtS_(p.file) === 'sum';
+  const K = isSum ? { prop: 'WT_SUM', sheet: WTT.SUM_SHEET } : WTM.KIND[wtS_(p.file) === 'nt' ? 'nt' : 'hh'];
   const id = PropertiesService.getScriptProperties().getProperty(K.prop);
   if (!id) return { ok: false, error: 'Chưa có file tổng.' };
   const tab = wtS_(p.tab) || K.sheet;
