@@ -1,0 +1,33 @@
+name: Nha khoa — xuất dữ liệu trúng thầu (phân tích)
+# 26/11/2026: botGoodsScan (tender-info, chỉ đọc) theo research/dental/groups.json ⇒ mã hoá (research/dental/pub.pem) ⇒ commit lên nhánh phiên Claude.
+on:
+  workflow_dispatch:
+  push:
+    branches: ['ccr-**', 'claude/**']
+    paths: ['research/dental/groups.json', '.github/workflows/dental-export.yml', 'tools/msc/dental_export.mjs']
+concurrency: { group: dental-export, cancel-in-progress: false }
+permissions: { contents: write }
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      WT_BOT_KEY: ${{ secrets.WT_BOT_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: node tools/msc/dental_export.mjs
+      - name: Ghi kết quả (mã hoá) lên nhánh
+        if: ${{ !cancelled() && github.ref_name != 'main' }}
+        run: |
+          git config user.name "mmh-bot"; git config user.email "mmh-bot@users.noreply.github.com"
+          if [ -d work ] && [ -n "$(ls -A work)" ]; then
+            mkdir -p research/dental/enc; TS=$(date -u +%Y%m%d-%H%M%S)
+            tar -czf /tmp/w.tgz work; openssl rand -out /tmp/k.bin 32
+            openssl enc -aes-256-cbc -pbkdf2 -salt -in /tmp/w.tgz -out research/dental/enc/$TS.tgz.enc -pass file:/tmp/k.bin
+            openssl pkeyutl -encrypt -pubin -inkey research/dental/pub.pem -pkeyopt rsa_padding_mode:oaep -in /tmp/k.bin -out research/dental/enc/$TS.key.enc
+          fi
+          git add -A research/dental
+          git commit -m "Nha khoa: dữ liệu xuất $(date -u +%F' '%H:%M)" || exit 0
+          for i in 1 2 3 4; do git pull --rebase origin "$GITHUB_REF_NAME" && git push origin "HEAD:$GITHUB_REF_NAME" && break; sleep $((i*5)); done
