@@ -70,6 +70,7 @@ function wtDo_(a, p) {
     }
     if (a === 'botHello') return wtxHello_(p);
     if (a === 'botSaveTo') { if (p._ext) return { ok: false, code: 'KEY', error: 'Cần khoá bot.' }; return wtsSaveTo_(p); }   // MMH_WatchSave.gs
+    if (a === 'botSheetRead') { if (p._ext) return { ok: false, code: 'KEY', error: 'Cần khoá bot.' }; return wtbSheetRead_(p); }   // MMH_WatchBulk.gs (26/11/2026, chỉ đọc)
     if (a === 'botGrabInv' || a === 'botGoodsScan' || a === 'botGoodsWrite' || a === 'botTargets') {   // MMH_WatchBulk.gs / MMH_WatchTarget.gs — chỉ khoá bot (không cho tiện ích dùng phiên email)
       if (p._ext) return { ok: false, code: 'KEY', error: 'Cần khoá bot.' };
       if (a === 'botTargets') return wttSave_(p);

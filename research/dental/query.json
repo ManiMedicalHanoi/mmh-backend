@@ -1,0 +1,6 @@
+{
+  "tab": "",
+  "n": 6000,
+  "cols": ["Khu vực", "Tỉnh thành", "Chủ đầu tư", "Tên gói thầu", "Số TBMT", "Mã phần/lô", "Tên phần/lô", "Nhà thầu trúng thầu", "Danh mục hàng hóa", "Ký mã hiệu", "Nhãn hiệu", "Hãng sản xuất", "Mặt hàng dự thầu", "Xuất xứ", "Đơn vị tính", "Khối lượng", "Đơn giá trúng thầu", "Thành tiền (đã bao gồm thuế, phí, lệ phí)", "Quy cách", "Chủng loại (Models)", "Cấu hình, tính năng kỹ thuật cơ bản", "Gộp lúc"],
+  "re": "răng|nha khoa|nội nha|ống tủy|tủy|trâm|châm|file|reamer|broach|lentulo|spreader|plugger|niti|mũi khoan|mũi mài|bur|kim cương|carbide|tungsten|compo[sz]i|commpo|bond|keo dán|chất dán|tẩy trắng|làm trắng|whitening|bleach|trám|mani|mmg|dental|dentsply|ivoclar|tokuyama|shofu|coltene|kerr|vdw|jizai|micro-?mega|komet|jota|gutta"
+}

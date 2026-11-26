@@ -1,10 +1,10 @@
 name: Nha khoa — xuất dữ liệu trúng thầu (phân tích)
-# 26/11/2026: botGoodsScan (tender-info, chỉ đọc) theo research/dental/groups.json ⇒ mã hoá (research/dental/pub.pem) ⇒ commit lên nhánh phiên Claude.
+# 26/11/2026: botSheetRead (tender-info, chỉ đọc) theo research/dental/query.json ⇒ mã hoá (research/dental/pub.pem) ⇒ commit lên nhánh phiên Claude.
 on:
   workflow_dispatch:
   push:
     branches: ['ccr-**', 'claude/**']
-    paths: ['research/dental/groups.json', '.github/workflows/dental-export.yml', 'tools/msc/dental_export.mjs']
+    paths: ['research/dental/query.json', '.github/workflows/dental-export.yml', 'tools/msc/dental_export.mjs']
 concurrency: { group: dental-export, cancel-in-progress: false }
 permissions: { contents: write }
 jobs:
