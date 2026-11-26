@@ -1395,6 +1395,7 @@ function route_(p){
   if(/^trip(Master|Propose)2$/.test(a)) return tripRoute_(a, user, p);  /* v1.16 */
   switch(a){
     case 'thdSample': return thdSampleApi_(p);
+    case 'thdKeyAcc': return thkApi_(p);                                  /* 26/11/2026 — TH_KeyAcc.gs: DDI key accounts ⇒ ACCOUNT TRACKING ▸ Key account (KPI C2-02) */
     case 'thdCare': return thdCareApi_(p);                               /* 17/11/2026 — TH_DentalCare.gs (diagnostics) */
     case 'thdFix': return thdFixApi_(p);                                 /* 02/11/2026 — TH_DentalFix.gs */                           /* 30/10/2026 — dữ liệu mẫu thử KPI (TH_DentalSample.gs) */
     case 'rpLog': return rplApi_(p);                                      /* ⭐ 23/10/2026: thống kê gửi báo cáo (MMH_ReportLog.gs) */
