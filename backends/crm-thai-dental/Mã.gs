@@ -1935,7 +1935,7 @@ K68_SPEC.thaid = {"title":"THAILAND DENTAL SALES TEAM","lang":"en","pics":[
   {"code":"F4-00","key":"turnover","name":"Turnover to distributors – Dental & MMG Thailand (team, cumulative)","unit":"USD","agg":"LAST","w":0.2,"t":null},
   {"code":"C14-00","key":"event_hub","name":"T&E events led by KOLs, MMH members & exhibitions – Dental Thailand","unit":"Times","agg":"SUM","w":0.2,"t":null},
   {"code":"C16-00","key":"event_hub","name":"Participants in T&E events – Dental Thailand","unit":"Participants","agg":"SUM","w":0.3,"t":null},
-  {"code":"C17-07","key":"manual","name":"Product content items published – Dental Thailand","unit":"Content items","agg":"SUM","w":0.2,"t":null}]}]};
+  {"code":"C17-07","key":"manual","name":"Online content items published – Dental Thailand (every type of content)","unit":"Content items","agg":"SUM","w":0.2,"t":null}]}]};
 
 var K68_MASTER_SHEET = '3. Detail KPI';
 var K68_N  = 20000;   /* số dòng quét ở tab viếng thăm / khách hàng */
@@ -1951,7 +1951,7 @@ var K68 = { tag: 1, code: 2, pic: 3, name: 4, unit: 5, w: 6, agg: 7, tFY: 8, t0:
 var K68_SET = { fy: 'C4', rate: 'D5', photo: 'D6', comp1: 'D7', comp2: 'E7', jz1: 'D8', jz2: 'E8', link: 'D9', cur: 'D10', sync: 'D11' };
 var K68_MANUAL = { turnover: 1, manual: 1, event_hub: 1 };   /* v1.4 — event counts come from the KPI Hub (Marketing Offline file) */
 /* ⭐ phiên bản bố cục tab KPI — tab dựng bằng code cũ (khác nhãn này) sẽ TỰ dựng lại khi đồng bộ, giữ ô nhập tay */
-var K68_LAYOUT = 'k68v6d4';   /* 11/11/2026: KPI file of 4 Nov 2026 (C2-02 key-account visits · C16-00 participants · C4-01 both types · C4-03 ≥ 5 visits) ⇒ tab rebuilds once */   /* was 'k68v6d3' —    /* 02/11/2026: C2-02 = sheet ADP (profiles completed ÷ customers of the PIC) · sheet CUSTOMER TASK ⇒ tab rebuilds once */   /* was 'k68v6d2' —   /* Dental Thái 30/10/2026: C4-03 = số ngày có co-visit (không cần xác nhận ≥ 5 lượt) · C11-03 = sheet PRODUCT TEST ⇒ tab tự dựng lại 1 lần, giữ ô nhập tay */   /* v1.9 — C2-03 counts approved cases of sheet 23 ⇒ the tab rebuilds itself once, typed cells kept */   /* v1.4 — event codes now pulled from the KPI Hub: the tab rebuilds itself once, typed cells kept */
+var K68_LAYOUT = 'k68v6d5';   /* 27/11/2026: C17-07 = online content (every type), target 6 a month ⇒ tab rebuilds once */   /* 11/11/2026: KPI file of 4 Nov 2026 (C2-02 key-account visits · C16-00 participants · C4-01 both types · C4-03 ≥ 5 visits) ⇒ tab rebuilds once */   /* was 'k68v6d3' —    /* 02/11/2026: C2-02 = sheet ADP (profiles completed ÷ customers of the PIC) · sheet CUSTOMER TASK ⇒ tab rebuilds once */   /* was 'k68v6d2' —   /* Dental Thái 30/10/2026: C4-03 = số ngày có co-visit (không cần xác nhận ≥ 5 lượt) · C11-03 = sheet PRODUCT TEST ⇒ tab tự dựng lại 1 lần, giữ ô nhập tay */   /* v1.9 — C2-03 counts approved cases of sheet 23 ⇒ the tab rebuilds itself once, typed cells kept */   /* v1.4 — event codes now pulled from the KPI Hub: the tab rebuilds itself once, typed cells kept */
 
 var K68_TXT = {
   vi: {
@@ -2089,11 +2089,11 @@ var K68_GROUPS = {
     ['C11-03', 'Product knowledge test pass rate (%)', ['C11-03']],
     ['C14',    'T&E events – KOLs, MMH & exhibitions', ['C14-00']],
     ['C16',    'Participants in T&E events', ['C16-00']],
-    ['C17-07', 'Product content items published', ['C17-07']]]
+    ['C17-07', 'Online content items published', ['C17-07']]]
 };
 /* Dental: source text of the event codes / typed codes */
 K68_TXT.en.src.event_hub = 'Counted by the KPI Sync Center, this row shows the number of the KPI file · C14-00 = events of 2. Thailand - Dental Event Report (REPORT_EVENT, KOL / MMH member / exhibition) + PRODUCT PRESENTATION sessions not in the event file · C11-02 = MMH-led events + PRODUCT PRESENTATION sessions (Actual > 0) · C16-00 = sum of Actual Participant of the counted events';
-K68_TXT.en.src.manual = 'Counted by the KPI Sync Center from sheet ONLINE CONTENT of 2. Thailand - Dental Event Report FY68 (Status = Published + link, by Date posted) — this row shows the number of the KPI file';
+K68_TXT.en.src.manual = 'Typed in the MMH KPI FY68 file (or here when the KPI file is still empty) — C17-07 online content published, every type of content, target 6 a month (counting source to be agreed)';
 
 /* ── tiện ích ── */
 function k68Col_(n){ var s = ''; while(n > 0){ var m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; }
