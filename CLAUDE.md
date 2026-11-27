@@ -866,4 +866,5 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   `THK_DATA` = 947 khách + kết quả đối chiếu đã quyết từ trước (M khớp 166 ⇒ 170 dòng ACCOUNT TRACKING · C cần Yong xác nhận 18 · N chưa có trong CRM 763; không lưu doanh số). Khớp: cùng tên / bỏ Co., Ltd. – dental clinic – khoảng trắng / chính tả rất gần
   cùng loại nơi (bệnh viện ≠ provincial public health office ≠ phòng khám); NPP (Siamdent, Promptdent, VRP…) không bao giờ. Ping `crm-thai-dental?action=thdKeyAcc&key=<8 ký tự cuối ID Sheet>&op=status|dry|run&full=1`:
   run ⇒ sheet **DDI KEY ACCOUNTS** (danh sách + kết quả khớp) + ACCOUNT TRACKING: M = Yes (chỉ ô trống, giữ "No" đặt tay), F = DDI / G = sales DDI khi trống, K / L = giờ / "DDI key list", `THK_ON = 1` ⇒ `thkAuto_` (sau mỗi lượt đồng bộ acctList) tự đánh dấu khách MỚI thêm vào CRM trùng tên (chuẩn hoá) với khách DDI "Not in CRM".
-
+- **27/11/2026 — Doanh số KPI Surgical Thái là LŨY KẾ (crm-thai `K68_SPEC.thai`, `K68_LAYOUT = 'k68v6b'`)**: F1-00 · F1-01 · F6-03 đổi Agg `SUM` ⇒ `LAST` như F4-00 Dental Thái (KSC ghi số lũy kế khi Agg ở file KPI ≠ SUM; Target trong file KPI cũng lũy kế).
+  Trước đó tab KPI của CRM Surgical Thái cộng các tháng ⇒ FY Target 11,8 triệu USD thay vì 2,05 triệu, % YTD sai (Dao F1-00 43% thay vì 39,5%, Miew F1-01 207% thay vì 138%). Tab tự dựng lại 1 lần ở lần đồng bộ kế (giữ ô nhập tay).
