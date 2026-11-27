@@ -34,7 +34,7 @@ var KTD = {
     'C16-00': { name: 'Number of Participants in T&E Events – Dental Thailand', unit: 'Participants', agg: 'SUM',
                 ref: '2. Thailand - Dental Event Report (REPORT_EVENT ▸ Actual Participant)',
                 t: [20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20], fy: 240, clearActual: true },
-    'C17-07': { t: [6, 6, 6, 6, 8, 8, 8, 8, 10, 10, 12, 12], fy: 108 }
+    'C17-07': { ref: '2. Thailand - Dental Event Report FY68 (ONLINE CONTENT: Status = Published + link)', t: [6, 6, 6, 6, 8, 8, 8, 8, 10, 10, 12, 12], fy: 108 }
   },
   /* 3B. KPI Source Map — [Actual Source, Calculation Method / Status] */
   SRC: {
@@ -46,7 +46,7 @@ var KTD = {
     'C11-03': ['CRM Thailand Dental · PRODUCT TEST', 'Pass ÷ tests with a result, from the start of the FY (one row = one test of one distributor sales rep, Google Form result link as evidence). Target 60%.'],
     'C14-00': ['Event Dental Thailand (REPORT_EVENT) + CRM Thailand Dental · PRODUCT PRESENTATION', 'Events led by KOLs, MMH members and exhibitions (Action Status As planned / Additional / Change schedule) + PRODUCT PRESENTATION sessions not in the event file.'],
     'C16-00': ['Event Dental Thailand (REPORT_EVENT ▸ Actual Participant)', 'Sum of Actual Participant of the counted events, by Month. Working rule until the detailed rule is confirmed.'],
-    'C17-07': ['Thailand Dental - Digital Plan FY68 (typed in the KPI file)', 'Content items published, sum of the months. Monthly targets fixed by Owen san (4 Nov 2026).']
+    'C17-07': ['Event Dental Thailand (sheet ONLINE CONTENT)', 'Posts with Status = Published and a link, by the month of Date posted (27 Nov 2026: every type of online content counts — agreed by Sui and Owen san). Monthly targets fixed by Owen san (4 Nov 2026), change pending.']
   },
   MARK: 'agreed 4 Nov 2026'
 };

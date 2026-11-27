@@ -2093,7 +2093,7 @@ var K68_GROUPS = {
 };
 /* Dental: source text of the event codes / typed codes */
 K68_TXT.en.src.event_hub = 'Counted by the KPI Sync Center, this row shows the number of the KPI file · C14-00 = events of 2. Thailand - Dental Event Report (REPORT_EVENT, KOL / MMH member / exhibition) + PRODUCT PRESENTATION sessions not in the event file · C11-02 = MMH-led events + PRODUCT PRESENTATION sessions (Actual > 0) · C16-00 = sum of Actual Participant of the counted events';
-K68_TXT.en.src.manual = 'Typed in the MMH KPI FY68 file (or here when the KPI file is still empty) — C17-07 content items published (Thailand Dental - Digital Plan FY68)';
+K68_TXT.en.src.manual = 'Counted by the KPI Sync Center from sheet ONLINE CONTENT of 2. Thailand - Dental Event Report FY68 (Status = Published + link, by Date posted) — this row shows the number of the KPI file';
 
 /* ── tiện ích ── */
 function k68Col_(n){ var s = ''; while(n > 0){ var m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; }
