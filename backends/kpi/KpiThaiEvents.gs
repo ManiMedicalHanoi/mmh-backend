@@ -55,7 +55,7 @@ var KSC_THEV = {
     'C17-07' : 'Số nội dung đăng online của Dental Thái = số dòng ở sheet ONLINE CONTENT (file sự kiện Dental) có Status = Published và có link, theo tháng của Date posted (ngày ≤ hôm nay) · mọi loại nội dung (Sui đề xuất, đã thống nhất với Owen san 26/11/2026).'
   },
   /* v1.2 — sheet ONLINE CONTENT của file sự kiện Dental (EV_Content.gs của thai-dental-mkt) */
-  CONTENT: { sheet: 'ONLINE CONTENT', SCOPE: 'all' },
+  CONTENT: { sheet: 'ONLINE CONTENT', SCOPE: 'all', ON: false },   /* ON: false (27/11/2026) — nguồn / rule đếm C17-07 chờ người dùng chốt */
   /* v1.1 — buổi PRODUCT PRESENTATION của CRM Dental Thái (cột cố định B…M: No · Account · PIC · Province · Area · FY · Month · Day · Folder · Review · Target · Actual) */
   PRES: { team: 'thaid', sheet: 'PRODUCT PRESENTATION', row0: 4, col0: 2, n: 12 }
 };
@@ -163,7 +163,7 @@ function kscThev_(ctx, src, why) {
   var X = kscThevRead_(ss);
   if (X.err) { out.status = 'error'; out.msg = X.err; return out; }
   try { out.url = kscUrl_(ss, X.sheet); } catch (eu) {}
-  var codes = Object.keys(KSC_THEV.CODES).filter(function (c) { return KSC_THEV.CODES[c][0] === src && L.rows[c] != null; });
+  var codes = Object.keys(KSC_THEV.CODES).filter(function (c) { return KSC_THEV.CODES[c][0] === src && L.rows[c] != null && !((KSC_THEV.CODES[c][2] || {}).content && !KSC_THEV.CONTENT.ON); });
   var fyRows = X.rows.filter(function (r) { return L.months.indexOf(r.ym) >= 0; });
   if (!fyRows.length) { out.status = 'error'; out.codes = []; out.msg = 'File "' + ss.getName() + '" ▸ ' + KSC_THEV.SHEET + ' chưa có sự kiện nào thuộc ' + L.fy + ' ⇒ chưa ghi số.'; return out; }
   var months = L.months.filter(function (m) { return m <= ctx.curYm; }), data = {};

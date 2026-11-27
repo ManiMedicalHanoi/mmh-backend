@@ -478,7 +478,7 @@ var THD_STEP = {
       ['D. KPI FY68 (TARGET & KPI ⇄ MMH KPI FY68 file, synced by the KPI Sync Center)'],
       ['Yong: F4-00 turnover (40%) · C2-01 new key accounts (20%) · C2-02 visits to distributor key accounts (10%, ACCOUNT TRACKING ▸ Key account = Yes) · C4-01 co-visits incl. Event/Co-visiting (20%) · L3-21 KBI (10%, KPI file)'],
       ['Man: F4-00 (25%) · C4-03 co-visiting days, at least 5 co-visits a day (15%) · C11-02 T&E events led by MMH — PRODUCT PRESENTATION (25%) · C11-03 product test pass rate, target 60% (25%, sheet PRODUCT TEST) · L3-22 KBI (10%)'],
-      ['Sui: F4-00 (20%) · C14-00 T&E events KOL + MMH + exhibitions (20%) · C16-00 participants in T&E events (30%) · C17-07 product content published (20%) · L3-20 KBI (10%)'],
+      ['Sui: F4-00 (20%) · C14-00 T&E events KOL + MMH + exhibitions (20%) · C16-00 participants in T&E events (30%) · C17-07 online content published, every type, 6 a month (20%) · L3-20 KBI (10%)'],
       ['KPI file of 4 Nov 2026 (Owen san). Targets come from the KPI file. Turnover, events (C11-02 · C14-00) and participants (C16-00) come from the KPI file (Turnover report · 2. Thailand - Dental Event Report + PRODUCT PRESENTATION). C17-07: typed in the KPI file. C11-03 = sheet PRODUCT TEST (Pass ÷ tests). C2-02 = CUSTOMER TASK visits to the key accounts of ACCOUNT TRACKING.'],
       [''],
       ['E. REPORTS'],

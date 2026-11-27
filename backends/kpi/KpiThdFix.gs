@@ -21,7 +21,7 @@ var KTD = {
     'C2-01': { t: [2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3], fy: 30 },
     'C2-02': { name: 'Number of Visits to Distributor Key Accounts – Dental Thailand', unit: 'Times', agg: 'SUM',
                ref: 'Thailand Dental - Sale Action Report FY68 (CUSTOMER TASK · key accounts = ACCOUNT TRACKING ▸ Key account = Yes)',
-               t: [6, 6, 6, 6, 9, 9, 9, 9, 9, 9, 9, 9], fy: 96, clearActual: true },
+               t: [6, 6, 6, 6, 9, 9, 9, 9, 9, 9, 9, 9], fy: 96 }   /* clearActual (1 lần, 11/11/2026) đã bỏ: số hiện tại do KSC ghi */,
     'C4-01': { ref: 'Thailand Dental - Sale Action Report FY68 (visit type: Co-visiting with distributor · Event/Co-visiting with distributor)',
                t: [15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15], fy: 180 },
     'C4-03': { ref: 'Thailand Dental - Sale Action Report FY68 (visit type: Co-visiting with distributor · days with at least 5 visits)',
@@ -33,8 +33,10 @@ var KTD = {
                 t: [2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3], fy: 30 },
     'C16-00': { name: 'Number of Participants in T&E Events – Dental Thailand', unit: 'Participants', agg: 'SUM',
                 ref: '2. Thailand - Dental Event Report (REPORT_EVENT ▸ Actual Participant)',
-                t: [20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20], fy: 240, clearActual: true },
-    'C17-07': { ref: '2. Thailand - Dental Event Report FY68 (ONLINE CONTENT: Status = Published + link)', t: [6, 6, 6, 6, 8, 8, 8, 8, 10, 10, 12, 12], fy: 108 }
+                t: [20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20], fy: 240 },
+    /* 27/11/2026 — Sui (email 26/11, đã thống nhất với Owen san), người dùng chốt: mọi nội dung online, 6 bài / tháng */
+    'C17-07': { name: 'Number of Online Content Items Published – Dental Thailand',
+               ref: 'Thailand Dental online content (counting source to be agreed)', t: [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6], fy: 72 }
   },
   /* 3B. KPI Source Map — [Actual Source, Calculation Method / Status] */
   SRC: {
@@ -46,7 +48,7 @@ var KTD = {
     'C11-03': ['CRM Thailand Dental · PRODUCT TEST', 'Pass ÷ tests with a result, from the start of the FY (one row = one test of one distributor sales rep, Google Form result link as evidence). Target 60%.'],
     'C14-00': ['Event Dental Thailand (REPORT_EVENT) + CRM Thailand Dental · PRODUCT PRESENTATION', 'Events led by KOLs, MMH members and exhibitions (Action Status As planned / Additional / Change schedule) + PRODUCT PRESENTATION sessions not in the event file.'],
     'C16-00': ['Event Dental Thailand (REPORT_EVENT ▸ Actual Participant)', 'Sum of Actual Participant of the counted events, by Month. Working rule until the detailed rule is confirmed.'],
-    'C17-07': ['Event Dental Thailand (sheet ONLINE CONTENT)', 'Posts with Status = Published and a link, by the month of Date posted (27 Nov 2026: every type of online content counts — agreed by Sui and Owen san). Monthly targets fixed by Owen san (4 Nov 2026), change pending.']
+    'C17-07': ['Thailand Dental online content (source to be agreed — typed in the KPI file for now)', 'Every type of content published online counts, not only product content (agreed 26 Nov 2026 by Sui and Owen san). Target 6 items per month. Counting source and detailed rule to be confirmed.']
   },
   MARK: 'agreed 4 Nov 2026'
 };
@@ -81,8 +83,10 @@ KTD.RULE = {
       '• Counts participants in the T&E events of Dental Thailand.\n2. Conditions\n' +
       '• Working rule until the detailed rule is confirmed: sum of "Actual Participant" of the counted events in REPORT_EVENT of the Dental Event Report (Action Status As planned / Additional / Change schedule), by Month.\n' +
       '• Max 130% (month, quarter, FY).',
-  C17: 'DENTAL THAILAND  ·  C17-07 Product content items published (Sui)\n' +
-      '• Counted only from the plan and report file Thailand Dental - Digital Plan FY68; count = sum of the months. Monthly targets fixed by Owen san (4 Nov 2026). Max 130% (month, quarter, FY).'
+  C17: 'DENTAL THAILAND  ·  C17-07 Online content items published (Sui)\n' +
+      '• Every type of content published online counts, not only product content (agreed 26 Nov 2026 by Sui and Owen san).\n' +
+      '• Target: 6 items per month (72 per FY). Count = sum of the months.\n' +
+      '• Counting source and detailed rule to be confirmed. Max 130% (month, quarter, FY).'
 };
 
 function kscThdApi_(p) {
@@ -176,6 +180,7 @@ function ktdPatch_(ss, dry) {
         nD = D.replace(/C16-00\s+New Product Categories Launched[^\n]*/, 'C16-00  Participants in T&E Events – Dental Thailand');
         nE = KTD.RULE.C16;
       } else if (/^Marketing – Digital & Design/.test(grp)) {
+        nD = D.replace(/C17-07\s+[^\n]*Product Content[^\n]*/, 'C17-07  Online Content Items Published – Dental Thailand');
         nE = E.indexOf('DENTAL THAILAND  ·  C17-07') >= 0 ? E.slice(0, E.indexOf('DENTAL THAILAND  ·  C17-07')) + KTD.RULE.C17 : E.replace(/\s+$/, '') + '\n\n' + KTD.RULE.C17;
       } else return;
       nE = nE.replace(/\n{3,}/g, '\n\n');
