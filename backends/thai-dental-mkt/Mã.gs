@@ -74,6 +74,7 @@ function evRoute_(p){
     case 'delete':    return evOnce_(p, function(){ return evDelete_(p); });
     case 'followup':  return evOnce_(p, function(){ return evFollowup_(p); });
     case 'budgetSheet': return evOnce_(p, function(){ return evBudgetSheet_(p); });
+    case 'content':   return evContent_(p);   /* 27/11/2026 — sheet ONLINE CONTENT for KPI C17-07 (EV_Content.gs) */
     default:          return { ok:false, error:'Unknown action: ' + a };
   }
 }

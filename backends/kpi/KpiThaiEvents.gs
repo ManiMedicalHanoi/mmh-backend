@@ -21,6 +21,10 @@
        KHÔNG trùng ngày với 1 sự kiện của file sự kiện (trùng ngày ⇒ cùng 1 buổi, tính 1 lần).
      · C14-00 (Sui) = mọi sự kiện của file sự kiện + các buổi PRODUCT PRESENTATION không trùng ngày ("these events also count in C14-00").
      · C16-00 (Sui, thay "New product categories") = tổng cột Actual Participant của các sự kiện được tính (rule tạm, chờ xác nhận).
+   v1.2 (27/11/2026 — Sui email 26/11, đã thống nhất với Owen san): C17-07 (Sui) = số bài đăng online ở sheet ONLINE CONTENT của file
+     sự kiện Dental (backend thai-dental-mkt ▸ EV_Content.gs tạo sheet): dòng Status = Published + có link (http…), theo tháng của Date posted,
+     ngày ≤ hôm nay; MỌI loại nội dung (KSC_THEV.CONTENT.SCOPE = 'all'; 'product' = chỉ Content type = Product). Chỉ ghi từ tháng đầu tiên
+     có dòng trong sheet (sheet trống ⇒ không ghi, giữ ô nhập tay).
    ════════════════════════════════════════════════════════════════════ */
 var KSC_THEV = {
   SHEET     : 'REPORT_EVENT',
@@ -38,7 +42,8 @@ var KSC_THEV = {
     'C11-01a': ['th_surg', function (e) { return e.kind === 'mmh' && /manipler/.test(e.prodKey); }],
     'C14-00' : ['th_dent', function (e) { return true; }, { pres: true }],
     'C11-02' : ['th_dent', function (e) { return e.kind === 'mmh'; }, { pres: true }],
-    'C16-00' : ['th_dent', function (e) { return true; }, { sum: 'pp' }]
+    'C16-00' : ['th_dent', function (e) { return true; }, { sum: 'pp' }],
+    'C17-07' : ['th_dent', null, { content: true }]
   },
   RULES: {
     'C13-00' : 'Số sự kiện Surgical Thái do KOL dẫn (cột KOL/PIC không phải "MMH …") cộng triển lãm (Exhibition, Booth activity) · REPORT_EVENT theo Month · Action Status = As planned / Additional / Change schedule.',
@@ -46,8 +51,11 @@ var KSC_THEV = {
     'C11-01a': 'Như C11-01, chỉ sự kiện có Target product chứa Manipler.',
     'C14-00' : 'Số sự kiện Dental Thái (KOL dẫn, MMH dẫn và triển lãm) · REPORT_EVENT theo Month · Action Status = As planned / Additional / Change schedule · cộng các buổi PRODUCT PRESENTATION của CRM Dental Thái (Actual > 0) không trùng ngày với sự kiện nào của file sự kiện.',
     'C11-02' : 'Buổi giới thiệu sản phẩm / demo / case demo do thành viên MMH dẫn: sự kiện Dental Thái có KOL/PIC = "MMH …" (không phải triển lãm, Action Status = As planned / Additional / Change schedule) + buổi PRODUCT PRESENTATION của CRM Dental Thái (Actual > 0, ngày ≤ hôm nay) không trùng ngày với sự kiện của file sự kiện · theo tháng.',
-    'C16-00' : 'Số người tham dự sự kiện T&E Dental Thái = tổng cột Actual Participant của các sự kiện được tính (REPORT_EVENT theo Month, Action Status = As planned / Additional / Change schedule) · rule tạm, chờ xác nhận chi tiết.'
+    'C16-00' : 'Số người tham dự sự kiện T&E Dental Thái = tổng cột Actual Participant của các sự kiện được tính (REPORT_EVENT theo Month, Action Status = As planned / Additional / Change schedule) · rule tạm, chờ xác nhận chi tiết.',
+    'C17-07' : 'Số nội dung đăng online của Dental Thái = số dòng ở sheet ONLINE CONTENT (file sự kiện Dental) có Status = Published và có link, theo tháng của Date posted (ngày ≤ hôm nay) · mọi loại nội dung (Sui đề xuất, đã thống nhất với Owen san 26/11/2026).'
   },
+  /* v1.2 — sheet ONLINE CONTENT của file sự kiện Dental (EV_Content.gs của thai-dental-mkt) */
+  CONTENT: { sheet: 'ONLINE CONTENT', SCOPE: 'all' },
   /* v1.1 — buổi PRODUCT PRESENTATION của CRM Dental Thái (cột cố định B…M: No · Account · PIC · Province · Area · FY · Month · Day · Folder · Review · Target · Actual) */
   PRES: { team: 'thaid', sheet: 'PRODUCT PRESENTATION', row0: 4, col0: 2, n: 12 }
 };
@@ -88,6 +96,32 @@ function kscThevPres_(ctx) {
 function kscThevPresOnly_(pres, events) {
   var days = {}; events.forEach(function (e) { if (e.counted) { var d = kscThevDay_(e.date); if (d) days[d] = 1; } });
   return pres.filter(function (x) { return !(x.day && days[x.day]); });
+}
+/* v1.2 — bài đăng online (sheet ONLINE CONTENT): Published + link, ngày ≤ hôm nay */
+function kscThevContent_(ss) {
+  var C = KSC_THEV.CONTENT, sh = ss.getSheetByName(C.sheet), today = Utilities.formatDate(new Date(), KSC.TZ, 'yyyy-MM-dd');
+  if (!sh) return { err: 'file chưa có sheet "' + C.sheet + '"', rows: [], all: [] };
+  var lr = sh.getLastRow(); if (lr < 2) return { rows: [], all: [], sheet: sh };
+  var V = sh.getRange(1, 1, lr, Math.min(Math.max(sh.getLastColumn(), 9), 20)).getValues(), hr = -1, H = {};
+  for (var i = 0; i < Math.min(6, V.length) && hr < 0; i++) {
+    var h = V[i].map(kscNorm_);
+    if (h.indexOf('date posted') >= 0 && h.indexOf('link') >= 0) { hr = i; h.forEach(function (x, k) { if (x && H[x] == null) H[x] = k; }); }
+  }
+  if (hr < 0) return { err: 'sheet "' + C.sheet + '" không có dòng tiêu đề (Date posted, Link)', rows: [], all: [] };
+  function g(x, n) { return H[n] == null ? '' : x[H[n]]; }
+  var all = [], rows = [];
+  for (var r = hr + 1; r < V.length; r++) {
+    var x = V[r], d = g(x, 'date posted'), link = String(g(x, 'link') || '').trim(), title = String(g(x, 'title / topic') || '').trim();
+    if (!d && !link && !title) continue;
+    var day = kscThevDay_(d), ym = day ? Number(day.slice(0, 4) + day.slice(5, 7)) : 0;
+    var o = { row: r + 1, ym: ym, day: day, title: title, link: link, channel: String(g(x, 'channel') || '').trim(),
+              type: String(g(x, 'content type') || '').trim(), status: kscNorm_(g(x, 'status')) };
+    all.push(o);
+    if (!ym || day > today || o.status !== 'published' || !/^https?:\/\//i.test(link)) continue;
+    if (C.SCOPE === 'product' && kscNorm_(o.type) !== 'product') continue;
+    rows.push(o);
+  }
+  return { rows: rows, all: all, sheet: sh };
 }
 function kscThevKind_(typeKey, kolKey) {
   if (KSC_THEV.EXHIBIT_RE.test(typeKey)) return 'exh';
@@ -139,8 +173,22 @@ function kscThev_(ctx, src, why) {
     try { PR = kscThevPres_(ctx); } catch (eP) { PR = { err: String(eP && eP.message || eP), rows: [] }; }
     presOnly = kscThevPresOnly_(PR.rows || [], X.rows);
   }
+  /* v1.2 — C17-07: bài đăng online (sheet ONLINE CONTENT) */
+  var CT = null, ctMsg = '';
+  if (codes.some(function (c) { return (KSC_THEV.CODES[c][2] || {}).content; })) {
+    try { CT = kscThevContent_(ss); } catch (eC) { CT = { err: String(eC && eC.message || eC), rows: [], all: [] }; }
+    var ctAll = CT.all.filter(function (x) { return L.months.indexOf(x.ym) >= 0; }), ctFirst = ctAll.length ? Math.min.apply(null, ctAll.map(function (x) { return x.ym; })) : 0;
+    ctMsg = CT.err ? ' · ONLINE CONTENT: ⚠ ' + CT.err : ' · ONLINE CONTENT: ' + CT.rows.length + ' bài Published có link' + (ctFirst ? ' (ghi từ ' + ctFirst + ')' : ' — sheet trống, chưa ghi C17-07');
+  }
   codes.forEach(function (c) {
     var fn = KSC_THEV.CODES[c][1], o = KSC_THEV.CODES[c][2] || {}; data[c] = {};
+    if (o.content) {
+      out.rules[c] = KSC_THEV.RULES[c];
+      try { out.codeUrls[c] = CT && CT.sheet ? kscUrl_(ss, CT.sheet) : (out.url || ''); } catch (eU) { out.codeUrls[c] = out.url || ''; }
+      if (!CT || CT.err || !ctFirst) return;
+      months.forEach(function (m) { if (m >= ctFirst) data[c][m] = CT.rows.filter(function (x) { return x.ym === m; }).length; });
+      return;
+    }
     months.forEach(function (m) {
       var ev = fyRows.filter(function (e) { return e.ym === m && e.counted && fn(e); });
       var v = o.sum ? ev.reduce(function (a, e) { return a + (Number(e[o.sum]) || 0); }, 0) : ev.length;
@@ -159,7 +207,7 @@ function kscThev_(ctx, src, why) {
     return m + ': ' + ev.length + ' sự kiện (KOL ' + n('kol') + ' · MMH ' + n('mmh') + ' · triển lãm ' + n('exh') + ')';
   }).join(' | ');
   var prMsg = PR ? ' · PRODUCT PRESENTATION: ' + (PR.err ? '⚠ ' + PR.err : (PR.rows || []).length + ' buổi đã diễn ra, ' + presOnly.length + ' buổi không trùng ngày sự kiện') : '';
-  return kscResult_(out, st, 'File "' + ss.getName() + '" · ' + fyRows.length + ' dòng ' + L.fy + ' · ' + last + (skip ? ' · ' + skip + ' dòng không tính (Action Status khác)' : '') + prMsg);
+  return kscResult_(out, st, 'File "' + ss.getName() + '" · ' + fyRows.length + ' dòng ' + L.fy + ' · ' + last + (skip ? ' · ' + skip + ' dòng không tính (Action Status khác)' : '') + prMsg + ctMsg);
 }
 function kscThevSrcOf_(code) { var x = KSC_THEV.CODES[code]; return x ? x[0] : ''; }
 function kscThevRule_(code) { return KSC_THEV.RULES[code] || ''; }
@@ -172,6 +220,15 @@ function kscThevExplain_(code, X, R, reach, A) {
   if (Y.err) return ['Chưa đọc được file sự kiện (' + Y.err + ').'];
   try { X.url = kscUrl_(ss, Y.sheet); } catch (eu) {}
   var fn = KSC_THEV.CODES[code][1], o = KSC_THEV.CODES[code][2] || {}, KIND = { kol: 'KOL', mmh: 'MMH', exh: 'triển lãm' };
+  if (o.content) {
+    var CT2; try { CT2 = kscThevContent_(ss); } catch (eC) { CT2 = { err: String(eC && eC.message || eC), rows: [] }; }
+    if (CT2.err) return ['Chưa đọc được bài đăng online (' + CT2.err + ').'];
+    try { X.url = kscUrl_(ss, CT2.sheet); } catch (eu2) {} X.sheet = KSC_THEV.CONTENT.sheet;
+    var po = CT2.rows.filter(function (x) { return R.eff.indexOf(x.ym) >= 0; }), lines = [(po.length ? po.length + ' bài đăng online' : 'Chưa có bài đăng online nào được tính') + reach + (po.length ? ':' : '.')];
+    po.slice(0, 12).forEach(function (x) { lines.push('• ' + x.day.slice(8, 10) + '/' + x.day.slice(5, 7) + ': ' + (x.title || '(chưa ghi tiêu đề)') + (x.channel ? ' (' + x.channel + (x.type ? ' · ' + x.type : '') + ')' : '')); });
+    if (po.length > 12) lines.push('và ' + (po.length - 12) + ' bài khác.');
+    return lines;
+  }
   var ev = Y.rows.filter(function (e) { return R.eff.indexOf(e.ym) >= 0 && e.counted && fn(e); }), out = [];
   var pr = [];
   if (o.pres) { try { var ctx0 = { ss: SpreadsheetApp.getActive() }; pr = kscThevPresOnly_(kscThevPres_(ctx0).rows || [], Y.rows).filter(function (x) { return R.eff.indexOf(x.ym) >= 0; }); } catch (eP) {} }
