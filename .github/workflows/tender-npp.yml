@@ -1,13 +1,14 @@
 name: Gói thầu NPP — báo cáo mở thầu / kết quả
 # 28/11/2026 (người dùng yêu cầu): gói Pending trong file thầu NPP (Hùng Vĩ · iCare) ⇒ hồ sơ đã tải (biên bản mở thầu, HSMT) ⇒ phân tích + ảnh bằng chứng + PDF
 # ⇒ email (tender-info ▸ botNpp, MMH_WatchNpp.gs): To PIC địa bàn, CC Tuyen · Nguyen Ha · Giang; khi có kết quả ⇒ trả lời trong cùng luồng thư.
-# tools/npp/npp_report.py. Gửi thật chỉ khi máy chủ đã bật (botNpp op=on); chưa bật ⇒ chỉ đặt tải hồ sơ còn thiếu.
+# tools/npp/npp_report.py. Gửi thật chỉ khi máy chủ đã bật (chạy tay mode=on hoặc botNpp op=on); chưa bật ⇒ chỉ đặt tải hồ sơ còn thiếu.
+# Từ 28/11/2026 (v1.3) CHỈ gửi bằng hộp thư mmh.notify@gmail.com (secret NOTIFY_SMTP_PASS) — không bao giờ gửi bằng mmh.product.
 on:
   schedule:
     - cron: '17 0-14 * * *'   # mỗi giờ 07:17 → 21:17 giờ Việt Nam
   workflow_dispatch:
     inputs:
-      mode: { description: 'test = gửi THỬ cho 1 người (ô to) · preview = gửi bản xem trước về tài khoản chạy máy chủ · live = gửi thật · dry = chỉ dựng file (artifact) · plan = chỉ liệt kê + đặt tải', default: 'test', type: choice, options: [test, preview, live, dry, plan] }
+      mode: { description: 'test = gửi THỬ cho 1 người (ô to) · preview = gửi bản xem trước về tài khoản chạy máy chủ · live = gửi thật · on = BẬT gửi thật rồi chạy live · off = TẮT gửi thật · dry = chỉ dựng file (artifact) · plan = chỉ liệt kê + đặt tải', default: 'test', type: choice, options: [test, preview, live, on, off, dry, plan] }
       tbmt: { description: 'Số TBMT (tuỳ chọn, nhiều số cách dấu phẩy)', default: '' }
       to: { description: 'test: tên PIC nhận thư thử', default: 'Giang' }
       force: { description: 'Gửi lại gói đã gửi (chỉ khi nhập số TBMT)', type: boolean, default: false }
@@ -24,7 +25,8 @@ jobs:
       NOTIFY_SMTP_PASS: ${{ secrets.NOTIFY_SMTP_PASS }}
       NPP_NO: ${{ inputs.tbmt }}
       NPP_MAX: ${{ inputs.max }}
-      NPP_TARGET: ${{ inputs.mode || 'live' }}
+      NPP_TARGET: ${{ (inputs.mode == 'on' && 'live') || (inputs.mode == 'off' && 'plan') || inputs.mode || 'live' }}
+      NPP_SWITCH: ${{ (inputs.mode == 'on' || inputs.mode == 'off') && inputs.mode || '' }}
       NPP_TEST_TO: ${{ inputs.to || 'Giang' }}
       NPP_FORCE: ${{ inputs.force && '1' || '' }}
     steps:
@@ -36,14 +38,14 @@ jobs:
         env: { NPP_MODE: plan }
         run: python3 tools/npp/npp_report.py
       - name: Công cụ đọc / cắt tài liệu, dựng PDF
-        if: ${{ steps.plan.outputs.need == '1' && (inputs.mode || 'live') != 'plan' }}
+        if: ${{ steps.plan.outputs.need == '1' && env.NPP_TARGET != 'plan' }}
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils libreoffice-writer-nogui fonts-dejavu fonts-noto-core >/dev/null
           pip install -q pillow numpy playwright==1.48.0
           python3 -m playwright install --with-deps chromium >/dev/null
       - name: Phân tích + gửi email
-        if: ${{ steps.plan.outputs.need == '1' && (inputs.mode || 'live') != 'plan' }}
-        env: { NPP_MODE: '${{ inputs.mode || ''live'' }}' }
+        if: ${{ steps.plan.outputs.need == '1' && env.NPP_TARGET != 'plan' }}
+        env: { NPP_MODE: '${{ env.NPP_TARGET }}' }
         run: python3 tools/npp/npp_report.py
       - uses: actions/upload-artifact@v4
         if: always()

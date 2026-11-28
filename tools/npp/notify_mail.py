@@ -1,6 +1,6 @@
 """Gửi email bằng hộp thư hệ thống mmh.notify (Gmail SMTP + mật khẩu ứng dụng) — 28/11/2026, người dùng yêu cầu
 (đỡ quá tải hạn mức email của mmh.product). Biến môi trường: NOTIFY_SMTP_USER (địa chỉ) · NOTIFY_SMTP_PASS (mật khẩu ứng dụng,
-GitHub secret — KHÔNG ghi vào repo). Chưa có ⇒ ready() = False ⇒ luồng gọi gửi bằng máy chủ (mmh.product) như cũ.
+GitHub secret — KHÔNG ghi vào repo). Chưa có ⇒ ready() = False ⇒ KHÔNG gửi (v1.3: email thầu chỉ gửi bằng mmh.notify).
 """
 import os, smtplib, mimetypes, time
 from email.message import EmailMessage
