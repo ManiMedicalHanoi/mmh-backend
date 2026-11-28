@@ -596,8 +596,8 @@ def html_mo(R, for_pdf=False):
     s.append(f"<p>Giá gói <b>{ty(R['price'])}</b> · <b>{len(R['lots'])} phần</b>, chọn nhà thầu <b>{'theo từng phần' if R['byPart'] else 'cả gói'}</b> · "
              f"<b>{H(pk['npp'])} dự {len(mine)} phần</b> · hợp đồng <b>{H(dur)}</b> · mở thầu {H((F['Thời điểm hoàn thành mở thầu'] or R['opened'].strftime('%d/%m/%Y'))[:10])}, {H(nb)} nhà thầu</p>")
     rem = V[0]['rem'] if V else 0
-    fyl = f'Doanh số MMH FY{fyn} (09/{fyn + 1958} – 08/{fyn + 1959}) · {rem} tháng từ {R["start"].strftime("%m/%Y")}'
-    s.append(tbl(['Giá trị NPP chào (nếu trúng)', 'Doanh số MMH (nếu trúng)', fyl], [[f'<b>{usd(tw)}</b>', f'<b>{usd(tm)}</b>' if tm else '—', f'<b>{usd(cm)}</b>' if tm else '—']]))
+    fyl = f'Doanh số MMH ước tính FY{fyn} theo hiệu lực HĐ (09/{fyn + 1958} – 08/{fyn + 1959}) · {rem} tháng từ {R["start"].strftime("%m/%Y")}'
+    s.append(tbl(['Giá trị NPP chào (nếu trúng)', 'Doanh số MMH ước tính cả HĐ (nếu trúng)', fyl], [[f'<b>{usd(tw)}</b>', f'<b>{usd(tm)}</b>' if tm else '—', f'<b>{usd(cm)}</b>' if tm else '—']]))
     if mine:
         rows = [[l['code'], H(l['name'][:60]), ', '.join(H(c) for c in l.get('npp_codes', [])) or '—', rank_cell(l), chance(l)] for l in mine]
         s.append('<p><b>Khả năng trúng</b> — ' + (f'giá thấp nhất <b>{len(w1)}/{len(mine)}</b> phần' if mine else '') + (f', cao hơn đối thủ {len(wl)} phần' if wl else '') + '</p>')
@@ -648,7 +648,7 @@ def html_mo(R, for_pdf=False):
         s.append('<h3>4. Giá trị ước tính từng phần</h3>')
         rows = [[v['lot']['code'], v['code'], vnd(v['qty']) if v['qty'] else '—', usd(v['bid']), usd(v['mmh']) if v['mmh'] else '—', usd(v['cm']) if v['mmh'] else '—'] for v in V]
         rows.append(['<b>Tổng</b>', '', '', f'<b>{usd(tw)}</b>', f'<b>{usd(tm)}</b>' if tm else '—', f'<b>{usd(cm)}</b>' if tm else '—'])
-        s.append(tbl(['Phần', 'Mã', 'SL', 'NPP chào', 'Doanh số MMH', f'MMH FY{fyn}'], rows))
+        s.append(tbl(['Phần', 'Mã', 'SL', 'NPP chào', 'Doanh số MMH ước tính', f'Ước tính FY{fyn}'], rows))
     return '\n'.join(s)
 
 def name_or(s): return s or 'Không rõ'
