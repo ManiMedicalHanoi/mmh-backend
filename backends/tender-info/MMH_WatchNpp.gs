@@ -1,5 +1,8 @@
 /**************************************************************************************************
- * MMH · BÁO CÁO GÓI THẦU NPP CỦA MANI ĐANG THAM DỰ (28/11/2026, người dùng yêu cầu) — MMH_WatchNpp.gs v1.0
+ * MMH · BÁO CÁO GÓI THẦU NPP CỦA MANI ĐANG THAM DỰ (28/11/2026, người dùng yêu cầu) — MMH_WatchNpp.gs v1.3
+ *
+ * ⭐ v1.3 (28/11/2026, người dùng yêu cầu): email thầu CHỈ gửi từ hộp thư mmh.notify@gmail.com (GitHub SMTP: op=prep ⇒ gửi ⇒ op=mark).
+ *   op=send (gửi bằng tài khoản chạy máy chủ mmh.product) bị TẮT — chỉ mở lại khi Script Property NPPM_PRODUCT = 1.
  *
  * Gói có số TBMT trong file thầu của NPP (Hùng Vĩ · iCare, backend tender-hungvi / tender-icare ▸ winMap) còn "Pending"
  * ⇒ khi hệ thống đã tải biên bản mở thầu + HSMT ⇒ workflow "Gói thầu NPP — báo cáo mở thầu / kết quả" (tools/npp/npp_report.py)
@@ -20,7 +23,7 @@
  *   botNpp {key, op:'mark', …, msgId, subject}             ⇒ ghi đã gửi (như send)
  * Trạng thái: Script Property NPPM_<số TBMT> (JSON), tuần: NPPM_W<thứ Bảy đầu tuần>, dấu kết quả: NPPMW_SEEN_<n>. Chỉ khoá bot (không cho tiện ích dùng phiên email).
  **************************************************************************************************/
-const NPPM = { VER: '1.2', CC: ['Tuyen', 'Nguyen Ha', 'Giang'], TO: { N: 'Viet Ha', S: 'Khang' }, MAX_B64: 24 * 1048576 };
+const NPPM = { VER: '1.3', CC: ['Tuyen', 'Nguyen Ha', 'Giang'], TO: { N: 'Viet Ha', S: 'Khang' }, MAX_B64: 24 * 1048576 };
 
 function nppmAction_(p) {
   const op = wtS_(p.op) || 'state', P = PropertiesService.getScriptProperties();
@@ -95,6 +98,8 @@ function nppmKq_(p) {
 
 /** gửi email báo cáo (lần 1 = thư mới · lần 2 = trả lời trong luồng thư lần 1) */
 function nppmSend_(p) {
+  if (PropertiesService.getScriptProperties().getProperty('NPPM_PRODUCT') !== '1')
+    return { ok: false, code: 'NOTIFY_ONLY', error: 'Email thầu chỉ gửi bằng hộp thư mmh.notify (op=prep / op=mark), không gửi bằng tài khoản máy chủ.' };
   const wk = wtS_(p.stage) === 'wk' ? wtS_(p.wk) : '';
   if (wtS_(p.stage) === 'wk' && !/^\d{4}-\d{2}-\d{2}$/.test(wk)) return { ok: false, error: 'thiếu wk' };
   const b = wk ? 'W' + wk : wtBare_(String(p.no || '').toUpperCase()), stage = wk ? 'wk' : wtS_(p.stage) === 'kq' ? 'kq' : 'mo';

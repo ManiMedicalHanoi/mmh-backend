@@ -24,6 +24,7 @@ RATE = 26000
 WORK = os.environ.get('NPP_WORK', '/tmp/npp')
 os.makedirs(WORK, exist_ok=True)
 LOG = []
+FAIL = []                         # gói gửi lỗi (workflow báo đỏ)
 
 def log(*a):
     s = ' '.join(str(x) for x in a); print(s, flush=True); LOG.append(s)
@@ -667,7 +668,8 @@ def make_pdf(title, body_html, out):
     return out
 
 def notify_send(body, inl, att):
-    """gửi qua mmh.notify: máy chủ kiểm + tra người nhận (prep) ⇒ SMTP ⇒ ghi đã gửi (mark). None = để máy chủ gửi."""
+    """gửi qua mmh.notify: máy chủ kiểm + tra người nhận (prep) ⇒ SMTP ⇒ ghi đã gửi (mark).
+    v1.3 (28/11/2026, người dùng yêu cầu): CHỈ gửi bằng mmh.notify — lỗi SMTP ⇒ báo lỗi, KHÔNG gửi bằng mmh.product."""
     meta = {k: v for k, v in body.items() if k not in ('html', 'inl', 'att')}
     pr = post(dict(meta, op='prep'), tries=2)
     if not pr.get('ok') or pr.get('skip'):
@@ -678,7 +680,8 @@ def notify_send(body, inl, att):
     try:
         mid = NM.send(pr['to'], pr.get('cc') or [], subj, body['html'], inline=inl, attach=att, reply_id=rep.get('msgId') or '')
     except Exception as e:
-        log('  mmh.notify lỗi ⇒ gửi bằng máy chủ:', str(e)[:200]); return None
+        r = {'ok': False, 'via': 'mmh.notify', 'error': 'SMTP mmh.notify lỗi: ' + str(e)[:300]}
+        log('  gửi:', json.dumps(r, ensure_ascii=False)); FAIL.append(body.get('no') or body.get('wk')); return r
     mk = post(dict(meta, op='mark', msgId=mid, subject=body['subject'], replied=1 if rep.get('msgId') else ''), tries=3)
     r = {'ok': True, 'via': 'mmh.notify', 'stage': pr.get('stage'), 'to': ', '.join(pr.get('toNames') or []), 'cc': ', '.join(pr.get('ccNames') or []), 'replied': bool(rep.get('msgId')), 'mark': mk.get('ok')}
     log('  gửi:', json.dumps(r, ensure_ascii=False)); return r
@@ -692,12 +695,9 @@ def send(no, stage, subject, html_body, inl, att, R):
     if MODE == 'test': body['testTo'] = TEST_TO
     if FORCE and ONLY: body['force'] = 1
     if MODE == 'dry': log('  (dry) không gửi:', subject); return {'ok': True, 'dry': True}
-    if NM.ready():                                   # v1.2: gửi bằng mmh.notify; lỗi ⇒ máy chủ gửi bằng mmh.product như cũ
-        r = notify_send(body, [(c, f) for c, f, _ in inl], att)
-        if r is not None: return r
-    r = post(body, tries=2)
-    log('  gửi:', json.dumps({k: r.get(k) for k in ('ok', 'stage', 'preview', 'to', 'cc', 'replied', 'skip', 'error', 'code', 'quota', 'htmlKB', 'fileKB', 'images') if r.get(k) is not None}, ensure_ascii=False))
-    return r
+    if not NM.ready():                               # v1.3: chỉ mmh.notify — thiếu secret NOTIFY_SMTP_PASS ⇒ không gửi
+        log('  KHÔNG gửi: thiếu NOTIFY_SMTP_USER / NOTIFY_SMTP_PASS (hộp thư mmh.notify).'); FAIL.append(no); return {'ok': False, 'error': 'thiếu mmh.notify'}
+    return notify_send(body, [(c, f) for c, f, _ in inl], att)
 
 def run_mo(pk, hits):
     R, why = build_mo(pk, hits)
@@ -749,6 +749,9 @@ def main():
     if not KEY: log('Thiếu WT_BOT_KEY'); sys.exit(1)
     P = load_npp()
     if ONLY: P = {k: v for k, v in P.items() if k in ONLY}
+    sw = os.environ.get('NPP_SWITCH') or ''
+    if MODE == 'plan' and sw in ('on', 'off'):           # bật / tắt gửi thật (Script Property NPPM_ON)
+        r = post({'action': 'botNpp', 'op': sw}); log(f'Gửi thật: {"BẬT" if r.get("on") else "TẮT"}', '' if r.get('ok') else r.get('error'))
     st = post({'action': 'botNpp', 'op': 'state'}); S = st.get('state') or {}
     log(f'Gói NPP Pending: {len(P)} · đã gửi: {len(S)} · gửi thật: {"bật" if st.get("on") else "tắt"}')
     H = load_hits(set(P))
@@ -775,6 +778,8 @@ def main():
                 log(f'  {no}: đặt tải →', r.get('queued'), r.get('missing'))
                 time.sleep(3)
         return
+    if MODE in ('live', 'test', 'preview') and not NM.ready():
+        log('LỖI: thiếu hộp thư mmh.notify (NOTIFY_SMTP_USER / secret NOTIFY_SMTP_PASS) ⇒ không gửi email nào.'); sys.exit(1)
     MAXN = int(os.environ.get('NPP_MAX') or (99 if MODE in ('live', 'test') or ONLY else 1)); done = 0
     for no, t in todo:
         if t == 'queue': continue   # bước plan đã đặt tải
@@ -787,5 +792,6 @@ def main():
         except Exception as e:
             import traceback; log('  LỖI:', e); traceback.print_exc()
     open(os.path.join(OUTD, 'log.txt'), 'w', encoding='utf-8').write('\n'.join(LOG))
+    if FAIL: log('Gửi lỗi:', ', '.join(map(str, FAIL))); sys.exit(1)
 
 if __name__ == '__main__': main()
