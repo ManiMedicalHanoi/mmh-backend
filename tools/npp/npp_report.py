@@ -783,7 +783,9 @@ def main():
         if go: open(go, 'a').write(f'need={1 if need else 0}\n')
         nq = 0
         for no, w, hold in QUEUE:          # v1.4: gói NPP lên ĐẦU hàng đợi tải (info.pri = -1)
-            r = post({'action': 'botNpp', 'op': 'queue', 'no': no, 'want': ','.join(w), 'hold': hold}, tries=2)
+            q = {'action': 'botNpp', 'op': 'queue', 'no': no, 'want': ','.join(w), 'hold': hold}
+            if ONLY: q.update(pri=-2, force=1)   # gói chọn tay (ô tbmt) ⇒ tải trước cả các gói NPP khác, đặt lại ngay
+            r = post(q, tries=2)
             log(f'  {no}: tải ưu tiên {",".join(w)} →', r.get('why') or r.get('error'))
             if r.get('queued'): nq += 1
         if go: open(go, 'a').write(f'queued={nq}\n')
