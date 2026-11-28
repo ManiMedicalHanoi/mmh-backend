@@ -2,6 +2,7 @@ name: Gói thầu NPP — báo cáo mở thầu / kết quả
 # 28/11/2026 (người dùng yêu cầu): gói Pending trong file thầu NPP (Hùng Vĩ · iCare) ⇒ hồ sơ đã tải (biên bản mở thầu, HSMT) ⇒ phân tích + ảnh bằng chứng + PDF
 # ⇒ email (tender-info ▸ botNpp, MMH_WatchNpp.gs): To PIC địa bàn, CC Tuyen · Nguyen Ha · Giang; khi có kết quả ⇒ trả lời trong cùng luồng thư.
 # tools/npp/npp_report.py. Gửi thật chỉ khi máy chủ đã bật (chạy tay mode=on hoặc botNpp op=on); chưa bật ⇒ chỉ đặt tải hồ sơ còn thiếu.
+# Gói Pending thiếu TBMT / HSMT / biên bản mở thầu / kết quả ⇒ botNpp op=queue: lên ĐẦU hàng đợi bot tải (v1.4) rồi gọi ngay workflow tải hồ sơ.
 # Từ 28/11/2026 (v1.3) CHỈ gửi bằng hộp thư mmh.notify@gmail.com (secret NOTIFY_SMTP_PASS) — không bao giờ gửi bằng mmh.product.
 on:
   schedule:
@@ -14,7 +15,7 @@ on:
       force: { description: 'Gửi lại gói đã gửi (chỉ khi nhập số TBMT)', type: boolean, default: false }
       max: { description: 'Số gói tối đa lượt này (trống = preview 1 · live tất cả)', default: '' }
 concurrency: { group: tender-npp, cancel-in-progress: false }
-permissions: { contents: read }
+permissions: { contents: read, actions: write }
 jobs:
   npp:
     runs-on: ubuntu-latest
@@ -37,6 +38,10 @@ jobs:
         id: plan
         env: { NPP_MODE: plan }
         run: python3 tools/npp/npp_report.py
+      - name: Có gói vừa đặt tải ⇒ gọi bot tải hồ sơ ngay
+        if: ${{ steps.plan.outputs.queued != '' && steps.plan.outputs.queued != '0' }}
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: gh workflow run tender-dl.yml --ref main -R "$GITHUB_REPOSITORY" && echo "Đã gọi bot tải hồ sơ" || true
       - name: Công cụ đọc / cắt tài liệu, dựng PDF
         if: ${{ steps.plan.outputs.need == '1' && env.NPP_TARGET != 'plan' }}
         run: |

@@ -3,6 +3,9 @@
  *
  * ⭐ v1.3 (28/11/2026, người dùng yêu cầu): email thầu CHỈ gửi từ hộp thư mmh.notify@gmail.com (GitHub SMTP: op=prep ⇒ gửi ⇒ op=mark).
  *   op=send (gửi bằng tài khoản chạy máy chủ mmh.product) bị TẮT — chỉ mở lại khi Script Property NPPM_PRODUCT = 1.
+ * ⭐ v1.4 (28/11/2026, người dùng yêu cầu): gói NPP đang Pending được ƯU TIÊN tải hồ sơ trước mọi gói khác —
+ *   botNpp {key, op:'queue', no, want:'tbmt,hsmt,mo'|'kq,nt,hh', hold:giờ} ⇒ dòng GÓI TÌM THẤY của gói: info.pri = -1 (bot lấy trước, wtBotNext_), info.npp = 1,
+ *   vào hàng đợi với đúng loại tài liệu còn thiếu; mỗi gói + bộ tài liệu chỉ đặt lại sau `hold` giờ (mặc định 6) ⇒ trả {queued, why}.
  *
  * Gói có số TBMT trong file thầu của NPP (Hùng Vĩ · iCare, backend tender-hungvi / tender-icare ▸ winMap) còn "Pending"
  * ⇒ khi hệ thống đã tải biên bản mở thầu + HSMT ⇒ workflow "Gói thầu NPP — báo cáo mở thầu / kết quả" (tools/npp/npp_report.py)
@@ -23,7 +26,7 @@
  *   botNpp {key, op:'mark', …, msgId, subject}             ⇒ ghi đã gửi (như send)
  * Trạng thái: Script Property NPPM_<số TBMT> (JSON), tuần: NPPM_W<thứ Bảy đầu tuần>, dấu kết quả: NPPMW_SEEN_<n>. Chỉ khoá bot (không cho tiện ích dùng phiên email).
  **************************************************************************************************/
-const NPPM = { VER: '1.3', CC: ['Tuyen', 'Nguyen Ha', 'Giang'], TO: { N: 'Viet Ha', S: 'Khang' }, MAX_B64: 24 * 1048576 };
+const NPPM = { VER: '1.4', CC: ['Tuyen', 'Nguyen Ha', 'Giang'], TO: { N: 'Viet Ha', S: 'Khang' }, MAX_B64: 24 * 1048576 };
 
 function nppmAction_(p) {
   const op = wtS_(p.op) || 'state', P = PropertiesService.getScriptProperties();
@@ -40,6 +43,7 @@ function nppmAction_(p) {
   if (op === 'send') return nppmSend_(p);
   if (op === 'prep') return nppmPrep_(p);
   if (op === 'mark') return nppmMark_(p);
+  if (op === 'queue') return nppmQueue_(p);
   if (op === 'wkstate') {
     const wk = wtS_(p.wk); if (!/^\d{4}-\d{2}-\d{2}$/.test(wk)) return { ok: false, error: 'thiếu wk' };
     const st = wtJson_(P.getProperty((wtS_(p.test) ? 'NPPMT_W' : 'NPPM_W') + wk), {}) || {};
@@ -191,4 +195,32 @@ function nppmMark_(p) {
   c.P.setProperty(c.key, JSON.stringify(c.st));
   if (c.stage === 'wk' && !c.testTo && typeof p.seen === 'string') nppmSeenSet_(c.P, p.seen);
   return { ok: true, stage: c.stage, rec: c.st[c.stage] };
+}
+
+/* ⭐ v1.4 — gói NPP Pending: đưa lên ĐẦU hàng đợi tải (info.pri = -1), chỉ loại tài liệu còn thiếu */
+function nppmQueue_(p) {
+  const b = wtBare_(String(p.no || '').toUpperCase()); if (!/^IB\d{8,12}$/.test(b)) return { ok: false, error: 'thiếu no (IB…)' };
+  const want = wtWant_(p.want), hold = Math.min(48, Math.max(1, Number(p.hold) || 6));
+  const c = CacheService.getScriptCache(), ck = 'nppmQ:' + b + ':' + want.join(',');
+  if (c.get(ck) && !wtTrue_(p.force)) return { ok: true, no: b, queued: false, why: 'đã đặt tải lúc ' + c.get(ck) };
+  const lock = LockService.getScriptLock(); if (!lock.tryLock(30000)) return { ok: false, error: 'busy' };
+  let why = '';
+  try {
+    const ss = wtBook_(), sh = wtSheet_(ss, WT.SH_H, WT.HH);
+    const H = wtHits_(ss).filter(function (h) { return wtBare_(h.no) === b; });
+    const h = H.filter(function (x) { return x.type === 'tbmt'; })[0] || H[0];
+    const me = { mail: '', pic: 'Gói thầu NPP' };
+    if (!h) {
+      sh.appendRow(['n:' + b, 'tbmt', b, '(đang tra)', '', b, wtInfoWant_({ quick: 1, by: me.pic, pri: -1, npp: 1 }, want), '', wtNow_(), '', WT.ST.WAIT, '[]', 0, '', '', '', 'gói thầu NPP']);
+      why = 'thêm mới';
+    } else {
+      h.info = Object.assign({}, h.info || {}, { pri: -1, npp: 1 });
+      const r = wtReq_(sh, h, me, want, true, true);
+      why = r.skip === 'work' ? 'đang tải' : r.skip === 'wait' ? 'đã trong hàng đợi (đưa lên đầu)' : 'vào hàng đợi';
+      if (r.skip === 'work') return { ok: true, no: b, queued: false, why: why };
+    }
+    c.put(ck, Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'HH:mm dd/MM'), hold * 3600);
+    try { c.remove('wt_q'); } catch (e) {}
+  } finally { lock.releaseLock(); }
+  return { ok: true, no: b, queued: true, why: why, want: want };
 }
