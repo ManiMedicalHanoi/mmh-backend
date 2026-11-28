@@ -16,7 +16,7 @@ B = json.load(open(os.path.join(REPO, 'backends.json'), encoding='utf-8'))
 URL = B['tender-info']['url']
 KEY = os.environ.get('WT_BOT_KEY', '')
 MODE = os.environ.get('NPP_MODE', 'plan')
-ONLY = [bare_(x) for x in re.split(r'[,\s]+', (os.environ.get('NPP_NO') or '').strip().upper()) if x] if True else []
+ONLY = [re.sub(r'-\d+$', '', x) for x in re.split(r'[,\s]+', (os.environ.get('NPP_NO') or '').strip().upper()) if x]
 TEST_TO = (os.environ.get('NPP_TEST_TO') or 'Giang').strip()
 RATE = 26000
 WORK = os.environ.get('NPP_WORK', '/tmp/npp')
