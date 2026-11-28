@@ -6,7 +6,8 @@
  * ⭐ v1.4 (28/11/2026, người dùng yêu cầu): gói NPP đang Pending được ƯU TIÊN tải hồ sơ trước mọi gói khác —
  *   botNpp {key, op:'queue', no, want:'tbmt,hsmt,mo'|'kq,nt,hh', hold:giờ, pri:-1…-9, force} ⇒ dòng GÓI TÌM THẤY của gói: info.pri = -1 (bot lấy trước, wtBotNext_), info.npp = 1,
  *   vào hàng đợi với đúng loại tài liệu còn thiếu; mỗi gói + bộ tài liệu chỉ đặt lại sau `hold` giờ (mặc định 6) ⇒ trả {queued, why}.
- * ⭐ v1.5 (28/11/2026): mmh.product nhận ở cả @mani.inc + @manimedicalhanoi.com (nppmBoth_); người khác chỉ @mani.inc.
+ * ⭐ v1.5 (28/11/2026): gói NPP còn có info.agPri ⇒ máy có VNeGP Agent tải file HSMT "cần Agent" của gói NPP trước (wtaList_).
+ *   mmh.product nhận ở cả @mani.inc + @manimedicalhanoi.com (nppmBoth_); người khác chỉ @mani.inc.
  *
  * Gói có số TBMT trong file thầu của NPP (Hùng Vĩ · iCare, backend tender-hungvi / tender-icare ▸ winMap) còn "Pending"
  * ⇒ khi hệ thống đã tải biên bản mở thầu + HSMT ⇒ workflow "Gói thầu NPP — báo cáo mở thầu / kết quả" (tools/npp/npp_report.py)
@@ -213,10 +214,11 @@ function nppmQueue_(p) {
     const h = H.filter(function (x) { return x.type === 'tbmt'; })[0] || H[0];
     const me = { mail: '', pic: 'Gói thầu NPP' };
     if (!h) {
-      sh.appendRow(['n:' + b, 'tbmt', b, '(đang tra)', '', b, wtInfoWant_({ quick: 1, by: me.pic, pri: pri, npp: 1 }, want), '', wtNow_(), '', WT.ST.WAIT, '[]', 0, '', '', '', 'gói thầu NPP']);
+      sh.appendRow(['n:' + b, 'tbmt', b, '(đang tra)', '', b, wtInfoWant_({ quick: 1, by: me.pic, pri: pri, agPri: pri, npp: 1 }, want), '', wtNow_(), '', WT.ST.WAIT, '[]', 0, '', '', '', 'gói thầu NPP']);
       why = 'thêm mới';
     } else {
-      h.info = Object.assign({}, h.info || {}, { pri: Math.min(pri, typeof (h.info || {}).pri === 'number' ? h.info.pri : 0), npp: 1 });
+      const p0 = Math.min(pri, typeof (h.info || {}).pri === 'number' ? h.info.pri : 0);
+      h.info = Object.assign({}, h.info || {}, { pri: p0, agPri: Math.min(p0, (h.info || {}).agPri == null ? 99 : +h.info.agPri), npp: 1 });   // agPri: máy có VNeGP Agent (tiện ích) tải file HSMT "cần Agent" của gói NPP trước
       const r = wtReq_(sh, h, me, want, true, true);
       why = r.skip === 'work' ? 'đang tải' : r.skip === 'wait' ? 'đã trong hàng đợi (đưa lên đầu)' : 'vào hàng đợi';
       if (r.skip === 'work') return { ok: true, no: b, queued: false, why: why };
