@@ -8,7 +8,7 @@ on:
     - cron: '17 0-14 * * *'   # mỗi giờ 07:17 → 21:17 giờ Việt Nam
   workflow_dispatch:
     inputs:
-      mode: { description: 'test = gửi THỬ cho 1 người (ô to) · preview = gửi bản xem trước về tài khoản chạy máy chủ · live = gửi thật · on = BẬT gửi thật rồi chạy live · off = TẮT gửi thật · dry = chỉ dựng file (artifact) · plan = chỉ liệt kê + đặt tải', default: 'test', type: choice, options: [test, preview, live, on, off, dry, plan] }
+      mode: { description: 'test = gửi THỬ cho 1 người (ô to) · preview = gửi bản xem trước về tài khoản chạy máy chủ · live = gửi thật · on = BẬT gửi thật rồi chạy live · off = TẮT gửi thật · dry = chỉ dựng file (artifact) · plan = chỉ liệt kê + đặt tải', default: 'test', type: choice, options: [test, preview, live, 'on', 'off', dry, plan] }
       tbmt: { description: 'Số TBMT (tuỳ chọn, nhiều số cách dấu phẩy)', default: '' }
       to: { description: 'test: tên PIC nhận thư thử', default: 'Giang' }
       force: { description: 'Gửi lại gói đã gửi (chỉ khi nhập số TBMT)', type: boolean, default: false }
