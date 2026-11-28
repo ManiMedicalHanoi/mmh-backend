@@ -2,3 +2,5 @@ node_modules/
 .clasprc.json
 .clasp.json
 ifu/shots/*/png/
+npp-out/
+__pycache__/

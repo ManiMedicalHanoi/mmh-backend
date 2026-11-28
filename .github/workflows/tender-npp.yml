@@ -1,0 +1,44 @@
+name: Gói thầu NPP — báo cáo mở thầu / kết quả
+# 28/11/2026 (người dùng yêu cầu): gói Pending trong file thầu NPP (Hùng Vĩ · iCare) ⇒ hồ sơ đã tải (biên bản mở thầu, HSMT) ⇒ phân tích + ảnh bằng chứng + PDF
+# ⇒ email (tender-info ▸ botNpp, MMH_WatchNpp.gs): To PIC địa bàn, CC Tuyen · Nguyen Ha · Giang; khi có kết quả ⇒ trả lời trong cùng luồng thư.
+# tools/npp/npp_report.py. Gửi thật chỉ khi máy chủ đã bật (botNpp op=on); chưa bật ⇒ chỉ đặt tải hồ sơ còn thiếu.
+on:
+  schedule:
+    - cron: '17 0-14 * * *'   # mỗi giờ 07:17 → 21:17 giờ Việt Nam
+  workflow_dispatch:
+    inputs:
+      mode: { description: 'preview = gửi bản xem trước về tài khoản chạy máy chủ · live = gửi thật · dry = chỉ dựng file (artifact) · plan = chỉ liệt kê + đặt tải', default: 'preview', type: choice, options: [preview, live, dry, plan] }
+      no: { description: 'Chỉ 1 số TBMT (tuỳ chọn, vd. IB2600597308)', default: '' }
+      max: { description: 'Số gói tối đa lượt này (trống = preview 1 · live tất cả)', default: '' }
+concurrency: { group: tender-npp, cancel-in-progress: false }
+permissions: { contents: read }
+jobs:
+  npp:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      WT_BOT_KEY: ${{ secrets.WT_BOT_KEY }}
+      NPP_NO: ${{ inputs.no }}
+      NPP_MAX: ${{ inputs.max }}
+      NPP_TARGET: ${{ inputs.mode || 'live' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Liệt kê gói + đặt tải hồ sơ còn thiếu
+        id: plan
+        env: { NPP_MODE: plan }
+        run: python3 tools/npp/npp_report.py
+      - name: Công cụ đọc / cắt tài liệu, dựng PDF
+        if: ${{ steps.plan.outputs.need == '1' && (inputs.mode || 'live') != 'plan' }}
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils libreoffice-writer-nogui fonts-dejavu fonts-noto-core >/dev/null
+          pip install -q pillow numpy playwright==1.48.0
+          python3 -m playwright install --with-deps chromium >/dev/null
+      - name: Phân tích + gửi email
+        if: ${{ steps.plan.outputs.need == '1' && (inputs.mode || 'live') != 'plan' }}
+        env: { NPP_MODE: '${{ inputs.mode || ''live'' }}' }
+        run: python3 tools/npp/npp_report.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: npp-report, path: npp-out/, retention-days: 14, if-no-files-found: ignore }
