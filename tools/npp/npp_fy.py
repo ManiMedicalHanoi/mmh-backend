@@ -67,12 +67,16 @@ def main():
            ['· Không trúng', *[(str(S[n]['fail']),) for n in NPPS], (str(tot['fail']),)],
            ['· Chờ kết quả', *[(str(S[n]['pend']),) for n in NPPS], (str(tot['pend']),)],
            ['Tỉ lệ trúng (gói đã có KQ)', *[(rate(S[n]),) for n in NPPS], (rate(tot),)]]
-    for key, lab in (('qact', 'SL trúng · HĐ còn hiệu lực'), ('qbid', f'SL tham dự từ 09/{FYC + 1958}'), ('qwin', f'SL trúng từ 09/{FYC + 1958}')):
+    b.append(tbl(head, rws))
+    # số lượng theo nhóm (người dùng 28/11/2026): 3 khối, dòng tổng in đậm
+    qrows = []
+    for key, lab in (('qact', 'Số lượng trúng thầu · hợp đồng còn hiệu lực'), ('qbid', f'Số lượng tham dự thầu từ 09/{FYC + 1958}'), ('qwin', f'Số lượng trúng thầu từ 09/{FYC + 1958}')):
+        qrows.append([f'<b>{lab}</b>', '', '', ''])
         for g in GU:
             vals = [S[n][key].get(g, 0) for n in NPPS]
-            if not any(vals): continue
-            rws.append([f'{lab} · {GU[g][0]} ({GU[g][1]})', *[(vnd(v),) for v in vals], (vnd(sum(vals)),)])
-    b.append(tbl(head, rws))
+            qrows.append([f'<span style="padding-left:14px">{GU[g][0]} ({GU[g][1]})</span>', *[(vnd(v),) for v in vals], (f'<b>{vnd(sum(vals))}</b>',)])
+    qhtml = '<p><b>Số lượng theo nhóm hàng</b></p>' + tbl(['', *NPPS, 'Tổng'], qrows)
+    b.append(qhtml)
     b.append(f'<p class="m">Doanh số MMH = SL trúng × giá MANI→NPP, chia đều theo hiệu lực hợp đồng, phần rơi vào FY{FYC} (09/{FYC + 1958} – 08/{FYC + 1959}). Tỷ giá {W.vnd(W.RATE)} đ/USD.</p>')
     # 1. còn hiệu lực
     b.append(f'<h3>1. Hợp đồng còn hiệu lực</h3>')
@@ -94,8 +98,8 @@ def main():
             sl = ctxt(p['rows'], mark={(x.get('code') or '').strip() for x in p['win']} if p['win'] and len(p['win']) < len(p['rows']) else None)
             rows2.append([pname(p), H(p['city']), sl, d2(pdate(p, M)) if (p['bidClose'] or p['bidOpen'] or p['approve'] or p['signed']) else m2(pdate(p, M)),
                           status(p), R_(mmh)])
-        b.append(tbl(['Bệnh viện · gói', 'Tỉnh', 'Mã · SL tham dự', 'Ngày', 'Kết quả', 'MMH cả HĐ'], rows2))
-    b.append('<p class="m">Ngày = đóng / mở thầu (chưa có thì ngày phê duyệt / tháng trong file NPP). MMH cả HĐ: gói trúng = phần trúng · gói chờ = nếu trúng.</p>')
+        b.append(tbl(['Bệnh viện · gói', 'Tỉnh', 'Mã · SL tham dự', 'Ngày', 'Kết quả', 'Doanh số MMH cả hợp đồng'], rows2))
+    b.append('<p class="m">Ngày = đóng / mở thầu (chưa có thì ngày phê duyệt / tháng trong file NPP). Doanh số MMH cả hợp đồng: gói trúng = phần trúng · gói chờ = nếu trúng.</p>')
     body = ''.join(b)
     title = f'Tổng hợp thầu NPP Hùng Vĩ, iCare · FY{FYC} đến {d2(TODAY)}'
     pdf = N.make_pdf(title, body, os.path.join(W.WORK, f'Tong hop thau NPP FY{FYC} - {TODAY.strftime("%Y%m%d")}.pdf'))
@@ -105,7 +109,7 @@ def main():
     if not pr.get('ok') or not pr.get('to'): log('Không tra được người nhận:', pr.get('error')); sys.exit(1)
     if not N.NM.ready(): log('Thiếu hộp thư mmh.notify'); sys.exit(1)
     mail = (f'<div style="font-family:Aptos,Calibri,Arial,sans-serif;font-size:14px;color:#1F2A33"><style>{N.CSS}</style>'
-            f'<p>Dear {H(TO)},</p><p>Tổng hợp thầu NPP Hùng Vĩ, iCare từ đầu FY{FYC}. Chi tiết trong PDF đính kèm.</p>{tbl(head, rws)}<p>Trân trọng.</p></div>')
+            f'<p>Dear {H(TO)},</p><p>Tổng hợp thầu NPP Hùng Vĩ, iCare từ đầu FY{FYC}. Chi tiết trong PDF đính kèm.</p>{tbl(head, rws)}{qhtml}<p>Trân trọng.</p></div>')
     N.NM.send(pr['to'], [], f'[Thầu] Tổng hợp thầu NPP Hùng Vĩ, iCare – FY{FYC} đến {d2(TODAY)}', mail, attach=[pdf], name=f'(Tổng hợp FY{FYC}) Thầu NPP Hùng Vĩ, iCare')
     log('Đã gửi tới', TO)
 
