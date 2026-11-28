@@ -7,8 +7,9 @@ on:
     - cron: '17 0-14 * * *'   # mỗi giờ 07:17 → 21:17 giờ Việt Nam
   workflow_dispatch:
     inputs:
-      mode: { description: 'preview = gửi bản xem trước về tài khoản chạy máy chủ · live = gửi thật · dry = chỉ dựng file (artifact) · plan = chỉ liệt kê + đặt tải', default: 'preview', type: choice, options: [preview, live, dry, plan] }
-      no: { description: 'Chỉ 1 số TBMT (tuỳ chọn, vd. IB2600597308)', default: '' }
+      mode: { description: 'test = gửi THỬ cho 1 người (ô to) · preview = gửi bản xem trước về tài khoản chạy máy chủ · live = gửi thật · dry = chỉ dựng file (artifact) · plan = chỉ liệt kê + đặt tải', default: 'test', type: choice, options: [test, preview, live, dry, plan] }
+      no: { description: 'Số TBMT (tuỳ chọn, nhiều số cách dấu phẩy)', default: '' }
+      to: { description: 'test: tên PIC nhận thư thử', default: 'Giang' }
       max: { description: 'Số gói tối đa lượt này (trống = preview 1 · live tất cả)', default: '' }
 concurrency: { group: tender-npp, cancel-in-progress: false }
 permissions: { contents: read }
@@ -21,6 +22,7 @@ jobs:
       NPP_NO: ${{ inputs.no }}
       NPP_MAX: ${{ inputs.max }}
       NPP_TARGET: ${{ inputs.mode || 'live' }}
+      NPP_TEST_TO: ${{ inputs.to || 'Giang' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

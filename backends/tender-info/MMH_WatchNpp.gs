@@ -12,6 +12,7 @@
  *   botNpp {key, op:'kq', no}                              ⇒ kết quả từng lô từ file tổng "Danh sách nhà thầu" + trường KQLCNT
  *   botNpp {key, op:'send', no, stage:'mo'|'kq', subject, body, html, inl:[{cid,name,mime,b64}], att:[{name,mime,b64}],
  *           prov, text, mode:'preview'|'live'}                ⇒ gửi; preview = chỉ gửi về tài khoản chạy máy chủ, tiêu đề [Xem trước], không ghi trạng thái
+ *           testTo = tên PIC (vd. Giang) ⇒ CHỈ gửi người đó, tiêu đề [Thử], trạng thái riêng NPPMT_<số> (thử cả luồng trả lời), không cần NPPM_ON
  *   botNpp {key, op:'on'|'off'}                            ⇒ bật / tắt gửi thật (Script Property NPPM_ON = 1)
  * Trạng thái: Script Property NPPM_<số TBMT> (JSON). Chỉ khoá bot (không cho tiện ích dùng phiên email).
  **************************************************************************************************/
@@ -38,7 +39,7 @@ function nppmAction_(p) {
       return { ok: true, id: id, name: ss.getName(), sheets: ss.getSheets().slice(0, 3).map(function (sh) { return { name: sh.getName(), values: sh.getDataRange().getDisplayValues().slice(0, 6000) }; }) };
     } catch (e) { return { ok: false, error: String(e.message || e) }; }
   }
-  if (op === 'reset') { const b = wtBare_(p.no); if (!b) return { ok: false, error: 'thiếu no' }; P.deleteProperty('NPPM_' + b); return { ok: true, reset: b }; }
+  if (op === 'reset') { const b = wtBare_(p.no); if (!b) return { ok: false, error: 'thiếu no' }; P.deleteProperty((wtS_(p.testTo) ? 'NPPMT_' : 'NPPM_') + b); return { ok: true, reset: b }; }
   return { ok: false, error: 'op không hợp lệ' };
 }
 
@@ -70,10 +71,12 @@ function nppmKq_(p) {
 function nppmSend_(p) {
   const b = wtBare_(String(p.no || '').toUpperCase()), stage = wtS_(p.stage) === 'kq' ? 'kq' : 'mo';
   if (!b) return { ok: false, error: 'thiếu no' };
-  const P = PropertiesService.getScriptProperties(), key = 'NPPM_' + b, st = wtJson_(P.getProperty(key), {}) || {};
-  const preview = wtS_(p.mode) !== 'live';
-  if (!preview && P.getProperty('NPPM_ON') !== '1') return { ok: false, code: 'OFF', error: 'Chưa bật gửi thật (botNpp op=on).' };
+  const testTo = wtS_(p.testTo);
+  const P = PropertiesService.getScriptProperties(), key = (testTo ? 'NPPMT_' : 'NPPM_') + b, st = wtJson_(P.getProperty(key), {}) || {};
+  const preview = !testTo && wtS_(p.mode) !== 'live';
+  if (!preview && !testTo && P.getProperty('NPPM_ON') !== '1') return { ok: false, code: 'OFF', error: 'Chưa bật gửi thật (botNpp op=on).' };
   if (!preview && st[stage] && !wtTrue_(p.force)) return { ok: true, skip: 'đã gửi lúc ' + st[stage].at };
+  if (stage === 'mo' && st.mo && wtTrue_(p.force)) delete st.kq;
   if (!preview && stage === 'kq' && !(st.mo && st.mo.at)) return { ok: false, error: 'Chưa gửi thư mở thầu.' };
   const dec = function (a) { const x = typeof a === 'string' ? wtJson_(a, []) : (a || []); return Array.isArray(x) ? x : []; };
   const inl = {}, att = [];
@@ -82,10 +85,10 @@ function nppmSend_(p) {
   dec(p.att).forEach(function (x) { if (!x || !x.b64) return; size += x.b64.length; att.push(Utilities.newBlob(Utilities.base64Decode(x.b64), x.mime || 'application/pdf', x.name || 'bao-cao.pdf')); });
   if (size > NPPM.MAX_B64) return { ok: false, error: 'Ảnh + file đính kèm quá lớn.' };
   const who = nppmWho_(p), me = Session.getEffectiveUser().getEmail();
-  let to = preview ? [me] : nppmMails_(who.to), cc = preview ? [] : nppmMails_(who.cc).filter(function (m) { return to.indexOf(m) < 0; });
+  let to = preview ? [me] : testTo ? nppmMails_([testTo]) : nppmMails_(who.to), cc = preview || testTo ? [] : nppmMails_(who.cc).filter(function (m) { return to.indexOf(m) < 0; });
   if (!to.length) return { ok: false, error: 'Không tra được email người nhận ' + who.to.join(', ') };
   to = mmhAddr_(to); cc = mmhAddr_(cc);
-  const subject = (preview ? '[Xem trước] ' : '') + wtS_(p.subject);
+  const subject = (preview ? '[Xem trước] ' : testTo ? '[Thử] ' : '') + wtS_(p.subject);
   const opt = { htmlBody: wtS_(p.html), inlineImages: inl, attachments: att, name: CFG.EMAIL_FROM_NAME };
   if (cc.length) opt.cc = cc.join(',');
   const body = wtS_(p.body) || 'Vui lòng xem email ở chế độ HTML.';
@@ -113,7 +116,7 @@ function nppmSend_(p) {
       } catch (e) { Logger.log('nppm thread: ' + e.message); }
     }
   }
-  const rec = { at: wtNow_(), thread: thread, subject: wtS_(p.subject), to: who.to.join(', '), cc: who.cc.join(', '), replied: replied };
+  const rec = { at: wtNow_(), thread: thread, subject: (testTo ? '[Thử] ' : '') + wtS_(p.subject), to: testTo || who.to.join(', '), cc: testTo ? '' : who.cc.join(', '), replied: replied };
   if (!preview) { st[stage] = rec; P.setProperty(key, JSON.stringify(st)); }
-  return { ok: true, no: b, stage: stage, preview: preview, to: preview ? 'tài khoản chạy máy chủ' : who.to.join(', '), cc: preview ? '' : who.cc.join(', '), thread: thread, replied: replied };
+  return { ok: true, no: b, stage: stage, preview: preview, test: !!testTo, to: preview ? 'tài khoản chạy máy chủ' : testTo || who.to.join(', '), cc: preview || testTo ? '' : who.cc.join(', '), wouldTo: who.to.join(', '), wouldCc: who.cc.join(', '), thread: thread, replied: replied };
 }

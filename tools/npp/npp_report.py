@@ -16,7 +16,8 @@ B = json.load(open(os.path.join(REPO, 'backends.json'), encoding='utf-8'))
 URL = B['tender-info']['url']
 KEY = os.environ.get('WT_BOT_KEY', '')
 MODE = os.environ.get('NPP_MODE', 'plan')
-ONLY = (os.environ.get('NPP_NO') or '').strip().upper()
+ONLY = [bare_(x) for x in re.split(r'[,\s]+', (os.environ.get('NPP_NO') or '').strip().upper()) if x] if True else []
+TEST_TO = (os.environ.get('NPP_TEST_TO') or 'Giang').strip()
 RATE = 26000
 WORK = os.environ.get('NPP_WORK', '/tmp/npp')
 os.makedirs(WORK, exist_ok=True)
@@ -49,6 +50,7 @@ def nk(s):
     s = unicodedata.normalize('NFD', str(s or '').lower())
     s = ''.join(c for c in s if unicodedata.category(c) != 'Mn').replace('đ', 'd')
     return re.sub(r'[^a-z0-9.]+', ' ', s).strip()
+def bare_(no): return re.sub(r'-\d+$', '', re.sub(r'\s+', '', str(no or '').upper()))
 def bare(no): return re.sub(r'-\d+$', '', re.sub(r'\s+', '', str(no or '').upper()))
 def num(s):
     s = str(s or '').strip()
@@ -90,6 +92,39 @@ def lot_type(name):
     if re.search(r'(kim|kep|panh) (vi phau|boc mang)|micro ?forcep', t): return 'kim'
     if re.search(r'moc mo (vung )?be|trabecul', t): return 'moc'
     return ''
+
+GROUP = {'dao': 'Dao phẫu thuật nhãn khoa', 'chi': 'Chỉ khâu nhãn khoa', 'ghim': 'Ghim da (Manipler)', 'kim': 'Kìm vi phẫu', 'moc': 'Móc mở vùng bè'}
+GORDER = list(GROUP.values()) + ['Khác']
+
+def why_not(l):
+    """phần NPP không dự ⇒ lý do theo số liệu (không khẳng định thay NPP)"""
+    if not l['codes']: return 'MANI không có mã khớp thông số HSMT' if l.get('spec') else 'Chưa xác định được mã MANI (HSMT chưa đọc được thông số)'
+    pubs = [HOSP[c.upper()]['pub'] for c in l['codes'] if c.upper() in HOSP]
+    if not pubs: return 'Chưa có giá tối thiểu BV công của các mã này'
+    mn = min(pubs); u = l.get('unit') or 'cái'
+    if not l.get('qty') or not l['bids']: return f'Giá tối thiểu BV công của MANI từ {vnd(mn)} đ/{u}; HSMT chưa đọc được số lượng để so với giá đối thủ'
+    low = l['bids'][0]['price'] / l['qty']
+    if low < mn: return f'Giá thấp nhất của đối thủ {vnd(low)} đ/{u} thấp hơn giá tối thiểu BV công của MANI {vnd(mn)} đ/{u} ({pct(low, mn)}) ⇒ nhiều khả năng NPP không dự vì giá không phù hợp'
+    return f'Giá thấp nhất của đối thủ {vnd(low)} đ/{u} cao hơn giá tối thiểu BV công của MANI {vnd(mn)} đ/{u} ({pct(low, mn)}) ⇒ MANI có thể cạnh tranh về giá, cần hỏi NPP lý do không dự'
+
+def code_cell(l):
+    cs = list(dict.fromkeys([c.upper() for c in l['codes']] + [c for c in l.get('npp_codes', []) if c]))
+    out = []
+    for c in cs:
+        hp = HOSP.get(c); pr = PRICE.get(c); star = c in l.get('npp_codes', [])
+        t = (f'<b>{H(c)} ★ NPP chào</b>' if star else H(c)) + ' · tối thiểu BV công ' + (vnd(hp['pub']) + ' đ' if hp else 'chưa có') + ' · MANI→NPP ' + (vnd(pr['unit']) + ' đ' if pr else 'chưa có')
+        out.append(t)
+    return '<br>'.join(out) or '—'
+
+def status_cell(l):
+    if l['mine'] < 0: return '<span class="no">NPP không dự</span><br><span class="m">' + H(why_not(l)) + '</span>'
+    bid = l['bids'][l['mine']]['price']; u = l.get('unit') or 'cái'
+    t = '<span class="ok">NPP dự</span>'
+    if l.get('qty'):
+        unit = bid / l['qty']; t += f' · chào {vnd(unit)} đ/{u}'
+        pubs = [HOSP[c]['pub'] for c in l.get('npp_codes', []) if c in HOSP]
+        if len(pubs) == 1: t += f' (giá tối thiểu BV công {vnd(pubs[0])} đ: {pct(unit, pubs[0])})'
+    return t
 
 def eye_rel(lt, name):
     """lô NPP không dự: chỉ giữ hàng nhãn khoa / vi phẫu MANI có"""
@@ -310,10 +345,14 @@ def spec_find(P, lot_name, pdf=None, d=None):
     raw = str(lot_name); size = re.findall(r'\b(\d{1,2})\s?[-/]\s?0\b', raw)
     toks = [t for t in nk(re.sub(r'\b\d{1,2}\s?[-/]\s?0\b', ' ', raw)).split() if len(t) > 1 and t not in ('so', 'cac', 'loai', 'va', 'cho', 'hoac')]
     if not toks: return None
+    mats = [m for m, ws in MAT if any(w in nk(raw) for w in ws)]
     def score(txt):
         T = set(nk(txt).split()); sc = sum(1 for t in toks if t in T) / len(toks)
         sz = re.findall(r'\b(\d{1,2})\s?[-/]\s?0\b', txt)
         if size: sc += 0.5 if size[0] in sz else -0.5 if sz else 0
+        if mats:
+            tm = [m for m, ws in MAT if any(w in nk(txt) for w in ws)]
+            if tm and mats[0] not in tm: sc -= 0.6
         return sc
     best = None
     for pi, ws in enumerate(P, 1):
@@ -330,8 +369,16 @@ def spec_find(P, lot_name, pdf=None, d=None):
         if not bands:   # không có đường kẻ ⇒ khung 10 dòng chữ
             lines = sorted(set(round(w[1] / 3) * 3 for w in ws))
             bands = [(y - 2, y + 90) for y in lines]
-        for a, b in bands:
+        for bi, (a, b) in enumerate(bands):
             txt = ' '.join(w[4] for w in sorted([w for w in ws if a - 1 <= w[1] < b], key=lambda w: (round(w[1]), w[0])))
+            if bi == len(bands) - 1 and pi < len(P) and P[pi]:   # dòng bảng bị ngắt sang trang sau ⇒ ghép phần đầu trang kế
+                try:
+                    k2 = (pdf, pi + 1)
+                    if pdf and k2 not in _HL: _HL[k2] = hlines(pdf, pi + 1, d)
+                    L2 = _HL.get(k2) or []
+                    cut = next((y for y in L2 if y > 50), 120)
+                    txt += ' ' + ' '.join(w[4] for w in sorted([w for w in P[pi] if w[1] < cut], key=lambda w: (round(w[1]), w[0])))
+                except Exception: pass
             sc = score(txt) - (b - a) / 4000
             if sc >= 0.75 and (not best or sc > best[0] + 1e-9): best = (sc, pi, a, b, txt)
     if not best: return None
@@ -398,7 +445,7 @@ def tbl(head, rows, me=None):
     def cell(c):
         if isinstance(c, (int, float)): return f'<td class="r">{vnd(c)}</td>'
         c = str(c)
-        raw = c if c.startswith('<') else H(c)
+        raw = c if (c.startswith('<') or re.search(r'<(br|span|b|a)\b', c)) else H(c)
         right = bool(re.match(r'^[\d.$,+%\- ]+(tr đ| đ)?$', c))
         return f'<td{" class=r" if right else ""}>{raw}</td>'
     h = ''.join(f'<th>{H(c)}</th>' for c in head)
@@ -466,6 +513,13 @@ def build_mo(pk, hits):
         l['level'] = spec_level(sp[3]) if sp else 'Chưa đọc được trong HSMT'
         l['orig'] = origin_of(sp[3]) if sp else []
         l['codes'] = mani_codes(l['lt'] or lot_type(l['name']), l['name'] + ' ' + re.sub(r'(?i)polypropylene|nylon|polyglactin|polyglycolic|polyester|\b\d{1,2}\s?[-/]\s?0\b', '', l['spec']))
+        q = re.findall(r'\b(Sợi|Cái|Chiếc|Hộp|Vỉ|Bộ|Cây|Tép|Gói|Tuýp)\s+(\d[\d.,]*)\b', sp[3]) if sp else []
+        l['unit'] = q[-1][0].lower() if q else ''; l['qty'] = num(q[-1][1]) if q else 0
+        its = [l['item']] if l.get('item') else l.get('items') or []
+        l['npp_codes'] = [str(it.get('code') or '').upper().split(' ')[0] for it in its if it.get('code')]
+        if not l['qty'] and len(its) == 1: l['qty'] = its[0].get('qty') or 0
+        if not l['unit']: l['unit'] = 'sợi' if (l['lt'] or lot_type(l['name'])) == 'chi' else 'cái'
+        l['group'] = GROUP.get(l['lt'] or lot_type(l['name']), 'Khác')
         if sp and l['mine'] >= 0 and len([e for e in ev if e[0].startswith('ky')]) < 10:
             o = crop_band(p_ky, KP, sp[0], sp[1], sp[2], os.path.join(d, 'ky_%s.jpg' % l['code']))
             ev.append(('ky%s' % l['code'], o, 'HSMT · yêu cầu kỹ thuật · %s' % l['name'][:90]))
@@ -515,11 +569,16 @@ def html_mo(R, for_pdf=False):
     if R['allorig']: s.append(f"<p>HSMT có yêu cầu / tiêu chí: <b>{H(', '.join(R['allorig']))}</b>. Yêu cầu xuất xứ G7 / EU / FDA thường loại hàng sản xuất tại Ấn Độ, Trung Quốc… (trừ khi có chứng nhận tương ứng). Hàng MANI (kể cả sản xuất tại Việt Nam) đáp ứng các yêu cầu về xuất xứ.</p>")
     elif R['kytxt']: s.append('<p>HSMT không nêu yêu cầu xuất xứ riêng (G7 / EU / FDA…) cho hàng hóa.</p>')
     else: s.append('<p class="m">Chưa có file HSMT – yêu cầu kỹ thuật (thường cần VNeGP Agent để tải) ⇒ phần này đánh giá theo tên phần / lô.</p>')
-    rows = []
-    for l in mine + others[:20]:
-        rows.append([l['code'], l['name'][:110], l['level'], ', '.join(l['orig']) or '—', ', '.join(l['codes']) or '—', (l.get('item') or {}).get('code') or (', '.join(it['code'] for it in l.get('items', [])) if l.get('items') else ('—' if l['mine'] >= 0 else 'NPP không dự'))])
-    s.append(tbl(['Phần', 'Tên phần / lô', 'Mức chi tiết thông số', 'Xuất xứ / tiêu chuẩn', 'Mã MANI có thể đáp ứng', 'Mã NPP chào'], rows, me=lambda r: r[5] not in ('NPP không dự',)))
-    if len(others) > 20: s.append(f'<p class="m">… và {len(others) - 20} phần khác thuộc nhóm sản phẩm MMH mà NPP không dự (xem bảng nhà thầu tham dự).</p>')
+    shown = mine + others[:25]
+    for g in GORDER:
+        ls = [l for l in shown if l.get('group') == g]
+        if not ls: continue
+        s.append(f'<p><b>{H(g)}</b> · {len(ls)} phần ({sum(1 for l in ls if l["mine"] >= 0)} phần NPP dự)</p>')
+        rows = [[l['code'], H(l['name'][:110]) + (f'<br><span class="m">SL {vnd(l["qty"])} {H(l.get("unit", ""))}</span>' if l.get('qty') else ''),
+                 H(l['level']) + ('<br><span class="m">Xuất xứ / tiêu chuẩn: ' + H(', '.join(l['orig'])) + '</span>' if l['orig'] else ''), code_cell(l), status_cell(l)] for l in ls]
+        s.append(tbl(['Phần', 'Tên phần / lô', 'Thông số kỹ thuật', 'Mã MANI đáp ứng · giá tối thiểu BV công · giá MANI→NPP (/đơn vị)', 'NPP dự / lý do không dự'], rows, me=lambda r: 'NPP dự' in r[4] and 'không dự' not in r[4]))
+    if len(others) > 25: s.append(f'<p class="m">… và {len(others) - 25} phần khác thuộc nhóm sản phẩm MMH mà NPP không dự (xem bảng nhà thầu tham dự).</p>')
+    s.append('<p class="m">Giá tối thiểu BV công = giá NPP bán bệnh viện công tối thiểu theo báo giá đại lý – bệnh viện (đã gồm VAT). Đơn giá đối thủ = giá dự thầu ÷ số lượng của phần trong HSMT. ★ = mã NPP chào theo file thầu của NPP.</p>')
     for cid, f, cap in [e for e in R['ev'] if e[0].startswith('ky')]:
         s.append(f'<p class="m">{H(cap)}</p><img class="ev" src="{"file://" + f if for_pdf else "cid:" + cid}">')
     s.append('<h3>3. Biên bản mở thầu · nhà thầu và giá từng phần NPP tham dự</h3>')
@@ -571,7 +630,8 @@ def send(no, stage, subject, html_body, inl, att, R):
     body = {'action': 'botNpp', 'op': 'send', 'no': no, 'stage': stage, 'subject': subject, 'html': f'<div style="font-family:Aptos,Calibri,Arial,sans-serif;font-size:14px;color:#1F2A33"><style>{CSS}</style>{html_body}</div>',
             'inl': [{'cid': c, 'name': os.path.basename(f), 'mime': 'image/jpeg', 'b64': b64(f)} for c, f, _ in inl],
             'att': [{'name': os.path.basename(a), 'mime': 'application/pdf', 'b64': b64(a)} for a in att],
-            'prov': R['pk']['city'] or R['I'].get('prov', ''), 'text': R['inv'] + ' ' + R['pk']['hospital'], 'mode': 'live' if MODE == 'live' else 'preview'}
+            'prov': R['pk']['city'] or R['I'].get('prov', ''), 'text': R['inv'] + ' ' + R['pk']['hospital'], 'mode': 'live' if MODE in ('live', 'test') else 'preview'}
+    if MODE == 'test': body['testTo'] = TEST_TO
     if MODE == 'dry': log('  (dry) không gửi:', subject); return {'ok': True, 'dry': True}
     r = post(body, tries=2)
     log('  gửi:', json.dumps({k: r.get(k) for k in ('ok', 'stage', 'preview', 'to', 'cc', 'replied', 'skip', 'error', 'code')}, ensure_ascii=False))
@@ -627,15 +687,16 @@ OUTD = os.path.join(REPO, 'npp-out'); os.makedirs(OUTD, exist_ok=True)
 def main():
     if not KEY: log('Thiếu WT_BOT_KEY'); sys.exit(1)
     P = load_npp()
-    if ONLY: P = {k: v for k, v in P.items() if k == bare(ONLY)} or ({bare(ONLY): {'no': bare(ONLY), 'npp': 'Hùng Vĩ', 'hospital': '', 'city': '', 'tender': '', 'items': [], 'pending': True, 'dur': ''}} if ONLY else {})
+    if ONLY: P = {k: v for k, v in P.items() if k in ONLY}
     st = post({'action': 'botNpp', 'op': 'state'}); S = st.get('state') or {}
     log(f'Gói NPP Pending: {len(P)} · đã gửi: {len(S)} · gửi thật: {"bật" if st.get("on") else "tắt"}')
     H = load_hits(set(P))
     todo = []
     for no, pk in sorted(P.items()):
-        s = S.get(no, {}); files = [f for h in H.get(no, []) for f in h.get('files', [])]
+        tgt = os.environ.get('NPP_TARGET') if MODE == 'plan' else MODE
+        s = (S.get('_test', {}) if tgt == 'test' else S).get(no, {}); files = [f for h in H.get(no, []) for f in h.get('files', [])]
         has_bb = bool(pick(files, r'biên bản mở thầu') and pick(files, r'nhà thầu tham dự'))
-        if MODE != 'live' or 'mo' not in s:
+        if tgt not in ('live', 'test') or 'mo' not in s:
             if has_bb: todo.append((no, 'mo'))
             else: todo.append((no, 'queue'))
         elif 'kq' not in s: todo.append((no, 'kq'))
@@ -653,7 +714,7 @@ def main():
                 log(f'  {no}: đặt tải →', r.get('queued'), r.get('missing'))
                 time.sleep(3)
         return
-    MAXN = int(os.environ.get('NPP_MAX') or (99 if MODE == 'live' or ONLY else 1)); done = 0
+    MAXN = int(os.environ.get('NPP_MAX') or (99 if MODE in ('live', 'test') or ONLY else 1)); done = 0
     for no, t in todo:
         if t == 'queue': continue   # bước plan đã đặt tải
         if done >= MAXN: continue
@@ -661,7 +722,7 @@ def main():
         log(f'== {no} ({P[no]["npp"]}, {P[no]["hospital"]}) · {t}')
         try:
             if t == 'mo': run_mo(P[no], H.get(no, []))
-            else: run_kq(P[no], H.get(no, []), S.get(no, {}))
+            else: run_kq(P[no], H.get(no, []), (S.get('_test', {}) if MODE == 'test' else S).get(no, {}))
         except Exception as e:
             import traceback; log('  LỖI:', e); traceback.print_exc()
     open(os.path.join(OUTD, 'log.txt'), 'w', encoding='utf-8').write('\n'.join(LOG))
