@@ -14,7 +14,7 @@ N = W.N
 MODE = os.environ.get('NPPF_MODE', 'dry')
 TO = (os.environ.get('NPP_TEST_TO') or 'Giang').strip()
 H, usd, d2, m2, tbl, R_, pname, log = W.H, W.usd, W.d2, W.m2, W.tbl, W.R_, W.pname, W.log
-GU, qsum, qadd, qtxt, vnd, ctxt = W.GU, W.qsum, W.qadd, W.qtxt, W.vnd, W.ctxt
+GU, qsum, qadd, qtxt, vnd, ctxt, STAT = W.GU, W.qsum, W.qadd, W.qtxt, W.vnd, W.ctxt, W.STAT
 FYC, FYS, TODAY = W.FYC, W.FYS, W.TODAY
 NPPS = ('Hùng Vĩ', 'iCare')
 
@@ -70,12 +70,13 @@ def main():
     b.append(tbl(head, rws))
     # số lượng theo nhóm (người dùng 28/11/2026): 3 khối, dòng tổng in đậm
     qrows = []
-    for key, lab in (('qact', 'Số lượng trúng thầu · hợp đồng còn hiệu lực'), ('qbid', f'Số lượng tham dự thầu từ 09/{FYC + 1958}'), ('qwin', f'Số lượng trúng thầu từ 09/{FYC + 1958}')):
+    for key, lab in (('qact', 'Đang cung cấp'), ('qbid', f'Tham dự từ 09/{FYC + 1958}'), ('qwin', f'Trúng từ 09/{FYC + 1958}')):
         qrows.append([f'<b>{lab}</b>', '', '', ''])
-        for g in GU:
+        for g in STAT:
             vals = [S[n][key].get(g, 0) for n in NPPS]
             qrows.append([f'<span style="padding-left:14px">{GU[g][0]} ({GU[g][1]})</span>', *[(vnd(v),) for v in vals], (f'<b>{vnd(sum(vals))}</b>',)])
-    qhtml = '<p><b>Số lượng theo nhóm hàng</b></p>' + tbl(['', *NPPS, 'Tổng'], qrows)
+    qhtml = ('<p><b>Số lượng</b></p>' + tbl(['', *NPPS, 'Tổng'], qrows) + '<p class="m">Đang cung cấp = số lượng trúng của các hợp đồng còn hiệu lực.</p>'
+             + W.best_html(W.best([x for n in NPPS for x in T[n]['bestp']]), 'Mã bán chạy nhất (đang cung cấp)'))
     b.append(qhtml)
     b.append(f'<p class="m">Doanh số MMH = SL trúng × giá MANI→NPP, chia đều theo hiệu lực hợp đồng, phần rơi vào FY{FYC} (09/{FYC + 1958} – 08/{FYC + 1959}). Tỷ giá {W.vnd(W.RATE)} đ/USD.</p>')
     # 1. còn hiệu lực

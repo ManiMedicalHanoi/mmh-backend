@@ -155,10 +155,39 @@ def qtxt(d, br=False):
     t = [f"{GU[g][0]} {vnd(d[g])} {GU[g][1]}" for g in GU if d.get(g)]
     return ('<br>' if br else ' · ').join(t) or '—'
 
+STAT = ('dao', 'chi')        # nhóm có thống kê số lượng (người dùng 28/11/2026: bỏ ghim da)
+def best(pairs, k=3):
+    """mã bán chạy nhất theo nhóm: pairs = [(npp, dòng mã)] ⇒ {g: [(mã, tổng, {npp: sl})]}"""
+    out = {}
+    for g in STAT:
+        d = {}
+        for npp, x in pairs:
+            if x.get('g') != g or not x.get('pcs'): continue
+            c = (x.get('code') or '').strip()
+            if not c: continue
+            e = d.setdefault(c, [0, {}]); e[0] += x['pcs']; e[1][npp] = e[1].get(npp, 0) + x['pcs']
+        out[g] = sorted(((c, v[0], v[1]) for c, v in d.items()), key=lambda t: -t[1])[:k]
+    return out
+def best_html(B, title):
+    rows = []
+    for i in range(max([len(B.get(g, [])) for g in STAT] + [0])):
+        cells = [str(i + 1)]
+        for g in STAT:
+            L = B.get(g, [])
+            if i < len(L):
+                c, q, by = L[i]
+                sp = ' · '.join(f'{H(n)} {vnd(v)}' for n, v in by.items()) if len(by) > 1 else H(next(iter(by)))
+                cells.append(f'<b>{H(c)}</b> · {vnd(q)} {GU[g][1]}<br><span class="m">{sp}</span>')
+            else: cells.append('')
+        rows.append(cells)
+    if not rows: return ''
+    return f'<p><b>{title}</b></p>' + tbl(['#', 'Dao', 'Chỉ khâu'], rows)
+
 def ctxt(rows, n=8, mark=None):
     """mã + SL từng mã, gom theo nhóm: dòng đậm = tổng nhóm (Dao · 4.200 cái), dưới là các mã (người dùng 28/11/2026)"""
     G = {}
     for x in rows:
+        if x.get('g') == 'ghim': continue          # bỏ ghim da (người dùng 28/11/2026)
         g = x.get('g') if x.get('g') in GU else ''
         c = (x.get('code') or '').strip() or '(không mã)'
         q = x.get('pcs') or x.get('qty') or 0
@@ -265,17 +294,19 @@ def build(npp, P, hits, seen):
     T['new'] = newd
     T['fy'] = sum(a['fy'] for a in fyc)
     T['qact'] = qadd(*[qsum(a['p']['win']) for a in T['act']])
+    T['bestp'] = [(npp, x) for a in T['act'] for x in a['p']['win']]
+    T['best'] = best(T['bestp'])
     return T
 
 def kpis(T):
     return [('Doanh số MMH ước tính FY%d theo hiệu lực hợp đồng (09/%d – 08/%d)' % (FYC, FYC + 1958, FYC + 1959), usd(T['fy'])), ('Gói còn hiệu lực', str(len(T['act']))), ('Hết hạn ≤ 6 tháng', str(len(T['exp']))),
             ('Gói trúng mới FY%d' % FYC, str(len(T['newfy']))), ('Đang chờ kết quả', str(len(T['pend']))), ('Kết quả mới trong tuần', str(len(T['new'])))] + \
-           [(f'SL trúng, hợp đồng còn hiệu lực · {GU[g][0]} ({GU[g][1]})', vnd(T['qact'].get(g, 0))) for g in GU]
+           [(f'SL đang cung cấp · {GU[g][0]} ({GU[g][1]})', vnd(T['qact'].get(g, 0))) for g in STAT]
 def kpi_html(K):
     sl = [(k, v) for k, v in K if k.startswith('SL ')]
     K = [(k, v) for k, v in K if not k.startswith('SL ')]
     return ('<table class="kp"><tr>' + ''.join(f'<td><div class="kv">{H(v)}</div><div class="kl">{H(k)}</div></td>' for k, v in K) + '</tr></table>' +
-            ('<p><b>Số lượng trúng thầu của các hợp đồng còn hiệu lực:</b> ' + ' · '.join(H(k.split('· ')[-1].split(' (')[0]) + ' <b>' + H(v) + '</b> ' + H(k.split('(')[-1].rstrip(')')) for k, v in sl) + '</p>' if sl else ''))
+            ('<p><b>Đang cung cấp:</b> ' + ' · '.join(H(k.split('· ')[-1].split(' (')[0]) + ' <b>' + H(v) + '</b> ' + H(k.split('(')[-1].rstrip(')')) for k, v in sl) + '</p>' if sl else ''))
 
 def notes(npp, T, n=6):
     out = []
@@ -288,7 +319,7 @@ def notes(npp, T, n=6):
     return out[:n]
 
 def html_npp(npp, T, for_pdf=False):
-    b = [kpi_html(kpis(T))]
+    b = [kpi_html(kpis(T)), best_html(T['best'], 'Mã bán chạy nhất (đang cung cấp)')]
     nt = notes(npp, T, 10)
     if nt: b.append('<p><b>Cần chú ý</b></p><ul>' + ''.join(f'<li>{x}</li>' for x in nt) + '</ul>')
     b.append(f'<h3>1. Hợp đồng còn hiệu lực · doanh số ước tính FY{FYC} theo hiệu lực hợp đồng</h3>')
@@ -360,6 +391,7 @@ def main():
     for npp, T in parts: hl += [f'{H(npp)} · {x}' for x in notes(npp, T, 6)]
     body = (f'<p>Dear Viet Ha, Khang,</p><p>Tổng hợp thầu NPP tuần {d2(WSTART)} – {d2(WEND)}. Chi tiết từng NPP trong PDF đính kèm.</p>'
             + tbl(['Chỉ số', 'Hùng Vĩ', 'iCare', 'Tổng'], rows)
+            + best_html(best([x for _, T in parts for x in T['bestp']]), 'Mã bán chạy nhất (đang cung cấp, 2 NPP)')
             + (f'<p><b>Cần chú ý</b></p><ul>{"".join(f"<li>{x}</li>" for x in hl)}</ul>' if hl else '')
             + '<p>Trân trọng.</p>')
     open(os.path.join(OUTD, f'weekly {WK} - email.html'), 'w', encoding='utf-8').write(body)
