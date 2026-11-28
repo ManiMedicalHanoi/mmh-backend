@@ -230,7 +230,7 @@ def build(npp, P, hits, seen):
     return T
 
 def kpis(T):
-    return [('Doanh số MMH FY%d' % FYC, usd(T['fy'])), ('Gói còn hiệu lực', str(len(T['act']))), ('Hết hạn ≤ 6 tháng', str(len(T['exp']))),
+    return [('Doanh số MMH FY%d (09/%d – 08/%d)' % (FYC, FYC + 1958, FYC + 1959), usd(T['fy'])), ('Gói còn hiệu lực', str(len(T['act']))), ('Hết hạn ≤ 6 tháng', str(len(T['exp']))),
             ('Gói trúng mới FY%d' % FYC, str(len(T['newfy']))), ('Đang chờ kết quả', str(len(T['pend']))), ('Kết quả mới trong tuần', str(len(T['new'])))]
 def kpi_html(K):
     return '<table class="kp"><tr>' + ''.join(f'<td><div class="kv">{H(v)}</div><div class="kl">{H(k)}</div></td>' for k, v in K) + '</tr></table>'
