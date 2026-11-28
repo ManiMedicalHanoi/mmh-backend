@@ -6,6 +6,7 @@
  * ⭐ v1.4 (28/11/2026, người dùng yêu cầu): gói NPP đang Pending được ƯU TIÊN tải hồ sơ trước mọi gói khác —
  *   botNpp {key, op:'queue', no, want:'tbmt,hsmt,mo'|'kq,nt,hh', hold:giờ, pri:-1…-9, force} ⇒ dòng GÓI TÌM THẤY của gói: info.pri = -1 (bot lấy trước, wtBotNext_), info.npp = 1,
  *   vào hàng đợi với đúng loại tài liệu còn thiếu; mỗi gói + bộ tài liệu chỉ đặt lại sau `hold` giờ (mặc định 6) ⇒ trả {queued, why}.
+ * ⭐ v1.5 (28/11/2026): mmh.product nhận ở cả @mani.inc + @manimedicalhanoi.com (nppmBoth_); người khác chỉ @mani.inc.
  *
  * Gói có số TBMT trong file thầu của NPP (Hùng Vĩ · iCare, backend tender-hungvi / tender-icare ▸ winMap) còn "Pending"
  * ⇒ khi hệ thống đã tải biên bản mở thầu + HSMT ⇒ workflow "Gói thầu NPP — báo cáo mở thầu / kết quả" (tools/npp/npp_report.py)
@@ -26,7 +27,7 @@
  *   botNpp {key, op:'mark', …, msgId, subject}             ⇒ ghi đã gửi (như send)
  * Trạng thái: Script Property NPPM_<số TBMT> (JSON), tuần: NPPM_W<thứ Bảy đầu tuần>, dấu kết quả: NPPMW_SEEN_<n>. Chỉ khoá bot (không cho tiện ích dùng phiên email).
  **************************************************************************************************/
-const NPPM = { VER: '1.4', CC: ['Tuyen', 'Nguyen Ha', 'Giang'], TO: { N: 'Viet Ha', S: 'Khang' }, MAX_B64: 24 * 1048576 };
+const NPPM = { VER: '1.5', CC: ['Tuyen', 'Nguyen Ha', 'Giang'], TO: { N: 'Viet Ha', S: 'Khang' }, MAX_B64: 24 * 1048576 };
 
 function nppmAction_(p) {
   const op = wtS_(p.op) || 'state', P = PropertiesService.getScriptProperties();
@@ -180,7 +181,7 @@ function nppmPrep_(p) {
   let me = ''; try { me = Session.getEffectiveUser().getEmail(); } catch (e) {}
   let to = c.preview ? [me] : c.testTo ? nppmMails_([c.testTo]) : nppmMails_(who.to);
   let cc = c.preview || c.testTo ? [] : nppmMails_(who.cc).filter(function (m) { return to.indexOf(m) < 0; });
-  to = mmhAddr_(to.filter(Boolean)); cc = mmhAddr_(cc);
+  to = nppmBoth_(mmhAddr_(to.filter(Boolean))); cc = nppmBoth_(mmhAddr_(cc));
   if (!to.length) return { ok: false, error: 'Không tra được email người nhận ' + who.to.join(', ') };
   const mo = c.st.mo || {};
   return { ok: true, stage: c.stage, preview: c.preview, test: !!c.testTo, to: to, cc: cc, toNames: c.testTo ? [c.testTo] : who.to, ccNames: c.testTo || c.preview ? [] : who.cc,
@@ -224,4 +225,17 @@ function nppmQueue_(p) {
     try { c.remove('wt_q'); } catch (e) {}
   } finally { lock.releaseLock(); }
   return { ok: true, no: b, queued: true, why: why, want: want };
+}
+
+/* v1.5 (28/11/2026, người dùng yêu cầu): CHỈ mmh.product nhận ở cả 2 hộp thư (@mani.inc + @manimedicalhanoi.com); người khác chỉ @mani.inc */
+const NPPM_BOTH = ['mmh.product'];
+function nppmBoth_(a) {
+  const out = [];
+  (a || []).forEach(function (m) {
+    m = String(m || '').trim(); if (!m) return;
+    if (out.indexOf(m) < 0) out.push(m);
+    const loc = m.split('@')[0].toLowerCase();
+    if (NPPM_BOTH.indexOf(loc) >= 0) { const g = loc + '@manimedicalhanoi.com'; if (out.indexOf(g) < 0) out.push(g); }
+  });
+  return out;
 }

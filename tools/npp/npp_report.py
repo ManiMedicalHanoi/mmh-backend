@@ -114,18 +114,26 @@ GORDER = list(GROUP.values()) + ['Khác']
 
 def why_not(l):
     """phần NPP không dự ⇒ lý do ngắn (không khẳng định thay NPP)"""
-    if not l['codes']: return 'Không có mã MANI khớp thông số' if l.get('spec') else 'Chưa xác định được mã MANI'
+    if not l['codes']: return l.get('why') or 'Không có mã MANI khớp thông số HSMT'
     pubs = [HOSP[c.upper()]['pub'] for c in l['codes'] if c.upper() in HOSP]
     if not pubs or not l.get('qty') or not l['bids']: return 'Cần hỏi NPP'
     return 'Giá đối thủ thấp hơn giá tối thiểu của MANI' if l['bids'][0]['price'] / l['qty'] < min(pubs) else 'MANI cạnh tranh được về giá ⇒ cần hỏi NPP'
 
 def code_cell(l):
-    cs = list(dict.fromkeys([c for c in l.get('npp_codes', []) if c] + [c.upper() for c in l['codes']]))
+    """mã MANI ĐÁP ỨNG theo HSMT (không đoán) + mã NPP chào (★) kèm kết quả đối chiếu"""
     out = []
-    for c in cs[:8]:
+    if l.get('basis'): out.append('<span class="m">HSMT: ' + H(' · '.join(l['basis'])) + '</span>')
+    for c in [c for c in l.get('npp_codes', []) if c]:
+        r = (l.get('npp_chk') or {}).get(c)
+        tag = '' if r is None else ' <span class="ok">✓ khớp HSMT</span>' if r == '' else f' <span class="no">✗ lệch {H(r)}</span>'
         hp = HOSP.get(c)
-        out.append(('<b>%s ★</b>' if c in l.get('npp_codes', []) else '%s') % H(c) + (f' · {vnd(hp["pub"])} đ' if hp else ''))
-    return '<br>'.join(out) + (f'<br><span class="m">+{len(cs) - 8} mã</span>' if len(cs) > 8 else '') or '—'
+        out.append(f'<b>{H(c)} ★</b>' + (f' · {vnd(hp["pub"])} đ' if hp else '') + tag)
+    cs = [c.upper() for c in l['codes'] if c.upper() not in l.get('npp_codes', [])]
+    for c in cs[:8]:
+        hp = HOSP.get(c); out.append(H(c) + (f' · {vnd(hp["pub"])} đ' if hp else ''))
+    if len(cs) > 8: out.append(f'<span class="m">+{len(cs) - 8} mã khớp</span>')
+    if not l['codes']: out.append('<span class="no">' + H(l.get('why') or 'Không có mã MANI khớp') + '</span>')
+    return '<br>'.join(out) or '—'
 
 def status_cell(l):
     if l['mine'] < 0: return '<span class="no">Không dự</span><br><span class="m">' + H(why_not(l)) + '</span>'
@@ -142,42 +150,133 @@ def eye_rel(lt, name, inv=''):
         return bool(re.search(r'\bmat\b|nhan khoa|spatula|hinh thang|giac mac', t)) or any(int(x) >= 7 for x in sz)
     return lt in ('ghim', 'kim', 'moc')
 
-def mani_codes(ltype, text):
-    """mã MANI có thể đáp ứng lô (tối đa 4) theo tên + thông số"""
-    t = nk(text); out = []
+# ───────────── mã MANI ĐÁP ỨNG theo yêu cầu kỹ thuật đọc được trong HSMT (v1.5, 28/11/2026 — người dùng: "không phỏng đoán")
+# Mỗi thông số HSMT nêu ra phải khớp với dữ liệu catalogue (chỉ: mani_sutures.csv · dao: tên mã trong MMH_Prices.gs);
+# HSMT không nêu thông số nào ⇒ không xét thông số đó; thiếu thông số bắt buộc (chỉ: chất liệu + cỡ · dao: loại + cỡ / góc / G) ⇒ không đưa mã.
+def _f(x):
+    try: return float(str(x).replace(',', '.'))
+    except Exception: return None
+CURVE = {'1/4': 90, '5/16': 113, '3/8': 135, '7/16': 158, '1/2': 180, '5/8': 225}
+NEEDLE = [('spatula', r'spatula|hinh thang|luc giac', r'spatula'), ('tron dau cat', r'tron dau cat|cut taper|taper ?cut', r'cut taper'),
+          ('tron', r'kim tron|taper', r'taper point'), ('tam giac', r'tam giac|cat nguoc|reverse|cutting', r'reverse cut'), ('chich', r'kim chich|lancet', r'lancet')]
+def sut_req(lot_name, spec):
+    """yêu cầu kỹ thuật của 1 phần chỉ khâu đọc từ tên phần + dòng HSMT"""
+    nm, sp = str(lot_name or ''), str(spec or '')
+    both = nm + ' ' + sp; t = nk(both); tl = both.lower().replace(',', '.')
+    mat = next((m for m, ws in MAT if any(w in nk(nm) for w in ws)), '') or next((m for m, ws in MAT if any(w in nk(sp) for w in ws)), '')
+    sz = re.search(r'\b(\d{1,2})\s?[-/]\s?0\b', nm) or re.search(r'\b(\d{1,2})\s?[-/]\s?0\b', sp)
+    R = {'mat': mat, 'size': (sz.group(1) + '-0') if sz else ''}
+    R['needle'] = next((k for k, rx, _ in NEEDLE if re.search(rx, t)), '')
+    R['straight'] = bool(re.search(r'kim thang|straight', t))
+    R['curve'] = sorted({CURVE[f] for f in re.findall(r'\b(1/4|5/16|3/8|7/16|1/2|5/8)\b', tl)})
+    R['double'] = True if re.search(r'\b2 (dau )?kim|hai (dau )?kim|double', t) else False if re.search(r'\b1 (dau )?kim|mot (dau )?kim|single', t) else None
+    mm = [(_f(a), _f(b)) for a, b in re.findall(r'(\d+(?:[.,]\d+)?)\s*(?:-|đến|den|~|–)\s*(\d+(?:[.,]\d+)?)\s*mm', tl)]
+    one = [_f(a) for a in re.findall(r'(\d+(?:[.,]\d+)?)\s*mm', tl)]
+    R['nlen'] = [r for r in mm if r[0] and r[1] and 2.5 <= r[0] <= 40] + [(v, v) for v in one if v and 2.5 <= v <= 40 and not any(a <= v <= b for a, b in mm if a and b)]
+    R['ndia'] = [v for v in one if v and 0.03 <= v < 1]
+    cm = re.findall(r'(≥|>=|tối thiểu|toi thieu|ít nhất|it nhat|trên|tren)?\s*(\d+(?:[.,]\d+)?)\s*cm', tl)
+    R['tlen'] = [(_f(v), bool(g)) for g, v in cm if _f(v) and 5 <= _f(v) <= 150]
+    return R
+def sut_fit(r, R):
+    """dòng catalogue r có đáp ứng R không ⇒ (đạt?, lý do không đạt)"""
+    if R['mat'] and nk(r['Suture (EN)']).find({'pga': 'pga', 'silk': 'silk'}.get(R['mat'], R['mat'])) < 0: return False, 'chất liệu'
+    if R['size'] and r['Cỡ chỉ (USP)'].split(' ')[0] != R['size']: return False, 'cỡ chỉ'
+    ne = nk(r['Needle (EN)'])
+    if R['needle']:
+        rx = dict((k, x) for k, _, x in NEEDLE)[R['needle']]
+        if not re.search(rx, ne) or (R['needle'] == 'tron' and 'cut' in ne): return False, 'kiểu kim'
+    cv = nk(r['Độ cong'])
+    if R['straight'] and 'kim thang' not in cv: return False, 'kim thẳng'
+    if R['curve']:
+        degs = [int(x) for x in re.findall(r'(\d{2,3})°', r['Độ cong'])]
+        if not any(d in degs for d in R['curve']): return False, 'độ cong'
+    if R['double'] is True and r['Một đầu kim (Single-armed)'] == 'Có': return False, 'số kim'
+    if R['double'] is False and r['Một đầu kim (Single-armed)'] != 'Có': return False, 'số kim'
+    nl = _f(re.sub(r'[^\d.]', '', r['Chiều dài kim']))
+    if R['nlen'] and nl and not any(a - 0.5 <= nl <= b + 0.5 for a, b in R['nlen']): return False, 'chiều dài kim'
+    dia = [_f(x) for x in re.findall(r'(\d+\.\d+)', r['Đường kính kim'])]
+    if R['ndia'] and dia and not any(abs(d - x) <= 0.03 for d in dia for x in R['ndia']): return False, 'đường kính kim'
+    tl = _f(re.sub(r'[^\d.]', '', r['Chiều dài chỉ']))
+    if R['tlen'] and tl and not any((tl >= v) if ge else abs(tl - v) <= max(2, v * 0.1) for v, ge in R['tlen']): return False, 'chiều dài chỉ'
+    return True, ''
+def sut_basis(R):
+    b = []
+    if R['mat']: b.append(R['mat'])
+    if R['size']: b.append(R['size'])
+    if R['needle']: b.append('kim ' + R['needle'])
+    if R['straight']: b.append('kim thẳng')
+    if R['curve']: b.append('cong ' + '/'.join(k for k, v in CURVE.items() if v in R['curve']))
+    if R['double'] is not None: b.append('2 kim' if R['double'] else '1 kim')
+    if R['nlen']: b.append('kim ' + ', '.join(('%g' % a if a == b2 else '%g–%g' % (a, b2)) for a, b2 in R['nlen'][:2]) + ' mm')
+    if R['ndia']: b.append('Ø kim ' + ', '.join('%g' % x for x in R['ndia'][:2]) + ' mm')
+    if R['tlen']: b.append('chỉ ' + ', '.join(('≥ ' if g else '') + '%g' % v for v, g in R['tlen'][:2]) + ' cm')
+    return b
+
+KNIFE = []
+for _c, _p in PRICE.items():
+    if _p['kind'] != 'dao': continue
+    n = nk(_p['name']); nr = _p['name'].replace(',', '.')
+    fam = ('mvr' if re.match(r'^M(VR|PK)', _c) else 'liem' if 'luoi liem' in n else 'cung' if 'cung mac' in n else 'thang' if _c.startswith('MST') else
+           'rachR' if _c.startswith('MRS') else 'rachT' if _c.startswith('MSS') else 'rach' if _c.startswith('MSL') else '')
+    m = re.search(r'(\d+(?:\.\d+)?)\s*mm', nr); a = re.search(r'(\d+(?:\.\d+)?)°', nr); g = re.search(r'(\d{2})G', nr)
+    KNIFE.append({'code': _p['code'], 'fam': fam, 'mm': float(m.group(1)) if m else None, 'deg': float(a.group(1)) if a else None, 'g': int(g.group(1)) if g else None,
+                  'safe': bool(re.search(r'an toan|nap chan', n) or re.search(r'SK$', _c)), 'short': 'dau ngan' in n or _c.endswith('SH'), 'curve': 'cong' in n and _c.endswith('AB'), 'mark': 'danh dau' in n})
+def knife_req(lot_name, spec):
+    both = str(lot_name or '') + ' ' + str(spec or ''); t = nk(both); tl = both.lower().replace(',', '.')
+    fam = ('mvr' if re.search(r'\bmvr\b|\b(19|20|21|23|24|25|27) ?g\b', t) else 'liem' if re.search(r'luoi liem|crescent', t) else 'cung' if re.search(r'cung mac', t) and not re.search(r'giac mac', t) else
+           'thang' if re.search(r'(15|22[.,]?5|30|45) ?(do|°)|stab|luoi thang|chich', t) and not re.search(r'\brach\b.*\d[.,]\d+ ?mm', t) else 'rach' if re.search(r'\brach\b|slit|keratome|giac mac|phaco', t) else '')
+    if fam == 'rach' and re.search(r'luoi thang', t): fam = 'rachT'
+    R = {'fam': fam, 'mm': sorted({_f(x) for x in re.findall(r'(\d[.]\d{1,2})\s*mm', tl) if 0.7 <= _f(x) <= 6}),
+         'deg': sorted({_f(x) for x in re.findall(r'(\d{1,2}(?:\.\d)?)\s*(?:°|độ|do\b)', tl) if _f(x) in (0, 15, 22.5, 22, 30, 45)}),
+         'g': sorted({int(x) for x in re.findall(r'\b(19|20|21|23|24|25|27)\s?g\b', t)}),
+         'safe': bool(re.search(r'an toan|nap (chan|bao ve)', t)), 'curve': bool(re.search(r'cong\b', t) and fam == 'rach'), 'short': bool(re.search(r'dau ngan', t))}
+    R['deg'] = [22.5 if d == 22 else d for d in R['deg']]
+    return R
+def knife_fit(k, R):
+    if not R['fam']: return False, 'loại dao'
+    fam = k['fam'] if k['fam'] not in ('rachR',) else 'rach'
+    if fam != R['fam']: return False, 'loại dao'
+    if R['fam'] == 'mvr':
+        if not R['g'] and not R['mm']: return False, 'thiếu cỡ G'
+        if R['g'] and k['g'] not in R['g']: return False, 'cỡ G'
+    elif R['fam'] == 'thang':
+        if not R['deg']: return False, 'thiếu góc'
+        if k['deg'] not in R['deg']: return False, 'góc lưỡi'
+    else:
+        if not R['mm']: return False, 'thiếu cỡ mm'
+        if k['mm'] is None or not any(abs(k['mm'] - x) <= 0.051 for x in R['mm']): return False, 'cỡ mm'
+    if R['safe'] != k['safe']: return False, 'nắp an toàn'
+    if R['curve'] != k['curve']: return False, 'lưỡi cong'
+    if R['short'] != k['short']: return False, 'đầu ngắn'
+    return True, ''
+def knife_basis(R):
+    lab = {'mvr': 'MVR', 'liem': 'lưỡi liềm', 'cung': 'củng mạc', 'thang': 'lưỡi thẳng', 'rach': 'dao rạch', 'rachT': 'dao rạch lưỡi thẳng'}.get(R['fam'], '')
+    return [x for x in [lab, ', '.join('%gG' % g for g in R['g']), ', '.join('%g mm' % m for m in R['mm']), ', '.join('%g°' % d for d in R['deg']),
+                        'nắp an toàn' if R['safe'] else '', 'lưỡi cong' if R['curve'] else '', 'đầu ngắn' if R['short'] else ''] if x]
+
+def mani_match(ltype, lot_name, spec):
+    """⇒ {'codes': mã đáp ứng, 'basis': thông số HSMT đã đối chiếu, 'why': lý do không có mã, 'check': hàm kiểm 1 mã}"""
+    if not spec: return {'codes': [], 'basis': [], 'why': 'Chưa đọc được yêu cầu kỹ thuật của phần này trong HSMT', 'check': lambda c: None}
     if ltype == 'chi':
-        mat = next((m for m, ws in MAT if any(w in t for w in ws)), '')
-        sz = re.search(r'\b(\d{1,2})\s?[-/]\s?0\b', str(text))
-        size = (sz.group(1) + '-0') if sz else ''
-        dbl = bool(re.search(r'\b2 kim|hai kim|double', t))
-        if not mat or not size: return []
-        nd = 'thang' if re.search(r'kim thang|straight', t) else 'spatula' if re.search(r'spatula|hinh thang', t) else 'tron' if re.search(r'kim tron|taper', t) else ''
-        for r in SUT:
-            if mat and nk(r['Suture (EN)']).find({'pga': 'pga', 'silk': 'silk'}.get(mat, mat)) < 0: continue
-            if size and r['Cỡ chỉ (USP)'].split(' ')[0] != size: continue
-            if dbl and r['Một đầu kim (Single-armed)'] == 'Có': continue
-            ne = nk(r['Needle (EN)'] + ' ' + r['Độ cong'])
-            if nd == 'thang' and 'kim thang' not in nk(r['Độ cong']) and 'straight' not in ne: continue
-            if nd == 'spatula' and 'spatula' not in ne: continue
-            if nd == 'tron' and 'taper' not in ne: continue
-            out.append(r['Mã đặt hàng'])
-        return out[:4]
+        R = sut_req(lot_name, spec)
+        if not R['mat'] or not R['size']:
+            return {'codes': [], 'basis': sut_basis(R), 'why': 'HSMT không nêu đủ chất liệu và cỡ chỉ', 'check': lambda c: None}
+        ok = [r['Mã đặt hàng'] for r in SUT if sut_fit(r, R)[0]]
+        def chk(c):
+            r = next((x for x in SUT if x['Mã đặt hàng'].upper() == c.upper()), None)
+            return None if not r else sut_fit(r, R)[1]
+        return {'codes': ok, 'basis': sut_basis(R), 'why': '' if ok else 'Không có mã MANI khớp đủ thông số HSMT', 'check': chk}
     if ltype == 'dao':
-        fam = []
-        m = re.search(r'\b(1[05]|22|30|45)\s?(do|°)', t) or re.search(r'(1[05]|22,5|22.5|30|45)\s?(do|°)', text.lower())
-        if 'luoi liem' in t or 'crescent' in t or 'mong' in t: fam = ['MCU26', 'MCU26SH', 'MCU20']
-        elif re.search(r'\bmvr|\b2[035] ?g\b', t):
-            g = re.search(r'\b(19|20|23|25) ?g\b', t); fam = ['MVR' + (g.group(1) if g else '20'), 'MVR23']
-        elif m and re.search(r'thang|15 do|phaco|chich', t):
-            a = m.group(1).replace(',', '.').split('.')[0]; fam = ['MST' + a, 'MST' + a + 'MK', 'MST' + a + 'SK']
-        else:
-            mm = re.search(r'\b(\d)[.,](\d{1,2})\s?mm', t) or re.search(r'\b(\d)[.,](\d{1,2})\b', t)
-            if mm:
-                d = mm.group(1) + (mm.group(2) + '0')[:1] if mm.group(2) not in ('75', '65') else mm.group(1) + {'75': '7', '65': '6'}[mm.group(2)]
-                fam = ['MSL' + d, 'MSL' + d + 'SH', 'MSL' + d + 'SK']
-        return [c for c in fam if c in PRICE][:4]
-    if ltype == 'ghim': return [c for c in ('AZ35WS', 'DS35WS') if c in PRICE]
-    return []
+        R = knife_req(lot_name, spec)
+        ok = [k['code'] for k in KNIFE if knife_fit(k, R)[0]]
+        def chk(c):
+            k = next((x for x in KNIFE if x['code'].upper() == c.upper()), None)
+            return None if not k else knife_fit(k, R)[1]
+        why = '' if ok else ('HSMT không nêu rõ loại dao' if not R['fam'] else 'Không có mã MANI khớp đủ thông số HSMT')
+        return {'codes': ok, 'basis': knife_basis(R), 'why': why, 'check': chk}
+    if ltype == 'ghim':
+        return {'codes': [c for c in ('AZ35WS', 'DS35WS') if c in PRICE], 'basis': ['ghim da'], 'why': '', 'check': lambda c: ''}
+    return {'codes': [], 'basis': [], 'why': 'Chưa có dữ liệu thông số để đối chiếu', 'check': lambda c: None}
 
 # ───────────── NPP: gói Pending
 def month_back(n):
@@ -471,7 +570,9 @@ def build_mo(pk, hits):
     f_ky = pick(files, r'yêu cầu về kỹ thuật|chương v\b|chuong v|yeu cau ky thuat')
     f_dg = pick(files, r'tiêu chuẩn đánh giá|mục 3|muc 3')
     p_bb, p_tb = blob(f_bb, d), blob(f_tb, d)
-    p_ky = blob(f_ky, d) if f_ky else None
+    if not f_ky: return None, 'chưa có HSMT (yêu cầu kỹ thuật) ⇒ chờ tải, chưa gửi'
+    p_ky = blob(f_ky, d)
+    if not p_ky or not pdftext(p_ky).strip(): return None, 'HSMT chưa tải được / không đọc được chữ ⇒ chưa gửi'
     lots = read_bidders(f_nt)
     if not lots: return None, 'không đọc được bảng nhà thầu tham dự'
     T = (pdftext(p_tb) if p_tb else '') + '\n' + (pdftext(p_bb) if p_bb else '')
@@ -520,11 +621,13 @@ def build_mo(pk, hits):
         l['spec'] = sp[3][:600] if sp else ''
         l['level'] = spec_level(sp[3]) if sp else 'Chưa đọc được trong HSMT'
         l['orig'] = origin_of(sp[3]) if sp else []
-        l['codes'] = mani_codes(l['lt'] or lot_type(l['name']), l['name'] + ' ' + re.sub(r'(?i)polypropylene|nylon|polyglactin|polyglycolic|polyester|\b\d{1,2}\s?[-/]\s?0\b', '', l['spec']))
+        MM = mani_match(l['lt'] or lot_type(l['name']), l['name'], sp[3] if sp else '')   # v1.5: chỉ mã khớp thông số đọc được trong HSMT
+        l['codes'], l['basis'], l['why'] = MM['codes'], MM['basis'], MM['why']
         q = re.findall(r'\b(Sợi|Cái|Chiếc|Hộp|Vỉ|Bộ|Cây|Tép|Gói|Tuýp)\s+(\d[\d.,]*)\b', sp[3]) if sp else []
         l['unit'] = q[-1][0].lower() if q else ''; l['qty'] = l['qty_h'] = num(q[-1][1]) if q else 0
         its = [l['item']] if l.get('item') else l.get('items') or []
         l['npp_codes'] = [str(it.get('code') or '').upper().split(' ')[0] for it in its if it.get('code')]
+        l['npp_chk'] = {c: MM['check'](c) for c in l['npp_codes']}
         if not l['qty'] and len(its) == 1: l['qty'] = its[0].get('qty') or 0
         if not l['unit']: l['unit'] = 'sợi' if (l['lt'] or lot_type(l['name'])) == 'chi' else 'cái'
         l['group'] = GROUP.get(l['lt'] or lot_type(l['name']), 'Khác')
@@ -586,7 +689,7 @@ def html_mo(R, for_pdf=False):
     src = ' · '.join(x for x in [f'<a href="{H(R["I"]["url"])}">Trang gói muasamcong</a>' if R['I'].get('url') else '', a(L['bb'], 'Biên bản mở thầu'), a(L['nt'], 'Nhà thầu tham dự'),
                                  a(L['tb'], 'TBMT'), a(L['ky'], 'HSMT – yêu cầu kỹ thuật'), a(L['dg'], 'HSMT – tiêu chuẩn đánh giá')] if x)
     img = lambda cid, f: f'<img class="ev" src="{"file://" + f if for_pdf else "cid:" + cid}">'
-    mine = [l for l in R['rel'] if l['mine'] >= 0]; others = [l for l in R['rel'] if l['mine'] < 0]
+    mine = [l for l in R['rel'] if l['mine'] >= 0]; others = [l for l in R['rel'] if l['mine'] < 0 and l['codes']]   # v1.5: chỉ phần có mã MANI khớp HSMT
     V = R['val']; fyn = V[0]['fy'] if V else fy_of(R['start'])
     tw = sum(v['bid'] for v in V); tm = sum(v['mmh'] for v in V); cw = sum(v['cw'] for v in V); cm = sum(v['cm'] for v in V)
     w1 = [l for l in mine if l['mine'] == 0]; wl = [l for l in mine if l['mine'] > 0]
@@ -601,6 +704,18 @@ def html_mo(R, for_pdf=False):
     rem = V[0]['rem'] if V else 0
     fyl = f'Doanh số MMH ước tính FY{fyn} theo hiệu lực HĐ (09/{fyn + 1958} – 08/{fyn + 1959}) · {rem} tháng từ {R["start"].strftime("%m/%Y")}'
     s.append(tbl(['Giá trị NPP chào (nếu trúng)', 'Doanh số MMH ước tính cả HĐ (nếu trúng)', fyl], [[f'<b>{usd(tw)}</b>', f'<b>{usd(tm)}</b>' if tm else '—', f'<b>{usd(cm)}</b>' if tm else '—']]))
+    if V:   # v1.5 (người dùng 28/11/2026): ước tính doanh số từng phần + cách tính đặt ngay đầu email
+        dmo = R['dur']
+        rows = []
+        for v in V:
+            up = v['mmh'] / v['qty'] if v['qty'] and v['mmh'] else 0
+            rows.append([v['lot']['code'], H(v['code']), vnd(v['qty']) if v['qty'] else '—', vnd(up) + ' đ' if up else '—', usd(v['bid']),
+                         usd(v['mmh']) if v['mmh'] else '—', usd(v['mmh'] / dmo) if v['mmh'] else '—', str(min(dmo, v['rem'])), f"<b>{usd(v['cm'])}</b>" if v['mmh'] else '—'])
+        rows.append(['<b>Tổng</b>', '', '', '', f'<b>{usd(tw)}</b>', f'<b>{usd(tm)}</b>' if tm else '—', f'<b>{usd(tm / dmo)}</b>' if tm else '—', '', f'<b>{usd(cm)}</b>' if tm else '—'])
+        s.append('<p><b>Ước tính doanh số từng phần (nếu trúng)</b></p>')
+        s.append(tbl(['Phần', 'Mã NPP chào', 'SL (HSMT)', 'Giá MANI→NPP / đv', 'NPP chào', 'Doanh số MMH cả HĐ', '/ tháng', f'Số tháng trong FY{fyn}', f'Ước tính FY{fyn}'], rows))
+        s.append(f'<p class="m">Cách tính: Doanh số MMH cả HĐ = SL theo HSMT × giá MANI bán cho NPP từng mã · chia đều cho hiệu lực hợp đồng {dmo} tháng ⇒ doanh số / tháng · '
+                 f'× số tháng còn lại trong FY{fyn} (HĐ giả định bắt đầu {R["start"].strftime("%m/%Y")}, tháng sau mở thầu) ⇒ ước tính FY{fyn}. Tỷ giá cố định {vnd(RATE)} đ/USD. NPP chào = giá dự thầu trong biên bản mở thầu.</p>')
     if mine:
         rows = [[l['code'], H(l['name'][:60]), ', '.join(H(c) for c in l.get('npp_codes', [])) or '—', rank_cell(l), chance(l)] for l in mine]
         s.append('<p><b>Khả năng trúng</b> — ' + (f'giá thấp nhất <b>{len(w1)}/{len(mine)}</b> phần' if mine else '') + (f', cao hơn đối thủ {len(wl)} phần' if wl else '') + '</p>')
@@ -647,11 +762,6 @@ def html_mo(R, for_pdf=False):
     if bx: s.append('<p><b>Phần NPP không dự</b> · khung đỏ = giá thấp nhất</p>')
     for cid, f, cap in bx:
         s.append(f'<p class="m">{H(cap.split(" (NPP")[0])}</p>' + img(cid, f))
-    if V:
-        s.append('<h3>4. Giá trị ước tính từng phần</h3>')
-        rows = [[v['lot']['code'], v['code'], vnd(v['qty']) if v['qty'] else '—', usd(v['bid']), usd(v['mmh']) if v['mmh'] else '—', usd(v['cm']) if v['mmh'] else '—'] for v in V]
-        rows.append(['<b>Tổng</b>', '', '', f'<b>{usd(tw)}</b>', f'<b>{usd(tm)}</b>' if tm else '—', f'<b>{usd(cm)}</b>' if tm else '—'])
-        s.append(tbl(['Phần', 'Mã', 'SL', 'NPP chào', 'Doanh số MMH ước tính', f'Ước tính FY{fyn}'], rows))
     return '\n'.join(s)
 
 def name_or(s): return s or 'Không rõ'
@@ -668,6 +778,13 @@ def make_pdf(title, body_html, out):
         b = p.chromium.launch(); pg = b.new_page(); pg.goto('file://' + hp); pg.pdf(path=out, format='A4', print_background=True, margin={'top': '12mm', 'bottom': '12mm', 'left': '11mm', 'right': '11mm'}); b.close()
     return out
 
+STAGE_LAB = {'mo': 'Biên bản mở thầu', 'kq': 'Kết quả lựa chọn nhà thầu', 'wk': 'Tổng hợp tuần', 'tb': 'Thông báo mời thầu'}
+def from_name(body):
+    """tên người gửi hiện trong hộp thư = (bước thầu) + bệnh viện — người dùng 28/11/2026: không để "Hệ thống Theo dõi thầu" """
+    if body.get('fromName'): return body['fromName']
+    hosp = re.sub(r'^\s*(Bệnh viện|BV)\s+', 'BV ', str(body.get('hosp') or '').strip())
+    return (f"({STAGE_LAB.get(body.get('stage'), 'Thầu')}) {hosp}".strip())[:70]
+
 def notify_send(body, inl, att):
     """gửi qua mmh.notify: máy chủ kiểm + tra người nhận (prep) ⇒ SMTP ⇒ ghi đã gửi (mark).
     v1.3 (28/11/2026, người dùng yêu cầu): CHỈ gửi bằng mmh.notify — lỗi SMTP ⇒ báo lỗi, KHÔNG gửi bằng mmh.product."""
@@ -679,7 +796,7 @@ def notify_send(body, inl, att):
     rep = pr.get('reply') or {}
     if rep.get('subject'): subj = 'Re: ' + rep['subject']
     try:
-        mid = NM.send(pr['to'], pr.get('cc') or [], subj, body['html'], inline=inl, attach=att, reply_id=rep.get('msgId') or '')
+        mid = NM.send(pr['to'], pr.get('cc') or [], subj, body['html'], inline=inl, attach=att, reply_id=rep.get('msgId') or '', name=from_name(body))
     except Exception as e:
         r = {'ok': False, 'via': 'mmh.notify', 'error': 'SMTP mmh.notify lỗi: ' + str(e)[:300]}
         log('  gửi:', json.dumps(r, ensure_ascii=False)); FAIL.append(body.get('no') or body.get('wk')); return r
@@ -692,7 +809,7 @@ def send(no, stage, subject, html_body, inl, att, R):
     body = {'action': 'botNpp', 'op': 'send', 'no': no, 'stage': stage, 'subject': subject, 'html': f'<div style="font-family:Aptos,Calibri,Arial,sans-serif;font-size:14px;color:#1F2A33"><style>{CSS}</style>{html_body}</div>',
             'inl': [{'cid': c, 'name': os.path.basename(f), 'mime': 'image/jpeg', 'b64': b64(f)} for c, f, _ in inl],
             'att': [{'name': os.path.basename(a), 'mime': 'application/pdf', 'b64': b64(a)} for a in att],
-            'prov': R['pk']['city'] or R['I'].get('prov', ''), 'text': R['inv'] + ' ' + R['pk']['hospital'], 'mode': 'live' if MODE in ('live', 'test') else 'preview'}
+            'prov': R['pk']['city'] or R['I'].get('prov', ''), 'text': R['inv'] + ' ' + R['pk']['hospital'], 'mode': 'live' if MODE in ('live', 'test') else 'preview', 'hosp': R['pk']['hospital'] or R['inv']}
     if MODE == 'test': body['testTo'] = TEST_TO
     if FORCE and ONLY: body['force'] = 1
     if MODE == 'dry': log('  (dry) không gửi:', subject); return {'ok': True, 'dry': True}
