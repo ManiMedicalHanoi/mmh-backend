@@ -329,6 +329,10 @@ def main():
            'att': [{'name': os.path.basename(f), 'mime': 'application/pdf', 'b64': b64(f)} for f in pdfs], 'force': 1 if FORCE else ''}
     if MODE == 'test': req['testTo'] = TEST_TO
     if MODE == 'live': req['seen'] = ','.join(f"{hk_(p['k'])}:{p['sig']}" for p in P.values() if p['win'] or p['fail'])
+    r = None
+    if N.NM.ready():                                 # gửi bằng mmh.notify; lỗi ⇒ máy chủ gửi bằng mmh.product
+        r = N.notify_send(req, [], pdfs)
+        if r is not None: return
     r = N.post(req, tries=2)
     log('gửi:', json.dumps({k: r.get(k) for k in ('ok', 'to', 'cc', 'skip', 'error', 'code', 'seen')}, ensure_ascii=False))
 

@@ -16,9 +16,11 @@
  *   botNpp {key, op:'on'|'off'}                            ⇒ bật / tắt gửi thật (Script Property NPPM_ON = 1)
  *   botNpp {key, op:'wkstate', wk, test}                    ⇒ {sent, seen}: tuần đã gửi chưa + dấu kết quả các gói lần gửi thật trước (tools/npp/npp_weekly.py)
  *   botNpp {key, op:'send', stage:'wk', wk:'yyyy-mm-dd', …, seen} ⇒ email tổng hợp tuần: To Viet Ha + Khang · CC như trên; live ⇒ lưu `seen`
+ *   botNpp {key, op:'prep', …như send, không có nội dung}  ⇒ {to, cc, me, reply:{msgId, subject}} — v1.2: thư gửi bằng mmh.notify (SMTP, GitHub) thay mmh.product
+ *   botNpp {key, op:'mark', …, msgId, subject}             ⇒ ghi đã gửi (như send)
  * Trạng thái: Script Property NPPM_<số TBMT> (JSON), tuần: NPPM_W<thứ Bảy đầu tuần>, dấu kết quả: NPPMW_SEEN_<n>. Chỉ khoá bot (không cho tiện ích dùng phiên email).
  **************************************************************************************************/
-const NPPM = { VER: '1.1', CC: ['Tuyen', 'Nguyen Ha', 'Giang'], TO: { N: 'Viet Ha', S: 'Khang' }, MAX_B64: 24 * 1048576 };
+const NPPM = { VER: '1.2', CC: ['Tuyen', 'Nguyen Ha', 'Giang'], TO: { N: 'Viet Ha', S: 'Khang' }, MAX_B64: 24 * 1048576 };
 
 function nppmAction_(p) {
   const op = wtS_(p.op) || 'state', P = PropertiesService.getScriptProperties();
@@ -33,6 +35,8 @@ function nppmAction_(p) {
   if (op === 'quota') { let q = -1; try { q = MailApp.getRemainingDailyQuota(); } catch (e) {} return { ok: true, quota: q }; }
   if (op === 'kq') return nppmKq_(p);
   if (op === 'send') return nppmSend_(p);
+  if (op === 'prep') return nppmPrep_(p);
+  if (op === 'mark') return nppmMark_(p);
   if (op === 'wkstate') {
     const wk = wtS_(p.wk); if (!/^\d{4}-\d{2}-\d{2}$/.test(wk)) return { ok: false, error: 'thiếu wk' };
     const st = wtJson_(P.getProperty((wtS_(p.test) ? 'NPPMT_W' : 'NPPM_W') + wk), {}) || {};
@@ -146,4 +150,40 @@ function nppmSend_(p) {
   if (!preview) { st[stage] = rec; P.setProperty(key, JSON.stringify(st)); }
   if (wk && !preview && !testTo && typeof p.seen === 'string') nppmSeenSet_(P, p.seen);
   return { ok: true, no: b, stage: stage, preview: preview, test: !!testTo, to: preview ? 'tài khoản chạy máy chủ' : testTo || who.to.join(', '), cc: preview || testTo ? '' : who.cc.join(', '), wouldTo: who.to.join(', '), wouldCc: who.cc.join(', '), thread: thread, replied: replied };
+}
+
+/* ⭐ v1.2 (28/11/2026, người dùng yêu cầu: gửi từ mmh.notify cho đỡ quá tải mmh.product) — GitHub gửi qua SMTP mmh.notify;
+   máy chủ chỉ kiểm điều kiện + tra email người nhận (đã đổi miền @mani.inc) + ghi trạng thái. Lỗi SMTP ⇒ GitHub gửi lại qua op=send (mmh.product). */
+function nppmCtx_(p) {
+  const wk = wtS_(p.stage) === 'wk' ? wtS_(p.wk) : '';
+  if (wtS_(p.stage) === 'wk' && !/^\d{4}-\d{2}-\d{2}$/.test(wk)) return { err: 'thiếu wk' };
+  const b = wk ? 'W' + wk : wtBare_(String(p.no || '').toUpperCase()), stage = wk ? 'wk' : wtS_(p.stage) === 'kq' ? 'kq' : 'mo';
+  if (!b) return { err: 'thiếu no' };
+  const testTo = wtS_(p.testTo), P = PropertiesService.getScriptProperties(), key = (testTo ? 'NPPMT_' : 'NPPM_') + b;
+  return { b: b, stage: stage, testTo: testTo, P: P, key: key, st: wtJson_(P.getProperty(key), {}) || {}, preview: !testTo && wtS_(p.mode) !== 'live' };
+}
+function nppmPrep_(p) {
+  const c = nppmCtx_(p); if (c.err) return { ok: false, error: c.err };
+  if (!c.preview && !c.testTo && c.P.getProperty('NPPM_ON') !== '1') return { ok: false, code: 'OFF', error: 'Chưa bật gửi thật (botNpp op=on).' };
+  if (!c.preview && c.st[c.stage] && !wtTrue_(p.force)) return { ok: true, skip: 'đã gửi lúc ' + c.st[c.stage].at };
+  if (!c.preview && c.stage === 'kq' && !(c.st.mo && c.st.mo.at)) return { ok: false, error: 'Chưa gửi thư mở thầu.' };
+  const who = nppmWho_(p);
+  let me = ''; try { me = Session.getEffectiveUser().getEmail(); } catch (e) {}
+  let to = c.preview ? [me] : c.testTo ? nppmMails_([c.testTo]) : nppmMails_(who.to);
+  let cc = c.preview || c.testTo ? [] : nppmMails_(who.cc).filter(function (m) { return to.indexOf(m) < 0; });
+  to = mmhAddr_(to.filter(Boolean)); cc = mmhAddr_(cc);
+  if (!to.length) return { ok: false, error: 'Không tra được email người nhận ' + who.to.join(', ') };
+  const mo = c.st.mo || {};
+  return { ok: true, stage: c.stage, preview: c.preview, test: !!c.testTo, to: to, cc: cc, toNames: c.testTo ? [c.testTo] : who.to, ccNames: c.testTo || c.preview ? [] : who.cc,
+    reply: c.stage === 'kq' && !c.preview ? { msgId: mo.msgId || '', subject: mo.subject || '' } : null };
+}
+function nppmMark_(p) {
+  const c = nppmCtx_(p); if (c.err) return { ok: false, error: c.err };
+  if (c.preview) return { ok: true, preview: true };
+  const who = nppmWho_(p);
+  if (c.stage === 'mo' && c.st.mo && wtTrue_(p.force)) delete c.st.kq;
+  c.st[c.stage] = { at: wtNow_(), msgId: wtS_(p.msgId), subject: (c.testTo ? '[Thử] ' : '') + wtS_(p.subject), to: c.testTo || who.to.join(', '), cc: c.testTo ? '' : who.cc.join(', '), via: 'notify', replied: !!wtS_(p.replied) };
+  c.P.setProperty(c.key, JSON.stringify(c.st));
+  if (c.stage === 'wk' && !c.testTo && typeof p.seen === 'string') nppmSeenSet_(c.P, p.seen);
+  return { ok: true, stage: c.stage, rec: c.st[c.stage] };
 }

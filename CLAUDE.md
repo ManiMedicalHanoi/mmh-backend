@@ -899,3 +899,7 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   (ngày phê duyệt trong tuần, hoặc dấu kết quả khác lần gửi thật trước — `NPPMW_SEEN_<n>`) từng mã trúng / trượt + lý do (cột Note file NPP, `botNpp op=kq`). 1 email To Viet Ha + Khang · CC Tuyen, Nguyen Ha, Giang (`botNpp op=send stage=wk wk=<thứ Bảy>`;
   `op=wkstate`). Gửi thật cùng công tắc `NPPM_ON`; chạy tay `mode=test` (`to`) / `preview` / `dry`, `force` gửi lại.
   Doanh số = TRỌN NĂM FY hiện tại (gồm hợp đồng đã hết hạn trong FY), không tính FY kế. Email + PDF mở đầu bằng 6 số (Doanh số MMH FY · gói còn hiệu lực · hết hạn ≤ 6 tháng · gói trúng mới trong FY · chờ kết quả · KQ mới trong tuần) + Cần chú ý, rồi mới chi tiết.
+  **Gửi bằng hộp thư hệ thống `mmh.notify@gmail.com` (28/11/2026, người dùng yêu cầu: đỡ quá tải hạn mức email mmh.product; định dùng làm hộp thư dự phòng cho mọi hệ thống)**:
+  `tools/npp/notify_mail.py` = Gmail SMTP + **mật khẩu ứng dụng** (GitHub secret `NOTIFY_SMTP_PASS`, người dùng tự tạo; địa chỉ = env `NOTIFY_SMTP_USER` trong 2 workflow). Có secret ⇒ `notify_send`: `botNpp op=prep`
+  (kiểm OFF / đã gửi / tra email người nhận đã đổi miền @mani.inc + Message-ID thư mở thầu) ⇒ SMTP (ảnh `cid:`, PDF, kết quả = `In-Reply-To` cùng luồng) ⇒ `op=mark` (ghi `msgId`, `via:'notify'`); chưa có secret / SMTP lỗi ⇒ `op=send` bằng mmh.product như cũ.
+  Hạn mức Gmail cá nhân ~500 người nhận / ngày (riêng với mmh.product). Backend Apps Script (Report Hub, CRM, Training Hub) CHƯA dùng hộp thư này — cần OAuth (refresh token) + quyền UrlFetch từng backend.
