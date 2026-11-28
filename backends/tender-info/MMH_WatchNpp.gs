@@ -7,6 +7,7 @@
  *   botNpp {key, op:'queue', no, want:'tbmt,hsmt,mo'|'kq,nt,hh', hold:giờ, pri:-1…-9, force} ⇒ dòng GÓI TÌM THẤY của gói: info.pri = -1 (bot lấy trước, wtBotNext_), info.npp = 1,
  *   vào hàng đợi với đúng loại tài liệu còn thiếu; mỗi gói + bộ tài liệu chỉ đặt lại sau `hold` giờ (mặc định 6) ⇒ trả {queued, why}.
  * ⭐ v1.5 (28/11/2026): gói NPP còn có info.agPri ⇒ máy có VNeGP Agent tải file HSMT "cần Agent" của gói NPP trước (wtaList_).
+ * ⭐ v1.6 (28/11/2026, người dùng): chưa có HSMT ⇒ thư mở thầu vẫn gửi, chỉ hiện mã NPP chào (mark noKy=1); HSMT về ⇒ stage 'ky' trả lời cùng luồng: mã MANI đáp ứng theo HSMT.
  *   mmh.product nhận ở cả @mani.inc + @manimedicalhanoi.com (nppmBoth_); người khác chỉ @mani.inc.
  *
  * Gói có số TBMT trong file thầu của NPP (Hùng Vĩ · iCare, backend tender-hungvi / tender-icare ▸ winMap) còn "Pending"
@@ -28,7 +29,7 @@
  *   botNpp {key, op:'mark', …, msgId, subject}             ⇒ ghi đã gửi (như send)
  * Trạng thái: Script Property NPPM_<số TBMT> (JSON), tuần: NPPM_W<thứ Bảy đầu tuần>, dấu kết quả: NPPMW_SEEN_<n>. Chỉ khoá bot (không cho tiện ích dùng phiên email).
  **************************************************************************************************/
-const NPPM = { VER: '1.5', CC: ['Tuyen', 'Nguyen Ha', 'Giang'], TO: { N: 'Viet Ha', S: 'Khang' }, MAX_B64: 24 * 1048576 };
+const NPPM = { VER: '1.6', CC: ['Tuyen', 'Nguyen Ha', 'Giang'], TO: { N: 'Viet Ha', S: 'Khang' }, MAX_B64: 24 * 1048576 };
 
 function nppmAction_(p) {
   const op = wtS_(p.op) || 'state', P = PropertiesService.getScriptProperties();
@@ -168,7 +169,7 @@ function nppmSend_(p) {
 function nppmCtx_(p) {
   const wk = wtS_(p.stage) === 'wk' ? wtS_(p.wk) : '';
   if (wtS_(p.stage) === 'wk' && !/^\d{4}-\d{2}-\d{2}$/.test(wk)) return { err: 'thiếu wk' };
-  const b = wk ? 'W' + wk : wtBare_(String(p.no || '').toUpperCase()), stage = wk ? 'wk' : wtS_(p.stage) === 'kq' ? 'kq' : 'mo';
+  const b = wk ? 'W' + wk : wtBare_(String(p.no || '').toUpperCase()), stage = wk ? 'wk' : wtS_(p.stage) === 'kq' ? 'kq' : wtS_(p.stage) === 'ky' ? 'ky' : 'mo';   // ky = thư bổ sung phân tích HSMT (v1.6)
   if (!b) return { err: 'thiếu no' };
   const testTo = wtS_(p.testTo), P = PropertiesService.getScriptProperties(), key = (testTo ? 'NPPMT_' : 'NPPM_') + b;
   return { b: b, stage: stage, testTo: testTo, P: P, key: key, st: wtJson_(P.getProperty(key), {}) || {}, preview: !testTo && wtS_(p.mode) !== 'live' };
@@ -177,7 +178,7 @@ function nppmPrep_(p) {
   const c = nppmCtx_(p); if (c.err) return { ok: false, error: c.err };
   if (!c.preview && !c.testTo && c.P.getProperty('NPPM_ON') !== '1') return { ok: false, code: 'OFF', error: 'Chưa bật gửi thật (botNpp op=on).' };
   if (!c.preview && c.st[c.stage] && !wtTrue_(p.force)) return { ok: true, skip: 'đã gửi lúc ' + c.st[c.stage].at };
-  if (!c.preview && c.stage === 'kq' && !(c.st.mo && c.st.mo.at)) return { ok: false, error: 'Chưa gửi thư mở thầu.' };
+  if (!c.preview && (c.stage === 'kq' || c.stage === 'ky') && !(c.st.mo && c.st.mo.at)) return { ok: false, error: 'Chưa gửi thư mở thầu.' };
   const who = nppmWho_(p);
   let me = ''; try { me = Session.getEffectiveUser().getEmail(); } catch (e) {}
   let to = c.preview ? [me] : c.testTo ? nppmMails_([c.testTo]) : nppmMails_(who.to);
@@ -186,14 +187,14 @@ function nppmPrep_(p) {
   if (!to.length) return { ok: false, error: 'Không tra được email người nhận ' + who.to.join(', ') };
   const mo = c.st.mo || {};
   return { ok: true, stage: c.stage, preview: c.preview, test: !!c.testTo, to: to, cc: cc, toNames: c.testTo ? [c.testTo] : who.to, ccNames: c.testTo || c.preview ? [] : who.cc,
-    reply: c.stage === 'kq' && !c.preview ? { msgId: mo.msgId || '', subject: mo.subject || '' } : null };
+    reply: (c.stage === 'kq' || c.stage === 'ky') && !c.preview ? { msgId: mo.msgId || '', subject: mo.subject || '' } : null };
 }
 function nppmMark_(p) {
   const c = nppmCtx_(p); if (c.err) return { ok: false, error: c.err };
   if (c.preview) return { ok: true, preview: true };
   const who = nppmWho_(p);
-  if (c.stage === 'mo' && c.st.mo && wtTrue_(p.force)) delete c.st.kq;
-  c.st[c.stage] = { at: wtNow_(), msgId: wtS_(p.msgId), subject: (c.testTo ? '[Thử] ' : '') + wtS_(p.subject), to: c.testTo || who.to.join(', '), cc: c.testTo ? '' : who.cc.join(', '), via: 'notify', replied: !!wtS_(p.replied) };
+  if (c.stage === 'mo' && c.st.mo && wtTrue_(p.force)) { delete c.st.kq; delete c.st.ky; }
+  c.st[c.stage] = { at: wtNow_(), msgId: wtS_(p.msgId), subject: (c.testTo ? '[Thử] ' : '') + wtS_(p.subject), to: c.testTo || who.to.join(', '), cc: c.testTo ? '' : who.cc.join(', '), via: 'notify', replied: !!wtS_(p.replied), noKy: !!wtS_(p.noKy) };
   c.P.setProperty(c.key, JSON.stringify(c.st));
   if (c.stage === 'wk' && !c.testTo && typeof p.seen === 'string') nppmSeenSet_(c.P, p.seen);
   return { ok: true, stage: c.stage, rec: c.st[c.stage] };

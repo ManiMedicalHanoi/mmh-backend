@@ -132,7 +132,7 @@ def code_cell(l):
     for c in cs[:8]:
         hp = HOSP.get(c); out.append(H(c) + (f' · {vnd(hp["pub"])} đ' if hp else ''))
     if len(cs) > 8: out.append(f'<span class="m">+{len(cs) - 8} mã khớp</span>')
-    if not l['codes']: out.append('<span class="no">' + H(l.get('why') or 'Không có mã MANI khớp') + '</span>')
+    if not l['codes'] and l.get('why') != 'NOKY': out.append('<span class="no">' + H(l.get('why') or 'Không có mã MANI khớp') + '</span>')
     return '<br>'.join(out) or '—'
 
 def status_cell(l):
@@ -609,9 +609,8 @@ def build_mo(pk, hits):
     f_ky = pick(files, r'yêu cầu về kỹ thuật|chương v\b|chuong v|yeu cau ky thuat')
     f_dg = pick(files, r'tiêu chuẩn đánh giá|mục 3|muc 3')
     p_bb, p_tb = blob(f_bb, d), blob(f_tb, d)
-    if not f_ky: return None, 'chưa có HSMT (yêu cầu kỹ thuật) ⇒ chờ tải, chưa gửi'
-    p_ky = blob(f_ky, d)
-    if not p_ky or not pdftext(p_ky).strip(): return None, 'HSMT chưa tải được / không đọc được chữ ⇒ chưa gửi'
+    p_ky = blob(f_ky, d) if f_ky else None          # v1.6: chưa có HSMT ⇒ vẫn phân tích biên bản, chỉ hiện mã NPP chào
+    if p_ky and not pdftext(p_ky).strip(): log('  HSMT không đọc được chữ (ảnh quét?)'); p_ky = None
     lots = read_bidders(f_nt)
     if not lots: return None, 'không đọc được bảng nhà thầu tham dự'
     T = (pdftext(p_tb) if p_tb else '') + '\n' + (pdftext(p_bb) if p_bb else '')
@@ -658,9 +657,10 @@ def build_mo(pk, hits):
     for l in rel:
         sp = spec_find(KP, l['name'], p_ky, d) if KP else None
         l['spec'] = sp[3][:600] if sp else ''
-        l['level'] = spec_level(sp[3]) if sp else 'Chưa đọc được trong HSMT'
+        l['level'] = spec_level(sp[3]) if sp else ('Chưa tìm thấy dòng của phần này trong HSMT' if KP else 'Chưa có HSMT')
         l['orig'] = origin_of(sp[3]) if sp else []
         MM = mani_match(l['lt'] or lot_type(l['name']), l['name'], sp[3] if sp else '')   # v1.5: chỉ mã khớp thông số đọc được trong HSMT
+        if not KP: MM = {'codes': [], 'basis': [], 'why': 'NOKY', 'check': lambda c: None}   # v1.6: chưa có HSMT ⇒ không đối chiếu, không đoán
         l['codes'], l['basis'], l['why'] = MM['codes'], MM['basis'], MM['why']
         q = re.findall(r'\b(Sợi|Cái|Chiếc|Hộp|Vỉ|Bộ|Cây|Tép|Gói|Tuýp)\s+(\d[\d.,]*)\b', sp[3]) if sp else []
         l['unit'] = q[-1][0].lower() if q else ''; l['qty'] = l['qty_h'] = num(q[-1][1]) if q else 0
@@ -763,7 +763,7 @@ def html_mo(R, for_pdf=False):
     for d in R.get('diff', []): note.append('Lệch dữ liệu: ' + H(d))
     if others: note.append(f'{len(others)} phần MMH đáp ứng được nhưng {H(pk["npp"])} không dự' + (f' ({sum(1 for l in others if "cạnh tranh" in why_not(l))} phần MANI cạnh tranh được về giá)' if any("cạnh tranh" in why_not(l) for l in others) else ''))
     if R['allorig']: note.append(f"HSMT có tiêu chí {H(', '.join(R['allorig']))} — hàng MANI đáp ứng")
-    if not R['kytxt']: note.append('Chưa có HSMT – yêu cầu kỹ thuật (cần VNeGP Agent)')
+    if not R['kytxt']: note.append('Chưa có HSMT (Chương V – yêu cầu kỹ thuật) ⇒ chỉ ghi mã NPP chào theo biên bản / file NPP; hệ thống gửi thư bổ sung mã MANI đáp ứng khi tải được HSMT')
     if note: s.append('<p><b>Cần lưu ý</b></p><ul>' + ''.join(f'<li>{x}</li>' for x in note) + '</ul>')
     s.append('</div>')
     # ── CHI TIẾT
@@ -784,7 +784,7 @@ def html_mo(R, for_pdf=False):
     s.append(tbl(['Phần', 'Mặt hàng', 'Nhà thầu · giá dự thầu (thấp ⇒ cao)'], rows) if rows else '<p>NPP không dự phần nào.</p>')
     for cid, f, cap in [e for e in R['ev'] if e[0].startswith('bb')]:
         s.append(f'<p class="m">{H(cap)} · khung đỏ = {H(pk["npp"])}</p>' + img(cid, f))
-    s.append('<h3>3. Yêu cầu kỹ thuật · mã MANI đáp ứng</h3>')
+    s.append('<h3>3. Yêu cầu kỹ thuật · mã MANI đáp ứng</h3>' if R['kytxt'] else '<h3>3. Mã NPP chào (chưa có HSMT để đối chiếu)</h3>')
     shown = mine + others[:25]
     for g in GORDER:
         ls = [l for l in shown if l.get('group') == g]
@@ -792,7 +792,7 @@ def html_mo(R, for_pdf=False):
         s.append(f'<p><b>{H(g)}</b> · {len(ls)} phần</p>')
         rows = [[l['code'], H(l['name'][:90]) + (f'<br><span class="m">SL {vnd(l["qty"])} {H(l.get("unit", ""))}</span>' if l.get('qty') else ''),
                  H(l['level']) + ('<br><span class="m">' + H(', '.join(l['orig'])) + '</span>' if l['orig'] else ''), code_cell(l), status_cell(l)] for l in ls]
-        s.append(tbl(['Phần', 'Mặt hàng', 'Thông số', 'Mã MANI · giá tối thiểu BV công', 'NPP'], rows, me=lambda r: '>Dự<' in r[4]))
+        s.append(tbl(['Phần', 'Mặt hàng', 'Thông số HSMT' if R['kytxt'] else 'Thông số', ('Mã MANI đáp ứng' if R['kytxt'] else 'Mã NPP chào') + ' · giá tối thiểu BV công', 'NPP'], rows, me=lambda r: '>Dự<' in r[4]))
     if len(others) > 25: s.append(f'<p class="m">+{len(others) - 25} phần MMH khác NPP không dự.</p>')
     s.append('<p class="m">★ = mã NPP chào.</p>')
     for cid, f, cap in [e for e in R['ev'] if e[0].startswith('ky')]:
@@ -817,7 +817,7 @@ def make_pdf(title, body_html, out):
         b = p.chromium.launch(); pg = b.new_page(); pg.goto('file://' + hp); pg.pdf(path=out, format='A4', print_background=True, margin={'top': '12mm', 'bottom': '12mm', 'left': '11mm', 'right': '11mm'}); b.close()
     return out
 
-STAGE_LAB = {'mo': 'Biên bản mở thầu', 'kq': 'Kết quả lựa chọn nhà thầu', 'wk': 'Tổng hợp tuần', 'tb': 'Thông báo mời thầu'}
+STAGE_LAB = {'mo': 'Biên bản mở thầu', 'ky': 'HSMT · mã MANI đáp ứng', 'kq': 'Kết quả lựa chọn nhà thầu', 'wk': 'Tổng hợp tuần', 'tb': 'Thông báo mời thầu'}
 def from_name(body):
     """tên người gửi hiện trong hộp thư = (bước thầu) + bệnh viện — người dùng 28/11/2026: không để "Hệ thống Theo dõi thầu" """
     if body.get('fromName'): return body['fromName']
@@ -843,31 +843,34 @@ def notify_send(body, inl, att):
     r = {'ok': True, 'via': 'mmh.notify', 'stage': pr.get('stage'), 'to': ', '.join(pr.get('toNames') or []), 'cc': ', '.join(pr.get('ccNames') or []), 'replied': bool(rep.get('msgId')), 'mark': mk.get('ok')}
     log('  gửi:', json.dumps(r, ensure_ascii=False)); return r
 
-def send(no, stage, subject, html_body, inl, att, R):
+def send(no, stage, subject, html_body, inl, att, R, noKy=False):
     b64 = lambda p: base64.b64encode(open(p, 'rb').read()).decode()
     body = {'action': 'botNpp', 'op': 'send', 'no': no, 'stage': stage, 'subject': subject, 'html': f'<div style="font-family:Aptos,Calibri,Arial,sans-serif;font-size:14px;color:#1F2A33"><style>{CSS}</style>{html_body}</div>',
             'inl': [{'cid': c, 'name': os.path.basename(f), 'mime': 'image/jpeg', 'b64': b64(f)} for c, f, _ in inl],
             'att': [{'name': os.path.basename(a), 'mime': 'application/pdf', 'b64': b64(a)} for a in att],
             'prov': R['pk']['city'] or R['I'].get('prov', ''), 'text': R['inv'] + ' ' + R['pk']['hospital'], 'mode': 'live' if MODE in ('live', 'test') else 'preview', 'hosp': R['pk']['hospital'] or R['inv']}
     if MODE == 'test': body['testTo'] = TEST_TO
+    if noKy and stage == 'mo': body['noKy'] = 1
     if FORCE and ONLY: body['force'] = 1
     if MODE == 'dry': log('  (dry) không gửi:', subject); return {'ok': True, 'dry': True}
     if not NM.ready():                               # v1.3: chỉ mmh.notify — thiếu secret NOTIFY_SMTP_PASS ⇒ không gửi
         log('  KHÔNG gửi: thiếu NOTIFY_SMTP_USER / NOTIFY_SMTP_PASS (hộp thư mmh.notify).'); FAIL.append(no); return {'ok': False, 'error': 'thiếu mmh.notify'}
     return notify_send(body, [(c, f) for c, f, _ in inl], att)
 
-def run_mo(pk, hits):
+def run_mo(pk, hits, stage='mo'):
     R, why = build_mo(pk, hits)
     if not R: log('  bỏ qua:', why); return False
+    if stage == 'ky' and not R['kytxt']: log('  HSMT chưa đọc được ⇒ chưa gửi thư bổ sung'); return False
     who = to_name(R)
     subj = f"[Thầu] Mở thầu gói thầu – {R['inv'][:80]} – {pk['no']}"
-    intro = f"<p>Dear {H(who)},</p><p>Hệ thống Theo dõi thầu thông báo kết quả mở thầu gói có NPP {H(pk['npp'])} tham dự. Bản PDF đính kèm.</p>"
+    intro = (f"<p>Dear {H(who)},</p><p>Hệ thống Theo dõi thầu thông báo kết quả mở thầu gói có NPP {H(pk['npp'])} tham dự. Bản PDF đính kèm.</p>" if stage == 'mo' else
+             f"<p>Dear {H(who)},</p><p>Hệ thống Theo dõi thầu bổ sung phân tích hồ sơ mời thầu (Chương V – yêu cầu kỹ thuật) vừa tải được: mã MANI đáp ứng từng phần, đối chiếu mã NPP chào. Bản PDF đính kèm.</p>")
     sig = '<p>Trân trọng,<br>Hệ thống Theo dõi thầu MMH</p>'
     bodyE = intro + html_mo(R) + sig
     pdf = make_pdf(f"Mở thầu · {R['inv']} · {pk['no']}", html_mo(R, True), os.path.join(WORK, pk['no'], f"{pk['no']} - Phan tich mo thau.pdf"))
     shutil.copy(pdf, os.path.join(OUTD, os.path.basename(pdf)))
     open(os.path.join(OUTD, pk['no'] + ' - email.html'), 'w', encoding='utf-8').write(bodyE)
-    r = send(pk['no'], 'mo', subj, bodyE, R['ev'], [pdf], R)
+    r = send(pk['no'], stage, subj, bodyE, R['ev'], [pdf], R, noKy=not R['kytxt'])
     return bool(r.get('ok'))
 
 def run_kq(pk, hits, st):
@@ -925,11 +928,15 @@ def main():
             # v1.4: tải ƯU TIÊN tài liệu còn thiếu (TBMT, HSMT Chương V, biên bản mở thầu)
             w = [x for x, ok in (('tbmt', has_tb), ('hsmt', has_ky), ('mo', has_bb)) if not ok]
             if w: QUEUE.append((no, w, 6))
-        elif 'kq' not in s:
+        else:
+            if (s.get('mo') or {}).get('noKy') and 'ky' not in s:      # v1.6: thư mở thầu gửi khi chưa có HSMT ⇒ HSMT về thì gửi bổ sung
+                if has_ky: todo.append((no, 'ky'))
+                else: QUEUE.append((no, ['hsmt'], 6))
+        if tgt in ('live', 'test') and 'mo' in s and not (FORCE and ONLY) and 'kq' not in s:
             todo.append((no, 'kq'))
             if not any(re.search(r'danh sách nhà thầu', f.get('kind', '') + ' ' + f.get('name', ''), re.I) for f in files):
                 QUEUE.append((no, ['kq', 'nt', 'hh'], 12))     # kết quả chưa đăng thì 12 giờ mới thử lại
-    need = sum(1 for _, t in todo if t in ('mo', 'kq'))
+    need = sum(1 for _, t in todo if t in ('mo', 'kq', 'ky'))
     if (MODE == 'live' or os.environ.get('NPP_TARGET') == 'live') and not st.get('on'):
         log('Gửi thật đang TẮT (botNpp op=on để bật) ⇒ chỉ đặt tải hồ sơ còn thiếu.'); need = 0
         if MODE == 'live': todo = [x for x in todo if x[1] == 'queue']
@@ -955,7 +962,7 @@ def main():
         done += 1
         log(f'== {no} ({P[no]["npp"]}, {P[no]["hospital"]}) · {t}')
         try:
-            if t == 'mo': run_mo(P[no], H.get(no, []))
+            if t in ('mo', 'ky'): run_mo(P[no], H.get(no, []), t)
             else: run_kq(P[no], H.get(no, []), (S.get('_test', {}) if MODE == 'test' else S).get(no, {}))
         except Exception as e:
             import traceback; log('  LỖI:', e); traceback.print_exc()
