@@ -704,6 +704,18 @@ def html_mo(R, for_pdf=False):
     rem = V[0]['rem'] if V else 0
     fyl = f'Doanh số MMH ước tính FY{fyn} theo hiệu lực HĐ (09/{fyn + 1958} – 08/{fyn + 1959}) · {rem} tháng từ {R["start"].strftime("%m/%Y")}'
     s.append(tbl(['Giá trị NPP chào (nếu trúng)', 'Doanh số MMH ước tính cả HĐ (nếu trúng)', fyl], [[f'<b>{usd(tw)}</b>', f'<b>{usd(tm)}</b>' if tm else '—', f'<b>{usd(cm)}</b>' if tm else '—']]))
+    if V:   # v1.5 (người dùng 28/11/2026): ước tính doanh số từng phần + cách tính đặt ngay đầu email
+        dmo = R['dur']
+        rows = []
+        for v in V:
+            up = v['mmh'] / v['qty'] if v['qty'] and v['mmh'] else 0
+            rows.append([v['lot']['code'], H(v['code']), vnd(v['qty']) if v['qty'] else '—', vnd(up) + ' đ' if up else '—', usd(v['bid']),
+                         usd(v['mmh']) if v['mmh'] else '—', usd(v['mmh'] / dmo) if v['mmh'] else '—', str(min(dmo, v['rem'])), f"<b>{usd(v['cm'])}</b>" if v['mmh'] else '—'])
+        rows.append(['<b>Tổng</b>', '', '', '', f'<b>{usd(tw)}</b>', f'<b>{usd(tm)}</b>' if tm else '—', f'<b>{usd(tm / dmo)}</b>' if tm else '—', '', f'<b>{usd(cm)}</b>' if tm else '—'])
+        s.append('<p><b>Ước tính doanh số từng phần (nếu trúng)</b></p>')
+        s.append(tbl(['Phần', 'Mã NPP chào', 'SL (HSMT)', 'Giá MANI→NPP / đv', 'NPP chào', 'Doanh số MMH cả HĐ', '/ tháng', f'Số tháng trong FY{fyn}', f'Ước tính FY{fyn}'], rows))
+        s.append(f'<p class="m">Cách tính: Doanh số MMH cả HĐ = SL theo HSMT × giá MANI bán cho NPP từng mã · chia đều cho hiệu lực hợp đồng {dmo} tháng ⇒ doanh số / tháng · '
+                 f'× số tháng còn lại trong FY{fyn} (HĐ giả định bắt đầu {R["start"].strftime("%m/%Y")}, tháng sau mở thầu) ⇒ ước tính FY{fyn}. Tỷ giá cố định {vnd(RATE)} đ/USD. NPP chào = giá dự thầu trong biên bản mở thầu.</p>')
     if mine:
         rows = [[l['code'], H(l['name'][:60]), ', '.join(H(c) for c in l.get('npp_codes', [])) or '—', rank_cell(l), chance(l)] for l in mine]
         s.append('<p><b>Khả năng trúng</b> — ' + (f'giá thấp nhất <b>{len(w1)}/{len(mine)}</b> phần' if mine else '') + (f', cao hơn đối thủ {len(wl)} phần' if wl else '') + '</p>')
@@ -750,11 +762,6 @@ def html_mo(R, for_pdf=False):
     if bx: s.append('<p><b>Phần NPP không dự</b> · khung đỏ = giá thấp nhất</p>')
     for cid, f, cap in bx:
         s.append(f'<p class="m">{H(cap.split(" (NPP")[0])}</p>' + img(cid, f))
-    if V:
-        s.append('<h3>4. Giá trị ước tính từng phần</h3>')
-        rows = [[v['lot']['code'], v['code'], vnd(v['qty']) if v['qty'] else '—', usd(v['bid']), usd(v['mmh']) if v['mmh'] else '—', usd(v['cm']) if v['mmh'] else '—'] for v in V]
-        rows.append(['<b>Tổng</b>', '', '', f'<b>{usd(tw)}</b>', f'<b>{usd(tm)}</b>' if tm else '—', f'<b>{usd(cm)}</b>' if tm else '—'])
-        s.append(tbl(['Phần', 'Mã', 'SL', 'NPP chào', 'Doanh số MMH ước tính', f'Ước tính FY{fyn}'], rows))
     return '\n'.join(s)
 
 def name_or(s): return s or 'Không rõ'
