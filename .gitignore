@@ -3,3 +3,4 @@ node_modules/
 .clasp.json
 ifu/shots/*/png/
 npp-out/
+__pycache__/
