@@ -81,6 +81,18 @@ def load_hosp():
         P[code.upper()] = {'max': int(mx) / int(pack), 'pub': int(pub) / int(pack)}
     return P
 PRICE, HOSP = load_prices(), load_hosp()
+PRICE_N = {re.sub(r'[^A-Z0-9]', '', k): v for k, v in PRICE.items()}
+def unit_price(code):
+    """giá MANI→NPP / đơn vị; ô nhiều mã hoặc mã thiếu đuôi ⇒ trung bình các mã khớp"""
+    c0 = re.sub(r'[^A-Z0-9]', '', str(code or '').upper())
+    if c0 in PRICE_N: return PRICE_N[c0]['unit']
+    hit = []
+    for part in re.split(r'[;,/&+\s]+', str(code or '').upper()):
+        c = re.sub(r'[^A-Z0-9]', '', part)
+        if len(c) < 4: continue
+        m = [PRICE_N[c]] if c in PRICE_N else [v for k, v in PRICE_N.items() if k.startswith(c)]
+        if m: hit.append(sum(x['unit'] for x in m) / len(m))
+    return sum(hit) / len(hit) if hit else 0
 SUT = list(csv.DictReader(open(os.path.join(ROOT, 'data/mani_sutures.csv'), encoding='utf-8-sig')))
 
 MAT = [('polypropylene', ['polypropylene', 'prolene']), ('nylon', ['nylon', 'polyamide', 'polyamid']), ('pga', ['polyglactin', 'polyglycolic', 'pga', 'vicryl', 'axit polyglycolic']),
@@ -528,7 +540,7 @@ def build_mo(pk, hits):
         if l['mine'] < 0: continue
         bid = l['bids'][l['mine']]['price']
         its = [l['item']] if l.get('item') else l.get('items') or []
-        cs = [((it.get('code') or '').upper().split(' ')[0].split('-')[0], it.get('qty') or 0) for it in its]
+        cs = [(str(it.get('code') or '').upper().strip(), it.get('qty') or 0) for it in its]
         if not its: diff.append(f"Phần {l['code']}: biên bản có {pk['npp']} dự (giá {vnd(bid)} đ) nhưng file thầu của NPP không có dòng khớp")
         elif not l.get('item'):
             fq = sum(q for _, q in cs); fv = sum((it.get('qty') or 0) * (it.get('price') or 0) for it in its)
@@ -538,7 +550,7 @@ def build_mo(pk, hits):
             diff.append(f"Phần {l['code']}: file NPP SL {vnd(cs[0][1])}, HSMT SL {vnd(hq)} ⇒ tính theo HSMT")
             cs = [(cs[0][0], hq)]
         if not cs and l.get('codes') and hq: cs = []          # chưa biết mã NPP chào ⇒ không ước tính doanh số MMH
-        mmh = sum(PRICE[c]['unit'] * q for c, q in cs if c in PRICE and q)
+        mmh = sum(unit_price(c) * q for c, q in cs if q)
         code = ', '.join(c for c, _ in cs); qty = sum(q for _, q in cs) or hq
         fy, rem, cw, fy2, nw = fy_split(bid, start, dur)
         _, _, cm, _, nm = fy_split(mmh, start, dur) if mmh else (0, 0, 0, 0, 0)

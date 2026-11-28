@@ -43,7 +43,19 @@ def load_pack():
     return P
 PR = load_pack()
 KIND = {'dao': 'Dao nhãn khoa', 'chi': 'Chỉ khâu', 'ghim': 'Ghim da'}
-def price_of(code): return PR.get(re.sub(r'[^A-Z0-9]', '', str(code or '').upper()))
+def price_of(code):
+    """mã đúng ⇒ giá; ô nhiều mã ("MSL22SH; MSL28SH", "MSL22SH/ MSL28SH") hoặc mã thiếu đuôi ("MST15") ⇒ giá trung bình các mã khớp"""
+    c0 = re.sub(r'[^A-Z0-9]', '', str(code or '').upper())
+    if c0 in PR: return PR[c0]
+    hit = []
+    for part in re.split(r'[;,/&+\s]+|\bVA\b', str(code or '').upper()):
+        c = re.sub(r'[^A-Z0-9]', '', part)
+        if len(c) < 4: continue
+        if c in PR: hit.append(PR[c]); continue
+        m = [v for k, v in PR.items() if k.startswith(c)]
+        if m: hit.append({'kind': m[0]['kind'], 'pack': m[0]['pack'], 'unit': sum(x['unit'] for x in m) / len(m)})
+    if not hit: return None
+    return {'kind': hit[0]['kind'], 'pack': hit[0]['pack'], 'unit': sum(x['unit'] for x in hit) / len(hit)}
 def kind_guess(code):
     c = re.sub(r'[^A-Z0-9]', '', str(code or '').upper())
     return 'Dao nhãn khoa' if re.match(r'^M[A-Z]{2}\d', c) else 'Chỉ khâu' if re.match(r'^\d{3,4}[A-Z]?$', c) else ''
