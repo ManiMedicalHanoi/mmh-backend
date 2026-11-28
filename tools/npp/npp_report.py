@@ -673,7 +673,7 @@ def send(no, stage, subject, html_body, inl, att, R):
     if FORCE and ONLY: body['force'] = 1
     if MODE == 'dry': log('  (dry) không gửi:', subject); return {'ok': True, 'dry': True}
     r = post(body, tries=2)
-    log('  gửi:', json.dumps({k: r.get(k) for k in ('ok', 'stage', 'preview', 'to', 'cc', 'replied', 'skip', 'error', 'code')}, ensure_ascii=False))
+    log('  gửi:', json.dumps({k: r.get(k) for k in ('ok', 'stage', 'preview', 'to', 'cc', 'replied', 'skip', 'error', 'code', 'quota', 'htmlKB', 'fileKB', 'images') if r.get(k) is not None}, ensure_ascii=False))
     return r
 
 def run_mo(pk, hits):
