@@ -751,19 +751,18 @@ def html_mo(R, for_pdf=False):
             rows.append([v['lot']['code'], H(v['code']), vnd(v['qty']) if v['qty'] else '—', vnd(up) + ' đ' if up else '—', usd(v['bid']),
                          usd(v['mmh']) if v['mmh'] else '—', usd(v['mmh'] / dmo) if v['mmh'] else '—', str(min(dmo, v['rem'])), f"<b>{usd(v['cm'])}</b>" if v['mmh'] else '—'])
         rows.append(['<b>Tổng</b>', '', '', '', f'<b>{usd(tw)}</b>', f'<b>{usd(tm)}</b>' if tm else '—', f'<b>{usd(tm / dmo)}</b>' if tm else '—', '', f'<b>{usd(cm)}</b>' if tm else '—'])
-        s.append('<p><b>Ước tính doanh số từng phần (nếu trúng)</b></p>')
-        s.append(tbl(['Phần', 'Mã NPP chào', 'SL (HSMT)', 'Giá MANI→NPP / đv', 'NPP chào', 'Doanh số MMH cả HĐ', '/ tháng', f'Số tháng trong FY{fyn}', f'Ước tính FY{fyn}'], rows))
-        s.append(f'<p class="m">Cách tính: Doanh số MMH cả HĐ = SL theo HSMT × giá MANI bán cho NPP từng mã · chia đều cho hiệu lực hợp đồng {dmo} tháng ⇒ doanh số / tháng · '
-                 f'× số tháng còn lại trong FY{fyn} (HĐ giả định bắt đầu {R["start"].strftime("%m/%Y")}, tháng sau mở thầu) ⇒ ước tính FY{fyn}. Tỷ giá cố định {vnd(RATE)} đ/USD. NPP chào = giá dự thầu trong biên bản mở thầu.</p>')
+        s.append('<p><b>Doanh số ước tính (nếu trúng)</b></p>')
+        s.append(tbl(['Phần', 'Mã', 'SL', 'Giá MANI→NPP', 'NPP chào', 'MMH cả HĐ', '/ tháng', f'Tháng FY{fyn}', f'FY{fyn}'], rows))
+        s.append(f'<p class="m">Cách tính: SL × giá MANI→NPP ÷ {dmo} tháng HĐ × số tháng trong FY{fyn} (HĐ từ {R["start"].strftime("%m/%Y")}). Tỷ giá {vnd(RATE)} đ/USD.</p>')
     if mine:
         rows = [[l['code'], H(l['name'][:60]), ', '.join(H(c) for c in l.get('npp_codes', [])) or '—', rank_cell(l), chance(l)] for l in mine]
         s.append('<p><b>Khả năng trúng</b> — ' + (f'giá thấp nhất <b>{len(w1)}/{len(mine)}</b> phần' if mine else '') + (f', cao hơn đối thủ {len(wl)} phần' if wl else '') + '</p>')
         s.append(tbl(['Phần', 'Mặt hàng', 'Mã NPP chào', 'Hạng giá', 'Nhận định'], rows, me=lambda r: 'thấp nhất' in r[4] or 'Duy nhất' in r[4]))
     note = []
     for d in R.get('diff', []): note.append('Lệch dữ liệu: ' + H(d))
-    if others: note.append(f'{len(others)} phần MMH đáp ứng được nhưng {H(pk["npp"])} không dự' + (f' ({sum(1 for l in others if "cạnh tranh" in why_not(l))} phần MANI cạnh tranh được về giá)' if any("cạnh tranh" in why_not(l) for l in others) else ''))
-    if R['allorig']: note.append(f"HSMT có tiêu chí {H(', '.join(R['allorig']))} — hàng MANI đáp ứng")
-    if not R['kytxt']: note.append('Chưa có HSMT (Chương V – yêu cầu kỹ thuật) ⇒ chỉ ghi mã NPP chào theo biên bản / file NPP; hệ thống gửi thư bổ sung mã MANI đáp ứng khi tải được HSMT')
+    if others: note.append(f'{len(others)} phần MANI đáp ứng, {H(pk["npp"])} không dự' + (f' ({sum(1 for l in others if "cạnh tranh" in why_not(l))} phần cạnh tranh được giá)' if any("cạnh tranh" in why_not(l) for l in others) else ''))
+    if R['allorig']: note.append(f"Xuất xứ / tiêu chuẩn: {H(', '.join(R['allorig']))} — MANI đáp ứng")
+    if not R['kytxt']: note.append('Chưa có HSMT: chỉ ghi mã NPP chào. Có HSMT sẽ gửi bổ sung mã MANI đáp ứng.')
     if note: s.append('<p><b>Cần lưu ý</b></p><ul>' + ''.join(f'<li>{x}</li>' for x in note) + '</ul>')
     s.append('</div>')
     # ── CHI TIẾT
@@ -863,9 +862,9 @@ def run_mo(pk, hits, stage='mo'):
     if stage == 'ky' and not R['kytxt']: log('  HSMT chưa đọc được ⇒ chưa gửi thư bổ sung'); return False
     who = to_name(R)
     subj = f"[Thầu] Mở thầu gói thầu – {R['inv'][:80]} – {pk['no']}"
-    intro = (f"<p>Dear {H(who)},</p><p>Hệ thống Theo dõi thầu thông báo kết quả mở thầu gói có NPP {H(pk['npp'])} tham dự. Bản PDF đính kèm.</p>" if stage == 'mo' else
-             f"<p>Dear {H(who)},</p><p>Hệ thống Theo dõi thầu bổ sung phân tích hồ sơ mời thầu (Chương V – yêu cầu kỹ thuật) vừa tải được: mã MANI đáp ứng từng phần, đối chiếu mã NPP chào. Bản PDF đính kèm.</p>")
-    sig = '<p>Trân trọng,<br>Hệ thống Theo dõi thầu MMH</p>'
+    intro = (f"<p>Dear {H(who)},</p><p>Kết quả mở thầu gói {H(pk['npp'])} tham dự. Chi tiết trong PDF đính kèm.</p>" if stage == 'mo' else
+             f"<p>Dear {H(who)},</p><p>Bổ sung theo HSMT vừa tải: mã MANI đáp ứng từng phần, đối chiếu mã NPP chào. Chi tiết trong PDF đính kèm.</p>")
+    sig = '<p>Trân trọng.</p>'
     bodyE = intro + html_mo(R) + sig
     pdf = make_pdf(f"Mở thầu · {R['inv']} · {pk['no']}", html_mo(R, True), os.path.join(WORK, pk['no'], f"{pk['no']} - Phan tich mo thau.pdf"))
     shutil.copy(pdf, os.path.join(OUTD, os.path.basename(pdf)))
@@ -896,7 +895,7 @@ def run_kq(pk, hits, st):
          + tbl(['Phần', 'Nhà thầu trúng · giá trúng', pk['npp'], 'Lý do không trúng'], rows))
     links = ' · '.join(f'<a href="{H(f["url"])}">{H(f["kind"] or f["name"])}</a>' for f in k.get('files', []) if f.get('url') and re.search(r'kết quả|danh sách', f.get('kind', '') + f.get('name', ''), re.I))
     if links: b += f'<p class="m">Tài liệu: {links}</p>'
-    b += '<p>Trân trọng,<br>Hệ thống Theo dõi thầu MMH</p>'
+    b += '<p>Trân trọng.</p>'
     d = os.path.join(WORK, pk['no']); os.makedirs(d, exist_ok=True)
     pdf = make_pdf(f"Kết quả · {pk['hospital']} · {pk['no']}", b, os.path.join(d, f"{pk['no']} - Ket qua.pdf"))
     shutil.copy(pdf, os.path.join(OUTD, os.path.basename(pdf)))

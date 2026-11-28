@@ -316,10 +316,10 @@ def main():
         rows.append([f'<b>{H(lab)}</b>' if i == 0 else H(lab)] + [(f'<b>{v}</b>' if i == 0 else v,) for v in vals] + [(f'<b>{sm}</b>',)])
     hl = []
     for npp, T in parts: hl += [f'{H(npp)} · {x}' for x in notes(npp, T, 6)]
-    body = (f'<p>Dear Viet Ha, Khang,</p><p>Hệ thống Theo dõi thầu thông báo tổng hợp gói thầu NPP tuần {d2(WSTART)} – {d2(WEND)}. Mỗi NPP 1 file PDF đính kèm.</p>'
+    body = (f'<p>Dear Viet Ha, Khang,</p><p>Tổng hợp thầu NPP tuần {d2(WSTART)} – {d2(WEND)}. Chi tiết từng NPP trong PDF đính kèm.</p>'
             + tbl(['Chỉ số', 'Hùng Vĩ', 'iCare', 'Tổng'], rows)
             + (f'<p><b>Cần chú ý</b></p><ul>{"".join(f"<li>{x}</li>" for x in hl)}</ul>' if hl else '')
-            + '<p>Trân trọng,<br>Hệ thống Theo dõi thầu MMH</p>')
+            + '<p>Trân trọng.</p>')
     open(os.path.join(OUTD, f'weekly {WK} - email.html'), 'w', encoding='utf-8').write(body)
     subj = f'[Thầu] Tổng hợp tuần gói thầu NPP Hùng Vĩ, iCare – {WSTART.strftime("%d/%m")} – {d2(WEND)}'
     if MODE == 'dry': log('(dry) không gửi:', subj); return
