@@ -4,7 +4,7 @@
 1 file PDF gộp cả 2 NPP (Hùng Vĩ · iCare — file thầu NPP, tender-hungvi / tender-icare ▸ winMap), cùng cách tính với npp_weekly.py:
   Tóm tắt từng NPP + tổng · 1 Hợp đồng còn hiệu lực (theo địa bàn) · 2 Gói tham dự từ đầu FY hiện tại (trúng / không trúng / chờ kết quả).
 Gửi bằng mmh.notify (SMTP) tới 1 người (NPP_TEST_TO, mặc định Giang) — người nhận tra qua botNpp op=prep (testTo, không ghi trạng thái).
-Môi trường: WT_BOT_KEY · NPPF_MODE dry|test · NPP_TEST_TO.
+Môi trường: WT_BOT_KEY · NPPF_MODE dry|test|live (live = cả team, như tổng hợp tuần) · NPP_TEST_TO.
 """
 import os, re, sys, json, datetime, shutil
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -106,13 +106,15 @@ def main():
     pdf = N.make_pdf(title, body, os.path.join(W.WORK, f'Tong hop thau NPP FY{FYC} - {TODAY.strftime("%Y%m%d")}.pdf'))
     shutil.copy(pdf, os.path.join(W.OUTD, os.path.basename(pdf)))
     if MODE == 'dry': log('(dry) không gửi'); return
-    pr = N.post({'action': 'botNpp', 'op': 'prep', 'stage': 'wk', 'wk': W.WK, 'testTo': TO, 'mode': 'live', 'force': 1}, tries=2)
+    q = {'action': 'botNpp', 'op': 'prep', 'stage': 'wk', 'wk': W.WK, 'mode': 'live', 'force': 1}
+    if MODE != 'live': q['testTo'] = TO          # live = cả team (To PIC địa bàn · CC quản lý, như tổng hợp tuần); không ghi trạng thái
+    pr = N.post(q, tries=2)
     if not pr.get('ok') or not pr.get('to'): log('Không tra được người nhận:', pr.get('error')); sys.exit(1)
     if not N.NM.ready(): log('Thiếu hộp thư mmh.notify'); sys.exit(1)
     mail = (f'<div style="font-family:Aptos,Calibri,Arial,sans-serif;font-size:14px;color:#1F2A33"><style>{N.CSS}</style>'
-            f'<p>Dear {H(TO)},</p><p>Tổng hợp thầu NPP Hùng Vĩ, iCare từ đầu FY{FYC}. Chi tiết trong PDF đính kèm.</p>{tbl(head, rws)}{qhtml}<p>Trân trọng.</p></div>')
-    N.NM.send(pr['to'], [], f'[Thầu] Tổng hợp thầu NPP Hùng Vĩ, iCare – FY{FYC} đến {d2(TODAY)}', mail, attach=[pdf], name=f'(Tổng hợp FY{FYC}) Thầu NPP Hùng Vĩ, iCare')
-    log('Đã gửi tới', TO)
+            f'<p>Dear {H(", ".join(pr.get("toNames") or [TO]))},</p><p>Tổng hợp thầu NPP Hùng Vĩ, iCare từ đầu FY{FYC}. Chi tiết trong PDF đính kèm.</p>{tbl(head, rws)}{qhtml}<p>Trân trọng.</p></div>')
+    N.NM.send(pr['to'], pr.get('cc') or [], f'[Thầu] Tổng hợp thầu NPP Hùng Vĩ, iCare – FY{FYC} đến {d2(TODAY)}', mail, attach=[pdf], name=f'(Tổng hợp FY{FYC}) Thầu NPP Hùng Vĩ, iCare')
+    log('Đã gửi tới', ', '.join(pr['to']), '· CC', ', '.join(pr.get('cc') or []))
 
 if __name__ == '__main__':
     try: main()
