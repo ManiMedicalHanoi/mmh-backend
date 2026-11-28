@@ -326,6 +326,7 @@ def blob(f, d):
     if not r.get('ok') or not r.get('b64'): log('  không tải được', f.get('name'), r.get('error') or r.get('skip')); return None
     name = re.sub(r'[\\/:*?"<>|]', ' ', r.get('name') or f['name'])
     p = os.path.join(d, name); open(p, 'wb').write(base64.b64decode(r['b64']))
+    if re.search(r'\.(rar|7z|zip)$', p, re.I): return unpack_spec(p, d)
     if re.search(r'\.(docx?|rtf|odt|xlsx?)$', p, re.I) or 'google-apps.document' in (r.get('mime') or ''):
         if not p.lower().endswith('.pdf') and 'google-apps.document' not in (r.get('mime') or ''):
             subprocess.run(['soffice', '--headless', '--convert-to', 'pdf', '--outdir', d, p], capture_output=True, timeout=240)
@@ -333,6 +334,44 @@ def blob(f, d):
             return q if os.path.exists(q) else None
         if 'google-apps.document' in (r.get('mime') or ''): q = os.path.splitext(p)[0] + '.pdf'; os.rename(p, q); return q
     return p
+
+def to_pdf(p, d):
+    if p.lower().endswith('.pdf'): return p
+    subprocess.run(['soffice', '--headless', '--convert-to', 'pdf', '--outdir', d, p], capture_output=True, timeout=240)
+    q = os.path.join(d, os.path.splitext(os.path.basename(p))[0] + '.pdf')
+    return q if os.path.exists(q) else None
+
+def unpack_spec(p, d, depth=0):
+    """v1.5: HSMT Chương V thường là .rar / .7z / .zip ⇒ giải nén, lấy file yêu cầu kỹ thuật / phụ lục thông số (bỏ Mục 3 tiêu chuẩn đánh giá), ghép 1 PDF"""
+    out = os.path.join(d, '_x%d_' % depth + re.sub(r'\W+', '_', os.path.basename(p))[:40]); os.makedirs(out, exist_ok=True)
+    for cmd in (['7zz', 'x', '-y', '-o' + out, p], ['7z', 'x', '-y', '-o' + out, p], ['unar', '-f', '-q', '-o', out, p]):
+        try:
+            if subprocess.run(cmd, capture_output=True, timeout=300).returncode == 0 and any(os.scandir(out)): break
+        except Exception: continue
+    if not any(os.scandir(out)) and p.lower().endswith('.zip'):
+        try:
+            import zipfile; zipfile.ZipFile(p).extractall(out)
+        except Exception as e: log('  giải nén zip:', e)
+    docs = []
+    for root, _, fs in os.walk(out):
+        for f in fs:
+            fp = os.path.join(root, f)
+            if re.search(r'\.(rar|7z|zip)$', f, re.I) and depth < 1:
+                q = unpack_spec(fp, d, depth + 1)
+                if q: docs.append((2, q))
+            elif re.search(r'\.(pdf|docx?|xlsx?|rtf|odt)$', f, re.I):
+                t = nk(f)
+                if re.search(r'muc 3|tieu chuan danh gia|chuong iii|\bhsdt\b|mau so|bieu mau', t): continue
+                docs.append((1 if re.search(r'chuong ?v|chuong 5|yeu cau|ky thuat|thong so|phu luc|danh muc|cau hinh', t) else 0, fp))
+    if not docs: log('  giải nén HSMT: không có file đọc được trong', os.path.basename(p)); return None
+    top = max(x[0] for x in docs)
+    pdfs = [q for q in (to_pdf(fp, os.path.dirname(fp)) for k, fp in sorted(docs, key=lambda x: x[1]) if k == top) if q][:8]
+    if not pdfs: return None
+    if len(pdfs) == 1: return pdfs[0]
+    m = os.path.splitext(p)[0] + ' - HSMT ghep.pdf'
+    subprocess.run(['pdfunite'] + pdfs + [m], capture_output=True, timeout=120)
+    log('  giải nén HSMT:', os.path.basename(p), '⇒', len(pdfs), 'file')
+    return m if os.path.exists(m) else pdfs[0]
 
 def pdftext(p):
     try: return subprocess.run(['pdftotext', '-layout', p, '-'], capture_output=True, text=True, timeout=120).stdout
