@@ -12,6 +12,7 @@ on:
       mode: { description: 'test = gửi THỬ cho 1 người (ô to) · preview = bản xem trước về tài khoản chạy máy chủ · live = gửi thật · dry = chỉ dựng file', default: 'test', type: choice, options: [test, preview, live, dry] }
       to: { description: 'test: tên PIC nhận thư thử', default: 'Giang' }
       force: { description: 'Gửi lại dù tuần này đã gửi', type: boolean, default: false }
+      kind: { description: 'weekly = tổng hợp tuần · fy = 1 PDF gộp 2 NPP: hợp đồng còn hiệu lực + gói tham dự từ đầu FY (chỉ test / dry)', default: 'weekly', type: choice, options: [weekly, fy] }
 concurrency: { group: tender-npp-weekly, cancel-in-progress: false }
 permissions: { contents: read }
 jobs:
@@ -36,7 +37,12 @@ jobs:
           pip install -q pillow numpy playwright==1.48.0
           python3 -m playwright install --with-deps chromium >/dev/null
       - name: Tổng hợp + gửi email
+        if: ${{ (inputs.kind || 'weekly') == 'weekly' }}
         run: python3 tools/npp/npp_weekly.py
+      - name: Tổng hợp từ đầu FY (1 PDF gộp 2 NPP)
+        if: ${{ inputs.kind == 'fy' }}
+        env: { NPPF_MODE: '${{ inputs.mode == ''dry'' && ''dry'' || ''test'' }}' }
+        run: python3 tools/npp/npp_fy.py
       - uses: actions/upload-artifact@v4
         if: always()
         with: { name: npp-weekly, path: npp-out/, retention-days: 30, if-no-files-found: ignore }
