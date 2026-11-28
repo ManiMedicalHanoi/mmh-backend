@@ -8,6 +8,7 @@
 #  4. Ảnh bằng chứng cắt từ biên bản / HSMT (khung đỏ) ⇒ email (ảnh nhúng) + PDF đính kèm ⇒ botNpp op=send (stage mo).
 #  5. Gói đã gửi lần 1 có kết quả ⇒ botNpp op=kq ⇒ email trả lời trong cùng luồng (stage kq): nhà thầu trúng / không trúng + lý do.
 # Biến môi trường: WT_BOT_KEY · NPP_MODE = plan | dry | preview | live · NPP_NO = 1 số TBMT (tuỳ chọn) · NPP_FROM = yyyymm (mặc định 6 tháng trước)
+import notify_mail as NM
 import json, os, re, sys, base64, subprocess, unicodedata, datetime, html, time, urllib.request, csv, glob, shutil
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -665,6 +666,23 @@ def make_pdf(title, body_html, out):
         b = p.chromium.launch(); pg = b.new_page(); pg.goto('file://' + hp); pg.pdf(path=out, format='A4', print_background=True, margin={'top': '12mm', 'bottom': '12mm', 'left': '11mm', 'right': '11mm'}); b.close()
     return out
 
+def notify_send(body, inl, att):
+    """gửi qua mmh.notify: máy chủ kiểm + tra người nhận (prep) ⇒ SMTP ⇒ ghi đã gửi (mark). None = để máy chủ gửi."""
+    meta = {k: v for k, v in body.items() if k not in ('html', 'inl', 'att')}
+    pr = post(dict(meta, op='prep'), tries=2)
+    if not pr.get('ok') or pr.get('skip'):
+        log('  gửi (mmh.notify):', json.dumps({k: pr.get(k) for k in ('ok', 'skip', 'error', 'code') if pr.get(k)}, ensure_ascii=False)); return pr
+    subj = ('[Xem trước] ' if pr.get('preview') else '[Thử] ' if pr.get('test') else '') + body['subject']
+    rep = pr.get('reply') or {}
+    if rep.get('subject'): subj = 'Re: ' + rep['subject']
+    try:
+        mid = NM.send(pr['to'], pr.get('cc') or [], subj, body['html'], inline=inl, attach=att, reply_id=rep.get('msgId') or '')
+    except Exception as e:
+        log('  mmh.notify lỗi ⇒ gửi bằng máy chủ:', str(e)[:200]); return None
+    mk = post(dict(meta, op='mark', msgId=mid, subject=body['subject'], replied=1 if rep.get('msgId') else ''), tries=3)
+    r = {'ok': True, 'via': 'mmh.notify', 'stage': pr.get('stage'), 'to': ', '.join(pr.get('toNames') or []), 'cc': ', '.join(pr.get('ccNames') or []), 'replied': bool(rep.get('msgId')), 'mark': mk.get('ok')}
+    log('  gửi:', json.dumps(r, ensure_ascii=False)); return r
+
 def send(no, stage, subject, html_body, inl, att, R):
     b64 = lambda p: base64.b64encode(open(p, 'rb').read()).decode()
     body = {'action': 'botNpp', 'op': 'send', 'no': no, 'stage': stage, 'subject': subject, 'html': f'<div style="font-family:Aptos,Calibri,Arial,sans-serif;font-size:14px;color:#1F2A33"><style>{CSS}</style>{html_body}</div>',
@@ -674,6 +692,9 @@ def send(no, stage, subject, html_body, inl, att, R):
     if MODE == 'test': body['testTo'] = TEST_TO
     if FORCE and ONLY: body['force'] = 1
     if MODE == 'dry': log('  (dry) không gửi:', subject); return {'ok': True, 'dry': True}
+    if NM.ready():                                   # v1.2: gửi bằng mmh.notify; lỗi ⇒ máy chủ gửi bằng mmh.product như cũ
+        r = notify_send(body, [(c, f) for c, f, _ in inl], att)
+        if r is not None: return r
     r = post(body, tries=2)
     log('  gửi:', json.dumps({k: r.get(k) for k in ('ok', 'stage', 'preview', 'to', 'cc', 'replied', 'skip', 'error', 'code', 'quota', 'htmlKB', 'fileKB', 'images') if r.get(k) is not None}, ensure_ascii=False))
     return r

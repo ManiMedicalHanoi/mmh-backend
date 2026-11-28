@@ -20,6 +20,8 @@ jobs:
     timeout-minutes: 30
     env:
       WT_BOT_KEY: ${{ secrets.WT_BOT_KEY }}
+      NOTIFY_SMTP_USER: mmh.notify@gmail.com
+      NOTIFY_SMTP_PASS: ${{ secrets.NOTIFY_SMTP_PASS }}
       NPPW_MODE: ${{ inputs.mode || 'live' }}
       NPP_TEST_TO: ${{ inputs.to || 'Giang' }}
       NPPW_FORCE: ${{ inputs.force && '1' || '' }}
