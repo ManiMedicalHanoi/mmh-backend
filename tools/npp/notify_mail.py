@@ -15,11 +15,11 @@ def ready():
     return bool(USER and PASS)
 
 
-def send(to, cc, subject, html, text='Vui lòng xem email ở chế độ HTML.', inline=(), attach=(), reply_id=''):
+def send(to, cc, subject, html, text='Vui lòng xem email ở chế độ HTML.', inline=(), attach=(), reply_id='', name=''):
     """to / cc: danh sách email · inline: [(cid, đường dẫn ảnh)] · attach: [đường dẫn] · reply_id: Message-ID thư gốc (trả lời cùng luồng).
     Trả Message-ID của thư vừa gửi."""
     m = EmailMessage()
-    m['From'] = formataddr((NAME, USER))
+    m['From'] = formataddr((name or NAME, USER))   # tên người gửi = bước thầu, vd. "(Biên bản mở thầu) BV Mắt Trung ương"
     m['To'] = ', '.join(to)
     if cc: m['Cc'] = ', '.join(cc)
     m['Subject'] = subject

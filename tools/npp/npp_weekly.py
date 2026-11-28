@@ -326,7 +326,8 @@ def main():
     b64 = lambda f: base64.b64encode(open(f, 'rb').read()).decode()
     req = {'action': 'botNpp', 'op': 'send', 'stage': 'wk', 'wk': WK, 'subject': subj, 'mode': 'live' if MODE in ('live', 'test') else 'preview',
            'html': f'<div style="font-family:Aptos,Calibri,Arial,sans-serif;font-size:14px;color:#1F2A33"><style>{N.CSS}</style>{body}</div>',
-           'att': [{'name': os.path.basename(f), 'mime': 'application/pdf', 'b64': b64(f)} for f in pdfs], 'force': 1 if FORCE else ''}
+           'att': [{'name': os.path.basename(f), 'mime': 'application/pdf', 'b64': b64(f)} for f in pdfs], 'force': 1 if FORCE else '',
+           'fromName': f'(Tổng hợp tuần) Thầu NPP Hùng Vĩ, iCare {WSTART.strftime("%d/%m")} – {d2(WEND)}'}
     if MODE == 'test': req['testTo'] = TEST_TO
     if MODE == 'live': req['seen'] = ','.join(f"{hk_(p['k'])}:{p['sig']}" for p in P.values() if p['win'] or p['fail'])
     if not N.NM.ready():                             # v1.3 (28/11/2026): CHỈ gửi bằng mmh.notify, không dùng mmh.product
