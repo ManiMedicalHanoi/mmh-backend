@@ -126,10 +126,11 @@ def status_cell(l):
         if len(pubs) == 1: t += f' (giá tối thiểu BV công {vnd(pubs[0])} đ: {pct(unit, pubs[0])})'
     return t
 
-def eye_rel(lt, name):
+def eye_rel(lt, name, inv=''):
     """lô NPP không dự: chỉ giữ hàng nhãn khoa / vi phẫu MANI có"""
     t = nk(name); raw = str(name)
     if re.search(r'sieu am|lang da|dien|cat dot|laser|thep|titan|kim loai|ghim khau mo|stapler noi soi|tam giac', t): return False
+    if 'mat' in nk(inv).split() and lt in ('dao', 'chi'): return True   # bệnh viện mắt ⇒ mọi dao / chỉ
     if lt == 'dao': return bool(re.search(r'\bmat\b|phaco|\bmong\b|nhan khoa|mvr|luoi liem|crescent|slit|giac mac|cung mac|chich|15 do|1[05] do|2[.,]\d|3[.,]\d', t))
     if lt == 'chi':
         sz = re.findall(r'\b(\d{1,2})\s?[-/]\s?0\b', raw)
@@ -484,7 +485,7 @@ def build_mo(pk, hits):
     for l in lots:
         mine = [i for i, b in enumerate(l['bids']) if re.search(npre, nk(b['name']))]
         lt = lot_type(l['name'])
-        if mine or (lt and eye_rel(lt, l['name'])): rel.append(dict(l, mine=mine[0] if mine else -1, lt=lt))
+        if mine or (lt and eye_rel(lt, l['name'], inv)): rel.append(dict(l, mine=mine[0] if mine else -1, lt=lt))
     # mã NPP chào: SL × đơn giá trong file NPP = giá dự thầu của lô
     used = set()
     for l in rel:
@@ -520,9 +521,14 @@ def build_mo(pk, hits):
         if not l['qty'] and len(its) == 1: l['qty'] = its[0].get('qty') or 0
         if not l['unit']: l['unit'] = 'sợi' if (l['lt'] or lot_type(l['name'])) == 'chi' else 'cái'
         l['group'] = GROUP.get(l['lt'] or lot_type(l['name']), 'Khác')
-        if sp and l['mine'] >= 0 and len([e for e in ev if e[0].startswith('ky')]) < 10:
+        if sp and len([e for e in ev if e[0].startswith('ky')]) < 16:
             o = crop_band(p_ky, KP, sp[0], sp[1], sp[2], os.path.join(d, 'ky_%s.jpg' % l['code']))
-            ev.append(('ky%s' % l['code'], o, 'HSMT · yêu cầu kỹ thuật · %s' % l['name'][:90]))
+            ev.append(('ky%s' % l['code'], o, 'HSMT · yêu cầu kỹ thuật · %s%s' % (l['name'][:90], '' if l['mine'] >= 0 else ' (NPP không dự)')))
+    # biên bản: phần MMH đáp ứng được mà NPP không dự ⇒ khung đỏ = nhà thầu giá thấp nhất
+    if p_bb:
+        for l in [x for x in rel if x['mine'] < 0 and x['bids']][:10]:
+            o = crop_lot(p_bb, idx, l['code'], os.path.join(d, 'bbx_%s.jpg' % l['code']), re.escape(nk(l['bids'][0]['name'])[:40]))
+            if o: ev.append(('bx%s' % l['code'], o, 'Biên bản mở thầu · %s · %s (NPP không dự · khung đỏ = giá thấp nhất)' % (l['code'], l['name'][:90])))
     # giá trị ước tính
     start = add_month(opened, 1)
     val = []
@@ -590,6 +596,10 @@ def html_mo(R, for_pdf=False):
     s.append('<p class="m">Gói xét theo từng phần: nhà thầu đạt kỹ thuật có giá dự thầu thấp nhất (sau ưu đãi nếu có) được đề nghị trúng phần đó.</p>')
     for cid, f, cap in [e for e in R['ev'] if e[0].startswith('bb')]:
         s.append(f'<p class="m">{H(cap)} (khung đỏ = {H(pk["npp"])})</p><img class="ev" src="{"file://" + f if for_pdf else "cid:" + cid}">')
+    bx = [e for e in R['ev'] if e[0].startswith('bx')]
+    if bx: s.append('<p><b>Các phần MMH đáp ứng được nhưng NPP không dự</b> (lý do theo số liệu ở mục 2):</p>')
+    for cid, f, cap in bx:
+        s.append(f'<p class="m">{H(cap)}</p><img class="ev" src="{"file://" + f if for_pdf else "cid:" + cid}">')
     s.append(f'<h3>4. Giá trị ước tính (tỷ giá {vnd(RATE)} VND/USD)</h3>')
     if R['val']:
         tw = sum(v['bid'] for v in R['val']); tm = sum(v['mmh'] for v in R['val']); cw = sum(v['cw'] for v in R['val']); cm = sum(v['cm'] for v in R['val'])
