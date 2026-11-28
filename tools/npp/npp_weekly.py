@@ -125,7 +125,8 @@ def pkgs_of(rows):
         bidv = num(r.get('total')) if res == 'Win' and num(r.get('total')) else qty * (num(r.get('wonPrice')) if res == 'Win' and num(r.get('wonPrice')) else num(r.get('price')))
         pcs = pieces(qty, r.get('unit') or '', pr)
         p['rows'].append({'code': str(r.get('pcode') or '').strip(), 'res': res, 'qty': qty, 'unit': r.get('unit') or '', 'price': num(r.get('price')),
-                          'bid': bidv, 'mmh': pcs * pr['unit'] if pr else 0, 'kind': KIND.get(pr['kind']) if pr else kind_guess(r.get('pcode')), 'note': r.get('note') or ''})
+                          'bid': bidv, 'mmh': pcs * pr['unit'] if pr else 0, 'kind': KIND.get(pr['kind']) if pr else kind_guess(r.get('pcode')), 'note': r.get('note') or '',
+                          'pcs': pcs, 'g': pr['kind'] if pr else {'Dao nhãn khoa': 'dao', 'Chỉ khâu': 'chi'}.get(kind_guess(r.get('pcode')), '')})
     for p in P.values():
         p['terr'] = terr(p['city'], p['hospital'] + ' ' + p['tender'])
         p['win'] = [x for x in p['rows'] if x['res'] == 'Win']
@@ -137,6 +138,22 @@ def pkgs_of(rows):
         p['end'] = N.add_month(p['start'], p['dur']) if p['start'] else None        # tháng đầu tiên SAU hợp đồng
         p['sig'] = hashlib.md5('|'.join(sorted(f"{x['code']}:{x['res']}" for x in p['rows'])).encode()).hexdigest()[:4]
     return P
+
+# ───────────── số lượng theo nhóm (dao: cái · chỉ khâu: sợi · ghim da: cái) — người dùng 28/11/2026
+GU = {'dao': ('Dao', 'cái'), 'chi': ('Chỉ khâu', 'sợi'), 'ghim': ('Ghim da', 'cái')}
+def qsum(rows):
+    d = {}
+    for x in rows:
+        if x.get('g') in GU and x.get('pcs'): d[x['g']] = d.get(x['g'], 0) + x['pcs']
+    return d
+def qadd(*ds):
+    o = {}
+    for d in ds:
+        for g, v in d.items(): o[g] = o.get(g, 0) + v
+    return o
+def qtxt(d, br=False):
+    t = [f"{GU[g][0]} {vnd(d[g])} {GU[g][1]}" for g in GU if d.get(g)]
+    return ('<br>' if br else ' · ').join(t) or '—'
 
 def hk_(k): return hashlib.md5(k.encode()).hexdigest()[:7]
 
@@ -227,13 +244,18 @@ def build(npp, P, hits, seen):
     newd.sort(key=lambda x: x['p']['approve'] or TODAY, reverse=True)
     T['new'] = newd
     T['fy'] = sum(a['fy'] for a in fyc)
+    T['qact'] = qadd(*[qsum(a['p']['win']) for a in T['act']])
     return T
 
 def kpis(T):
     return [('Doanh số MMH ước tính FY%d theo hiệu lực HĐ (09/%d – 08/%d)' % (FYC, FYC + 1958, FYC + 1959), usd(T['fy'])), ('Gói còn hiệu lực', str(len(T['act']))), ('Hết hạn ≤ 6 tháng', str(len(T['exp']))),
-            ('Gói trúng mới FY%d' % FYC, str(len(T['newfy']))), ('Đang chờ kết quả', str(len(T['pend']))), ('Kết quả mới trong tuần', str(len(T['new'])))]
+            ('Gói trúng mới FY%d' % FYC, str(len(T['newfy']))), ('Đang chờ kết quả', str(len(T['pend']))), ('Kết quả mới trong tuần', str(len(T['new'])))] + \
+           [(f'SL trúng HĐ còn hiệu lực · {GU[g][0]} ({GU[g][1]})', vnd(T['qact'].get(g, 0))) for g in GU]
 def kpi_html(K):
-    return '<table class="kp"><tr>' + ''.join(f'<td><div class="kv">{H(v)}</div><div class="kl">{H(k)}</div></td>' for k, v in K) + '</tr></table>'
+    sl = [(k, v) for k, v in K if k.startswith('SL ') and v not in ('0', '')]
+    K = [(k, v) for k, v in K if not k.startswith('SL ')]
+    return ('<table class="kp"><tr>' + ''.join(f'<td><div class="kv">{H(v)}</div><div class="kl">{H(k)}</div></td>' for k, v in K) + '</tr></table>' +
+            ('<p><b>SL trúng · hợp đồng còn hiệu lực:</b> ' + ' · '.join(H(k.split('· ')[-1].split(' (')[0]) + ' <b>' + H(v) + '</b> ' + H(k.split('(')[-1].rstrip(')')) for k, v in sl) + '</p>' if sl else ''))
 
 def notes(npp, T, n=6):
     out = []
@@ -253,17 +275,17 @@ def html_npp(npp, T, for_pdf=False):
     for t in ('N', 'S', '?'):
         L = [a for a in T['act'] if a['p']['terr'] == t]
         if not L: continue
-        rows = [[pname(a['p']), H(a['p']['city']), H(a['p']['kinds']), f"{m2(a['p']['start'])} – <b>{m2(N.add_month(a['p']['end'], -1))}</b>", R_(a['fy'])] for a in L]
+        rows = [[pname(a['p']), H(a['p']['city']), qtxt(qsum(a['p']['win']), True), f"{m2(a['p']['start'])} – <b>{m2(N.add_month(a['p']['end'], -1))}</b>", R_(a['fy'])] for a in L]
         b.append(f'<p><b>{H(TNAME[t])}</b> · {len(L)} gói · <b>{usd(sum(a["fy"] for a in L))}</b></p>')
-        b.append(tbl(['Bệnh viện · gói', 'Tỉnh', 'Nhóm SP', 'Hiệu lực', f'Ước tính FY{FYC}'], rows))
+        b.append(tbl(['Bệnh viện · gói', 'Tỉnh', 'SL trúng', 'Hiệu lực', f'Ước tính FY{FYC}'], rows))
     if not T['act']: b.append('<p>Không có.</p>')
     if T['gone']:
         b.append(f'<p class="m">Hợp đồng đã hết hạn trong FY{FYC} (đã tính vào doanh số FY{FYC}): ' + '; '.join(f'{H(a["p"]["hospital"][:40])} {usd(a["fy"])}' for a in T['gone'][:12]) + ('…' if len(T['gone']) > 12 else '') + '</p>')
     if T['nodate']: b.append(f'<p class="m">{len(T["nodate"])} gói trúng thiếu ngày phê duyệt / ngày ký trong file NPP — chưa tính: ' + ', '.join(H(p['hospital'][:40]) for p in T['nodate'][:10]) + ('…' if len(T['nodate']) > 10 else '') + '</p>')
     b.append('<h3>2. Hết hạn trong 6 tháng tới</h3>')
-    b.append(tbl(['Bệnh viện · gói', 'Địa bàn', 'Hết hạn', 'Nhóm SP', 'Ước tính / tháng'], [[pname(a['p']), H(TNAME[a['p']['terr']].split(' ·')[0]), f"<b>{m2(N.add_month(a['p']['end'], -1))}</b>", H(a['p']['kinds']), R_(a['mmh'] / a['p']['dur'])] for a in T['exp']]) if T['exp'] else '<p>Không có.</p>')
+    b.append(tbl(['Bệnh viện · gói', 'Địa bàn', 'Hết hạn', 'SL trúng', 'Ước tính / tháng'], [[pname(a['p']), H(TNAME[a['p']['terr']].split(' ·')[0]), f"<b>{m2(N.add_month(a['p']['end'], -1))}</b>", qtxt(qsum(a['p']['win']), True), R_(a['mmh'] / a['p']['dur'])] for a in T['exp']]) if T['exp'] else '<p>Không có.</p>')
     b.append('<h3>3. Đang chờ kết quả</h3>')
-    b.append(tbl(['Bệnh viện · gói', 'Địa bàn', 'Tình trạng', 'Ước tính nếu trúng'], [[pname(x['p']), H(TNAME[x['p']['terr']].split(' ·')[0]), x['st'], R_(x['mmh'])] for x in T['pend']]) if T['pend'] else '<p>Không có.</p>')
+    b.append(tbl(['Bệnh viện · gói', 'Địa bàn', 'SL dự thầu', 'Tình trạng', 'Ước tính nếu trúng'], [[pname(x['p']), H(TNAME[x['p']['terr']].split(' ·')[0]), qtxt(qsum(x['p']['pend']), True), x['st'], R_(x['mmh'])] for x in T['pend']]) if T['pend'] else '<p>Không có.</p>')
     b.append(f'<h3>4. Kết quả mới tuần {d2(WSTART)} – {d2(WEND)}</h3>')
     if not T['new']: b.append('<p>Không có.</p>')
     for x in T['new']:
@@ -312,7 +334,7 @@ def main():
     rows = []
     for i, (lab, _) in enumerate(K[0]):
         vals = [k[i][1] for k in K]
-        sm = usd(tot['fy']) if i == 0 else str(sum(int(v) for v in vals))
+        sm = usd(tot['fy']) if i == 0 else vnd(sum(num(v) for v in vals))
         rows.append([f'<b>{H(lab)}</b>' if i == 0 else H(lab)] + [(f'<b>{v}</b>' if i == 0 else v,) for v in vals] + [(f'<b>{sm}</b>',)])
     hl = []
     for npp, T in parts: hl += [f'{H(npp)} · {x}' for x in notes(npp, T, 6)]

@@ -740,6 +740,13 @@ def html_mo(R, for_pdf=False):
     s.append(f"<p class=\"big\"><b>{H(R['inv'])}</b> · {H(name_or(R['name']))} · {H(pk['no'])}</p>")
     s.append(f"<p>Giá gói <b>{ty(R['price'])}</b> · <b>{len(R['lots'])} phần</b>, chọn nhà thầu <b>{'theo từng phần' if R['byPart'] else 'cả gói'}</b> · "
              f"<b>{H(pk['npp'])} dự {len(mine)} phần</b> · hợp đồng <b>{H(dur)}</b> · mở thầu {H((F['Thời điểm hoàn thành mở thầu'] or R['opened'].strftime('%d/%m/%Y'))[:10])}, {H(nb)} nhà thầu</p>")
+    if V:   # số lượng NPP chào theo nhóm hàng (người dùng 28/11/2026)
+        qg = {}
+        for v in V:
+            if not v['qty']: continue
+            k = (v['lot'].get('group') or 'Khác', v['lot'].get('unit') or '')
+            qg[k] = qg.get(k, 0) + v['qty']
+        if qg: s.append('<p>SL NPP chào: ' + ' · '.join(f'{H(g)} <b>{vnd(q)}</b> {H(u)}' for (g, u), q in qg.items()) + '</p>')
     rem = V[0]['rem'] if V else 0
     fyl = f'Doanh số MMH ước tính FY{fyn} theo hiệu lực HĐ (09/{fyn + 1958} – 08/{fyn + 1959}) · {rem} tháng từ {R["start"].strftime("%m/%Y")}'
     s.append(tbl(['Giá trị NPP chào (nếu trúng)', 'Doanh số MMH ước tính cả HĐ (nếu trúng)', fyl], [[f'<b>{usd(tw)}</b>', f'<b>{usd(tm)}</b>' if tm else '—', f'<b>{usd(cm)}</b>' if tm else '—']]))
