@@ -18,6 +18,7 @@ KEY = os.environ.get('WT_BOT_KEY', '')
 MODE = os.environ.get('NPP_MODE', 'plan')
 ONLY = [re.sub(r'-\d+$', '', x) for x in re.split(r'[,\s]+', (os.environ.get('NPP_NO') or '').strip().upper()) if x]
 TEST_TO = (os.environ.get('NPP_TEST_TO') or 'Giang').strip()
+FORCE = os.environ.get('NPP_FORCE') == '1'
 RATE = 26000
 WORK = os.environ.get('NPP_WORK', '/tmp/npp')
 os.makedirs(WORK, exist_ok=True)
@@ -97,34 +98,23 @@ GROUP = {'dao': 'Dao phẫu thuật nhãn khoa', 'chi': 'Chỉ khâu nhãn khoa'
 GORDER = list(GROUP.values()) + ['Khác']
 
 def why_not(l):
-    """phần NPP không dự ⇒ lý do theo số liệu (không khẳng định thay NPP)"""
-    if not l['codes']: return 'MANI không có mã khớp thông số HSMT' if l.get('spec') else 'Chưa xác định được mã MANI (HSMT chưa đọc được thông số)'
+    """phần NPP không dự ⇒ lý do ngắn (không khẳng định thay NPP)"""
+    if not l['codes']: return 'Không có mã MANI khớp thông số' if l.get('spec') else 'Chưa xác định được mã MANI'
     pubs = [HOSP[c.upper()]['pub'] for c in l['codes'] if c.upper() in HOSP]
-    if not pubs: return 'Chưa có giá tối thiểu BV công của các mã này'
-    mn = min(pubs); u = l.get('unit') or 'cái'
-    if not l.get('qty') or not l['bids']: return f'Giá tối thiểu BV công của MANI từ {vnd(mn)} đ/{u}; HSMT chưa đọc được số lượng để so với giá đối thủ'
-    low = l['bids'][0]['price'] / l['qty']
-    if low < mn: return f'Giá thấp nhất của đối thủ {vnd(low)} đ/{u} thấp hơn giá tối thiểu BV công của MANI {vnd(mn)} đ/{u} ({pct(low, mn)}) ⇒ nhiều khả năng NPP không dự vì giá không phù hợp'
-    return f'Giá thấp nhất của đối thủ {vnd(low)} đ/{u} cao hơn giá tối thiểu BV công của MANI {vnd(mn)} đ/{u} ({pct(low, mn)}) ⇒ MANI có thể cạnh tranh về giá, cần hỏi NPP lý do không dự'
+    if not pubs or not l.get('qty') or not l['bids']: return 'Cần hỏi NPP'
+    return 'Giá đối thủ thấp hơn giá tối thiểu của MANI' if l['bids'][0]['price'] / l['qty'] < min(pubs) else 'MANI cạnh tranh được về giá ⇒ cần hỏi NPP'
 
 def code_cell(l):
-    cs = list(dict.fromkeys([c.upper() for c in l['codes']] + [c for c in l.get('npp_codes', []) if c]))
+    cs = list(dict.fromkeys([c for c in l.get('npp_codes', []) if c] + [c.upper() for c in l['codes']]))
     out = []
-    for c in cs:
-        hp = HOSP.get(c); pr = PRICE.get(c); star = c in l.get('npp_codes', [])
-        t = (f'<b>{H(c)} ★ NPP chào</b>' if star else H(c)) + ' · tối thiểu BV công ' + (vnd(hp['pub']) + ' đ' if hp else 'chưa có') + ' · MANI→NPP ' + (vnd(pr['unit']) + ' đ' if pr else 'chưa có')
-        out.append(t)
-    return '<br>'.join(out) or '—'
+    for c in cs[:8]:
+        hp = HOSP.get(c)
+        out.append(('<b>%s ★</b>' if c in l.get('npp_codes', []) else '%s') % H(c) + (f' · {vnd(hp["pub"])} đ' if hp else ''))
+    return '<br>'.join(out) + (f'<br><span class="m">+{len(cs) - 8} mã</span>' if len(cs) > 8 else '') or '—'
 
 def status_cell(l):
-    if l['mine'] < 0: return '<span class="no">NPP không dự</span><br><span class="m">' + H(why_not(l)) + '</span>'
-    bid = l['bids'][l['mine']]['price']; u = l.get('unit') or 'cái'
-    t = '<span class="ok">NPP dự</span>'
-    if l.get('qty'):
-        unit = bid / l['qty']; t += f' · chào {vnd(unit)} đ/{u}'
-        pubs = [HOSP[c]['pub'] for c in l.get('npp_codes', []) if c in HOSP]
-        if len(pubs) == 1: t += f' (giá tối thiểu BV công {vnd(pubs[0])} đ: {pct(unit, pubs[0])})'
-    return t
+    if l['mine'] < 0: return '<span class="no">Không dự</span><br><span class="m">' + H(why_not(l)) + '</span>'
+    return '<span class="ok">Dự</span>'
 
 def eye_rel(lt, name, inv=''):
     """lô NPP không dự: chỉ giữ hàng nhãn khoa / vi phẫu MANI có"""
@@ -427,6 +417,7 @@ def fy_split(value, start, dur):
     cur = value * min(dur, rem) / dur
     nxt = value * min(max(dur - rem, 0), 12) / dur
     return fy, rem, cur, fy + 1, nxt
+def fy_of(d): return (d.year if d.month >= 9 else d.year - 1) - 1958
 def add_month(d, n=1):
     m = d.month - 1 + n; return datetime.date(d.year + m // 12, m % 12 + 1, 1)
 def dparse(s):
@@ -441,7 +432,8 @@ h3{font-size:14.5px;color:#2C4A5E;margin:18px 0 6px;text-transform:uppercase}
 table.t{border-collapse:collapse;margin:4px 0 8px}table.t td,table.t th{border:1px solid #C9D6E2;padding:4px 7px;font-size:13px;vertical-align:top;text-align:left}
 table.t th{background:#EEF3F8;color:#2C4A5E}td.r{text-align:right;white-space:nowrap}tr.me td{background:#FFF4D6}
 .ok{color:#1E6B34;font-weight:bold}.no{color:#9A2B2B;font-weight:bold}.m{color:#6B7785;font-size:12.5px}
-img.ev{max-width:100%;border:1px solid #C9D6E2;margin:4px 0 2px}a{color:#2F6FB0}"""
+img.ev{max-width:100%;border:1px solid #C9D6E2;margin:4px 0 2px}a{color:#2F6FB0}
+.sum{border:1px solid #BCD4E6;border-radius:6px;padding:8px 12px;margin:6px 0 14px;background:#F7FAFD}.sum p{margin:4px 0}.big{font-size:15px;color:#2C4A5E}ul{margin:4px 0;padding-left:20px}"""
 def tbl(head, rows, me=None):
     def cell(c):
         if isinstance(c, (int, float)): return f'<td class="r">{vnd(c)}</td>'
@@ -515,7 +507,7 @@ def build_mo(pk, hits):
         l['orig'] = origin_of(sp[3]) if sp else []
         l['codes'] = mani_codes(l['lt'] or lot_type(l['name']), l['name'] + ' ' + re.sub(r'(?i)polypropylene|nylon|polyglactin|polyglycolic|polyester|\b\d{1,2}\s?[-/]\s?0\b', '', l['spec']))
         q = re.findall(r'\b(Sợi|Cái|Chiếc|Hộp|Vỉ|Bộ|Cây|Tép|Gói|Tuýp)\s+(\d[\d.,]*)\b', sp[3]) if sp else []
-        l['unit'] = q[-1][0].lower() if q else ''; l['qty'] = num(q[-1][1]) if q else 0
+        l['unit'] = q[-1][0].lower() if q else ''; l['qty'] = l['qty_h'] = num(q[-1][1]) if q else 0
         its = [l['item']] if l.get('item') else l.get('items') or []
         l['npp_codes'] = [str(it.get('code') or '').upper().split(' ')[0] for it in its if it.get('code')]
         if not l['qty'] and len(its) == 1: l['qty'] = its[0].get('qty') or 0
@@ -529,96 +521,120 @@ def build_mo(pk, hits):
         for l in [x for x in rel if x['mine'] < 0 and x['bids']][:10]:
             o = crop_lot(p_bb, idx, l['code'], os.path.join(d, 'bbx_%s.jpg' % l['code']), re.escape(nk(l['bids'][0]['name'])[:40]))
             if o: ev.append(('bx%s' % l['code'], o, 'Biên bản mở thầu · %s · %s (NPP không dự · khung đỏ = giá thấp nhất)' % (l['code'], l['name'][:90])))
-    # giá trị ước tính
+    # giá trị ước tính — giá theo BIÊN BẢN, số lượng theo HSMT (file NPP nhập tay có thể sai ⇒ chỉ dùng để biết mã NPP chào, lệch thì ghi chú)
     start = add_month(opened, 1)
-    val = []
+    val, diff = [], []
     for l in rel:
         if l['mine'] < 0: continue
         bid = l['bids'][l['mine']]['price']
         its = [l['item']] if l.get('item') else l.get('items') or []
         cs = [((it.get('code') or '').upper().split(' ')[0].split('-')[0], it.get('qty') or 0) for it in its]
+        if not its: diff.append(f"Phần {l['code']}: biên bản có {pk['npp']} dự (giá {vnd(bid)} đ) nhưng file thầu của NPP không có dòng khớp")
+        elif not l.get('item'):
+            fq = sum(q for _, q in cs); fv = sum((it.get('qty') or 0) * (it.get('price') or 0) for it in its)
+            diff.append(f"Phần {l['code']}: file NPP ghi {', '.join(c for c, _ in cs)} SL {vnd(fq)} = {vnd(fv)} đ, biên bản {vnd(bid)} đ")
+        hq = l.get('qty_h') or 0
+        if hq and len(cs) == 1 and cs[0][1] and abs(cs[0][1] - hq) > 0.5:
+            diff.append(f"Phần {l['code']}: file NPP SL {vnd(cs[0][1])}, HSMT SL {vnd(hq)} ⇒ tính theo HSMT")
+            cs = [(cs[0][0], hq)]
+        if not cs and l.get('codes') and hq: cs = []          # chưa biết mã NPP chào ⇒ không ước tính doanh số MMH
         mmh = sum(PRICE[c]['unit'] * q for c, q in cs if c in PRICE and q)
-        code = ', '.join(c for c, _ in cs); qty = sum(q for _, q in cs)
-        pr = PRICE.get(cs[0][0]) if len(cs) == 1 else None
+        code = ', '.join(c for c, _ in cs); qty = sum(q for _, q in cs) or hq
         fy, rem, cw, fy2, nw = fy_split(bid, start, dur)
         _, _, cm, _, nm = fy_split(mmh, start, dur) if mmh else (0, 0, 0, 0, 0)
-        val.append({'lot': l, 'code': code or '—', 'qty': qty, 'bid': bid, 'mmh': mmh, 'npp_unit': pr['unit'] if pr else 0, 'fy': fy, 'rem': rem, 'cw': cw, 'cm': cm, 'fy2': fy2, 'nw': nw, 'nm': nm})
-    return dict(pk=pk, I=I, F=F, name=name, inv=inv, price=price, dur=dur, opened=opened, start=start, lots=lots, rel=rel, byPart=byPart, allorig=allorig, ev=ev, val=val,
+        val.append({'lot': l, 'code': code or '—', 'qty': qty, 'bid': bid, 'mmh': mmh, 'fy': fy, 'rem': rem, 'cw': cw, 'cm': cm, 'fy2': fy2, 'nw': nw, 'nm': nm})
+    left = [it for k, it in enumerate(pk['items']) if k not in used and not any(it is x for l in rel for x in (l.get('items') or []))]
+    for it in left:
+        if it.get('qty'): diff.append(f"File NPP có {it.get('code') or '(không mã)'} SL {vnd(it['qty'])} × {vnd(it.get('price') or 0)} đ — không khớp phần nào {pk['npp']} dự trong biên bản")
+    return dict(pk=pk, I=I, F=F, name=name, inv=inv, price=price, dur=dur, opened=opened, start=start, lots=lots, rel=rel, byPart=byPart, allorig=allorig, ev=ev, val=val, diff=diff,
                 links={'bb': f_bb, 'nt': f_nt, 'tb': f_tb, 'ky': f_ky, 'dg': f_dg}, kytxt=bool(ktxt)), ''
+
+def ty(v):
+    if not v: return 'Không rõ'
+    return (f"{v/1e9:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.') + ' tỷ đ') if v >= 1e9 else (f"{v/1e6:,.0f}".replace(',', '.') + ' tr đ')
 
 def chance(l):
     b = l['bids']; k = l['mine']; n = len(b)
     if k < 0: return ''
-    if n == 1: return '<span class="ok">Nhà thầu duy nhất ⇒ trúng nếu đạt kỹ thuật</span>'
-    if k == 0: return '<span class="ok">Giá thấp nhất (thấp hơn hạng 2: %s) ⇒ trúng nếu đạt kỹ thuật</span>' % pct(b[1]['price'], b[0]['price']).lstrip('+')
-    return '<span class="no">Giá xếp hạng %d/%d (cao hơn giá thấp nhất %s) ⇒ chỉ trúng nếu %d nhà thầu giá thấp hơn không đạt kỹ thuật</span>' % (k + 1, n, pct(b[k]['price'], b[0]['price']), k)
+    if n == 1: return '<span class="ok">Duy nhất ⇒ trúng nếu đạt kỹ thuật</span>'
+    if k == 0: return '<span class="ok">Giá thấp nhất ⇒ trúng nếu đạt kỹ thuật</span>'
+    return f'<span class="no">Hạng {k + 1}/{n} · chỉ trúng nếu {k} bên rẻ hơn trượt kỹ thuật</span>'
+def rank_cell(l):
+    b = l['bids']; k = l['mine']
+    if k < 0 or not b: return ''
+    if k == 0: return f'<b>1/{len(b)}</b>' + (f'<br><span class="m">rẻ hơn hạng 2 {pct(b[1]["price"], b[0]["price"]).lstrip("+")}</span>' if len(b) > 1 else '')
+    return f'<b>{k + 1}/{len(b)}</b><br><span class="m">cao hơn hạng 1 {pct(b[k]["price"], b[0]["price"])}</span>'
 
 def html_mo(R, for_pdf=False):
     pk, F = R['pk'], R['F']; L = R['links']
     a = lambda f, t: f'<a href="{H(f["url"])}">{H(t)}</a>' if f and f.get('url') else ''
-    src = ' · '.join(x for x in [f'<a href="{H(R["I"]["url"])}">Trang gói trên muasamcong</a>' if R['I'].get('url') else '', a(L['bb'], 'Biên bản mở thầu'), a(L['nt'], 'Bảng nhà thầu tham dự'),
-                                 a(L['tb'], 'Thông báo mời thầu'), a(L['ky'], 'HSMT – Yêu cầu kỹ thuật'), a(L['dg'], 'HSMT – Tiêu chuẩn đánh giá')] if x)
+    src = ' · '.join(x for x in [f'<a href="{H(R["I"]["url"])}">Trang gói muasamcong</a>' if R['I'].get('url') else '', a(L['bb'], 'Biên bản mở thầu'), a(L['nt'], 'Nhà thầu tham dự'),
+                                 a(L['tb'], 'TBMT'), a(L['ky'], 'HSMT – yêu cầu kỹ thuật'), a(L['dg'], 'HSMT – tiêu chuẩn đánh giá')] if x)
+    img = lambda cid, f: f'<img class="ev" src="{"file://" + f if for_pdf else "cid:" + cid}">'
     mine = [l for l in R['rel'] if l['mine'] >= 0]; others = [l for l in R['rel'] if l['mine'] < 0]
+    V = R['val']; fyn = V[0]['fy'] if V else fy_of(R['start'])
+    tw = sum(v['bid'] for v in V); tm = sum(v['mmh'] for v in V); cw = sum(v['cw'] for v in V); cm = sum(v['cm'] for v in V)
+    w1 = [l for l in mine if l['mine'] == 0]; wl = [l for l in mine if l['mine'] > 0]
+    nb = F['Số lượng nhà thầu'] or str(max((len(l['bids']) for l in R['lots']), default=0))
+    dur = F['Thời gian thực hiện gói thầu'] or f"{R['dur']} tháng"
     s = []
-    s.append(f'<h3>1. Thông tin gói thầu</h3>')
+    # ── TÓM TẮT
+    s.append('<div class="sum">')
+    s.append(f"<p class=\"big\"><b>{H(R['inv'])}</b> · {H(name_or(R['name']))} · {H(pk['no'])}</p>")
+    s.append(f"<p>Giá gói <b>{ty(R['price'])}</b> · <b>{len(R['lots'])} phần</b>, chọn nhà thầu <b>{'theo từng phần' if R['byPart'] else 'cả gói'}</b> · "
+             f"<b>{H(pk['npp'])} dự {len(mine)} phần</b> · hợp đồng <b>{H(dur)}</b> · mở thầu {H((F['Thời điểm hoàn thành mở thầu'] or R['opened'].strftime('%d/%m/%Y'))[:10])}, {H(nb)} nhà thầu</p>")
+    s.append(tbl(['Giá trị NPP chào (nếu trúng)', 'Doanh số MMH (nếu trúng)', f'Doanh số MMH trong FY{fyn}'], [[f'<b>{usd(tw)}</b>', f'<b>{usd(tm)}</b>' if tm else '—', f'<b>{usd(cm)}</b>' if tm else '—']]))
+    if mine:
+        rows = [[l['code'], H(l['name'][:60]), ', '.join(H(c) for c in l.get('npp_codes', [])) or '—', rank_cell(l), chance(l)] for l in mine]
+        s.append('<p><b>Khả năng trúng</b> — ' + (f'giá thấp nhất <b>{len(w1)}/{len(mine)}</b> phần' if mine else '') + (f', cao hơn đối thủ {len(wl)} phần' if wl else '') + '</p>')
+        s.append(tbl(['Phần', 'Mặt hàng', 'Mã NPP chào', 'Hạng giá', 'Nhận định'], rows, me=lambda r: 'thấp nhất' in r[4] or 'Duy nhất' in r[4]))
+    note = []
+    for d in R.get('diff', []): note.append('Lệch dữ liệu: ' + H(d))
+    if others: note.append(f'{len(others)} phần MMH đáp ứng được nhưng {H(pk["npp"])} không dự' + (f' ({sum(1 for l in others if "cạnh tranh" in why_not(l))} phần MANI cạnh tranh được về giá)' if any("cạnh tranh" in why_not(l) for l in others) else ''))
+    if R['allorig']: note.append(f"HSMT có tiêu chí {H(', '.join(R['allorig']))} — hàng MANI đáp ứng")
+    if not R['kytxt']: note.append('Chưa có HSMT – yêu cầu kỹ thuật (cần VNeGP Agent)')
+    if note: s.append('<p><b>Cần lưu ý</b></p><ul>' + ''.join(f'<li>{x}</li>' for x in note) + '</ul>')
+    s.append('</div>')
+    # ── CHI TIẾT
+    s.append('<h3>1. Thông tin gói thầu</h3>')
     s.append(tbl(['Mục', 'Nội dung'], [
-        ['Gói thầu', name_or(R['name'])], ['Chủ đầu tư', R['inv']], ['Số TBMT', pk['no']],
-        ['Giá gói thầu', f"{vnd(R['price'])} đ (~{usd(R['price'])})" if R['price'] else 'Không rõ'],
-        ['Số phần / lô', f"{len(R['lots'])} phần" + (' · xét chọn nhà thầu theo TỪNG PHẦN (nhà thầu chào 1 hoặc nhiều phần, mỗi phần chọn riêng)' if R['byPart'] else ' · chọn nhà thầu cho CẢ GÓI')],
-        ['Hình thức / phương thức', ' · '.join(x for x in [F['Hình thức lựa chọn nhà thầu'], F['Phương thức lựa chọn nhà thầu'], F['Hình thức dự thầu']] if x) or 'Không rõ'],
-        ['Nguồn vốn', F['Nguồn vốn'] or 'Không rõ'], ['Loại hợp đồng', F['Loại hợp đồng'] or 'Không rõ'],
-        ['Thời gian thực hiện hợp đồng', F['Thời gian thực hiện gói thầu'] or f"{R['dur']} tháng (mặc định)"],
-        ['Mở thầu', (F['Thời điểm hoàn thành mở thầu'] or F['Thời điểm đóng thầu'] or R['opened'].strftime('%d/%m/%Y')) + (f" · {F['Số lượng nhà thầu']} nhà thầu" if F['Số lượng nhà thầu'] else '')],
-        ['Bảo đảm dự thầu', F['Số tiền đảm bảo dự thầu'] or 'Không rõ'], ['NPP của MANI tham dự', f"{pk['npp']} · {len(mine)} phần"]]))
-    s.append(f'<p class="m">Tài liệu tham chiếu: {src}</p>')
-    s.append('<h3>2. Yêu cầu kỹ thuật các phần liên quan sản phẩm MMH</h3>')
-    if R['allorig']: s.append(f"<p>HSMT có yêu cầu / tiêu chí: <b>{H(', '.join(R['allorig']))}</b>. Yêu cầu xuất xứ G7 / EU / FDA thường loại hàng sản xuất tại Ấn Độ, Trung Quốc… (trừ khi có chứng nhận tương ứng). Hàng MANI (kể cả sản xuất tại Việt Nam) đáp ứng các yêu cầu về xuất xứ.</p>")
-    elif R['kytxt']: s.append('<p>HSMT không nêu yêu cầu xuất xứ riêng (G7 / EU / FDA…) cho hàng hóa.</p>')
-    else: s.append('<p class="m">Chưa có file HSMT – yêu cầu kỹ thuật (thường cần VNeGP Agent để tải) ⇒ phần này đánh giá theo tên phần / lô.</p>')
+        ['Giá gói thầu', f"<b>{vnd(R['price'])} đ</b>" if R['price'] else 'Không rõ'],
+        ['Số phần / cách chọn', f"<b>{len(R['lots'])} phần</b> · <b>{'theo từng phần' if R['byPart'] else 'cả gói'}</b> · {H(pk['npp'])} dự <b>{len(mine)}</b> phần"],
+        ['Thời gian thực hiện hợp đồng', f'<b>{H(dur)}</b>'],
+        ['Hình thức', H(' · '.join(x for x in [F['Hình thức lựa chọn nhà thầu'], F['Phương thức lựa chọn nhà thầu']] if x) or 'Không rõ')],
+        ['Nguồn vốn · loại hợp đồng', H(' · '.join(x for x in [F['Nguồn vốn'], F['Loại hợp đồng']] if x) or 'Không rõ')],
+        ['Bảo đảm dự thầu', H(F['Số tiền đảm bảo dự thầu'] or 'Không rõ')]]))
+    s.append(f'<p class="m">{src}</p>')
+    s.append('<h3>2. Biên bản mở thầu · các phần NPP dự</h3>')
+    rows = []
+    for l in mine:
+        bs = '<br>'.join(('<b>' if i == l['mine'] else '') + f"{i+1}. {H(b['name'][:55])} — {vnd(b['price'])} đ" + ('</b>' if i == l['mine'] else '') for i, b in enumerate(l['bids'][:6]))
+        rows.append([l['code'], H(l['name'][:80]), bs + (f'<br><span class="m">+{len(l["bids"]) - 6} nhà thầu</span>' if len(l['bids']) > 6 else '')])
+    s.append(tbl(['Phần', 'Mặt hàng', 'Nhà thầu · giá dự thầu (thấp ⇒ cao)'], rows) if rows else '<p>NPP không dự phần nào.</p>')
+    for cid, f, cap in [e for e in R['ev'] if e[0].startswith('bb')]:
+        s.append(f'<p class="m">{H(cap)} · khung đỏ = {H(pk["npp"])}</p>' + img(cid, f))
+    s.append('<h3>3. Yêu cầu kỹ thuật · mã MANI đáp ứng</h3>')
     shown = mine + others[:25]
     for g in GORDER:
         ls = [l for l in shown if l.get('group') == g]
         if not ls: continue
-        s.append(f'<p><b>{H(g)}</b> · {len(ls)} phần ({sum(1 for l in ls if l["mine"] >= 0)} phần NPP dự)</p>')
-        rows = [[l['code'], H(l['name'][:110]) + (f'<br><span class="m">SL {vnd(l["qty"])} {H(l.get("unit", ""))}</span>' if l.get('qty') else ''),
-                 H(l['level']) + ('<br><span class="m">Xuất xứ / tiêu chuẩn: ' + H(', '.join(l['orig'])) + '</span>' if l['orig'] else ''), code_cell(l), status_cell(l)] for l in ls]
-        s.append(tbl(['Phần', 'Tên phần / lô', 'Thông số kỹ thuật', 'Mã MANI đáp ứng · giá tối thiểu BV công · giá MANI→NPP (/đơn vị)', 'NPP dự / lý do không dự'], rows, me=lambda r: 'NPP dự' in r[4] and 'không dự' not in r[4]))
-    if len(others) > 25: s.append(f'<p class="m">… và {len(others) - 25} phần khác thuộc nhóm sản phẩm MMH mà NPP không dự (xem bảng nhà thầu tham dự).</p>')
-    s.append('<p class="m">Giá tối thiểu BV công = giá NPP bán bệnh viện công tối thiểu theo báo giá đại lý – bệnh viện (đã gồm VAT). Đơn giá đối thủ = giá dự thầu ÷ số lượng của phần trong HSMT. ★ = mã NPP chào theo file thầu của NPP.</p>')
+        s.append(f'<p><b>{H(g)}</b> · {len(ls)} phần</p>')
+        rows = [[l['code'], H(l['name'][:90]) + (f'<br><span class="m">SL {vnd(l["qty"])} {H(l.get("unit", ""))}</span>' if l.get('qty') else ''),
+                 H(l['level']) + ('<br><span class="m">' + H(', '.join(l['orig'])) + '</span>' if l['orig'] else ''), code_cell(l), status_cell(l)] for l in ls]
+        s.append(tbl(['Phần', 'Mặt hàng', 'Thông số', 'Mã MANI · giá tối thiểu BV công', 'NPP'], rows, me=lambda r: '>Dự<' in r[4]))
+    if len(others) > 25: s.append(f'<p class="m">+{len(others) - 25} phần MMH khác NPP không dự.</p>')
+    s.append('<p class="m">★ = mã NPP chào.</p>')
     for cid, f, cap in [e for e in R['ev'] if e[0].startswith('ky')]:
-        s.append(f'<p class="m">{H(cap)}</p><img class="ev" src="{"file://" + f if for_pdf else "cid:" + cid}">')
-    s.append('<h3>3. Biên bản mở thầu · nhà thầu và giá từng phần NPP tham dự</h3>')
-    rows = []
-    for l in mine:
-        bs = '<br>'.join(('<b>' if i == l['mine'] else '') + f"{i+1}. {H(b['name'][:60])} — {vnd(b['price'])} đ" + ('</b>' if i == l['mine'] else '') for i, b in enumerate(l['bids']))
-        rows.append([l['code'], l['name'][:90], bs, chance(l)])
-    s.append(tbl(['Phần', 'Tên phần / lô', 'Nhà thầu · giá dự thầu sau giảm giá (thấp ⇒ cao)', 'Khả năng trúng của NPP'], rows))
-    s.append('<p class="m">Gói xét theo từng phần: nhà thầu đạt kỹ thuật có giá dự thầu thấp nhất (sau ưu đãi nếu có) được đề nghị trúng phần đó.</p>')
-    for cid, f, cap in [e for e in R['ev'] if e[0].startswith('bb')]:
-        s.append(f'<p class="m">{H(cap)} (khung đỏ = {H(pk["npp"])})</p><img class="ev" src="{"file://" + f if for_pdf else "cid:" + cid}">')
+        s.append(f'<p class="m">{H(cap)}</p>' + img(cid, f))
     bx = [e for e in R['ev'] if e[0].startswith('bx')]
-    if bx: s.append('<p><b>Các phần MMH đáp ứng được nhưng NPP không dự</b> (lý do theo số liệu ở mục 2):</p>')
+    if bx: s.append('<p><b>Phần NPP không dự</b> · khung đỏ = giá thấp nhất</p>')
     for cid, f, cap in bx:
-        s.append(f'<p class="m">{H(cap)}</p><img class="ev" src="{"file://" + f if for_pdf else "cid:" + cid}">')
-    s.append(f'<h3>4. Giá trị ước tính (tỷ giá {vnd(RATE)} VND/USD)</h3>')
-    if R['val']:
-        tw = sum(v['bid'] for v in R['val']); tm = sum(v['mmh'] for v in R['val']); cw = sum(v['cw'] for v in R['val']); cm = sum(v['cm'] for v in R['val'])
-        v0 = R['val'][0]
-        rows = [[v['lot']['code'], v['code'], v['qty'] and vnd(v['qty']) or '—', usd(v['bid']), usd(v['mmh']) if v['mmh'] else '—', usd(v['cw']), usd(v['cm']) if v['mmh'] else '—'] for v in R['val']]
-        rows.append(['<b>Tổng</b>', '', '', f'<b>{usd(tw)}</b>', f'<b>{usd(tm)}</b>' if tm else '—', f'<b>{usd(cw)}</b>', f'<b>{usd(cm)}</b>' if tm else '—'])
-        s.append(tbl(['Phần', 'Mã MANI', 'SL', 'Giá trị trúng thầu (NPP bán BV)', 'Doanh số MMH (MANI bán NPP)', f'Trong FY{v0["fy"]} · trúng thầu', f'Trong FY{v0["fy"]} · doanh số MMH'], rows))
-        s.append(f"<p class=\"m\">Giá trị trúng thầu = giá dự thầu của NPP (đã gồm VAT) nếu trúng. Doanh số MMH = số lượng × giá MANI bán NPP theo mã (chưa VAT). Phần trong FY{v0['fy']} = giá trị ÷ {R['dur']} tháng hợp đồng × {v0['rem']} tháng "
-                 f"còn lại của FY{v0['fy']} (giả định hợp đồng bắt đầu {R['start'].strftime('%m/%Y')}, tháng sau mở thầu; FY{v0['fy']} kết thúc 08/{1958 + v0['fy'] + 1}). Phần còn lại rơi vào FY{v0['fy2']}: {usd(sum(v['nw'] for v in R['val']))} trúng thầu"
-                 + (f", {usd(sum(v['nm'] for v in R['val']))} doanh số MMH." if tm else '.') + '</p>')
-        miss = [v['lot']['code'] for v in R['val'] if not v['mmh']]
-        if miss: s.append(f'<p class="m">Chưa ước tính được doanh số MMH ở phần {", ".join(miss)}: file thầu của NPP chưa ghi mã / số lượng khớp giá dự thầu.</p>')
-    else: s.append('<p>NPP không tham dự phần nào của gói này.</p>')
-    s.append('<h3>5. Nhận xét</h3><ul>')
-    w1 = [l for l in mine if l['mine'] == 0]; wl = [l for l in mine if l['mine'] > 0]
-    if w1: s.append(f'<li>{pk["npp"]} xếp giá thấp nhất ở {len(w1)}/{len(mine)} phần đã dự: {H(", ".join(l["code"] for l in w1))}.</li>')
-    if wl: s.append(f'<li>{len(wl)} phần {pk["npp"]} có giá cao hơn nhà thầu khác: {H(", ".join(l["code"] for l in wl))}.</li>')
-    if others: s.append(f'<li>{len(others)} phần thuộc nhóm sản phẩm MMH mà NPP không dự.</li>')
-    s.append('<li>Hệ thống sẽ trả lời tiếp trong luồng email này khi gói có kết quả lựa chọn nhà thầu.</li></ul>')
+        s.append(f'<p class="m">{H(cap.split(" (NPP")[0])}</p>' + img(cid, f))
+    if V:
+        s.append('<h3>4. Giá trị ước tính từng phần</h3>')
+        rows = [[v['lot']['code'], v['code'], vnd(v['qty']) if v['qty'] else '—', usd(v['bid']), usd(v['mmh']) if v['mmh'] else '—', usd(v['cm']) if v['mmh'] else '—'] for v in V]
+        rows.append(['<b>Tổng</b>', '', '', f'<b>{usd(tw)}</b>', f'<b>{usd(tm)}</b>' if tm else '—', f'<b>{usd(cm)}</b>' if tm else '—'])
+        s.append(tbl(['Phần', 'Mã', 'SL', 'NPP chào', 'Doanh số MMH', f'MMH FY{fyn}'], rows))
     return '\n'.join(s)
 
 def name_or(s): return s or 'Không rõ'
@@ -642,6 +658,7 @@ def send(no, stage, subject, html_body, inl, att, R):
             'att': [{'name': os.path.basename(a), 'mime': 'application/pdf', 'b64': b64(a)} for a in att],
             'prov': R['pk']['city'] or R['I'].get('prov', ''), 'text': R['inv'] + ' ' + R['pk']['hospital'], 'mode': 'live' if MODE in ('live', 'test') else 'preview'}
     if MODE == 'test': body['testTo'] = TEST_TO
+    if FORCE and ONLY: body['force'] = 1
     if MODE == 'dry': log('  (dry) không gửi:', subject); return {'ok': True, 'dry': True}
     r = post(body, tries=2)
     log('  gửi:', json.dumps({k: r.get(k) for k in ('ok', 'stage', 'preview', 'to', 'cc', 'replied', 'skip', 'error', 'code')}, ensure_ascii=False))
@@ -652,8 +669,7 @@ def run_mo(pk, hits):
     if not R: log('  bỏ qua:', why); return False
     who = to_name(R)
     subj = f"[Thầu] Mở thầu gói thầu – {R['inv'][:80]} – {pk['no']}"
-    intro = (f"<p>Dear {H(who)},</p><p>Hệ thống Theo dõi thầu thông báo biên bản mở thầu gói <b>{H(name_or(R['name']))}</b> của <b>{H(R['inv'])}</b>, số TBMT <b>{pk['no']}</b>. "
-             f"NPP của MANI tham dự: <b>{H(pk['npp'])}</b>. Chi tiết bên dưới; bản PDF tóm tắt đính kèm.</p>")
+    intro = f"<p>Dear {H(who)},</p><p>Hệ thống Theo dõi thầu thông báo kết quả mở thầu gói có NPP {H(pk['npp'])} tham dự. Bản PDF đính kèm.</p>"
     sig = '<p>Trân trọng,<br>Hệ thống Theo dõi thầu MMH</p>'
     bodyE = intro + html_mo(R) + sig
     pdf = make_pdf(f"Mở thầu · {R['inv']} · {pk['no']}", html_mo(R, True), os.path.join(WORK, pk['no'], f"{pk['no']} - Phan tich mo thau.pdf"))
@@ -679,10 +695,10 @@ def run_kq(pk, hits, st):
     kd = dparse(k.get('kqDate')) or datetime.date.today()
     dur = months(str(pk.get('dur') or ''), 12); start = add_month(kd, 1)
     tw = sum(e[1] for _, e in won); fy, rem, cw, fy2, nw = fy_split(tw, start, dur) if tw else (0, 0, 0, 0, 0)
-    b = (f"<p>Dear {H(who)},</p><p>Gói <b>{H(pk['tender'] or pk['no'])}</b> của <b>{H(pk['hospital'])}</b> (số TBMT <b>{pk['no']}</b>) đã có kết quả lựa chọn nhà thầu"
-         + (f" ngày {kd.strftime('%d/%m/%Y')}" if k.get('kqDate') else '') + f". Kết quả các phần {H(pk['npp'])} tham dự:</p>"
+    head = (f"<b>{H(pk['npp'])} trúng {len(won)}/{len(rows)} phần · giá trị {usd(tw)} · trong FY{fy}: {usd(cw)}</b>" if won else f"<b>{H(pk['npp'])} không trúng phần nào.</b>")
+    b = (f"<p>Dear {H(who)},</p><p>Gói <b>{H(pk['tender'] or pk['no'])}</b> · <b>{H(pk['hospital'])}</b> · {pk['no']} đã có kết quả lựa chọn nhà thầu"
+         + (f" ngày {kd.strftime('%d/%m/%Y')}" if k.get('kqDate') else '') + f".</p><p>{head}</p>"
          + tbl(['Phần', 'Nhà thầu trúng · giá trúng', pk['npp'], 'Lý do không trúng'], rows))
-    if won: b += f"<p>{H(pk['npp'])} trúng {len(won)} phần, giá trị {vnd(tw)} đ (~{usd(tw)}); trong FY{fy} (từ {start.strftime('%m/%Y')}, {rem} tháng): ~{usd(cw)}, FY{fy2}: ~{usd(nw)}.</p>"
     links = ' · '.join(f'<a href="{H(f["url"])}">{H(f["kind"] or f["name"])}</a>' for f in k.get('files', []) if f.get('url') and re.search(r'kết quả|danh sách', f.get('kind', '') + f.get('name', ''), re.I))
     if links: b += f'<p class="m">Tài liệu: {links}</p>'
     b += '<p>Trân trọng,<br>Hệ thống Theo dõi thầu MMH</p>'
@@ -706,7 +722,7 @@ def main():
         tgt = os.environ.get('NPP_TARGET') if MODE == 'plan' else MODE
         s = (S.get('_test', {}) if tgt == 'test' else S).get(no, {}); files = [f for h in H.get(no, []) for f in h.get('files', [])]
         has_bb = bool(pick(files, r'biên bản mở thầu') and pick(files, r'nhà thầu tham dự'))
-        if tgt not in ('live', 'test') or 'mo' not in s:
+        if tgt not in ('live', 'test') or 'mo' not in s or (FORCE and ONLY):
             if has_bb: todo.append((no, 'mo'))
             else: todo.append((no, 'queue'))
         elif 'kq' not in s: todo.append((no, 'kq'))

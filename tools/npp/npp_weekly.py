@@ -29,6 +29,7 @@ OUTD = os.path.join(N.REPO, 'npp-out'); os.makedirs(OUTD, exist_ok=True)
 WORK = os.path.join(N.WORK, 'weekly'); os.makedirs(WORK, exist_ok=True)
 log, H, vnd, nk, num, bare = N.log, N.H, N.vnd, N.nk, N.num, N.bare
 RATE = N.RATE
+N.CSS += '\ntable.kp{border-collapse:separate;border-spacing:6px 0;margin:4px -6px 10px}table.kp td{border:1px solid #BCD4E6;border-radius:6px;padding:6px 10px;background:#F7FAFD;vertical-align:top}.kv{font-size:18px;font-weight:bold;color:#2C4A5E}.kl{font-size:12px;color:#6B7785}'
 def usd(v): return '$' + f"{v / RATE:,.0f}"
 def d2(d): return d.strftime('%d/%m/%Y') if d else ''
 def m2(d): return d.strftime('%m/%Y') if d else ''
@@ -43,6 +44,9 @@ def load_pack():
 PR = load_pack()
 KIND = {'dao': 'Dao nhãn khoa', 'chi': 'Chỉ khâu', 'ghim': 'Ghim da'}
 def price_of(code): return PR.get(re.sub(r'[^A-Z0-9]', '', str(code or '').upper()))
+def kind_guess(code):
+    c = re.sub(r'[^A-Z0-9]', '', str(code or '').upper())
+    return 'Dao nhãn khoa' if re.match(r'^M[A-Z]{2}\d', c) else 'Chỉ khâu' if re.match(r'^\d{3,4}[A-Z]?$', c) else ''
 def pieces(qty, unit, pr):
     if pr and re.search(r'hop|box|vi\b', nk(unit)): return qty * pr['pack']
     return qty
@@ -109,7 +113,7 @@ def pkgs_of(rows):
         bidv = num(r.get('total')) if res == 'Win' and num(r.get('total')) else qty * (num(r.get('wonPrice')) if res == 'Win' and num(r.get('wonPrice')) else num(r.get('price')))
         pcs = pieces(qty, r.get('unit') or '', pr)
         p['rows'].append({'code': str(r.get('pcode') or '').strip(), 'res': res, 'qty': qty, 'unit': r.get('unit') or '', 'price': num(r.get('price')),
-                          'bid': bidv, 'mmh': pcs * pr['unit'] if pr else 0, 'kind': KIND.get(pr['kind']) if pr else '', 'note': r.get('note') or ''})
+                          'bid': bidv, 'mmh': pcs * pr['unit'] if pr else 0, 'kind': KIND.get(pr['kind']) if pr else kind_guess(r.get('pcode')), 'note': r.get('note') or ''})
     for p in P.values():
         p['terr'] = terr(p['city'], p['hospital'] + ' ' + p['tender'])
         p['win'] = [x for x in p['rows'] if x['res'] == 'Win']
@@ -169,102 +173,103 @@ def pname(p):
 def build(npp, P, hits, seen):
     A = [p for p in P.values() if p['npp'] == npp]
     T = {}
-    # 2 hợp đồng còn hiệu lực
-    act = []
+    m0 = datetime.date(TODAY.year, TODAY.month, 1)
+    # hợp đồng có phần nằm trong FY hiện tại (còn hiệu lực + đã hết trong FY)
+    fyc = []
     for p in A:
-        if not p['win'] or not p['start'] or p['end'] <= datetime.date(TODAY.year, TODAY.month, 1): continue
+        if not p['win'] or not p['start'] or p['end'] <= FYS: continue
         mmh = sum(x['mmh'] for x in p['win']); bidv = sum(x['bid'] for x in p['win'])
-        fy, rem, nxt = split(mmh, p['start'], p['dur'])
-        act.append(dict(p=p, mmh=mmh, bid=bidv, fy=fy, rem=rem, nxt=nxt))
-    act.sort(key=lambda a: -a['fy'])
-    tot = lambda L, k: sum(a[k] for a in L)
-    T['act'] = act
-    nodate = [p for p in A if p['win'] and not p['start'] and (p['approve'] or p['bidOpen'] or TODAY) >= N.add_month(TODAY, -24)]
-    # 3 hết hạn trong 6 tháng
-    exp = [a for a in act if a['p']['end'] <= N.add_month(datetime.date(TODAY.year, TODAY.month, 1), 6)]
-    exp.sort(key=lambda a: a['p']['end'])
-    # 4 đang chờ kết quả
+        fy, _, _ = split(mmh, p['start'], p['dur'])
+        if fy <= 0 and p['start'] >= N.add_month(FYS, 12): continue
+        fyc.append(dict(p=p, mmh=mmh, bid=bidv, fy=fy, live=p['end'] > m0))
+    fyc.sort(key=lambda a: -a['fy'])
+    T['fyc'] = fyc; T['act'] = [a for a in fyc if a['live']]; T['gone'] = [a for a in fyc if not a['live']]
+    T['nodate'] = [p for p in A if p['win'] and not p['start'] and (p['approve'] or p['bidOpen'] or TODAY) >= N.add_month(TODAY, -24)]
+    T['exp'] = sorted([a for a in T['act'] if a['p']['end'] <= N.add_month(m0, 6)], key=lambda a: a['p']['end'])
+    T['newfy'] = [a for a in fyc if a['p']['approve'] and a['p']['approve'] >= FYS]
+    # đang chờ kết quả
     pend = [p for p in A if p['pend'] and not p['win'] and not p['approve'] and (p['bidClose'] or p['bidOpen'] or TODAY) >= N.add_month(TODAY, -8)]
     pend.sort(key=lambda p: p['bidClose'] or p['bidOpen'] or TODAY)
     prow = []
     for p in pend:
         opened, rk = ranks(p, hits) if re.match(r'^IB\d', p['no']) else (False, None)
-        bidv = sum(x['qty'] * x['price'] for x in p['pend']); mmh = sum(x['mmh'] for x in p['pend'])
+        mmh = sum(x['mmh'] for x in p['pend'])
         if rk:
             first = sum(1 for _, r, n in rk if r == 1)
-            st = f'Đã mở thầu · giá thấp nhất {first}/{len(rk)} phần NPP dự' + ('' if len(rk) > 6 else '<br><span class="m">' + ', '.join(f'{H(c)}: {r}/{n}' for c, r, n in rk) + '</span>')
-        elif opened: st = 'Đã mở thầu (chưa đọc được bảng giá)'
-        else: st = 'Chưa có biên bản mở thầu' + (f' · đóng thầu {d2(p["bidClose"])}' if p['bidClose'] else '')
-        prow.append(dict(p=p, st=st, bid=bidv, mmh=mmh))
-    # 5 kết quả mới trong tuần
-    new = []
+            st = f'<b>Đã mở thầu</b> · giá thấp nhất <b>{first}/{len(rk)}</b> phần'
+        elif opened: st = '<b>Đã mở thầu</b>'
+        else: st = 'Chưa mở thầu' + (f' · đóng thầu {d2(p["bidClose"])}' if p['bidClose'] else '')
+        prow.append(dict(p=p, st=st, mmh=mmh, first=(sum(1 for _, r, n in rk if r == 1) if rk else 0)))
+    T['pend'] = prow
+    # kết quả mới trong tuần
+    newd = []
     for p in A:
         if not (p['win'] or p['fail']): continue
-        inweek = p['approve'] and WSTART <= p['approve'] <= WEND
         hk = hk_(p['k'])
+        inweek = p['approve'] and WSTART <= p['approve'] <= WEND
         changed = seen is not None and hk in seen and seen[hk] != p['sig']
         fresh = seen is not None and hk not in seen and p['approve'] and p['approve'] >= WSTART - datetime.timedelta(days=21)
-        if inweek or changed or fresh: new.append(p)
-    new.sort(key=lambda p: p['approve'] or TODAY, reverse=True)
-    newd = []
-    for p in new:
-        rs = reasons(p)
-        mmh = sum(x['mmh'] for x in p['win']); fy, rem, nxt = split(mmh, p['start'], p['dur']) if p['start'] and mmh else (0, 0, 0)
-        newd.append(dict(p=p, rs=rs, mmh=mmh, fy=fy, rem=rem, nxt=nxt))
-    T.update(exp=exp, pend=prow, new=newd, nodate=nodate)
+        if not (inweek or changed or fresh): continue
+        mmh = sum(x['mmh'] for x in p['win']); fy = split(mmh, p['start'], p['dur'])[0] if p['start'] and mmh else 0
+        newd.append(dict(p=p, rs=reasons(p), mmh=mmh, fy=fy))
+    newd.sort(key=lambda x: x['p']['approve'] or TODAY, reverse=True)
+    T['new'] = newd
+    T['fy'] = sum(a['fy'] for a in fyc)
     return T
 
+def kpis(T):
+    return [('Doanh số MMH FY%d' % FYC, usd(T['fy'])), ('Gói còn hiệu lực', str(len(T['act']))), ('Hết hạn ≤ 6 tháng', str(len(T['exp']))),
+            ('Gói trúng mới FY%d' % FYC, str(len(T['newfy']))), ('Đang chờ kết quả', str(len(T['pend']))), ('Kết quả mới trong tuần', str(len(T['new'])))]
+def kpi_html(K):
+    return '<table class="kp"><tr>' + ''.join(f'<td><div class="kv">{H(v)}</div><div class="kl">{H(k)}</div></td>' for k, v in K) + '</tr></table>'
+
+def notes(npp, T, n=6):
+    out = []
+    for x in T['new']:
+        p = x['p']; out.append(f'<b>{H(p["hospital"][:60])}</b>: có kết quả, trúng <b>{len(p["win"])}/{len(p["rows"])}</b> mã' + (f' · MMH FY{FYC} <b>{usd(x["fy"])}</b>' if x['fy'] else ''))
+    for x in T['pend']:
+        if x['first']: out.append(f'<b>{H(x["p"]["hospital"][:60])}</b>: đã mở thầu, giá thấp nhất {x["first"]} phần' + (f' · MMH nếu trúng <b>{usd(x["mmh"])}</b>' if x['mmh'] else ''))
+    for a in T['exp'][:4]:
+        out.append(f'<b>{H(a["p"]["hospital"][:60])}</b>: hết hạn <b>{m2(N.add_month(a["p"]["end"], -1))}</b>' + (f' · MMH {usd(a["mmh"] / a["p"]["dur"])}/tháng' if a['mmh'] else ''))
+    return out[:n]
+
 def html_npp(npp, T, for_pdf=False):
-    act, b = T['act'], []
-    tot = lambda L, k: sum(a[k] for a in L)
-    b.append(f'<h3>1. Tóm tắt doanh số MMH</h3>')
-    b.append(tbl(['Chỉ tiêu', 'Giá trị'], [
-        ['Hợp đồng còn hiệu lực', f'{len(act)} gói'],
-        [f'Doanh số MMH cả hợp đồng', R_(tot(act, 'mmh'))],
-        [f'Doanh số MMH trong FY{FYC} (09/{FYC + 1958} – 08/{FYC + 1959})', R_(tot(act, 'fy'))],
-        [f'· còn lại từ {m2(TODAY)} đến hết FY{FYC}', R_(tot(act, 'rem'))],
-        [f'Doanh số MMH FY{FYC + 1} từ hợp đồng đang có', R_(tot(act, 'nxt'))],
-        ['Hết hạn trong 6 tháng tới', f'{len(T["exp"])} gói · doanh số MMH còn lại FY{FYC}: {usd(tot(T["exp"], "rem"))}'],
-        ['Gói đang chờ kết quả', f'{len(T["pend"])} gói · doanh số MMH ước tính nếu trúng hết: {usd(sum(x["mmh"] for x in T["pend"]))}'],
-        [f'Kết quả mới tuần {d2(WSTART)} – {d2(WEND)}', f'{len(T["new"])} gói'],
-    ]))
-    b.append('<p class="m">Doanh số MMH = SL trúng × giá MANI → NPP; giá trị chia đều theo số tháng hợp đồng (bắt đầu = ngày ký, chưa có thì tháng sau ngày phê duyệt); USD tỷ giá 26.000.</p>')
-    b.append(f'<h3>2. Hợp đồng còn hiệu lực theo địa bàn</h3>')
+    b = [kpi_html(kpis(T))]
+    nt = notes(npp, T, 10)
+    if nt: b.append('<p><b>Cần chú ý</b></p><ul>' + ''.join(f'<li>{x}</li>' for x in nt) + '</ul>')
+    b.append(f'<h3>1. Hợp đồng còn hiệu lực · doanh số MMH FY{FYC}</h3>')
     for t in ('N', 'S', '?'):
-        L = [a for a in act if a['p']['terr'] == t]
+        L = [a for a in T['act'] if a['p']['terr'] == t]
         if not L: continue
-        rows = [[pname(a['p']), H(a['p']['city']), H(a['p']['kinds']), f"{m2(a['p']['start'])} – {m2(N.add_month(a['p']['end'], -1))}", R_(a['bid']), R_(a['mmh']), R_(a['fy']), R_(a['rem']), R_(a['nxt'])] for a in L]
-        b.append(f'<p><b>{H(TNAME[t])}</b> — {len(L)} gói</p>')
-        b.append(tbl(['Bệnh viện · gói', 'Tỉnh', 'Nhóm SP', 'Hiệu lực', 'Giá trị trúng', 'Doanh số MMH', f'FY{FYC}', f'Còn lại FY{FYC}', f'FY{FYC + 1}'], rows,
-                     ['<b>Cộng</b>', '', '', '', R_(tot(L, 'bid')), R_(tot(L, 'mmh')), R_(tot(L, 'fy')), R_(tot(L, 'rem')), R_(tot(L, 'nxt'))]))
-    if not act: b.append('<p>Không có hợp đồng còn hiệu lực trong file thầu của NPP.</p>')
-    if T['nodate']: b.append(f'<p class="m">{len(T["nodate"])} gói trúng thiếu ngày phê duyệt / ngày ký trong file NPP — chưa tính vào bảng trên: ' + ', '.join(H(p['hospital'][:40]) for p in T['nodate'][:12]) + ('…' if len(T['nodate']) > 12 else '') + '.</p>')
-    b.append('<h3>3. Hết hạn trong 6 tháng tới</h3>')
-    b.append(tbl(['Bệnh viện · gói', 'Địa bàn', 'Hết hạn', 'Nhóm SP', 'Doanh số MMH / tháng'], [[pname(a['p']), H(TNAME[a['p']['terr']].split(' ·')[0]), m2(N.add_month(a['p']['end'], -1)), H(a['p']['kinds']), R_(a['mmh'] / a['p']['dur'])] for a in T['exp']]) if T['exp'] else '<p>Không có.</p>')
-    b.append('<h3>4. Gói đang chờ kết quả</h3>')
-    b.append(tbl(['Bệnh viện · gói', 'Địa bàn', 'Tình trạng', 'Giá trị NPP dự thầu', 'Doanh số MMH nếu trúng'], [[pname(x['p']), H(TNAME[x['p']['terr']].split(' ·')[0]), x['st'], R_(x['bid']), R_(x['mmh'])] for x in T['pend']]) if T['pend'] else '<p>Không có.</p>')
-    b.append(f'<h3>5. Kết quả mới tuần {d2(WSTART)} – {d2(WEND)}</h3>')
-    if not T['new']: b.append('<p>Không có kết quả mới trong tuần.</p>')
+        rows = [[pname(a['p']), H(a['p']['city']), H(a['p']['kinds']), f"{m2(a['p']['start'])} – <b>{m2(N.add_month(a['p']['end'], -1))}</b>", R_(a['fy'])] for a in L]
+        b.append(f'<p><b>{H(TNAME[t])}</b> · {len(L)} gói · <b>{usd(sum(a["fy"] for a in L))}</b></p>')
+        b.append(tbl(['Bệnh viện · gói', 'Tỉnh', 'Nhóm SP', 'Hiệu lực', f'MMH FY{FYC}'], rows))
+    if not T['act']: b.append('<p>Không có.</p>')
+    if T['gone']:
+        b.append(f'<p class="m">Hợp đồng đã hết hạn trong FY{FYC} (đã tính vào doanh số FY{FYC}): ' + '; '.join(f'{H(a["p"]["hospital"][:40])} {usd(a["fy"])}' for a in T['gone'][:12]) + ('…' if len(T['gone']) > 12 else '') + '</p>')
+    if T['nodate']: b.append(f'<p class="m">{len(T["nodate"])} gói trúng thiếu ngày phê duyệt / ngày ký trong file NPP — chưa tính: ' + ', '.join(H(p['hospital'][:40]) for p in T['nodate'][:10]) + ('…' if len(T['nodate']) > 10 else '') + '</p>')
+    b.append('<h3>2. Hết hạn trong 6 tháng tới</h3>')
+    b.append(tbl(['Bệnh viện · gói', 'Địa bàn', 'Hết hạn', 'Nhóm SP', 'MMH / tháng'], [[pname(a['p']), H(TNAME[a['p']['terr']].split(' ·')[0]), f"<b>{m2(N.add_month(a['p']['end'], -1))}</b>", H(a['p']['kinds']), R_(a['mmh'] / a['p']['dur'])] for a in T['exp']]) if T['exp'] else '<p>Không có.</p>')
+    b.append('<h3>3. Đang chờ kết quả</h3>')
+    b.append(tbl(['Bệnh viện · gói', 'Địa bàn', 'Tình trạng', 'MMH nếu trúng'], [[pname(x['p']), H(TNAME[x['p']['terr']].split(' ·')[0]), x['st'], R_(x['mmh'])] for x in T['pend']]) if T['pend'] else '<p>Không có.</p>')
+    b.append(f'<h3>4. Kết quả mới tuần {d2(WSTART)} – {d2(WEND)}</h3>')
+    if not T['new']: b.append('<p>Không có.</p>')
     for x in T['new']:
         p = x['p']
-        b.append(f'<p><b>{H(p["hospital"])}</b> · {H(p["tender"][:100])} · {H(p["no"])}' + (f' · phê duyệt {d2(p["approve"])}' if p['approve'] else '') +
-                 f' — trúng {len(p["win"])}/{len(p["win"]) + len(p["fail"]) + len(p["pend"])} mã' + (f'; doanh số MMH {usd(x["mmh"])} (FY{FYC}: {usd(x["fy"])}, FY{FYC + 1}: {usd(x["nxt"])})' if x['mmh'] else '') + '</p>')
+        b.append(f'<p><b>{H(p["hospital"])}</b> · {H(p["tender"][:90])} · {H(p["no"])}' + (f' · phê duyệt {d2(p["approve"])}' if p['approve'] else '') +
+                 f'<br>Trúng <b>{len(p["win"])}/{len(p["rows"])}</b> mã' + (f' · MMH FY{FYC} <b>{usd(x["fy"])}</b>' if x['fy'] else '') + '</p>')
         rows = []
         for r in p['win'] + p['fail'] + p['pend']:
             why = r['note']
-            if r['res'] != 'Win' and x['rs']:
+            if r['res'] != 'Win' and x['rs'] and not why:
                 lotr = [v for v in x['rs'].values() if not v['me'][3]]
-                if len(lotr) == 1 or len(x['rs']) == 1: why = why or (lotr[0]['me'][2] if lotr else '')
-            rows.append([H(r['code']), H(r['kind']), (vnd(r['qty']) + ' ' + H(r['unit']),), '<span class="ok">Trúng</span>' if r['res'] == 'Win' else ('<span class="no">Không trúng</span>' if r['res'] == 'Fail' else H(r['res'] or 'Chờ')), H(why[:160])])
-        b.append(tbl(['Mã', 'Nhóm SP', 'SL', 'Kết quả', 'Ghi chú / lý do'], rows))
+                if len(lotr) == 1: why = lotr[0]['me'][2]
+            rows.append([H(r['code']), H(r['kind']), (vnd(r['qty']),), '<span class="ok">Trúng</span>' if r['res'] == 'Win' else ('<span class="no">Không trúng</span>' if r['res'] == 'Fail' else H(r['res'] or 'Chờ')), H(why[:120])])
+        b.append(tbl(['Mã', 'Nhóm SP', 'SL', 'Kết quả', 'Lý do'], rows))
         if x['rs']:
-            lr = [[H(lot), '<span class="ok">Trúng</span>' if v['me'][3] else '<span class="no">Không trúng</span>', '<br>'.join(H(e[0][:45]) + f' — {vnd(e[1])} đ' for e in v['win']) or '—', H(v['me'][2]) if not v['me'][3] else ''] for lot, v in x['rs'].items()]
-            b.append('<p class="m">Theo kết quả lựa chọn nhà thầu trên muasamcong:</p>' + tbl(['Phần', npp, 'Nhà thầu trúng · giá', 'Lý do không trúng'], lr))
+            lr = [[H(lot), '<span class="ok">Trúng</span>' if v['me'][3] else '<span class="no">Không trúng</span>', '<br>'.join(H(e[0][:45]) for e in v['win']) or '—', H(v['me'][2]) if not v['me'][3] else ''] for lot, v in x['rs'].items()]
+            b.append(tbl(['Phần', npp, 'Nhà thầu trúng', 'Lý do'], lr))
     return ''.join(b)
-
-def summary_row(npp, T):
-    t = lambda L, k: sum(a[k] for a in L)
-    return [f'<b>{H(npp)}</b>', (str(len(T['act'])),), R_(t(T['act'], 'fy')), R_(t(T['act'], 'rem')), R_(t(T['act'], 'nxt')), (str(len(T['exp'])),), (str(len(T['pend'])),), (str(len(T['new'])),)]
 
 def main():
     if not N.KEY: log('Thiếu WT_BOT_KEY'); sys.exit(1)
@@ -279,23 +284,24 @@ def main():
     pdfs, sums, parts = [], [], []
     for npp in ('Hùng Vĩ', 'iCare'):
         T = build(npp, P, hits, seen)
-        log(f'{npp}: hiệu lực {len(T["act"])} · hết hạn 6 tháng {len(T["exp"])} · chờ KQ {len(T["pend"])} · KQ mới {len(T["new"])}')
+        log(f'{npp}: MMH FY{FYC} {usd(T["fy"])} · hiệu lực {len(T["act"])} · hết hạn 6 tháng {len(T["exp"])} · trúng mới FY {len(T["newfy"])} · chờ KQ {len(T["pend"])} · KQ mới {len(T["new"])}')
         body = html_npp(npp, T, True)
         safe = 'HungVi' if npp == 'Hùng Vĩ' else 'iCare'
         pdf = N.make_pdf(f'Tổng hợp gói thầu {npp} · tuần {d2(WSTART)} – {d2(WEND)}', body, os.path.join(WORK, f'Tong hop thau {safe} - tuan {WSTART.strftime("%Y%m%d")}.pdf'))
         shutil.copy(pdf, os.path.join(OUTD, os.path.basename(pdf)))
-        pdfs.append(pdf); sums.append(summary_row(npp, T)); parts.append((npp, T))
+        pdfs.append(pdf); parts.append((npp, T))
+    K = [kpis(T) for _, T in parts]
+    tot = {'fy': sum(T['fy'] for _, T in parts)}
+    rows = []
+    for i, (lab, _) in enumerate(K[0]):
+        vals = [k[i][1] for k in K]
+        sm = usd(tot['fy']) if i == 0 else str(sum(int(v) for v in vals))
+        rows.append([f'<b>{H(lab)}</b>' if i == 0 else H(lab)] + [(f'<b>{v}</b>' if i == 0 else v,) for v in vals] + [(f'<b>{sm}</b>',)])
     hl = []
-    for npp, T in parts:
-        for x in T['new'][:6]:
-            p = x['p']; hl.append(f'<li>{H(npp)} · <b>{H(p["hospital"][:70])}</b>: trúng {len(p["win"])}/{len(p["rows"])} mã' + (f', doanh số MMH {usd(x["mmh"])}' if x['mmh'] else '') + '</li>')
-        for a in T['exp'][:4]:
-            hl.append(f'<li>{H(npp)} · <b>{H(a["p"]["hospital"][:70])}</b>: hợp đồng hết hạn {m2(N.add_month(a["p"]["end"], -1))} — chuẩn bị gói kế tiếp</li>')
-    intro = (f'<p>Dear Viet Ha, Khang,</p><p>Hệ thống Theo dõi thầu thông báo tổng hợp các gói thầu của NPP Hùng Vĩ và iCare tuần {d2(WSTART)} – {d2(WEND)}. '
-             f'Mỗi NPP 1 file PDF đính kèm (hợp đồng còn hiệu lực theo địa bàn, hết hạn 6 tháng tới, gói chờ kết quả, kết quả mới trong tuần).</p>')
-    body = (intro + tbl(['NPP', 'HĐ hiệu lực', f'Doanh số MMH FY{FYC}', f'Còn lại FY{FYC}', f'FY{FYC + 1}', 'Hết hạn ≤ 6 tháng', 'Chờ KQ', 'KQ mới'], sums)
-            + (f'<p><b>Đáng chú ý</b></p><ul>{"".join(hl)}</ul>' if hl else '')
-            + '<p class="m">Doanh số MMH = SL trúng × giá MANI → NPP, chia đều theo tháng hợp đồng; USD tỷ giá 26.000. NPP nha khoa (Meci, S.P.I, Nam Dũng, Việt Thái) chưa có file thầu nên chưa có trong tổng hợp.</p>'
+    for npp, T in parts: hl += [f'{H(npp)} · {x}' for x in notes(npp, T, 6)]
+    body = (f'<p>Dear Viet Ha, Khang,</p><p>Hệ thống Theo dõi thầu thông báo tổng hợp gói thầu NPP tuần {d2(WSTART)} – {d2(WEND)}. Mỗi NPP 1 file PDF đính kèm.</p>'
+            + tbl(['Chỉ số', 'Hùng Vĩ', 'iCare', 'Tổng'], rows)
+            + (f'<p><b>Cần chú ý</b></p><ul>{"".join(f"<li>{x}</li>" for x in hl)}</ul>' if hl else '')
             + '<p>Trân trọng,<br>Hệ thống Theo dõi thầu MMH</p>')
     open(os.path.join(OUTD, f'weekly {WK} - email.html'), 'w', encoding='utf-8').write(body)
     subj = f'[Thầu] Tổng hợp tuần gói thầu NPP Hùng Vĩ, iCare – {WSTART.strftime("%d/%m")} – {d2(WEND)}'

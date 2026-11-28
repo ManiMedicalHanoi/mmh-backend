@@ -10,6 +10,7 @@ on:
       mode: { description: 'test = gửi THỬ cho 1 người (ô to) · preview = gửi bản xem trước về tài khoản chạy máy chủ · live = gửi thật · dry = chỉ dựng file (artifact) · plan = chỉ liệt kê + đặt tải', default: 'test', type: choice, options: [test, preview, live, dry, plan] }
       tbmt: { description: 'Số TBMT (tuỳ chọn, nhiều số cách dấu phẩy)', default: '' }
       to: { description: 'test: tên PIC nhận thư thử', default: 'Giang' }
+      force: { description: 'Gửi lại gói đã gửi (chỉ khi nhập số TBMT)', type: boolean, default: false }
       max: { description: 'Số gói tối đa lượt này (trống = preview 1 · live tất cả)', default: '' }
 concurrency: { group: tender-npp, cancel-in-progress: false }
 permissions: { contents: read }
@@ -23,6 +24,7 @@ jobs:
       NPP_MAX: ${{ inputs.max }}
       NPP_TARGET: ${{ inputs.mode || 'live' }}
       NPP_TEST_TO: ${{ inputs.to || 'Giang' }}
+      NPP_FORCE: ${{ inputs.force && '1' || '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
