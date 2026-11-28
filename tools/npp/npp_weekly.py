@@ -155,17 +155,24 @@ def qtxt(d, br=False):
     t = [f"{GU[g][0]} {vnd(d[g])} {GU[g][1]}" for g in GU if d.get(g)]
     return ('<br>' if br else ' · ').join(t) or '—'
 
-def ctxt(rows, n=10, mark=None):
-    """mã + SL từng mã (hộp quy ra cái theo quy cách) — người dùng 28/11/2026; nhiều nhóm ⇒ thêm dòng tổng từng nhóm"""
-    d, g = {}, {}
+def ctxt(rows, n=8, mark=None):
+    """mã + SL từng mã, gom theo nhóm: dòng đậm = tổng nhóm (Dao · 4.200 cái), dưới là các mã (người dùng 28/11/2026)"""
+    G = {}
     for x in rows:
+        g = x.get('g') if x.get('g') in GU else ''
         c = (x.get('code') or '').strip() or '(không mã)'
-        d[c] = d.get(c, 0) + (x.get('pcs') or x.get('qty') or 0); g.setdefault(c, x.get('g'))
-    if not d: return '—'
-    items = sorted(d.items(), key=lambda kv: -kv[1])
-    out = [f'{H(c)} · <b>{vnd(q)}</b>' + (f' {GU[g[c]][1]}' if g.get(c) in GU else '') + (' <span class="ok">✓ trúng</span>' if mark and c in mark else '') for c, q in items[:n]]
-    if len(items) > n: out.append(f'<span class="m">+{len(items) - n} mã</span>')
-    if len(items) > 1: out.append(f'<span class="m">= {qtxt(qsum(rows))}</span>')
+        q = x.get('pcs') or x.get('qty') or 0
+        G.setdefault(g, {}); G[g][c] = G[g].get(c, 0) + q
+    if not G: return '—'
+    out = []
+    for g in [*GU, '']:
+        if g not in G: continue
+        items = sorted(G[g].items(), key=lambda kv: -kv[1])
+        lab, un = GU[g] if g else ('Khác', '')
+        out.append(f'<b>{lab} · {vnd(sum(G[g].values()))} {un}</b>'.replace(' </b>', '</b>'))
+        cs = [f'{H(c)} {vnd(q)}' + (' <span class="ok">✓</span>' if mark and c in mark else '') for c, q in items[:n]]
+        if len(items) > n: cs.append(f'+{len(items) - n} mã')
+        out.append('<span class="m">' + ' · '.join(cs) + '</span>')
     return '<br>'.join(out)
 
 def hk_(k): return hashlib.md5(k.encode()).hexdigest()[:7]
@@ -261,14 +268,14 @@ def build(npp, P, hits, seen):
     return T
 
 def kpis(T):
-    return [('Doanh số MMH ước tính FY%d theo hiệu lực HĐ (09/%d – 08/%d)' % (FYC, FYC + 1958, FYC + 1959), usd(T['fy'])), ('Gói còn hiệu lực', str(len(T['act']))), ('Hết hạn ≤ 6 tháng', str(len(T['exp']))),
+    return [('Doanh số MMH ước tính FY%d theo hiệu lực hợp đồng (09/%d – 08/%d)' % (FYC, FYC + 1958, FYC + 1959), usd(T['fy'])), ('Gói còn hiệu lực', str(len(T['act']))), ('Hết hạn ≤ 6 tháng', str(len(T['exp']))),
             ('Gói trúng mới FY%d' % FYC, str(len(T['newfy']))), ('Đang chờ kết quả', str(len(T['pend']))), ('Kết quả mới trong tuần', str(len(T['new'])))] + \
-           [(f'SL trúng HĐ còn hiệu lực · {GU[g][0]} ({GU[g][1]})', vnd(T['qact'].get(g, 0))) for g in GU]
+           [(f'SL trúng, hợp đồng còn hiệu lực · {GU[g][0]} ({GU[g][1]})', vnd(T['qact'].get(g, 0))) for g in GU]
 def kpi_html(K):
-    sl = [(k, v) for k, v in K if k.startswith('SL ') and v not in ('0', '')]
+    sl = [(k, v) for k, v in K if k.startswith('SL ')]
     K = [(k, v) for k, v in K if not k.startswith('SL ')]
     return ('<table class="kp"><tr>' + ''.join(f'<td><div class="kv">{H(v)}</div><div class="kl">{H(k)}</div></td>' for k, v in K) + '</tr></table>' +
-            ('<p><b>SL trúng · hợp đồng còn hiệu lực:</b> ' + ' · '.join(H(k.split('· ')[-1].split(' (')[0]) + ' <b>' + H(v) + '</b> ' + H(k.split('(')[-1].rstrip(')')) for k, v in sl) + '</p>' if sl else ''))
+            ('<p><b>Số lượng trúng thầu của các hợp đồng còn hiệu lực:</b> ' + ' · '.join(H(k.split('· ')[-1].split(' (')[0]) + ' <b>' + H(v) + '</b> ' + H(k.split('(')[-1].rstrip(')')) for k, v in sl) + '</p>' if sl else ''))
 
 def notes(npp, T, n=6):
     out = []
@@ -284,7 +291,7 @@ def html_npp(npp, T, for_pdf=False):
     b = [kpi_html(kpis(T))]
     nt = notes(npp, T, 10)
     if nt: b.append('<p><b>Cần chú ý</b></p><ul>' + ''.join(f'<li>{x}</li>' for x in nt) + '</ul>')
-    b.append(f'<h3>1. Hợp đồng còn hiệu lực · doanh số ước tính FY{FYC} theo hiệu lực HĐ</h3>')
+    b.append(f'<h3>1. Hợp đồng còn hiệu lực · doanh số ước tính FY{FYC} theo hiệu lực hợp đồng</h3>')
     for t in ('N', 'S', '?'):
         L = [a for a in T['act'] if a['p']['terr'] == t]
         if not L: continue
