@@ -285,6 +285,11 @@ def main():
     for npp in ('Hùng Vĩ', 'iCare'):
         T = build(npp, P, hits, seen)
         log(f'{npp}: MMH FY{FYC} {usd(T["fy"])} · hiệu lực {len(T["act"])} · hết hạn 6 tháng {len(T["exp"])} · trúng mới FY {len(T["newfy"])} · chờ KQ {len(T["pend"])} · KQ mới {len(T["new"])}')
+        if os.environ.get('NPPW_DEBUG'):
+            wr = [x for a in T['fyc'] for x in a['p']['win']]
+            log(f'  dòng trúng {len(wr)} · không có giá MANI→NPP {sum(1 for x in wr if not x["mmh"])} · đơn vị: ' + json.dumps(dict(__import__('collections').Counter(x['unit'] for x in wr)), ensure_ascii=False))
+            for a in T['fyc'][:8]:
+                log(f"  {a['p']['hospital'][:40]} | {m2(a['p']['start'])}+{a['p']['dur']}th | FY {usd(a['fy'])} | " + '; '.join(f"{x['code']} {x['qty']:g} {x['unit']} → {usd(x['mmh'])}" for x in a['p']['win'][:6]))
         body = html_npp(npp, T, True)
         safe = 'HungVi' if npp == 'Hùng Vĩ' else 'iCare'
         pdf = N.make_pdf(f'Tổng hợp gói thầu {npp} · tuần {d2(WSTART)} – {d2(WEND)}', body, os.path.join(WORK, f'Tong hop thau {safe} - tuan {WSTART.strftime("%Y%m%d")}.pdf'))

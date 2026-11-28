@@ -23,6 +23,7 @@ jobs:
       NPPW_MODE: ${{ inputs.mode || 'live' }}
       NPP_TEST_TO: ${{ inputs.to || 'Giang' }}
       NPPW_FORCE: ${{ inputs.force && '1' || '' }}
+      NPPW_DEBUG: ${{ inputs.mode == 'dry' && '1' || '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
