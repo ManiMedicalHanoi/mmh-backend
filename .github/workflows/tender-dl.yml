@@ -66,6 +66,8 @@ jobs:
           N=$(curl -sSL --max-time 90 -H 'Content-Type: application/json' -d "{\"action\":\"botPeek\",\"key\":\"$WT_BOT_KEY\",\"bot\":\"github-actions\"}" "$WT_URL" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const j=JSON.parse(s);console.log(j.ok?j.n:0);}catch(e){console.log(0);}})")
           echo "Còn $N gói"
           if [ "$N" != "0" ]; then gh workflow run tender-dl.yml --ref main -R "$GITHUB_REPOSITORY" && echo "Đã gọi lượt kế"; fi
+          # gói NPP vừa có biên bản mở thầu / kết quả ⇒ báo cáo ngay (tools/npp/npp_report.py)
+          gh workflow run tender-npp.yml --ref main -R "$GITHUB_REPOSITORY" -f mode=live >/dev/null 2>&1 && echo "Đã gọi báo cáo gói NPP" || true
       - uses: actions/upload-artifact@v4
         if: failure() && steps.peek.outputs.n != '0'
         with: { name: tender-dl-loi, path: /tmp/pw/wt-out/*.png, retention-days: 5, if-no-files-found: ignore }

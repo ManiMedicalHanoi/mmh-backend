@@ -89,6 +89,7 @@ function wtDo_(a, p) {
     }
     if (a === 'botNameSync') return wnSync_(p);   // lượt đối chiếu tên (MMH_WatchNames.gs)
     if (a === 'botDigest') { if (p._ext) return { ok: false, code: 'KEY', error: 'Cần khoá bot.' }; return wtzAction_(p); }   // MMH_WatchDigest.gs
+    if (a === 'botNpp') { if (p._ext) return { ok: false, code: 'KEY', error: 'Cần khoá bot.' }; return nppmAction_(p); }   // MMH_WatchNpp.gs (28/11/2026) — báo cáo gói NPP tham dự
     if (a === 'botRoute') { if (p._ext) return { ok: false, code: 'KEY', error: 'Cần khoá bot.' }; return wtrAction_(p); }   // MMH_WatchRoute.gs
     if (a === 'botText') { if (p._ext) return { ok: false, code: 'KEY', error: 'Cần khoá bot.' }; return wteAction_(p); }   // MMH_WatchText.gs
     if (a === 'botTT57') { if (p._ext) return { ok: false, code: 'KEY', error: 'Cần khoá bot.' }; return wt57Action_(p); }   // MMH_WatchTT57.gs (chỉ đọc + ưu tiên tải Agent)
