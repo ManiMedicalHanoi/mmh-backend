@@ -230,7 +230,7 @@ def build(npp, P, hits, seen):
     return T
 
 def kpis(T):
-    return [('Doanh số MMH FY%d (09/%d – 08/%d)' % (FYC, FYC + 1958, FYC + 1959), usd(T['fy'])), ('Gói còn hiệu lực', str(len(T['act']))), ('Hết hạn ≤ 6 tháng', str(len(T['exp']))),
+    return [('Doanh số MMH ước tính FY%d theo hiệu lực HĐ (09/%d – 08/%d)' % (FYC, FYC + 1958, FYC + 1959), usd(T['fy'])), ('Gói còn hiệu lực', str(len(T['act']))), ('Hết hạn ≤ 6 tháng', str(len(T['exp']))),
             ('Gói trúng mới FY%d' % FYC, str(len(T['newfy']))), ('Đang chờ kết quả', str(len(T['pend']))), ('Kết quả mới trong tuần', str(len(T['new'])))]
 def kpi_html(K):
     return '<table class="kp"><tr>' + ''.join(f'<td><div class="kv">{H(v)}</div><div class="kl">{H(k)}</div></td>' for k, v in K) + '</tr></table>'
@@ -238,38 +238,38 @@ def kpi_html(K):
 def notes(npp, T, n=6):
     out = []
     for x in T['new']:
-        p = x['p']; out.append(f'<b>{H(p["hospital"][:60])}</b>: có kết quả, trúng <b>{len(p["win"])}/{len(p["rows"])}</b> mã' + (f' · MMH FY{FYC} <b>{usd(x["fy"])}</b>' if x['fy'] else ''))
+        p = x['p']; out.append(f'<b>{H(p["hospital"][:60])}</b>: có kết quả, trúng <b>{len(p["win"])}/{len(p["rows"])}</b> mã' + (f' · ước tính FY{FYC} <b>{usd(x["fy"])}</b>' if x['fy'] else ''))
     for x in T['pend']:
-        if x['first']: out.append(f'<b>{H(x["p"]["hospital"][:60])}</b>: đã mở thầu, giá thấp nhất {x["first"]} phần' + (f' · MMH nếu trúng <b>{usd(x["mmh"])}</b>' if x['mmh'] else ''))
+        if x['first']: out.append(f'<b>{H(x["p"]["hospital"][:60])}</b>: đã mở thầu, giá thấp nhất {x["first"]} phần' + (f' · ước tính nếu trúng <b>{usd(x["mmh"])}</b>' if x['mmh'] else ''))
     for a in T['exp'][:4]:
-        out.append(f'<b>{H(a["p"]["hospital"][:60])}</b>: hết hạn <b>{m2(N.add_month(a["p"]["end"], -1))}</b>' + (f' · MMH {usd(a["mmh"] / a["p"]["dur"])}/tháng' if a['mmh'] else ''))
+        out.append(f'<b>{H(a["p"]["hospital"][:60])}</b>: hết hạn <b>{m2(N.add_month(a["p"]["end"], -1))}</b>' + (f' · ước tính {usd(a["mmh"] / a["p"]["dur"])}/tháng' if a['mmh'] else ''))
     return out[:n]
 
 def html_npp(npp, T, for_pdf=False):
     b = [kpi_html(kpis(T))]
     nt = notes(npp, T, 10)
     if nt: b.append('<p><b>Cần chú ý</b></p><ul>' + ''.join(f'<li>{x}</li>' for x in nt) + '</ul>')
-    b.append(f'<h3>1. Hợp đồng còn hiệu lực · doanh số MMH FY{FYC}</h3>')
+    b.append(f'<h3>1. Hợp đồng còn hiệu lực · doanh số ước tính FY{FYC} theo hiệu lực HĐ</h3>')
     for t in ('N', 'S', '?'):
         L = [a for a in T['act'] if a['p']['terr'] == t]
         if not L: continue
         rows = [[pname(a['p']), H(a['p']['city']), H(a['p']['kinds']), f"{m2(a['p']['start'])} – <b>{m2(N.add_month(a['p']['end'], -1))}</b>", R_(a['fy'])] for a in L]
         b.append(f'<p><b>{H(TNAME[t])}</b> · {len(L)} gói · <b>{usd(sum(a["fy"] for a in L))}</b></p>')
-        b.append(tbl(['Bệnh viện · gói', 'Tỉnh', 'Nhóm SP', 'Hiệu lực', f'MMH FY{FYC}'], rows))
+        b.append(tbl(['Bệnh viện · gói', 'Tỉnh', 'Nhóm SP', 'Hiệu lực', f'Ước tính FY{FYC}'], rows))
     if not T['act']: b.append('<p>Không có.</p>')
     if T['gone']:
         b.append(f'<p class="m">Hợp đồng đã hết hạn trong FY{FYC} (đã tính vào doanh số FY{FYC}): ' + '; '.join(f'{H(a["p"]["hospital"][:40])} {usd(a["fy"])}' for a in T['gone'][:12]) + ('…' if len(T['gone']) > 12 else '') + '</p>')
     if T['nodate']: b.append(f'<p class="m">{len(T["nodate"])} gói trúng thiếu ngày phê duyệt / ngày ký trong file NPP — chưa tính: ' + ', '.join(H(p['hospital'][:40]) for p in T['nodate'][:10]) + ('…' if len(T['nodate']) > 10 else '') + '</p>')
     b.append('<h3>2. Hết hạn trong 6 tháng tới</h3>')
-    b.append(tbl(['Bệnh viện · gói', 'Địa bàn', 'Hết hạn', 'Nhóm SP', 'MMH / tháng'], [[pname(a['p']), H(TNAME[a['p']['terr']].split(' ·')[0]), f"<b>{m2(N.add_month(a['p']['end'], -1))}</b>", H(a['p']['kinds']), R_(a['mmh'] / a['p']['dur'])] for a in T['exp']]) if T['exp'] else '<p>Không có.</p>')
+    b.append(tbl(['Bệnh viện · gói', 'Địa bàn', 'Hết hạn', 'Nhóm SP', 'Ước tính / tháng'], [[pname(a['p']), H(TNAME[a['p']['terr']].split(' ·')[0]), f"<b>{m2(N.add_month(a['p']['end'], -1))}</b>", H(a['p']['kinds']), R_(a['mmh'] / a['p']['dur'])] for a in T['exp']]) if T['exp'] else '<p>Không có.</p>')
     b.append('<h3>3. Đang chờ kết quả</h3>')
-    b.append(tbl(['Bệnh viện · gói', 'Địa bàn', 'Tình trạng', 'MMH nếu trúng'], [[pname(x['p']), H(TNAME[x['p']['terr']].split(' ·')[0]), x['st'], R_(x['mmh'])] for x in T['pend']]) if T['pend'] else '<p>Không có.</p>')
+    b.append(tbl(['Bệnh viện · gói', 'Địa bàn', 'Tình trạng', 'Ước tính nếu trúng'], [[pname(x['p']), H(TNAME[x['p']['terr']].split(' ·')[0]), x['st'], R_(x['mmh'])] for x in T['pend']]) if T['pend'] else '<p>Không có.</p>')
     b.append(f'<h3>4. Kết quả mới tuần {d2(WSTART)} – {d2(WEND)}</h3>')
     if not T['new']: b.append('<p>Không có.</p>')
     for x in T['new']:
         p = x['p']
         b.append(f'<p><b>{H(p["hospital"])}</b> · {H(p["tender"][:90])} · {H(p["no"])}' + (f' · phê duyệt {d2(p["approve"])}' if p['approve'] else '') +
-                 f'<br>Trúng <b>{len(p["win"])}/{len(p["rows"])}</b> mã' + (f' · MMH FY{FYC} <b>{usd(x["fy"])}</b>' if x['fy'] else '') + '</p>')
+                 f'<br>Trúng <b>{len(p["win"])}/{len(p["rows"])}</b> mã' + (f' · ước tính FY{FYC} <b>{usd(x["fy"])}</b>' if x['fy'] else '') + '</p>')
         rows = []
         for r in p['win'] + p['fail'] + p['pend']:
             why = r['note']
@@ -300,8 +300,8 @@ def main():
         if os.environ.get('NPPW_DEBUG'):
             wr = [x for a in T['fyc'] for x in a['p']['win']]
             log(f'  dòng trúng {len(wr)} · không có giá MANI→NPP {sum(1 for x in wr if not x["mmh"])} · đơn vị: ' + json.dumps(dict(__import__('collections').Counter(x['unit'] for x in wr)), ensure_ascii=False))
-            for a in T['fyc'][:8]:
-                log(f"  {a['p']['hospital'][:40]} | {m2(a['p']['start'])}+{a['p']['dur']}th | FY {usd(a['fy'])} | " + '; '.join(f"{x['code']} {x['qty']:g} {x['unit']} → {usd(x['mmh'])}" for x in a['p']['win'][:6]))
+            for a in T['fyc']:
+                p = a['p']; log(f"FYROW|{npp}|{p['hospital']}|{p['no']}|{p['city']}|{p['kinds']}|{d2(p['approve'])}|{m2(p['start'])}|{m2(N.add_month(p['end'], -1))}|{p['dur']}|{round(a['mmh'])}|{round(a['fy'])}|{'còn' if a['live'] else 'hết'}")
         body = html_npp(npp, T, True)
         safe = 'HungVi' if npp == 'Hùng Vĩ' else 'iCare'
         pdf = N.make_pdf(f'Tổng hợp gói thầu {npp} · tuần {d2(WSTART)} – {d2(WEND)}', body, os.path.join(WORK, f'Tong hop thau {safe} - tuan {WSTART.strftime("%Y%m%d")}.pdf'))
