@@ -1,0 +1,39 @@
+name: Gói thầu NPP — tổng hợp tuần
+# 28/11/2026 (người dùng yêu cầu): mỗi sáng thứ Hai, số liệu chốt đến hết thứ Sáu — mỗi NPP (Hùng Vĩ · iCare) 1 file PDF: hợp đồng còn hiệu lực theo địa bàn + doanh số MMH
+# (FY hiện tại · còn lại · FY kế), hết hạn 6 tháng tới, gói chờ kết quả, kết quả mới trong tuần + lý do ⇒ 1 email To Viet Ha + Khang · CC Tuyen, Nguyen Ha, Giang.
+# tools/npp/npp_weekly.py + tender-info ▸ botNpp (stage wk). Gửi thật chỉ khi máy chủ đã bật (botNpp op=on, chung với báo cáo mở thầu); tuần đã gửi ⇒ bỏ qua.
+on:
+  schedule:
+    - cron: '31 0 * * 1'   # thứ Hai 07:31 giờ Việt Nam
+    - cron: '41 1 * * 1'   # chạy bù nếu lịch GitHub trễ (tuần đã gửi ⇒ tự bỏ qua)
+    - cron: '51 2 * * 1'
+  workflow_dispatch:
+    inputs:
+      mode: { description: 'test = gửi THỬ cho 1 người (ô to) · preview = bản xem trước về tài khoản chạy máy chủ · live = gửi thật · dry = chỉ dựng file', default: 'test', type: choice, options: [test, preview, live, dry] }
+      to: { description: 'test: tên PIC nhận thư thử', default: 'Giang' }
+      force: { description: 'Gửi lại dù tuần này đã gửi', type: boolean, default: false }
+concurrency: { group: tender-npp-weekly, cancel-in-progress: false }
+permissions: { contents: read }
+jobs:
+  weekly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      WT_BOT_KEY: ${{ secrets.WT_BOT_KEY }}
+      NPPW_MODE: ${{ inputs.mode || 'live' }}
+      NPP_TEST_TO: ${{ inputs.to || 'Giang' }}
+      NPPW_FORCE: ${{ inputs.force && '1' || '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Công cụ dựng PDF
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq fonts-noto-core >/dev/null
+          pip install -q pillow numpy playwright==1.48.0
+          python3 -m playwright install --with-deps chromium >/dev/null
+      - name: Tổng hợp + gửi email
+        run: python3 tools/npp/npp_weekly.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: npp-weekly, path: npp-out/, retention-days: 30, if-no-files-found: ignore }
