@@ -155,6 +155,19 @@ def qtxt(d, br=False):
     t = [f"{GU[g][0]} {vnd(d[g])} {GU[g][1]}" for g in GU if d.get(g)]
     return ('<br>' if br else ' · ').join(t) or '—'
 
+def ctxt(rows, n=10, mark=None):
+    """mã + SL từng mã (hộp quy ra cái theo quy cách) — người dùng 28/11/2026; nhiều nhóm ⇒ thêm dòng tổng từng nhóm"""
+    d, g = {}, {}
+    for x in rows:
+        c = (x.get('code') or '').strip() or '(không mã)'
+        d[c] = d.get(c, 0) + (x.get('pcs') or x.get('qty') or 0); g.setdefault(c, x.get('g'))
+    if not d: return '—'
+    items = sorted(d.items(), key=lambda kv: -kv[1])
+    out = [f'{H(c)} · <b>{vnd(q)}</b>' + (f' {GU[g[c]][1]}' if g.get(c) in GU else '') + (' <span class="ok">✓ trúng</span>' if mark and c in mark else '') for c, q in items[:n]]
+    if len(items) > n: out.append(f'<span class="m">+{len(items) - n} mã</span>')
+    if len(items) > 1: out.append(f'<span class="m">= {qtxt(qsum(rows))}</span>')
+    return '<br>'.join(out)
+
 def hk_(k): return hashlib.md5(k.encode()).hexdigest()[:7]
 
 # ───────────── kết quả + lý do (file tổng Danh sách nhà thầu của tender-info)
@@ -275,17 +288,17 @@ def html_npp(npp, T, for_pdf=False):
     for t in ('N', 'S', '?'):
         L = [a for a in T['act'] if a['p']['terr'] == t]
         if not L: continue
-        rows = [[pname(a['p']), H(a['p']['city']), qtxt(qsum(a['p']['win']), True), f"{m2(a['p']['start'])} – <b>{m2(N.add_month(a['p']['end'], -1))}</b>", R_(a['fy'])] for a in L]
+        rows = [[pname(a['p']), H(a['p']['city']), ctxt(a['p']['win']), f"{m2(a['p']['start'])} – <b>{m2(N.add_month(a['p']['end'], -1))}</b>", R_(a['fy'])] for a in L]
         b.append(f'<p><b>{H(TNAME[t])}</b> · {len(L)} gói · <b>{usd(sum(a["fy"] for a in L))}</b></p>')
-        b.append(tbl(['Bệnh viện · gói', 'Tỉnh', 'SL trúng', 'Hiệu lực', f'Ước tính FY{FYC}'], rows))
+        b.append(tbl(['Bệnh viện · gói', 'Tỉnh', 'Mã · SL trúng', 'Hiệu lực', f'Ước tính FY{FYC}'], rows))
     if not T['act']: b.append('<p>Không có.</p>')
     if T['gone']:
         b.append(f'<p class="m">Hợp đồng đã hết hạn trong FY{FYC} (đã tính vào doanh số FY{FYC}): ' + '; '.join(f'{H(a["p"]["hospital"][:40])} {usd(a["fy"])}' for a in T['gone'][:12]) + ('…' if len(T['gone']) > 12 else '') + '</p>')
     if T['nodate']: b.append(f'<p class="m">{len(T["nodate"])} gói trúng thiếu ngày phê duyệt / ngày ký trong file NPP — chưa tính: ' + ', '.join(H(p['hospital'][:40]) for p in T['nodate'][:10]) + ('…' if len(T['nodate']) > 10 else '') + '</p>')
     b.append('<h3>2. Hết hạn trong 6 tháng tới</h3>')
-    b.append(tbl(['Bệnh viện · gói', 'Địa bàn', 'Hết hạn', 'SL trúng', 'Ước tính / tháng'], [[pname(a['p']), H(TNAME[a['p']['terr']].split(' ·')[0]), f"<b>{m2(N.add_month(a['p']['end'], -1))}</b>", qtxt(qsum(a['p']['win']), True), R_(a['mmh'] / a['p']['dur'])] for a in T['exp']]) if T['exp'] else '<p>Không có.</p>')
+    b.append(tbl(['Bệnh viện · gói', 'Địa bàn', 'Hết hạn', 'Mã · SL trúng', 'Ước tính / tháng'], [[pname(a['p']), H(TNAME[a['p']['terr']].split(' ·')[0]), f"<b>{m2(N.add_month(a['p']['end'], -1))}</b>", ctxt(a['p']['win']), R_(a['mmh'] / a['p']['dur'])] for a in T['exp']]) if T['exp'] else '<p>Không có.</p>')
     b.append('<h3>3. Đang chờ kết quả</h3>')
-    b.append(tbl(['Bệnh viện · gói', 'Địa bàn', 'SL dự thầu', 'Tình trạng', 'Ước tính nếu trúng'], [[pname(x['p']), H(TNAME[x['p']['terr']].split(' ·')[0]), qtxt(qsum(x['p']['pend']), True), x['st'], R_(x['mmh'])] for x in T['pend']]) if T['pend'] else '<p>Không có.</p>')
+    b.append(tbl(['Bệnh viện · gói', 'Địa bàn', 'Mã · SL dự thầu', 'Tình trạng', 'Ước tính nếu trúng'], [[pname(x['p']), H(TNAME[x['p']['terr']].split(' ·')[0]), ctxt(x['p']['pend']), x['st'], R_(x['mmh'])] for x in T['pend']]) if T['pend'] else '<p>Không có.</p>')
     b.append(f'<h3>4. Kết quả mới tuần {d2(WSTART)} – {d2(WEND)}</h3>')
     if not T['new']: b.append('<p>Không có.</p>')
     for x in T['new']:

@@ -14,7 +14,7 @@ N = W.N
 MODE = os.environ.get('NPPF_MODE', 'dry')
 TO = (os.environ.get('NPP_TEST_TO') or 'Giang').strip()
 H, usd, d2, m2, tbl, R_, pname, log = W.H, W.usd, W.d2, W.m2, W.tbl, W.R_, W.pname, W.log
-GU, qsum, qadd, qtxt, vnd = W.GU, W.qsum, W.qadd, W.qtxt, W.vnd
+GU, qsum, qadd, qtxt, vnd, ctxt = W.GU, W.qsum, W.qadd, W.qtxt, W.vnd, W.ctxt
 FYC, FYS, TODAY = W.FYC, W.FYS, W.TODAY
 NPPS = ('Hùng Vĩ', 'iCare')
 
@@ -80,8 +80,8 @@ def main():
         L = sorted([(n, a) for n in NPPS for a in T[n]['act'] if a['p']['terr'] == t], key=lambda x: -x[1]['fy'])
         if not L: continue
         b.append(f'<p><b>{H(W.TNAME[t])}</b> · {len(L)} gói · <b>{usd(sum(a["fy"] for _, a in L))}</b></p>')
-        b.append(tbl(['NPP', 'Bệnh viện · gói', 'Tỉnh', 'SL trúng', 'Hiệu lực', f'FY{FYC}'],
-                     [[H(n), pname(a['p']), H(a['p']['city']), qtxt(qsum(a['p']['win']), True), f"{m2(a['p']['start'])} – <b>{m2(N.add_month(a['p']['end'], -1))}</b>", R_(a['fy'])] for n, a in L]))
+        b.append(tbl(['NPP', 'Bệnh viện · gói', 'Tỉnh', 'Mã · SL trúng', 'Hiệu lực', f'FY{FYC}'],
+                     [[H(n), pname(a['p']), H(a['p']['city']), ctxt(a['p']['win']), f"{m2(a['p']['start'])} – <b>{m2(N.add_month(a['p']['end'], -1))}</b>", R_(a['fy'])] for n, a in L]))
     # 2. tham dự từ đầu FY
     b.append(f'<h3>2. Gói tham dự từ 09/{FYC + 1958}</h3>')
     for n in NPPS:
@@ -91,10 +91,10 @@ def main():
         rows2 = []
         for p in L:
             mmh = sum(x['mmh'] for x in p['win']) if p['win'] else sum(x['mmh'] for x in p['pend'])
-            sl = qtxt(qsum(p['rows']), True) + (f'<br><span class="ok">trúng {qtxt(qsum(p["win"]))}</span>' if p['win'] and len(p['win']) < len(p['rows']) else '')
+            sl = ctxt(p['rows'], mark={(x.get('code') or '').strip() for x in p['win']} if p['win'] and len(p['win']) < len(p['rows']) else None)
             rows2.append([pname(p), H(p['city']), sl, d2(pdate(p, M)) if (p['bidClose'] or p['bidOpen'] or p['approve'] or p['signed']) else m2(pdate(p, M)),
                           status(p), R_(mmh)])
-        b.append(tbl(['Bệnh viện · gói', 'Tỉnh', 'SL tham dự', 'Ngày', 'Kết quả', 'MMH cả HĐ'], rows2))
+        b.append(tbl(['Bệnh viện · gói', 'Tỉnh', 'Mã · SL tham dự', 'Ngày', 'Kết quả', 'MMH cả HĐ'], rows2))
     b.append('<p class="m">Ngày = đóng / mở thầu (chưa có thì ngày phê duyệt / tháng trong file NPP). MMH cả HĐ: gói trúng = phần trúng · gói chờ = nếu trúng.</p>')
     body = ''.join(b)
     title = f'Tổng hợp thầu NPP Hùng Vĩ, iCare · FY{FYC} đến {d2(TODAY)}'
