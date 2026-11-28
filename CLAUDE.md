@@ -889,3 +889,8 @@ Người dùng là nhân sự MANI Medical Hanoi, không rành kỹ thuật — 
   ★ = mã NPP chào; phần NPP KHÔNG dự ⇒ lý do theo số liệu (`why_not`: giá thấp nhất đối thủ ÷ SL so giá tối thiểu BV công thấp nhất của các mã ⇒ "nhiều khả năng không dự vì giá không phù hợp" / "MANI có thể cạnh tranh, cần hỏi NPP").
   Dòng bảng HSMT bị ngắt sang trang ⇒ ghép đầu trang kế; khác chất liệu ⇒ trừ điểm. **Chế độ thử** `mode=test` (`to` = tên PIC, mặc định Giang): chỉ gửi người đó, tiêu đề [Thử], trạng thái riêng `NPPMT_<số>`
   (thử được cả luồng trả lời kết quả), không cần `NPPM_ON`; `tbmt` nhận nhiều số TBMT cách dấu phẩy.
+  **Tổng hợp tuần (28/11/2026, người dùng yêu cầu, `tools/npp/npp_weekly.py` + workflow **Gói thầu NPP — tổng hợp tuần** `tender-npp-weekly.yml`)**: thứ Hai 07:31 VN (chạy bù 08:41 / 09:51; tuần đã gửi ⇒ bỏ qua),
+  số liệu chốt đến hết thứ Sáu (tuần = thứ Bảy → thứ Sáu). Mỗi NPP 1 PDF (Hùng Vĩ · iCare; NPP nha khoa chưa có file thầu): 1 tóm tắt doanh số MMH · 2 hợp đồng còn hiệu lực theo địa bàn (bắt đầu = ngày ký, chưa có ⇒ tháng sau ngày phê duyệt; + thời gian thực hiện)
+  với doanh số MMH = SL trúng × giá MANI→NPP chia đều theo tháng ⇒ phần FY hiện tại · còn lại từ tháng này · FY kế · 3 hết hạn ≤ 6 tháng · 4 gói chờ kết quả (xếp hạng giá NPP nếu đã có bảng nhà thầu) · 5 kết quả mới trong tuần
+  (ngày phê duyệt trong tuần, hoặc dấu kết quả khác lần gửi thật trước — `NPPMW_SEEN_<n>`) từng mã trúng / trượt + lý do (cột Note file NPP, `botNpp op=kq`). 1 email To Viet Ha + Khang · CC Tuyen, Nguyen Ha, Giang (`botNpp op=send stage=wk wk=<thứ Bảy>`;
+  `op=wkstate`). Gửi thật cùng công tắc `NPPM_ON`; chạy tay `mode=test` (`to`) / `preview` / `dry`, `force` gửi lại.

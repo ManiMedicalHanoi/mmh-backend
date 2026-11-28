@@ -14,9 +14,11 @@
  *           prov, text, mode:'preview'|'live'}                ⇒ gửi; preview = chỉ gửi về tài khoản chạy máy chủ, tiêu đề [Xem trước], không ghi trạng thái
  *           testTo = tên PIC (vd. Giang) ⇒ CHỈ gửi người đó, tiêu đề [Thử], trạng thái riêng NPPMT_<số> (thử cả luồng trả lời), không cần NPPM_ON
  *   botNpp {key, op:'on'|'off'}                            ⇒ bật / tắt gửi thật (Script Property NPPM_ON = 1)
- * Trạng thái: Script Property NPPM_<số TBMT> (JSON). Chỉ khoá bot (không cho tiện ích dùng phiên email).
+ *   botNpp {key, op:'wkstate', wk, test}                    ⇒ {sent, seen}: tuần đã gửi chưa + dấu kết quả các gói lần gửi thật trước (tools/npp/npp_weekly.py)
+ *   botNpp {key, op:'send', stage:'wk', wk:'yyyy-mm-dd', …, seen} ⇒ email tổng hợp tuần: To Viet Ha + Khang · CC như trên; live ⇒ lưu `seen`
+ * Trạng thái: Script Property NPPM_<số TBMT> (JSON), tuần: NPPM_W<thứ Bảy đầu tuần>, dấu kết quả: NPPMW_SEEN_<n>. Chỉ khoá bot (không cho tiện ích dùng phiên email).
  **************************************************************************************************/
-const NPPM = { VER: '1.0', CC: ['Tuyen', 'Nguyen Ha', 'Giang'], TO: { N: 'Viet Ha', S: 'Khang' }, MAX_B64: 24 * 1048576 };
+const NPPM = { VER: '1.1', CC: ['Tuyen', 'Nguyen Ha', 'Giang'], TO: { N: 'Viet Ha', S: 'Khang' }, MAX_B64: 24 * 1048576 };
 
 function nppmAction_(p) {
   const op = wtS_(p.op) || 'state', P = PropertiesService.getScriptProperties();
@@ -30,6 +32,11 @@ function nppmAction_(p) {
   if (op === 'who') return Object.assign({ ok: true }, nppmWho_(p));
   if (op === 'kq') return nppmKq_(p);
   if (op === 'send') return nppmSend_(p);
+  if (op === 'wkstate') {
+    const wk = wtS_(p.wk); if (!/^\d{4}-\d{2}-\d{2}$/.test(wk)) return { ok: false, error: 'thiếu wk' };
+    const st = wtJson_(P.getProperty((wtS_(p.test) ? 'NPPMT_W' : 'NPPM_W') + wk), {}) || {};
+    return { ok: true, wk: wk, sent: st.wk || null, seen: nppmSeenGet_(P) };
+  }
   if (op === 'sheet') {   // đọc Google Sheet bot đã tải (Nhà thầu tham dự / Danh sách nhà thầu / hàng hóa) — chỉ file thuộc 1 gói trong GÓI TÌM THẤY
     const id = wtS_(p.id); if (!id) return { ok: false, error: 'thiếu id' };
     const own = wtHits_(wtBook_()).some(function (h) { return (h.files || []).some(function (f) { return f && f.id === id; }); });
@@ -43,8 +50,22 @@ function nppmAction_(p) {
   return { ok: false, error: 'op không hợp lệ' };
 }
 
+/** dấu kết quả các gói (chuỗi "mã:dấu,…") — chia mảnh ≤ 8.000 ký tự / Script Property */
+function nppmSeenGet_(P) {
+  let s = '', i = 0, x;
+  while ((x = P.getProperty('NPPMW_SEEN_' + i)) !== null && i < 40) { s += x; i++; }
+  return i ? s : null;
+}
+function nppmSeenSet_(P, s) {
+  let i = 0;
+  for (; i * 8000 < s.length; i++) P.setProperty('NPPMW_SEEN_' + i, s.slice(i * 8000, (i + 1) * 8000));
+  if (!s.length) { P.setProperty('NPPMW_SEEN_0', ''); i = 1; }
+  for (let j = i; P.getProperty('NPPMW_SEEN_' + j) !== null && j < 40; j++) P.deleteProperty('NPPMW_SEEN_' + j);
+}
+
 /** người nhận theo địa bàn (tỉnh bệnh viện) — chỉ trả TÊN, email tra lúc gửi */
 function nppmWho_(p) {
+  if (wtS_(p.stage) === 'wk') return { terr: 'NS', to: [NPPM.TO.N, NPPM.TO.S], cc: NPPM.CC.slice() };
   const terr = wtrTerr_(wtS_(p.prov), wtS_(p.text)) || (/khang/i.test(wtS_(p.force)) ? 'S' : 'N');
   return { terr: terr, to: [NPPM.TO[terr] || NPPM.TO.N], cc: NPPM.CC.slice() };
 }
@@ -69,7 +90,9 @@ function nppmKq_(p) {
 
 /** gửi email báo cáo (lần 1 = thư mới · lần 2 = trả lời trong luồng thư lần 1) */
 function nppmSend_(p) {
-  const b = wtBare_(String(p.no || '').toUpperCase()), stage = wtS_(p.stage) === 'kq' ? 'kq' : 'mo';
+  const wk = wtS_(p.stage) === 'wk' ? wtS_(p.wk) : '';
+  if (wtS_(p.stage) === 'wk' && !/^\d{4}-\d{2}-\d{2}$/.test(wk)) return { ok: false, error: 'thiếu wk' };
+  const b = wk ? 'W' + wk : wtBare_(String(p.no || '').toUpperCase()), stage = wk ? 'wk' : wtS_(p.stage) === 'kq' ? 'kq' : 'mo';
   if (!b) return { ok: false, error: 'thiếu no' };
   const testTo = wtS_(p.testTo);
   const P = PropertiesService.getScriptProperties(), key = (testTo ? 'NPPMT_' : 'NPPM_') + b, st = wtJson_(P.getProperty(key), {}) || {};
@@ -118,5 +141,6 @@ function nppmSend_(p) {
   }
   const rec = { at: wtNow_(), thread: thread, subject: (testTo ? '[Thử] ' : '') + wtS_(p.subject), to: testTo || who.to.join(', '), cc: testTo ? '' : who.cc.join(', '), replied: replied };
   if (!preview) { st[stage] = rec; P.setProperty(key, JSON.stringify(st)); }
+  if (wk && !preview && !testTo && typeof p.seen === 'string') nppmSeenSet_(P, p.seen);
   return { ok: true, no: b, stage: stage, preview: preview, test: !!testTo, to: preview ? 'tài khoản chạy máy chủ' : testTo || who.to.join(', '), cc: preview || testTo ? '' : who.cc.join(', '), wouldTo: who.to.join(', '), wouldCc: who.cc.join(', '), thread: thread, replied: replied };
 }
