@@ -30,6 +30,7 @@ function nppmAction_(p) {
     return { ok: true, v: NPPM.VER, on: all.NPPM_ON === '1', state: st };
   }
   if (op === 'who') return Object.assign({ ok: true }, nppmWho_(p));
+  if (op === 'quota') { let q = -1; try { q = MailApp.getRemainingDailyQuota(); } catch (e) {} return { ok: true, quota: q }; }
   if (op === 'kq') return nppmKq_(p);
   if (op === 'send') return nppmSend_(p);
   if (op === 'wkstate') {
@@ -130,7 +131,9 @@ function nppmSend_(p) {
   }
   if (!replied) {
     const subj = stage === 'kq' && st.mo && st.mo.subject && !preview ? 'RE: ' + st.mo.subject : subject;
-    mmhGmail_(Object.assign({ to: to.join(','), subject: subj, body: body }, opt));   // GmailApp (để tìm lại luồng thư) qua lớp chung: đổi miền @mani.inc, TEST, hạn mức
+    let q0 = -1; try { q0 = MailApp.getRemainingDailyQuota(); } catch (_q) {}
+    try { mmhGmail_(Object.assign({ to: to.join(','), subject: subj, body: body }, opt)); }   // GmailApp (để tìm lại luồng thư) qua lớp chung: đổi miền @mani.inc, TEST, hạn mức
+    catch (e) { return { ok: false, error: String(e.message || e), quota: q0, htmlKB: Math.round(opt.htmlBody.length / 1024), fileKB: Math.round(size * 0.75 / 1024), images: Object.keys(inl).length }; }
     if (stage === 'mo' || !thread) {
       Utilities.sleep(1500);
       try {
