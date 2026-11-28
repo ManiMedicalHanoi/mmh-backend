@@ -25,6 +25,7 @@ WORK = os.environ.get('NPP_WORK', '/tmp/npp')
 os.makedirs(WORK, exist_ok=True)
 LOG = []
 FAIL = []                         # gói gửi lỗi (workflow báo đỏ)
+QUEUE = []                        # (số TBMT, [loại tài liệu], giờ chờ) cần tải ưu tiên
 
 def log(*a):
     s = ' '.join(str(x) for x in a); print(s, flush=True); LOG.append(s)
@@ -760,10 +761,18 @@ def main():
         tgt = os.environ.get('NPP_TARGET') if MODE == 'plan' else MODE
         s = (S.get('_test', {}) if tgt == 'test' else S).get(no, {}); files = [f for h in H.get(no, []) for f in h.get('files', [])]
         has_bb = bool(pick(files, r'biên bản mở thầu') and pick(files, r'nhà thầu tham dự'))
+        has_ky = bool(pick(files, r'yêu cầu về kỹ thuật|chương v\b|chuong v|yeu cau ky thuat'))
+        has_tb = bool(pick(files, r'thông báo mời thầu'))
         if tgt not in ('live', 'test') or 'mo' not in s or (FORCE and ONLY):
             if has_bb: todo.append((no, 'mo'))
             else: todo.append((no, 'queue'))
-        elif 'kq' not in s: todo.append((no, 'kq'))
+            # v1.4: tải ƯU TIÊN tài liệu còn thiếu (TBMT, HSMT Chương V, biên bản mở thầu)
+            w = [x for x, ok in (('tbmt', has_tb), ('hsmt', has_ky), ('mo', has_bb)) if not ok]
+            if w: QUEUE.append((no, w, 6))
+        elif 'kq' not in s:
+            todo.append((no, 'kq'))
+            if not any(re.search(r'danh sách nhà thầu', f.get('kind', '') + ' ' + f.get('name', ''), re.I) for f in files):
+                QUEUE.append((no, ['kq', 'nt', 'hh'], 12))     # kết quả chưa đăng thì 12 giờ mới thử lại
     need = sum(1 for _, t in todo if t in ('mo', 'kq'))
     if (MODE == 'live' or os.environ.get('NPP_TARGET') == 'live') and not st.get('on'):
         log('Gửi thật đang TẮT (botNpp op=on để bật) ⇒ chỉ đặt tải hồ sơ còn thiếu.'); need = 0
@@ -772,11 +781,12 @@ def main():
     if MODE == 'plan':
         go = os.environ.get('GITHUB_OUTPUT')
         if go: open(go, 'a').write(f'need={1 if need else 0}\n')
-        for no, t in todo:
-            if t == 'queue':
-                r = post({'action': 'botRoute', 'op': 'pkg', 'no': no, 'dry': 1}, tries=2)
-                log(f'  {no}: đặt tải →', r.get('queued'), r.get('missing'))
-                time.sleep(3)
+        nq = 0
+        for no, w, hold in QUEUE:          # v1.4: gói NPP lên ĐẦU hàng đợi tải (info.pri = -1)
+            r = post({'action': 'botNpp', 'op': 'queue', 'no': no, 'want': ','.join(w), 'hold': hold}, tries=2)
+            log(f'  {no}: tải ưu tiên {",".join(w)} →', r.get('why') or r.get('error'))
+            if r.get('queued'): nq += 1
+        if go: open(go, 'a').write(f'queued={nq}\n')
         return
     if MODE in ('live', 'test', 'preview') and not NM.ready():
         log('LỖI: thiếu hộp thư mmh.notify (NOTIFY_SMTP_USER / secret NOTIFY_SMTP_PASS) ⇒ không gửi email nào.'); sys.exit(1)
