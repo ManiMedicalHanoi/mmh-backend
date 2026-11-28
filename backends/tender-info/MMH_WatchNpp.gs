@@ -4,7 +4,7 @@
  * ⭐ v1.3 (28/11/2026, người dùng yêu cầu): email thầu CHỈ gửi từ hộp thư mmh.notify@gmail.com (GitHub SMTP: op=prep ⇒ gửi ⇒ op=mark).
  *   op=send (gửi bằng tài khoản chạy máy chủ mmh.product) bị TẮT — chỉ mở lại khi Script Property NPPM_PRODUCT = 1.
  * ⭐ v1.4 (28/11/2026, người dùng yêu cầu): gói NPP đang Pending được ƯU TIÊN tải hồ sơ trước mọi gói khác —
- *   botNpp {key, op:'queue', no, want:'tbmt,hsmt,mo'|'kq,nt,hh', hold:giờ} ⇒ dòng GÓI TÌM THẤY của gói: info.pri = -1 (bot lấy trước, wtBotNext_), info.npp = 1,
+ *   botNpp {key, op:'queue', no, want:'tbmt,hsmt,mo'|'kq,nt,hh', hold:giờ, pri:-1…-9, force} ⇒ dòng GÓI TÌM THẤY của gói: info.pri = -1 (bot lấy trước, wtBotNext_), info.npp = 1,
  *   vào hàng đợi với đúng loại tài liệu còn thiếu; mỗi gói + bộ tài liệu chỉ đặt lại sau `hold` giờ (mặc định 6) ⇒ trả {queued, why}.
  *
  * Gói có số TBMT trong file thầu của NPP (Hùng Vĩ · iCare, backend tender-hungvi / tender-icare ▸ winMap) còn "Pending"
@@ -201,6 +201,7 @@ function nppmMark_(p) {
 function nppmQueue_(p) {
   const b = wtBare_(String(p.no || '').toUpperCase()); if (!/^IB\d{8,12}$/.test(b)) return { ok: false, error: 'thiếu no (IB…)' };
   const want = wtWant_(p.want), hold = Math.min(48, Math.max(1, Number(p.hold) || 6));
+  const pri = Math.max(-9, Math.min(-1, Math.round(Number(p.pri)) || -1));   // -1 mặc định; số nhỏ hơn = tải trước nữa (gói chọn tay)
   const c = CacheService.getScriptCache(), ck = 'nppmQ:' + b + ':' + want.join(',');
   if (c.get(ck) && !wtTrue_(p.force)) return { ok: true, no: b, queued: false, why: 'đã đặt tải lúc ' + c.get(ck) };
   const lock = LockService.getScriptLock(); if (!lock.tryLock(30000)) return { ok: false, error: 'busy' };
@@ -211,10 +212,10 @@ function nppmQueue_(p) {
     const h = H.filter(function (x) { return x.type === 'tbmt'; })[0] || H[0];
     const me = { mail: '', pic: 'Gói thầu NPP' };
     if (!h) {
-      sh.appendRow(['n:' + b, 'tbmt', b, '(đang tra)', '', b, wtInfoWant_({ quick: 1, by: me.pic, pri: -1, npp: 1 }, want), '', wtNow_(), '', WT.ST.WAIT, '[]', 0, '', '', '', 'gói thầu NPP']);
+      sh.appendRow(['n:' + b, 'tbmt', b, '(đang tra)', '', b, wtInfoWant_({ quick: 1, by: me.pic, pri: pri, npp: 1 }, want), '', wtNow_(), '', WT.ST.WAIT, '[]', 0, '', '', '', 'gói thầu NPP']);
       why = 'thêm mới';
     } else {
-      h.info = Object.assign({}, h.info || {}, { pri: -1, npp: 1 });
+      h.info = Object.assign({}, h.info || {}, { pri: Math.min(pri, typeof (h.info || {}).pri === 'number' ? h.info.pri : 0), npp: 1 });
       const r = wtReq_(sh, h, me, want, true, true);
       why = r.skip === 'work' ? 'đang tải' : r.skip === 'wait' ? 'đã trong hàng đợi (đưa lên đầu)' : 'vào hàng đợi';
       if (r.skip === 'work') return { ok: true, no: b, queued: false, why: why };
